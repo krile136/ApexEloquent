@@ -190,6 +190,10 @@ public class Query {
    * @return Query
    */
   public Query condition(String field, String operator, List<Object> values) {
+    if(values.isEmpty()) {
+      // 空のリストが渡された場合必ずヒットしない条件に変換する
+      return this.condition('Id', '=', (Object) null);
+    }
     WhereClauseInterface whereClause = WhereClauseFactory.create(this.sObjectType, field, operator, values);
     List<WhereClauseInterface> newWhereClauses = this.andWhereClauses;
     newWhereClauses.add(whereClause);
@@ -217,6 +221,10 @@ public class Query {
   public Query orCondition(String field, String operator, List<Object> values) {
     if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
       throw new QueryException('最初の条件はAND条件で指定してください');
+    }
+    if(values.isEmpty()) {
+      // 空のリストが渡された場合必ずヒットしない条件に変換する
+      return this.orCondition('Id', '=', (Object) null); 
     }
     WhereClauseInterface whereClause = WhereClauseFactory.create(this.sObjectType, field, operator, values);
     List<WhereClauseInterface> newWhereClauses = this.orWhereClauses;

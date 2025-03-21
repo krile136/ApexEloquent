@@ -53,6 +53,16 @@ public with sharing class Query_T {
     queryString = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\' AND Id IN (\'006000000000000\', \'006000000000001\'))';
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 
+    testTitle = '正常系: AND条件に配列を使用してクエリを作成できるが、配列が空の場合はヒットしない条件が追加される';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Name', '=', 'Test')
+      .condition('Id', 'IN', new List<Id>());
+    queryString = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\' AND Id = NULL)';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
     testTitle = '正常系: OR条件によるクエリを作成できる';
     System.debug(testTitle);
     query = (new Query())
@@ -72,6 +82,16 @@ public with sharing class Query_T {
       .condition('Name', '=', 'Test')
       .orCondition('Id', 'IN', ids);
     queryString = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\') OR (Id IN (\'006000000000000\', \'006000000000001\'))';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
+    testTitle = '正常系: OR条件に配列を使用してクエリを作成できるが、配列が空の場合はその条件はヒットしない条件が追加される';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Name', '=', 'Test')
+      .orCondition('Id', 'IN', new List<Id>());
+    queryString = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\') OR (Id = NULL)';
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 
     testTitle = '正常系: サブクエリを使い括弧で囲まれたAND条件を追加したクエリを作成できる';

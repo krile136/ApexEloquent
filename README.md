@@ -236,7 +236,7 @@ List<Opportunity> opps = (List<Opportunity>) (new Repository()).get(query);
 フォーマッタを使えば縦に並んでくれるので見やすくなります
 ```apex
     Query query = (new Query())
-      .source('Opportunity')
+      .source(Opportunity.getSObjectType())
       .pick('hoge')
       .pick('huga')
       ..
@@ -252,7 +252,7 @@ SELECTは配列で渡すこともできます
 ```apex
     List<String> selectFields = new List<String>{'hoge', 'fuga', .......};
     Query query = (new Query())
-      .source('Opportunity')
+      .source(Opportunity.getSObjectType())
       .pick(selectFields)
       .condition('A', '=', 1)
       .condition('B', '=', 2)

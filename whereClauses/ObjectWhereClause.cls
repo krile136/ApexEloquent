@@ -18,7 +18,7 @@ public with sharing class ObjectWhereClause extends AbstractWhereClause {
     Schema.DisplayType fieldType = this.getFieldType(field);
 
     if (value == null) {
-      return 'null';
+      return 'NULL';
     }
 
     String valueString = this.formatAndCastToString(value);

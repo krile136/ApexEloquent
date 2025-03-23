@@ -22,15 +22,8 @@ public with sharing class Query_T {
 
     testTitle = '正常系: 全フィールド取得を指定してレコードを取得するクエリを作成できる';
     query = (new Query()).source(oppSource).pickAll().condition('Id', '=', '006000000000000');
-    queryString = query.toSoql();
-    Assert.isTrue(queryString.startsWith('SELECT '), testTitle);
-    Assert.isTrue(queryString.contains(' FROM Opportunity '), testTitle);
-    Assert.isTrue(queryString.endsWith(' WHERE (Id = \'006000000000000\')'), testTitle);
-    // pickAllした時、フィールド名は小文字になる
-    Assert.isTrue(queryString.contains('id'), testTitle);
-    Assert.isTrue(queryString.contains('name'), testTitle);
-    Assert.isTrue(queryString.contains('closedate'), testTitle);
-    Assert.isTrue(queryString.contains('stagename'), testTitle);
+    queryString = 'SELECT FIELDS(ALL) FROM Opportunity WHERE (Id = \'006000000000000\')'; 
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
 
     testTitle = '正常系: AND条件によるクエリを作成できる';
     System.debug(testTitle);

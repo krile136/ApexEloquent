@@ -7,6 +7,7 @@ public class Query {
   private final List<Query> orQueries;
   private final List<WhereClauseInterface> joinClauses;
   private final boolean isSelectAll;
+  private final Integer limitNumber;
 
   /**
    * default constructor
@@ -33,7 +34,8 @@ public class Query {
     List<Query> andQueries,
     List<Query> orQueries,
     List<WhereClauseInterface> joinClauses,
-    Boolean isSelectAll
+    Boolean isSelectAll,
+    Integer limitNumber
   ) {
     this.sObjectType = sObjectType;
     this.selectFields = selectFields;
@@ -43,6 +45,7 @@ public class Query {
     this.orQueries = orQueries;
     this.joinClauses = joinClauses;
     this.isSelectAll = isSelectAll;
+    this.limitNumber = limitNumber;
   }
 
   // ---------- FROM句 ----------
@@ -63,7 +66,8 @@ public class Query {
       this.andQueries,
       this.orQueries,
       this.joinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
     );
   }
 
@@ -85,7 +89,8 @@ public class Query {
       this.andQueries,
       this.orQueries,
       this.joinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
     );
   }
 
@@ -106,7 +111,8 @@ public class Query {
       this.andQueries,
       this.orQueries,
       this.joinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
     );
   }
 
@@ -124,7 +130,8 @@ public class Query {
       this.andQueries,
       this.orQueries,
       this.joinClauses,
-      true
+      true,
+      this.limitNumber
     );
   }
 
@@ -149,7 +156,8 @@ public class Query {
       this.andQueries,
       this.orQueries,
       this.joinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
     );
   }
 
@@ -176,7 +184,8 @@ public class Query {
       this.andQueries,
       this.orQueries,
       this.joinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
     );
   }
 
@@ -205,7 +214,8 @@ public class Query {
       this.andQueries,
       this.orQueries,
       this.joinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
     );
   }
 
@@ -237,7 +247,8 @@ public class Query {
       this.andQueries,
       this.orQueries,
       this.joinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
     );
   }
 
@@ -261,7 +272,8 @@ public class Query {
       newAndQueries,
       this.orQueries,
       this.joinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
     );
   }
 
@@ -288,7 +300,8 @@ public class Query {
       this.andQueries,
       newOrQueries,
       this.joinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
     );
   }
 
@@ -314,7 +327,23 @@ public class Query {
       this.andQueries,
       this.orQueries,
       newJoinClauses,
-      this.isSelectAll
+      this.isSelectAll,
+      this.limitNumber
+    );
+  }
+
+  // ---------- LIMIT句 ----------
+  public Query restrict(Integer limitNumber) {
+    return new Query(
+      this.sObjectType,
+      this.selectFields,
+      this.andWhereClauses,
+      this.orWhereClauses,
+      this.andQueries,
+      this.orQueries,
+      this.joinClauses,
+      this.isSelectAll,
+      limitNumber
     );
   }
 
@@ -437,7 +466,8 @@ public class Query {
           query.andQueries,
           query.orQueries,
           query.joinClauses,
-          query.isSelectAll
+          query.isSelectAll,
+          query.limitNumber
         );
         whereClauseStrings.add('(' + queryWithSource.buildWhereClause(fieldMap) + ')');
       }
@@ -460,7 +490,8 @@ public class Query {
           query.andQueries,
           query.orQueries,
           query.joinClauses,
-          query.isSelectAll
+          query.isSelectAll,
+          query.limitNumber
         );
         whereClauseStrings.add('(' + queryWithSource.buildWhereClause(fieldMap) + ')');
       }
@@ -512,6 +543,10 @@ public class Query {
     String whereClause = this.buildWhereClause(fieldMap);
     if (whereClause != '') {
       query += ' WHERE ' + whereClause;
+    }
+
+    if(this.limitNumber != null) {
+      query += ' LIMIT ' + this.limitNumber;
     }
 
     System.debug('SOQL: ' + query);

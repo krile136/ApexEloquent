@@ -127,6 +127,15 @@ public with sharing class Query_T {
     queryString = 'SELECT Id FROM Opportunity WHERE (Id IN (\'006000000000000\', \'006000000000001\')) AND (AccountId IN (SELECT Id FROM Account WHERE (Name = \'TestAccount\')))';
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 
+    testTitle = '正常系: limitで取得件数を制限したクエリを作成できる';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Id','IN' , ids)
+      .restrict(10);
+    queryString = 'SELECT Id FROM Opportunity WHERE (Id IN (\'006000000000000\', \'006000000000001\')) LIMIT 10';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
 
     testTItle = '正常系: 複雑な条件のクエリを作成できる';
     System.debug(testTitle);

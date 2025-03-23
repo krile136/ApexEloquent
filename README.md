@@ -7,6 +7,35 @@
 - **テスト容易性の向上**: リポジトリパターンを採用することで、テスト時にデータベース依存を減らす
 - **型安全性の向上**: 変数の補完が効く
 
+# Apexのデータベース操作の問題
+
+### Apexにおけるクエリの書き方
+
+#### 1. SOQLを文字列で作って実行する
+```apex
+String soql = 'SELECT ID, Name FROM Opportunity WHERE ID = :oppId AND .......';
+Opportunity opp = Database.query(soql);
+```
+
+#### 2. 直接クエリ発行を書く
+```apex
+Opportunity opp = [SELECT ID, Name From Opportunity WHERE ID = :oppId AND .......];
+```
+
+### 上記のクエリの記述方法の問題点
+1. 文字列でクエリを作る場合、フォーマットを効かせることができないのでクエリが長くなると条件が見づらくなる
+1. `SELECT *` が使えないので、オブジェクトをクローンしたい時など全フィールドを取得する必要がある場合は文字列でクエリを作るしかなくなる
+1. 途中まで共通のクエリで、ある条件の時だけSOQLに条件を追加したい、というような時は
+    1. 文字列でクエリを作る場合、文字列操作をしないといけなくなり一般化しづらく、条件の追加も煩雑になる
+    1. 直接書く場合はそもそもできない。
+1. 文字列で書く方法だと変数を指定するときにIDEの補完機能が効かない
+1. 両方の方法に置いて、SELECT句に変数を指定することができない
+1. テストクラスを書く際に必ずデータベースへの依存が発生し、テストデータの投入が必要となる。
+    1. テスト対象のクラスが増えるにつれて、テスト実行時間が長くなる
+
+Apex Eloquentはこれらの問題をすべて解決できます。
+
+
 # デモ
 
 SOQL
@@ -37,35 +66,9 @@ query = (new Query())
 
 # インストール方法
 git submodule を使い、お使いのSalesforceプロジェクトにApex Eloquentを導入します。
+
 テストクラスは標準オブジェクトの標準項目でコードカバレッジ75%以上を満たすように作成しているのでそのままデプロイ可能だと思いますが、テストに失敗する場合はお手数ですがそれぞれテストクラスのメンテナンスを行なってください。
 
-# Apexのデータベース操作の問題
-
-## Apexにおけるクエリの書き方
-
-### 1. SOQLを文字列で作って実行する
-```apex
-String soql = 'SELECT ID, Name FROM Opportunity WHERE ID = :oppId AND .......';
-Opportunity opp = Database.query(soql);
-```
-
-### 2. 直接クエリ発行を書く
-```apex
-Opportunity opp = [SELECT ID, Name From Opportunity WHERE ID = :oppId AND .......];
-```
-
-## Apexにおけるクエリの書き方の問題点
-1. 文字列でクエリを作る場合、フォーマットを効かせることができないのでクエリが長くなると条件が見づらくなる
-1. `SELECT *` が使えないので、オブジェクトをクローンしたい時など全フィールドを取得する必要がある場合は文字列でクエリを作るしかなくなる
-1. 途中まで共通のクエリで、ある条件の時だけSOQLに条件を追加したい、というような時は
-    1. 文字列でクエリを作る場合、文字列操作をしないといけなくなり一般化しづらく、条件の追加も煩雑になる
-    1. 直接書く場合はそもそもできない。
-1. 文字列で書く方法だと変数を指定するときにIDEの補完機能が効かない
-1. 両方の方法に置いて、SELECT句に変数を指定することができない
-1. テストクラスを書く際に必ずデータベースへの依存が発生し、テストデータの投入が必要となる。
-    1. テスト対象のクラスが増えるにつれて、テスト実行時間が長くなる
-
-このApex Eloquentはこれらの問題をすべて解決できます。
 
 # 使い方
 
@@ -146,27 +149,24 @@ public with sharing class OppUpdater_T {
 
 # メソッド
 
-## Queryクラス
+### Queryクラス
 
-### source
+#### source
 SOQLにおける`FROM`を指定します。
-引数の型: `Schema.SObjectType`
 ```apex
 (new Query()).source(Opportunity.getSObjectType());
 ```
 
-### pick
+#### pick
 SOQLにおける`SELECT`を指定します。
-引数の型: `String`, `List<String>`, 
 ```apex
 List<String> fields = new List<String>{Name, CloseDate};
 (new Query()).pick('Id').pick(fields);
 ```
 
-### condition
+#### condition
 SOQLにおける`WHERE`を指定します。
 orConditionの場合、OR条件を追加できます。
-引数の型:`Object`, `List<Object>`, `Query`
 ```apex
 (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Name', '=', 'test');
 // SELECT Id FROM Opportunity WHERE Name = 'test'
@@ -187,9 +187,8 @@ List<Id> oppIds = new List<Id>{'006000000000000', '006000000000001'};
 // SELECT Id FROM Opportunity WHERE Name = 'test' AND (CloseDate >= 2024-01-01 AND CloseDate <= 2024-12-31)
 ```
 
-### join
+#### join
 サブクエリを使用した、別テーブルの条件での絞り込みを追加できます。
-引数の型: Query
 ```apex
 (new Query())
     .source(Opportunity.getSObjectType())

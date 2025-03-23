@@ -202,6 +202,80 @@ List<Id> oppIds = new List<Id>{'006000000000000', '006000000000001'};
 // SELECT Id FROM Opportunity WHERE Name = 'test' AND AccountId IN (SELECT Id FROM Account WHERE Name = 'testAccount')
 ```
 
+### Repositoryクラス
+
+Queryクラスを渡すことでデータの取得を行ったり、doInsertなどのメソッドではSObjectを渡すことでデータベースへのデータ挿入などを行うことができます。
+
+#### get
+SOQLを実行し、結果を取得します。
+返り値は`List<SObject>`なので取得したいオブジェクトに合わせて型キャストを行なってください。
+取得件数が0県の場合は空の配列を返します。
+```apex
+List<Opportunity> opps = (List<Opportunity>) (new Repository()).get(query);
+```
+
+#### getOrFail
+SOQLを実行し、結果を取得します。
+返り値は`List<SObject>`なので取得したいオブジェクトに合わせて型キャストを行なってください。
+取得件数が0県の場合はエラーをスローします。
+```apex
+try {
+    List<Opportunity> opps = (List<Opportunity>) (new Repository()).getOrFail(query);
+} catch(Exception e){
+    // handling error
+}
+```
+
+#### first
+SOQLを実行し、取得結果のうち一番最初のレコードを返します。
+取得件数が0件の場合は`null`を返します
+```apex
+Opportunity opp = (Opportunity) (new Repository()).first(query);
+```
+
+#### firstOrFail
+SOQLを実行し、取得結果のうち一番最初のレコードを返します。
+取得件数が0件の場合はエラーをスローします
+```apex
+try { 
+    Opportunity opp = (Opportunity) (new Repository()).first(query);
+} catch(Exception e) {
+    // handling error 
+}
+```
+
+#### doInsert
+引数に渡したSObjectをデータベースに挿入します。
+返り値には挿入後のIDが付加されたレコードが返ります。
+```apex
+insertOpp = (new Repository()).doInsert(insertOpp);
+System.debug(insertOpp.Id)  // show opp id
+```
+配列も同様に挿入できます。
+```apex
+insertOpps = (List<Opportunity>) (new Repository()).doInsert(insertOpps);
+```
+
+#### doUpdate
+引数に渡したSObjectを更新します
+```apex
+updateOpp = (new Repository()).doUpdate(insertOpp);
+```
+配列も同様に更新できます。
+```apex
+updateOpps = (List<Opportunity>) (new Repository()).doUpdate(updateOpps);
+```
+
+### doDelete
+引数に渡したSObjectを削除します
+``` apex
+(new Repository()).doDelete(deleteOpp);
+```
+配列も同様に削除できます。
+```apex
+(new Repository()).doDelete(deleteOpps);
+```
+
 # レシピ
 ## SELECT * をしたい 
 pickAllを使用します

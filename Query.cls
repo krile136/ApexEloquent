@@ -7,6 +7,7 @@ public class Query {
   private final List<Query> orQueries;
   private final List<WhereClauseInterface> joinClauses;
   private final boolean isSelectAll;
+  private final OrderByClause orderByClause;
   private final Integer limitNumber;
 
   /**
@@ -21,6 +22,7 @@ public class Query {
     this.orQueries = new List<Query>();
     this.joinClauses = new List<WhereClauseInterface>();
     this.isSelectAll = false;
+    this.limitNumber = null;
   }
 
   /**
@@ -35,6 +37,7 @@ public class Query {
     List<Query> orQueries,
     List<WhereClauseInterface> joinClauses,
     Boolean isSelectAll,
+    OrderByClause orderByClause,
     Integer limitNumber
   ) {
     this.sObjectType = sObjectType;
@@ -45,6 +48,7 @@ public class Query {
     this.orQueries = orQueries;
     this.joinClauses = joinClauses;
     this.isSelectAll = isSelectAll;
+    this.orderByClause = orderByClause;
     this.limitNumber = limitNumber;
   }
 
@@ -67,6 +71,7 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -90,6 +95,7 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -112,6 +118,7 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -131,6 +138,7 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       true,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -157,6 +165,7 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -185,6 +194,7 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -215,6 +225,7 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -248,6 +259,7 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -273,6 +285,7 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -301,6 +314,7 @@ public class Query {
       newOrQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
@@ -328,11 +342,18 @@ public class Query {
       this.orQueries,
       newJoinClauses,
       this.isSelectAll,
+      this.orderByClause,
       this.limitNumber
     );
   }
 
   // ---------- LIMIT句 ----------
+  /**
+  * LIMIT句を設定する
+  *
+  * @param limitNumber 取得するレコード数
+  * @return Query
+  */
   public Query restrict(Integer limitNumber) {
     return new Query(
       this.sObjectType,
@@ -343,9 +364,150 @@ public class Query {
       this.orQueries,
       this.joinClauses,
       this.isSelectAll,
+      this.orderByClause,
       limitNumber
     );
   }
+
+  // ---------- ORDER BY句 ----------
+  /**
+  * ORDER BY句を設定する
+  *
+  * @param field フィールド名
+  * @return Query
+  */
+  public Query orderBy(String field) {
+    OrderByClause orderByClause = new OrderByClause(field);
+    return new Query(
+      this.sObjectType,
+      this.selectFields,
+      this.andWhereClauses,
+      this.orWhereClauses,
+      this.andQueries,
+      this.orQueries,
+      this.joinClauses,
+      this.isSelectAll,
+      orderByClause,
+      this.limitNumber
+    );
+  }
+
+  /**
+  * ORDER BY句を設定する
+  *
+  * @param field フィールド名
+  * @param order ソート順
+  * @return Query
+  */
+  public Query orderBy(String field, String order) {
+    OrderByClause orderByClause = new OrderByClause(field, order);
+    return new Query(
+      this.sObjectType,
+      this.selectFields,
+      this.andWhereClauses,
+      this.orWhereClauses,
+      this.andQueries,
+      this.orQueries,
+      this.joinClauses,
+      this.isSelectAll,
+      orderByClause,
+      this.limitNumber
+    );
+  }
+
+  /**
+  * ORDER BY句を設定する
+  *
+  * @param field フィールド名
+  * @param order ソート順
+  * @param nullsOperator NULLSの順序
+  * @return Query
+  */
+  public Query orderBy(String field, String order, String nullsOperator) {
+    OrderByClause orderByClause = new OrderByClause(field, order, nullsOperator);
+    return new Query(
+      this.sObjectType,
+      this.selectFields,
+      this.andWhereClauses,
+      this.orWhereClauses,
+      this.andQueries,
+      this.orQueries,
+      this.joinClauses,
+      this.isSelectAll,
+      orderByClause,
+      this.limitNumber
+    );
+  }
+
+  /**
+  * ORDER BY句を設定する
+  *
+  * @param fields フィールド名（複数）
+  * @return Query
+  */
+  public Query orderBy(List<String> fields) {
+    OrderByClause orderByClause = new OrderByClause(fields);
+    return new Query(
+      this.sObjectType,
+      this.selectFields,
+      this.andWhereClauses,
+      this.orWhereClauses,
+      this.andQueries,
+      this.orQueries,
+      this.joinClauses,
+      this.isSelectAll,
+      orderByClause,
+      this.limitNumber
+    );
+  }
+
+  /**
+  * ORDER BY句を設定する
+  *
+  * @param fields フィールド名（複数）
+  * @param order ソート順
+  * @return Query
+  */
+  public Query orderBy(List<String> fields, String order) {
+    OrderByClause orderByClause = new OrderByClause(fields, order);
+    return new Query(
+      this.sObjectType,
+      this.selectFields,
+      this.andWhereClauses,
+      this.orWhereClauses,
+      this.andQueries,
+      this.orQueries,
+      this.joinClauses,
+      this.isSelectAll,
+      orderByClause,
+      this.limitNumber
+    );
+  }
+
+  /**
+  * ORDER BY句を設定する
+  *
+  * @param fields フィールド名（複数）
+  * @param order ソート順
+  * @param nullsOperator NULLSの順序
+  * @return Query
+  */
+  public Query orderBy(List<String> fields, String order, String nullsOperator) {
+    OrderByClause orderByClause = new OrderByClause(fields, order, nullsOperator);
+    return new Query(
+      this.sObjectType,
+      this.selectFields,
+      this.andWhereClauses,
+      this.orWhereClauses,
+      this.andQueries,
+      this.orQueries,
+      this.joinClauses,
+      this.isSelectAll,
+      orderByClause,
+      this.limitNumber
+    );
+  }
+
 
   // ---------- 便利なメソッド達 ----------
   /**
@@ -467,6 +629,7 @@ public class Query {
           query.orQueries,
           query.joinClauses,
           query.isSelectAll,
+          query.orderByClause,
           query.limitNumber
         );
         whereClauseStrings.add('(' + queryWithSource.buildWhereClause(fieldMap) + ')');
@@ -491,6 +654,7 @@ public class Query {
           query.orQueries,
           query.joinClauses,
           query.isSelectAll,
+          query.orderByClause,
           query.limitNumber
         );
         whereClauseStrings.add('(' + queryWithSource.buildWhereClause(fieldMap) + ')');
@@ -547,6 +711,10 @@ public class Query {
 
     if(this.limitNumber != null) {
       query += ' LIMIT ' + this.limitNumber;
+    }
+
+    if(this.orderByClause != null) {
+      query += ' ' + this.orderByClause.build();
     }
 
     System.debug('SOQL: ' + query);

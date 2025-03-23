@@ -137,6 +137,66 @@ public with sharing class Query_T {
     queryString = 'SELECT Id FROM Opportunity WHERE (Id IN (\'006000000000000\', \'006000000000001\')) LIMIT 10';
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 
+    testTitle = '正常系: orderByでソート条件を追加したクエリを作成できる';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .orderBy('CloseDate');
+    queryString = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate ASC';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
+    testTitle = '正常系: orderByでソート条件を追加したクエリを作成できる（降順）';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .orderBy('CloseDate', 'DESC');
+    queryString = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate DESC';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
+    testTitle = '正常系: orderByでソート条件を追加したクエリを作成できる（NULLS FIRST）';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .orderBy('CloseDate', 'ASC', 'FIRST');
+    queryString = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate ASC NULLS FIRST';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
+    testTitle = '正常系: orderByで複数フィールドのソート条件を追加したクエリを作成できる';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .orderBy(new List<String>{ 'CloseDate', 'Name' });
+    queryString = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate, Name ASC';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
+    testTitle = '正常系: orderByで複数フィールドのソート条件を追加したクエリを作成できる（降順）';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .orderBy(new List<String>{ 'CloseDate', 'Name' }, 'DESC');
+    queryString = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate, Name DESC';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
+    testTitle = '正常系: orderByで複数フィールドのソート条件を追加したクエリを作成できる（NULLS LAST）';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .orderBy(new List<String>{ 'CloseDate', 'Name' }, 'ASC', 'LAST');
+    queryString = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate, Name ASC NULLS LAST';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
     testTItle = '正常系: 複雑な条件のクエリを作成できる';
     System.debug(testTitle);
     query = (new Query())

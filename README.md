@@ -1,41 +1,45 @@
-# Apex Eloquentとは？
+# What is Apex Eloquent 
 
-これはApexのデータベース操作を、LaravelのEloquentのように行うことできるようになるフレームワークです。
-これにより、以下のようなメリットがあります。
-- **可読性の向上**: SOQLを文字列で組み立てる必要がなくなり、可読性が向上
-- **クエリの動的生成**: 柔軟に条件を追加できる
-- **テスト容易性の向上**: リポジトリパターンを採用することで、テスト時にデータベース依存を減らす
-- **型安全性の向上**: 変数の補完が効く
+Apex Eloquent is a framework that enables database operations in Apex similar to Laravel's Eloquent.
+This brings the following advantages:
 
-# Apexのデータベース操作の問題
+- **Improved readability**: No need to construct SOQL queries as strings, enhancing readability.
 
-### Apexにおけるクエリの書き方
+- **Dynamic query generation**: Allows flexible addition of conditions.
 
-#### 1. SOQLを文字列で作って実行する
+- **Better testability**: Adopting the repository pattern reduces database dependency during testing.
+
+- **Improved type safety**: Enables IDE autocomplete for variables.
+
+# Issues with Database Operations in Apex
+
+### Writing Queries in Apex
+
+#### 1. Constructing SOQL as a String and Executing It
 ```apex
 String soql = 'SELECT ID, Name FROM Opportunity WHERE ID = :oppId AND .......';
 Opportunity opp = Database.query(soql);
 ```
 
-#### 2. 直接クエリ発行を書く
+#### 2. Directly Writing the Query
 ```apex
 Opportunity opp = [SELECT ID, Name From Opportunity WHERE ID = :oppId AND .......];
 ```
 
-### 上記のクエリの記述方法の問題点
-1. 文字列でクエリを作る場合、フォーマットを効かせることができないのでクエリが長くなると条件が見づらくなる
-1. 途中まで共通のクエリで、ある条件の時だけSOQLに条件を追加したい、というような時は
-    1. 文字列でクエリを作る場合、文字列操作をしないといけなくなり一般化しづらく、条件の追加も煩雑になる
-    1. 直接書く場合はそもそもできない。
-1. 文字列で書く方法だと変数を指定するときにIDEの補完機能が効かない
-1. 両方の方法に置いて、SELECT句に変数を指定することができない
-1. テストクラスを書く際に必ずデータベースへの依存が発生し、テストデータの投入が必要となる。
-    1. テスト対象のクラスが増えるにつれて、テスト実行時間が長くなる
+### Problems with These Query Methods
+1. When constructing queries as strings, formatting cannot be applied, making long queries difficult to read.
+1. If you want to add conditions dynamically:
+    1. When using strings, you need to manipulate the string, making it hard to generalize and cumbersome to modify conditions.
+    1. When writing queries directly, this is not possible.
+1. Writing queries as strings does not allow IDE autocomplete for variables.
+1. In both methods, variables cannot be used in the SELECT clause.
+1. Writing test classes always requires database dependencies, meaning test data must be inserted.
+    1. As the number of test target classes increases, test execution time becomes longer.
 
-Apex Eloquentはこれらの問題をすべて解決できます。
+Apex Eloquent solves all these issues.
 
 
-# デモ
+# Demo
 
 SOQL
 ```
@@ -63,16 +67,17 @@ query = (new Query())
     );
 ```
 
-# インストール方法
-git submodule を使い、お使いのSalesforceプロジェクトにApex Eloquentを導入します。
+# Installation 
 
-テストクラスは標準オブジェクトの標準項目でコードカバレッジ75%以上を満たすように作成しているのでそのままデプロイ可能だと思いますが、テストに失敗する場合はお手数ですがそれぞれテストクラスのメンテナンスを行なってください。
+Use `git submodule` to add Apex Eloquent to your Salesforce project.
 
+Test classes are written to meet the 75% code coverage requirement using standard fields of standard objects, so deployment should work without modifications. However, if tests fail, please maintain the test classes accordingly.
 
-# 使い方
+# Usage
 
-## 既存の書き方
-次のような、商談を取得して値を更新するクラスがあったとします。
+## Existing Implementation
+
+Consider the following class that retrieves and updates an Opportunity record:
 ```apex
 public with sharing class OppUpdater {
   private final Id oppId;
@@ -84,7 +89,7 @@ public with sharing class OppUpdater {
   public Opportunity execute(){
     Opportunity opp = [SELECT ID, ....... FROM Opportunity WHERE ID = :this.oppId];
 
-    // 何かしらの更新処理
+    // Some update processing 
 
     update opp;
     
@@ -93,8 +98,9 @@ public with sharing class OppUpdater {
 }
 ```
 
-## Apex Eloquentパターンに変換
-Apex Eloquentパターンに変換すると、次のようになります。
+## Converting to the Apex Eloquent Pattern
+
+When converted to the Apex Eloquent Pattern, the implementation looks like this:
 ```apex
 public with sharing class OppUpdater {
   private final Id oppId;
@@ -123,49 +129,53 @@ public with sharing class OppUpdater {
 }
 ```
 
-## テストクラスを書く
-RepositoryInterfaceを仕様することで、データベースを介さずにロジックの検証が可能になります。
+## Writting Test Class
+
+By Using `RepositoryInterface`, you can verify the logic without interacting with the database.
 ```apex
 @isTest(seeAllData=false)
 public with sharing class OppUpdater_T {
   public static testMethod void testUpdate() {
-    // モックする商談とリポジトリを用意
+    // Prepare a mock Opportunity and mock repository
     Opportunity mockOpp = new Opportunity();
     MockRepository mockRepo = new MockRepository(mockOpp);
 
-    // OppUpdaterにコンストラクタインジェクションすることで、executeメソッドないの
-    // 商談取得結果がMockOppへ置き換えることができる
+    // By injecting the mock repository into OppUpdater’s constructor,
+    // the retrieved Opportunity in the execute method is replaced with mockOpp
     Id dummyId = '006000000000000';
     OppUpdater updater = new OppUpdater(dummyId, MockRepo);
     Opportunity UpdatedOpp = updater.execute();
 
-    // OppUpdaterの中の更新処理の内容をAssertする
+    // Assert the update processing logic inside OppUpdater
     Assert.areEqual(.......);
     Assert.areEqual(.......);
   }
 }
 ```
 
-# メソッド
+# Methods
 
-## Queryクラス
+## Query Class
 
 ### **source**
-SOQLにおける`FROM`を指定します。
+
+Specify the `FROM` clause in SOQL.
 ```apex
 (new Query()).source(Opportunity.getSObjectType());
 ```
 
 ### pick
-SOQLにおける`SELECT`を指定します。
+
+Specify the `SELECT` clause in SOQL.
 ```apex
 List<String> fields = new List<String>{Name, CloseDate};
 (new Query()).pick('Id').pick(fields);
 ```
 
 ### condition
-SOQLにおける`WHERE`を指定します。
-orConditionの場合、OR条件を追加できます。
+
+Specify the `WHERE` clause in SOQL
+In the case of orCondition, you can add OR conditions.
 ```apex
 (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Name', '=', 'test');
 // SELECT Id FROM Opportunity WHERE Name = 'test'
@@ -187,7 +197,8 @@ List<Id> oppIds = new List<Id>{'006000000000000', '006000000000001'};
 ```
 
 ### join
-サブクエリを使用した、別テーブルの条件での絞り込みを追加できます。
+
+You can add filtering conditions for another table using subqueries.
 ```apex
 (new Query())
     .source(Opportunity.getSObjectType())
@@ -202,7 +213,9 @@ List<Id> oppIds = new List<Id>{'006000000000000', '006000000000001'};
 ```
 
 ### orderBy
-ORDER BY を使用したレコードの順序付けを追加できます。
+
+Specify the `ORDER BY` clause in SOQL
+
 ```apex
 (new Query())
     .source(Opportunity.getSObjectType())
@@ -211,7 +224,7 @@ ORDER BY を使用したレコードの順序付けを追加できます。
 // SELECT Id FROM Opportunity ORDER BY ASC 
 ```
 
-引数を３つまで渡すことで、ORDER BYの設定をフルで行うことができます
+You can fully configure ORDER BY by passing up to three arguments.
 ```apex
 (new Query())
     .source(Opportunity.getSObjectType())
@@ -221,7 +234,8 @@ ORDER BY を使用したレコードの順序付けを追加できます。
 ```
 
 ### restrict
-LIMIT を使った取得レコード数の制限を行うことができます。
+
+Specify the `LIMIT` clause in SOQL
 ```apex
 (new Query())
     .source(Opportunity.getSObjectType())
@@ -230,22 +244,24 @@ LIMIT を使った取得レコード数の制限を行うことができます�
 // SELECT Id FROM Opportunity LIMIT 20
 ```
 
-## Repositoryクラス
+## Repository Class
 
-Queryクラスを渡すことでデータの取得を行ったり、doInsertなどのメソッドではSObjectを渡すことでデータベースへのデータ挿入などを行うことができます。
+By passing the Query class, you can retrieve data, and by passing SObject to methods such as doInsert, you can insert data into the database.
 
 ### get
-SOQLを実行し、結果を取得します。
-返り値は`List<SObject>`なので取得したいオブジェクトに合わせて型キャストを行なってください。
-取得件数が0県の場合は空の配列を返します。
+
+Executes SOQL and retrieves the results.
+The return value is `List<SObject>`, so cast it to the appropriate object type.
+If the number of retrieved records is 0, an empty array is returned.
 ```apex
 List<Opportunity> opps = (List<Opportunity>) (new Repository()).get(query);
 ```
 
 ### getOrFail
-SOQLを実行し、結果を取得します。
-返り値は`List<SObject>`なので取得したいオブジェクトに合わせて型キャストを行なってください。
-取得件数が0県の場合はエラーをスローします。
+
+Executes SOQL and retrieves the results.
+The return value is `List<SObject>`, so cast it to the appropriate object type.
+If the number of retrieved records is 0, an error is thrown.
 ```apex
 try {
     List<Opportunity> opps = (List<Opportunity>) (new Repository()).getOrFail(query);
@@ -255,15 +271,17 @@ try {
 ```
 
 ### first
-SOQLを実行し、取得結果のうち一番最初のレコードを返します。
-取得件数が0件の場合は`null`を返します
+
+Executes SOQL and returns the first record from the results.
+If the number of retrieved records is 0, `null` is returned.
 ```apex
 Opportunity opp = (Opportunity) (new Repository()).first(query);
 ```
 
 ### firstOrFail
-SOQLを実行し、取得結果のうち一番最初のレコードを返します。
-取得件数が0件の場合はエラーをスローします
+
+Executes SOQL and returns the first record from the results.
+If the number of retrieved records is 0, an error is thrown.
 ```apex
 try { 
     Opportunity opp = (Opportunity) (new Repository()).first(query);
@@ -273,40 +291,43 @@ try {
 ```
 
 ### doInsert
-引数に渡したSObjectをデータベースに挿入します。
-返り値には挿入後のIDが付加されたレコードが返ります。
+
+Inserts the SObject passed as an argument into the database.
+The return value is the record with the ID added after insertion.
 ```apex
 insertOpp = (new Repository()).doInsert(insertOpp);
 System.debug(insertOpp.Id)  // show opp id
 ```
-配列も同様に挿入できます。
+You can also insert arrays in the same way.
 ```apex
 insertOpps = (List<Opportunity>) (new Repository()).doInsert(insertOpps);
 ```
 
 ### doUpdate
-引数に渡したSObjectを更新します
+
+Updates the SObject passed as an argument.
 ```apex
 updateOpp = (new Repository()).doUpdate(insertOpp);
 ```
-配列も同様に更新できます。
+You can also update arrays in the same way.
 ```apex
 updateOpps = (List<Opportunity>) (new Repository()).doUpdate(updateOpps);
 ```
 
 ## doDelete
-引数に渡したSObjectを削除します
+Deletes the SObject passed as an argument.
 ``` apex
 (new Repository()).doDelete(deleteOpp);
 ```
-配列も同様に削除できます。
+You can also delete arrays in the same way.
 ```apex
 (new Repository()).doDelete(deleteOpps);
 ```
 
-# レシピ
-## SELECT * をしたい 
-pickAllを使用します
+# Recipes
+
+## Want to do SELECT * 
+Use pickAll
 ```apex
     Query query = (new Query())
       .source(Opportunity.getSObjectType())
@@ -314,27 +335,27 @@ pickAllを使用します
       .find(oppId)
 ```
 
-## 特定条件でwhere句を追加したい
+## Want to add a WHERE clause with specific conditions
 
-queryにあるメソッドを使うことで柔軟にクエリを組み立てることができます
+You can flexibly build queries using methods in the query.
 ```apex
-// 取引先が持つ商談一覧を取得する条件
+// Condition to get a list of opportunities owned by an account
 Query query = (new Query())
     .source(Opportunity.getSObjectType())
     .pickAll()
     .condition('AccountId', '=', account.Id);
 
-// もし取引先の種別が顧客直接取引の場合、商談の種別に「新規顧客」の条件を追加
+// If the account type is 'Customer - Direct', add a condition for 'New Customer' in the opportunity type
 if(Account.Type == 'Customer - Direct') {
     query.condition('Type', '=', 'New Customer');
 }
 
-// 商談取得
+// Retrieve opportunities
 List<Opportunity> opps = (List<Opportunity>) (new Repository()).get(query);
 ```
 
-## SELECTやWHEREが多い
-フォーマッタを使えば縦に並んでくれるので見やすくなります
+## Many SELECTs and WHEREs
+Using a formatter makes it easier to read by aligning vertically.
 ```apex
     Query query = (new Query())
       .source(Opportunity.getSObjectType())
@@ -343,18 +364,6 @@ List<Opportunity> opps = (List<Opportunity>) (new Repository()).get(query);
       ..
       ..
       ..
-      .condition('A', '=', 1)
-      .condition('B', '=', 2)
-      ..
-      ..
-      ..
-```
-SELECTは配列で渡すこともできます
-```apex
-    List<String> selectFields = new List<String>{'hoge', 'fuga', .......};
-    Query query = (new Query())
-      .source(Opportunity.getSObjectType())
-      .pick(selectFields)
       .condition('A', '=', 1)
       .condition('B', '=', 2)
       ..

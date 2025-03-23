@@ -150,20 +150,20 @@ public with sharing class OppUpdater_T {
 
 ### Queryクラス
 
-#### source
+### source
 SOQLにおける`FROM`を指定します。
 ```apex
 (new Query()).source(Opportunity.getSObjectType());
 ```
 
-#### pick
+### pick
 SOQLにおける`SELECT`を指定します。
 ```apex
 List<String> fields = new List<String>{Name, CloseDate};
 (new Query()).pick('Id').pick(fields);
 ```
 
-#### condition
+### condition
 SOQLにおける`WHERE`を指定します。
 orConditionの場合、OR条件を追加できます。
 ```apex
@@ -186,7 +186,7 @@ List<Id> oppIds = new List<Id>{'006000000000000', '006000000000001'};
 // SELECT Id FROM Opportunity WHERE Name = 'test' AND (CloseDate >= 2024-01-01 AND CloseDate <= 2024-12-31)
 ```
 
-#### join
+### join
 サブクエリを使用した、別テーブルの条件での絞り込みを追加できます。
 ```apex
 (new Query())
@@ -201,11 +201,40 @@ List<Id> oppIds = new List<Id>{'006000000000000', '006000000000001'};
 // SELECT Id FROM Opportunity WHERE Name = 'test' AND AccountId IN (SELECT Id FROM Account WHERE Name = 'testAccount')
 ```
 
+### orderBy
+ORDER BY を使用したレコードの順序付けを追加できます。
+```apex
+(new Query())
+    .source(Opportunity.getSObjectType())
+    .pick('Id')
+    .orderBy('CloseDate');
+// SELECT Id FROM Opportunity ORDER BY ASC 
+```
+
+引数を３つまで渡すことで、ORDER BYの設定をフルで行うことができます
+```apex
+(new Query())
+    .source(Opportunity.getSObjectType())
+    .pick('Id')
+    .orderBy('CloseDate', 'DESC', 'LAST');
+// SELECT Id FROM Opportunity ORDER BY DESC NULLS LAST
+```
+
+### restrict
+LIMIT を使った取得レコード数の制限を行うことができます。
+```apex
+(new Query())
+    .source(Opportunity.getSObjectType())
+    .pick('Id')
+    .restrict(20);
+// SELECT Id FROM Opportunity LIMIT 20
+```
+
 ### Repositoryクラス
 
 Queryクラスを渡すことでデータの取得を行ったり、doInsertなどのメソッドではSObjectを渡すことでデータベースへのデータ挿入などを行うことができます。
 
-#### get
+### get
 SOQLを実行し、結果を取得します。
 返り値は`List<SObject>`なので取得したいオブジェクトに合わせて型キャストを行なってください。
 取得件数が0県の場合は空の配列を返します。
@@ -213,7 +242,7 @@ SOQLを実行し、結果を取得します。
 List<Opportunity> opps = (List<Opportunity>) (new Repository()).get(query);
 ```
 
-#### getOrFail
+### getOrFail
 SOQLを実行し、結果を取得します。
 返り値は`List<SObject>`なので取得したいオブジェクトに合わせて型キャストを行なってください。
 取得件数が0県の場合はエラーをスローします。
@@ -225,14 +254,14 @@ try {
 }
 ```
 
-#### first
+### first
 SOQLを実行し、取得結果のうち一番最初のレコードを返します。
 取得件数が0件の場合は`null`を返します
 ```apex
 Opportunity opp = (Opportunity) (new Repository()).first(query);
 ```
 
-#### firstOrFail
+### firstOrFail
 SOQLを実行し、取得結果のうち一番最初のレコードを返します。
 取得件数が0件の場合はエラーをスローします
 ```apex
@@ -243,7 +272,7 @@ try {
 }
 ```
 
-#### doInsert
+### doInsert
 引数に渡したSObjectをデータベースに挿入します。
 返り値には挿入後のIDが付加されたレコードが返ります。
 ```apex
@@ -255,7 +284,7 @@ System.debug(insertOpp.Id)  // show opp id
 insertOpps = (List<Opportunity>) (new Repository()).doInsert(insertOpps);
 ```
 
-#### doUpdate
+### doUpdate
 引数に渡したSObjectを更新します
 ```apex
 updateOpp = (new Repository()).doUpdate(insertOpp);
@@ -265,7 +294,7 @@ updateOpp = (new Repository()).doUpdate(insertOpp);
 updateOpps = (List<Opportunity>) (new Repository()).doUpdate(updateOpps);
 ```
 
-### doDelete
+## doDelete
 引数に渡したSObjectを削除します
 ``` apex
 (new Repository()).doDelete(deleteOpp);

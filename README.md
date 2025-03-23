@@ -148,9 +148,9 @@ public with sharing class OppUpdater_T {
 
 # メソッド
 
-### Queryクラス
+## Queryクラス
 
-### source
+### **source**
 SOQLにおける`FROM`を指定します。
 ```apex
 (new Query()).source(Opportunity.getSObjectType());
@@ -230,7 +230,7 @@ LIMIT を使った取得レコード数の制限を行うことができます�
 // SELECT Id FROM Opportunity LIMIT 20
 ```
 
-### Repositoryクラス
+## Repositoryクラス
 
 Queryクラスを渡すことでデータの取得を行ったり、doInsertなどのメソッドではSObjectを渡すことでデータベースへのデータ挿入などを行うことができます。
 

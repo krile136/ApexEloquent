@@ -52,15 +52,15 @@ public class Query {
     this.limitNumber = limitNumber;
   }
 
-  // ---------- FROM句 ----------
+  // ---------- FROM clause ----------
   /**
-   * クエリのソース(FROM)を設定する
-   * 引数のsObjectTypeは次のように指定してください
-   * .source(Opportunity.SObjectType)
-   *
-   * @param sObjectType ソースとなるオブジェクトのsObjectType
-   * @return Query
-   */
+  * Sets the source (FROM) of the query.
+  * Please specify the sObjectType argument as follows:
+  * .source(Opportunity.getSObjectType())
+  *
+  * @param sObjectType: The sObjectType of the source object
+  * @return Query
+  */
   public Query source(Schema.SObjectType sObjectType) {
     return new Query(
       sObjectType,
@@ -76,13 +76,13 @@ public class Query {
     );
   }
 
-  // ---------- SELECT句 ----------
+  // ---------- SELECT clause ----------
   /**
-   * クエリのフィールド(SELECT)を設定する
-   *
-   * @param selectField セレクトするフィールド名
-   * @return Query
-   */
+  * Sets the fields (SELECT) of the query.
+  *
+  * @param selectField: The name of the field to select
+  * @return Query
+  */
   public Query pick(String selectField) {
     List<String> newSelectFields = this.selectFields;
     newSelectFields.add(selectField);
@@ -100,12 +100,13 @@ public class Query {
     );
   }
 
+
   /**
-   * クエリのフィールド(SELECT)を設定する
-   *
-   * @param selectFields セレクトするフィールド（複数）
-   * @return Query
-   */
+  * Sets the fields (SELECT) of the query.
+  *
+  * @param selectFields: The fields to select (multiple)
+  * @return Query
+  */
   public Query pick(List<String> selectFields) {
     List<String> newSelectFields = this.selectFields;
     newSelectFields.addAll(selectFields);
@@ -124,10 +125,10 @@ public class Query {
   }
 
   /**
-   * すべてのフィールドをセレクトする
-   *
-   * @return Query
-   */
+  * Selects all fields.
+  *
+  * @return Query
+  */
   public Query pickAll() {
     return new Query(
       this.sObjectType,
@@ -143,15 +144,15 @@ public class Query {
     );
   }
 
-  // ---------- WHERE句(フィールドを一つ追加) ----------
+  // ---------- WHERE clause (add one field) ----------
   /**
-   * WHERE(AND)の条件を設定する
-   *
-   * @param field フィールド名
-   * @param operator 演算子
-   * @param value 値
-   * @return Query
-   */
+  * Sets the WHERE (AND) condition.
+  *
+  * @param field: The field name
+  * @param operator: The operator
+  * @param value: The value
+  * @return Query
+  */
   public Query condition(String field, String operator, Object value) {
     WhereClauseInterface whereClause = WhereClauseFactory.create(this.sObjectType, field, operator, value);
     List<WhereClauseInterface> newWhereClauses = this.andWhereClauses;
@@ -171,13 +172,13 @@ public class Query {
   }
 
   /**
-   * WHERE(OR)の条件を設定する
-   *
-   * @param field フィールド名
-   * @param operator 演算子
-   * @param value 値
-   * @return Query
-   */
+  * Sets the WHERE (OR) condition.
+  *
+  * @param field: The field name
+  * @param operator: The operator
+  * @param value: The value
+  * @return Query
+  */
   public Query orCondition(String field, String operator, Object value) {
     if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
       throw new QueryException('最初の条件はAND条件で指定してください');
@@ -199,18 +200,18 @@ public class Query {
     );
   }
 
-  // ---------- WHERE句(フィールドを複数追加) ----------
+  // ---------- WHERE clause(add multiple fields) ----------
   /**
-   * WHERE(AND)の条件を設定する
-   *
-   * @param field フィールド名
-   * @param operator 演算子
-   * @param values 値（複数）
-   * @return Query
-   */
+  * Sets the WHERE (AND) condition.
+  *
+  * @param field: The field name
+  * @param operator: The operator
+  * @param values: The values (multiple)
+  * @return Query
+  */
   public Query condition(String field, String operator, List<Object> values) {
     if(values.isEmpty()) {
-      // 空のリストが渡された場合必ずヒットしない条件に変換する
+      // Convert to a condition that never hits if an empty list is passed
       return this.condition('Id', '=', (Object) null);
     }
     WhereClauseInterface whereClause = WhereClauseFactory.create(this.sObjectType, field, operator, values);
@@ -231,20 +232,20 @@ public class Query {
   }
 
   /**
-   * WHERE(OR)の条件を設定する
-   * * join句と組み合わせることはできません
-   *
-   * @param field フィールド名
-   * @param operator 演算子
-   * @param values 値（複数）
-   * @return Query
-   */
+  * Sets the WHERE (OR) condition.
+  * Cannot be combined with join clauses.
+  *
+  * @param field: The field name
+  * @param operator: The operator
+  * @param values: The values (multiple)
+  * @return Query
+  */
   public Query orCondition(String field, String operator, List<Object> values) {
     if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
       throw new QueryException('最初の条件はAND条件で指定してください');
     }
     if(values.isEmpty()) {
-      // 空のリストが渡された場合必ずヒットしない条件に変換する
+      // Convert to a condition that never hits if an empty list is passed
       return this.orCondition('Id', '=', (Object) null); 
     }
     WhereClauseInterface whereClause = WhereClauseFactory.create(this.sObjectType, field, operator, values);
@@ -264,14 +265,14 @@ public class Query {
     );
   }
 
-  // ---------- WHERE句(クエリで括弧に囲まれた条件を追加) ----------
+  // ---------- WHERE clause (add conditions enclosed in parentheses in the query) ----------
   /**
-   * WHERE(AND)の条件を設定する
-   * クエリを使用することで( )で囲まれた条件を追加できます
-   *
-   * @param query クエリ
-   * @return Query
-   */
+  * Sets the WHERE (AND) condition.
+  * You can add conditions enclosed in parentheses using a query.
+  *
+  * @param query: The query
+  * @return Query
+  */
   public Query condition(Query query) {
     List<Query> newAndQueries = this.andQueries;
     newAndQueries.add(query);
@@ -291,13 +292,13 @@ public class Query {
   }
 
   /**
-   * WHERE(OR)の条件を設定する
-   * クエリを使用することで( )で囲まれた条件を追加できます
-   * * join句と組み合わせることはできません
-   *
-   * @param query クエリ
-   * @return Query
-   */
+  * Sets the WHERE (OR) condition.
+  * You can add conditions enclosed in parentheses using a query.
+  * Cannot be combined with join clauses.
+  *
+  * @param query: The query
+  * @return Query
+  */
   public Query orCondition(Query query) {
     if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
       throw new QueryException('最初の条件はAND条件で指定してください');
@@ -319,16 +320,16 @@ public class Query {
     );
   }
 
-  // ---------- join句 ----------
+  // ---------- join clause ----------
   /**
-   * JOIN句を設定する
-   * * OR条件と組み合わせることはできません
-   *
-   * @param field フィールド名
-   * @param operator 演算子
-   * @param subQuery サブクエリ
-   * @return Query
-   */
+  * Sets the JOIN clause.
+  * Cannot be combined with OR conditions.
+  *
+  * @param field: The field name
+  * @param operator: The operator
+  * @param subQuery: The subquery
+  * @return Query
+  */
   public Query join(String field, String operator, Query subQuery) {
     List<WhereClauseInterface> newJoinClauses = this.joinClauses;
     WhereClauseInterface joinClause = WhereClauseFactory.create(this.sObjectType, field, operator, subQuery);
@@ -347,11 +348,11 @@ public class Query {
     );
   }
 
-  // ---------- LIMIT句 ----------
+  // ---------- limit clause ----------
   /**
-  * LIMIT句を設定する
+  * Sets the LIMIT clause.
   *
-  * @param limitNumber 取得するレコード数
+  * @param limitNumber: The number of records to retrieve
   * @return Query
   */
   public Query restrict(Integer limitNumber) {
@@ -369,11 +370,11 @@ public class Query {
     );
   }
 
-  // ---------- ORDER BY句 ----------
+  // ---------- ORDER BY clause ----------
   /**
-  * ORDER BY句を設定する
+  * Sets the ORDER BY clause.
   *
-  * @param field フィールド名
+  * @param field: The field name
   * @return Query
   */
   public Query orderBy(String field) {
@@ -393,10 +394,10 @@ public class Query {
   }
 
   /**
-  * ORDER BY句を設定する
+  * Sets the ORDER BY clause.
   *
-  * @param field フィールド名
-  * @param order ソート順
+  * @param field: The field name
+  * @param order: The sort order
   * @return Query
   */
   public Query orderBy(String field, String order) {
@@ -416,11 +417,11 @@ public class Query {
   }
 
   /**
-  * ORDER BY句を設定する
+  * Sets the ORDER BY clause.
   *
-  * @param field フィールド名
-  * @param order ソート順
-  * @param nullsOperator NULLSの順序
+  * @param field: The field name
+  * @param order: The sort order
+  * @param nullsOperator: The order for NULLS
   * @return Query
   */
   public Query orderBy(String field, String order, String nullsOperator) {
@@ -440,9 +441,9 @@ public class Query {
   }
 
   /**
-  * ORDER BY句を設定する
+  * Sets the ORDER BY clause.
   *
-  * @param fields フィールド名（複数）
+  * @param fields: The field names (multiple)
   * @return Query
   */
   public Query orderBy(List<String> fields) {
@@ -462,10 +463,10 @@ public class Query {
   }
 
   /**
-  * ORDER BY句を設定する
+  * Sets the ORDER BY clause.
   *
-  * @param fields フィールド名（複数）
-  * @param order ソート順
+  * @param fields: The field names (multiple)
+  * @param order: The sort order
   * @return Query
   */
   public Query orderBy(List<String> fields, String order) {
@@ -485,11 +486,11 @@ public class Query {
   }
 
   /**
-  * ORDER BY句を設定する
+  * Sets the ORDER BY clause.
   *
-  * @param fields フィールド名（複数）
-  * @param order ソート順
-  * @param nullsOperator NULLSの順序
+  * @param fields: The field names (multiple)
+  * @param order: The sort order
+  * @param nullsOperator: The order for NULLS
   * @return Query
   */
   public Query orderBy(List<String> fields, String order, String nullsOperator) {
@@ -509,83 +510,83 @@ public class Query {
   }
 
 
-  // ---------- 便利なメソッド達 ----------
+  // ---------- Useful methods ----------
   /**
-   * Idを指定してレコードを取得する条件を追加する
-   *
-   * @param recordId レコードのrecordId
-   * @return Query
-   */
+  * Adds a condition to retrieve records by specifying the Id.
+  *
+  * @param recordId: The record Id
+  * @return Query
+  */
   public Query find(Id recordId) {
     return this.condition('Id', '=', recordId);
   }
 
   /**
-   * IDを複数指定してレコードを取得する条件を追加する
-   *
-   * @param recordIds レコードのrecordId（複数）
-   * @return Query
-   */
+  * Adds a condition to retrieve records by specifying multiple IDs.
+  *
+  * @param recordIds: The record IDs (multiple)
+  * @return Query
+  */
   public Query findMany(List<Id> recordIds) {
     return this.condition('Id', 'IN', recordIds);
   }
 
   /**
-   * フィールドの値がfrom以上to以下の範囲にあるレコードを取得する条件を追加する
-   *
-   * @param field フィールド名
-   * @param fromValue 範囲の下限
-   * @param toValue 範囲の上限
-   * @return Query
-   */
+  * Adds a condition to retrieve records where the field value is between from and to (inclusive).
+  *
+  * @param field: The field name
+  * @param fromValue: The lower bound of the range
+  * @param toValue: The upper bound of the range
+  * @return Query
+  */
   public Query betweenInclusive(String field, Object fromValue, Object toValue) {
     return this.condition(field, '>=', fromValue).condition(field, '<=', toValue);
   }
 
   /**
-   * フィールドの値がfromより大きくtoより小さい範囲にあるレコードを取得する条件を追加する
-   *
-   * @param field フィールド名
-   * @param fromValue 範囲の下限
-   * @param toValue 範囲の上限
-   * @return Query
-   */
+  * Adds a condition to retrieve records where the field value is between from and to (exclusive).
+  *
+  * @param field: The field name
+  * @param fromValue: The lower bound of the range
+  * @param toValue: The upper bound of the range
+  * @return Query
+  */
   public Query betweenExclusive(String field, Object fromValue, Object toValue) {
     return this.condition(field, '>', fromValue).condition(field, '<', toValue);
   }
 
   /**
-   * 指定されたフィールドがNULLである条件を設定します。
-   *
-   * @param field 条件を設定するフィールドの名前
-   * @return このクエリオブジェクト
-   */
+  * Sets a condition where the specified field is NULL.
+  *
+  * @param field: The name of the field
+  * @return Query
+  */
   public Query isNull(String field) {
     return this.condition(field, '=', (Object) null);
   }
 
   /**
-   * 指定されたフィールドがNULLでない条件を設定します。
-   *
-   * @param field 条件を設定するフィールドの名前
-   * @return このクエリオブジェクト
-   */
+  * Sets a condition where the specified field is NOT NULL.
+  *
+  * @param field: The name of the field
+  * @return Query
+  */
   public QUery isNotNull(String field) {
     return this.condition(field, '!=', (Object) null);
   }
 
-  // ---------- Where句の状態を連結して出力 ----------
+  // ---------- Concatenate and output the state of the WHERE clause ----------
   /**
-   * Where句を組み立てる
-   *
-   * @param fieldMap フィールドのマップ
-   * @return 組み立てたWhere句
-   */
+  * Constructs the WHERE clause.
+  *
+  * @param fieldMap: The map of fields
+  * @return The constructed WHERE clause
+  */
   private String buildWhereClause(Map<String, Schema.SObjectField> fieldMap) {
     Boolean hasOrCondition = false;
 
     String whereClauseString = '';
-    // AND条件を結合
+
     if (!this.andWhereClauses.isEmpty()) {
       whereClauseString += '(';
       List<String> whereClauseStrings = new List<String>();
@@ -597,7 +598,6 @@ public class Query {
       whereClauseString += ')';
     }
 
-    // OR条件を結合
     if (!this.orWhereClauses.isEmpty()) {
       hasOrCondition = true;
       if (whereClauseString != '') {
@@ -613,7 +613,6 @@ public class Query {
       whereClauseString += ')';
     }
 
-    // ANDのクエリ条件を結合
     if (!this.andQueries.isEmpty()) {
       if (whereClauseString != '') {
         whereClauseString += ' AND ';
@@ -637,7 +636,6 @@ public class Query {
       whereClauseString += String.join(whereClauseStrings, ' AND ');
     }
 
-    // ORのクエリ条件を結合
     if (!this.orQueries.isEmpty()) {
       hasOrCondition = true;
       if (whereClauseString != '') {
@@ -662,10 +660,9 @@ public class Query {
       whereClauseString += String.join(whereClauseStrings, ' OR ');
     }
 
-    // JOIN条件を結合
     if (!this.joinClauses.isEmpty()) {
       if (hasOrCondition) {
-        String error = 'joinのサブクエリはネスト内に配置できず、ORと組み合わせるとネストが必要になるためこの組み合わせは実行不可です。';
+        String error = 'Subqueries in joins cannot be placed inside nests, and combining with OR requires nesting, so this combination cannot be executed.';
         throw new QueryException(error);
       }
       if (whereClauseString != '') {
@@ -679,19 +676,19 @@ public class Query {
     return whereClauseString;
   }
 
-  // ---------- SOQL文を生成 ----------
+  // ---------- generate SOQL ----------
   /**
-   * SOQL文を生成する
-   *
-   * @return SOQL文
-   */
+  * Generates the SOQL query.
+  *
+  * @return The SOQL query
+  */
   public String toSoql() {
     Boolean isSObjectTypeNull = this.sObjectType == null;
     if (isSObjectTypeNull) {
-      throw new QueryException('sourceが設定されていません');
+      throw new QueryException('source is not set');
     }
     if (this.selectFields.isEmpty() && !this.isSelectAll) {
-      throw new QueryException('pickが設定されていません');
+      throw new QueryException('pick is not set');
     }
 
     String selectFieldsString = '';

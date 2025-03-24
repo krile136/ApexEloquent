@@ -120,7 +120,7 @@ public with sharing class OppUpdater {
       .find(this.oppId)
     Opportunity opp = (Opportunity) this.oppRepo.first(query);
 
-    // 何かしらの更新処理
+    // some update processing 
 
     opp = this.oppRepo.doUpdate(opp);
 

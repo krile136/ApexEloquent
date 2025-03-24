@@ -2,24 +2,24 @@ public with sharing class Repository implements RepositoryInterface {
   private final Integer MAX_DML_CHUNKING = 10;
 
   /**
-   * SOQLを実行し、結果を取得する
-   *
-   * @param query SOQLクエリ
-   * @return 取得結果
-   */
+  * Executes SOQL and retrieves the results.
+  *
+  * @param query: SOQL query
+  * @return Retrieved results
+  */
   public List<SObject> get(Query query) {
     String soql = query.toSoql();
     return (List<SObject>) Database.query(soql);
   }
 
   /**
-   * SOQLを実行し、結果を取得する
-   * 取得結果が0件の場合は例外をスローする
-   *
-   * @param query SOQLクエリ
-   * @return 取得結果
-   * @throws QueryException 取得結果が0件の場合
-   */
+  * Executes SOQL and retrieves the results.
+  * Throws an exception if the number of retrieved records is 0.
+  *
+  * @param query: SOQL query
+  * @return Retrieved results
+  * @throws QueryException If the number of retrieved records is 0
+  */
   public List<SObject> getOrFail(Query query) {
     String soql = query.toSoql();
     List<SObject> objects = (List<SObject>) Database.query(soql);
@@ -30,12 +30,12 @@ public with sharing class Repository implements RepositoryInterface {
   }
 
   /**
-   * SOQLを実行し、最初の1件を返す
-   * 取得結果が0件の場合はnullを返す
-   *
-   * @param query SOQLクエリ
-   * @return 取得結果
-   */
+  * Executes SOQL and returns the first record.
+  * Returns null if the number of retrieved records is 0.
+  *
+  * @param query SOQL query
+  * @return Retrieved result
+  */
   public SObject first(Query query) {
     List<SObject> records = get(query);
     if (records.isEmpty()) {
@@ -44,14 +44,15 @@ public with sharing class Repository implements RepositoryInterface {
     return records[0];
   }
 
+
   /**
-   * SOQLを実行し、最初の1件を返す
-   * 取得結果が0件の場合は例外をスローする
-   *
-   * @param query SOQLクエリ
-   * @return 取得結果
-   * @throws QueryException 取得結果が0件の場合
-   */
+  * Executes SOQL and returns the first record.
+  * Throws an exception if the number of retrieved records is 0.
+  *
+  * @param query SOQL query
+  * @return Retrieved result
+  * @throws QueryException If the number of retrieved records is 0
+  */
   public SObject firstOrFail(Query query) {
     List<SObject> records = get(query);
     if (records.isEmpty()) {
@@ -61,22 +62,22 @@ public with sharing class Repository implements RepositoryInterface {
   }
 
   /**
-   * レコードを新規登録する
-   *
-   * @param record 新規登録するレコード
-   * @return 登録したレコード
-   */
+  * Inserts a record.
+  *
+  * @param record The record to insert
+  * @return Inserted record
+  */
   public SObject doInsert(SObject record) {
     insert record;
     return record;
   }
 
   /**
-   * レコードを新規登録する
-   *
-   * @param records 新規登録するレコードのリスト
-   * @return 登録したレコードのリスト
-   */
+  * Inserts a list of records.
+  *
+  * @param records The list of records to insert
+  * @return List of inserted records
+  */
   public List<SObject> doInsert(List<SObject> records) {
     sortToPreventChunkingErrors(records);
     insert records;
@@ -84,22 +85,22 @@ public with sharing class Repository implements RepositoryInterface {
   }
 
   /**
-   * レコードを更新する
-   *
-   * @param record 更新するレコード
-   * @return 更新したレコード
-   */
+  * Updates a record.
+  *
+  * @param record The record to update
+  * @return Updated record
+  */
   public SObject doUpdate(SObject record) {
     update record;
     return record;
   }
 
   /**
-   * レコードを更新する
-   *
-   * @param records 更新するレコードのリスト
-   * @return 更新したレコードのリスト
-   */
+  * Updates a list of records.
+  *
+  * @param records The list of records to update
+  * @return List of updated records
+  */
   public List<SObject> doUpdate(List<SObject> records) {
     sortToPreventChunkingErrors(records);
     update records;
@@ -107,28 +108,28 @@ public with sharing class Repository implements RepositoryInterface {
   }
 
   /**
-   * レコードを削除する
-   *
-   * @param record 削除するレコード
-   */
+  * Deletes a record.
+  *
+  * @param record The record to delete
+  */
   public void doDelete(SObject record) {
     delete record;
   }
 
   /**
-   * レコードを削除する
-   *
-   * @param records 削除するレコードのリスト
-   */
+  * Deletes a list of records.
+  *
+  * @param records The list of records to delete
+  */
   public void doDelete(List<SObject> records) {
     delete records;
   }
 
   /**
-   * チャンキングエラーを防ぐためにソートする
-   *
-   * @param records ソートするレコードのリスト
-   */
+  * Sorts to prevent chunking errors.
+  *
+  * @param records The list of records to sort
+  */
   private void sortToPreventChunkingErrors(List<SObject> records) {
     if (records.size() >= MAX_DML_CHUNKING) {
       records.sort();

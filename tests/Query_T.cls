@@ -134,6 +134,25 @@ public with sharing class Query_T {
     queryString = 'SELECT Id FROM Opportunity WHERE (Id IN (\'006000000000000\', \'006000000000001\')) AND (AccountId IN (SELECT Id FROM Account WHERE (Name = \'TestAccount\')))';
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 
+    testTitle = '正常系: 複数のjoinで別々テーブルの条件を追加したクエリを作成できる';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(Account.getSObjectType())
+      .pick('Id')
+      .condition('Name', '=', 'testAccount')
+      .join('Id', 'IN', (new Query())
+        .source(Opportunity.getSObjectType())
+        .pick('AccountId')
+        .condition('CloseDate', '>', Date.newInstance(2024,1,1))
+      )
+      .join('Id', 'IN', (new Query()
+        .source(Contact.getSObjectType())
+        .pick('AccountId')
+        .condition('Name', '=', 'testContact'))
+      );
+    queryString = 'SELECT Id FROM Account WHERE (Name = \'testAccount\') AND (Id IN (SELECT AccountId FROM Opportunity WHERE (CloseDate > 2024-01-01))) AND (Id IN (SELECT AccountId FROM Contact WHERE (Name = \'testContact\')))';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
     testTitle = '正常系: limitで取得件数を制限したクエリを作成できる';
     System.debug(testTitle);
     query = (new Query())

@@ -665,10 +665,10 @@ public class Query {
         String error = 'Subqueries in joins cannot be placed inside nests, and combining with OR requires nesting, so this combination cannot be executed.';
         throw new QueryException(error);
       }
-      if (whereClauseString != '') {
-        whereClauseString += ' AND ';
-      }
       for (WhereClauseInterface joinClause : this.joinClauses) {
+        if (whereClauseString != '') {
+          whereClauseString += ' AND ';
+        }
         whereClauseString += '(' + joinClause.build() + ')';
       }
     }

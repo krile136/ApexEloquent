@@ -650,7 +650,7 @@ public class Query {
   *
   * @return The SOQL query
   */
-  private String toChildrenSoql() {
+  private String toChildrenSoql(Schema.SObjectType parentSObjectType) {
     this.validateParams();
 
     Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
@@ -658,12 +658,16 @@ public class Query {
     String selectFieldsString = this.buildSelectFields(fieldMap);
     
     String fromString;
-    Boolean isCustom = this.sObjectType.getDescribe().isCustom();
     String objectName = this.sObjectType.getDescribe().getName();
-    if(isCustom) {
-      fromString = objectName.left(objectName.length() -1) + 'r';
-    } else {
-      fromString = this.generatePluralName(objectName);
+    List<Schema.ChildRelationship> parentChildRelationships = parentSObjectType.getDescribe().getChildRelationships();
+    for(Schema.ChildRelationship relationship : parentChildRelationships) {
+      if(relationship.getChildSObject().getDescribe().getName() == objectName) {
+        fromString = relationship.getRelationshipName();
+        break;
+      }
+    }
+    if(fromString == null) {
+      throw new QueryException('The child object is not related to the parent object');
     }
 
     String query = String.format('SELECT {0} FROM {1}', new List<String>{ selectFieldsString, fromString });
@@ -731,7 +735,7 @@ public class Query {
     }
 
     for(Query child : this.children) {
-      selectFieldsString += ', (' + child.toChildrenSoql() + ')';
+      selectFieldsString += ', (' + child.toChildrenSoql(this.sObjectType) + ')';
     }
 
     return selectFieldsString;
@@ -837,21 +841,5 @@ public class Query {
     }
 
     return whereClauseString;
-  }
-
-  /**
-  * A method to generate a plural name based on the specified object name.
-  *
-  * @param objectName The singular form of the object name
-  * @return The generated plural form of the object name
-  */
-  private String generatePluralName(String objectName) {
-    if (objectName.endsWith('y')) {
-        return objectName.left(objectName.length() - 1) + 'ies'; // ex) "Company" → "Companies"
-    } else if (objectName.endsWith('s') || objectName.endsWith('x') || objectName.endsWith('z')) {
-        return objectName + 'es'; // ex) "Box" → "Boxes"
-    } else {
-        return objectName + 's'; // ex) "Car" → "Cars"
-    }
   }
 }

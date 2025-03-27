@@ -695,10 +695,6 @@ public class Query {
     Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
     if (this.isSelectAll) {
       for (String fieldName : fieldMap.keyset()) {
-        if (this.sObjectType == Opportunity.SObjectType && fieldName == 'iqscore') {
-          // 商談でエラーになる標準項目なのでスキップ
-          continue;
-        }
         if (selectFieldsString == null || selectFieldsString == '') {
           selectFieldsString = fieldName;
         } else {

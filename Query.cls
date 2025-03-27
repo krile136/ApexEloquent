@@ -181,7 +181,7 @@ public class Query {
   */
   public Query orCondition(String field, String operator, Object value) {
     if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
-      throw new QueryException('最初の条件はAND条件で指定してください');
+      throw new QueryException('The first condition must be specified as an AND condition');
     }
     WhereClauseInterface whereClause = WhereClauseFactory.create(this.sObjectType, field, operator, value);
     List<WhereClauseInterface> newWhereClauses = this.orWhereClauses;
@@ -242,7 +242,7 @@ public class Query {
   */
   public Query orCondition(String field, String operator, List<Object> values) {
     if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
-      throw new QueryException('最初の条件はAND条件で指定してください');
+      throw new QueryException('The first condition must be specified as an AND condition');
     }
     if(values.isEmpty()) {
       // Convert to a condition that never hits if an empty list is passed
@@ -301,7 +301,7 @@ public class Query {
   */
   public Query orCondition(Query query) {
     if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
-      throw new QueryException('最初の条件はAND条件で指定してください');
+      throw new QueryException('The first condition must be specified as an AND condition');
     }
     List<Query> newOrQueries = this.orQueries;
     newOrQueries.add(query);

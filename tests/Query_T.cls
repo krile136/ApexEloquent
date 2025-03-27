@@ -14,13 +14,14 @@ public with sharing class Query_T {
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 
     testTitle = '正常系: fieldを複数指定してレコードを取得するクエリを作成できる';
-    List<String> fields = new List<String>{ 'Id', 'Name' };
     System.debug(testTitle);
+    List<String> fields = new List<String>{ 'Id', 'Name' };
     query = (new Query()).source(oppSource).pick(fields).condition('Id', '=', '006000000000000');
     queryString = 'SELECT Id, Name FROM Opportunity WHERE (Id = \'006000000000000\')';
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 
     testTitle = '正常系: 全フィールド取得を指定してレコードを取得するクエリを作成できる';
+    System.debug(testTitle);
     query = (new Query()).source(oppSource).pickAll().condition('Id', '=', '006000000000000');
     queryString = query.toSoql();
     Assert.isTrue(queryString.startsWith('SELECT '), testTitle);
@@ -31,6 +32,19 @@ public with sharing class Query_T {
     Assert.isTrue(queryString.contains('name'), testTitle);
     Assert.isTrue(queryString.contains('closedate'), testTitle);
     Assert.isTrue(queryString.contains('stagename'), testTitle);
+
+    testTitle = '正常系: withChildrenを使用して子レコードを一緒に取得するクエリを作成できる';
+    System.debug(testTitle);
+    Query contactQuery = (new Query()).source(Contact.getSObjectType()).pick('FirstName').isNotNull('Name');
+    Query oppQuery = (new Query()).source(Opportunity.getSObjectType()).pick('Name').isNotNull('Name');
+    query = (new Query())
+      .source(Account.getSObjectType())
+      .pick('Name')
+      .withChildren(contactQuery)
+      .withChildren(oppQuery)
+      .condition('Name', '=', 'testAccount');
+    queryString = 'SELECT Name, (SELECT FirstName FROM Contacts WHERE (Name != NULL)), (SELECT Name FROM Opportunities WHERE (Name != NULL)) FROM Account WHERE (Name = \'testAccount\')';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
 
     testTitle = '正常系: AND条件によるクエリを作成できる';
     System.debug(testTitle);

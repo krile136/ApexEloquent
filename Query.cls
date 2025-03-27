@@ -1,6 +1,7 @@
 public class Query {
   private final Schema.SObjectType sObjectType;
   private final List<String> selectFields;
+  private final List<Query> children;
   private final List<WhereClauseInterface> andWhereClauses;
   private final List<WhereClauseInterface> orWhereClauses;
   private final List<Query> andQueries;
@@ -16,6 +17,7 @@ public class Query {
   public Query() {
     this.sObjectType = null;
     this.selectFields = new List<String>();
+    this.children = new List<Query>();
     this.andWhereClauses = new List<WhereClauseInterface>();
     this.orWhereClauses = new List<WhereClauseInterface>();
     this.andQueries = new List<Query>();
@@ -31,6 +33,7 @@ public class Query {
   public Query(
     Schema.SObjectType sObjectType,
     List<String> selectFields,
+    List<Query> children,
     List<WhereClauseInterface> andWhereClauses,
     List<WhereClauseInterface> orWhereClauses,
     List<Query> andQueries,
@@ -42,6 +45,7 @@ public class Query {
   ) {
     this.sObjectType = sObjectType;
     this.selectFields = selectFields;
+    this.children = children;
     this.andWhereClauses = andWhereClauses;
     this.orWhereClauses = orWhereClauses;
     this.andQueries = andQueries;
@@ -65,6 +69,7 @@ public class Query {
     return new Query(
       sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -89,6 +94,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       newSelectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -113,6 +119,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       newSelectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -133,12 +140,38 @@ public class Query {
     return new Query(
       this.sObjectType,
       new List<String>(),
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
       this.orQueries,
       this.joinClauses,
       true,
+      this.orderByClause,
+      this.limitNumber
+    );
+  }
+
+
+  /**
+  * Add Child query
+  *
+  * @param child: The child query to be added
+  * @return A new Query object with the child query added
+  */
+  public Query withChildren(Query child) {
+    List<Query> newChildren = this.children;
+    newChildren.add(child);
+    return new Query(
+      this.sObjectType,
+      this.selectFields,
+      newChildren,
+      this.andWhereClauses,
+      this.orWhereClauses,
+      this.andQueries,
+      this.orQueries,
+      this.joinClauses,
+      this.isSelectAll,
       this.orderByClause,
       this.limitNumber
     );
@@ -160,6 +193,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       newWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -189,6 +223,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       newWhereClauses,
       this.andQueries,
@@ -220,6 +255,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       newWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -254,6 +290,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       newWhereClauses,
       this.andQueries,
@@ -280,6 +317,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       newAndQueries,
@@ -309,6 +347,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -337,6 +376,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -359,6 +399,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -382,6 +423,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -405,6 +447,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -429,6 +472,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -451,6 +495,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -474,6 +519,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -498,6 +544,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.children,
       this.andWhereClauses,
       this.orWhereClauses,
       this.andQueries,
@@ -576,6 +623,120 @@ public class Query {
   }
 
   // ---------- Concatenate and output the state of the WHERE clause ----------
+
+  // ---------- generate SOQL ----------
+  /**
+  * Generates the SOQL query.
+  *
+  * @return The SOQL query
+  */
+  public String toSoql() {
+    this.validateParams();
+
+    Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
+
+    String selectFieldsString = this.buildSelectFields(fieldMap);
+    String fromString = this.sObjectType.getDescribe().getName();
+
+    String query = String.format('SELECT {0} FROM {1}', new List<String>{ selectFieldsString, fromString });
+    query = this.buildQueryTrail(query, fieldMap);
+
+    System.debug('SOQL: ' + query);
+    return query;
+  }
+
+  /**
+  * Generate the Children SOQL query.
+  *
+  * @return The SOQL query
+  */
+  private String toChildrenSoql() {
+    this.validateParams();
+
+    Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
+
+    String selectFieldsString = this.buildSelectFields(fieldMap);
+    
+    String fromString;
+    Boolean isCustom = this.sObjectType.getDescribe().isCustom();
+    String objectName = this.sObjectType.getDescribe().getName();
+    if(isCustom) {
+      fromString = objectName.left(objectName.length() -1) + 'r';
+    } else {
+      fromString = this.generatePluralName(objectName);
+    }
+
+    String query = String.format('SELECT {0} FROM {1}', new List<String>{ selectFieldsString, fromString });
+    query = this.buildQueryTrail(query, fieldMap);
+
+    return query;
+  }
+
+  /**
+  * A method to construct the portion of a SOQL query following the WHERE clause 
+  * (including WHERE clause, LIMIT clause, and ORDER BY clause).
+  *
+  * @param query The SOQL query string to be constructed
+  * @param fieldMap A mapping of field names to Schema.SObjectField
+  * @return The constructed SOQL query string
+  */
+  private String buildQueryTrail(String query, Map<String, Schema.SObjectField> fieldMap){
+    String whereClause = this.buildWhereClause(fieldMap);
+    if (whereClause != '') {
+      query += ' WHERE ' + whereClause;
+    }
+
+    if(this.limitNumber != null) {
+      query += ' LIMIT ' + this.limitNumber;
+    }
+
+    if(this.orderByClause != null) {
+      query += ' ' + this.orderByClause.build();
+    }
+
+    return query;
+  }
+
+  /**
+  * Validates the parameters.
+  */
+  private void validateParams() {
+    Boolean isSObjectTypeNull = this.sObjectType == null;
+    if (isSObjectTypeNull) {
+      throw new QueryException('source is not set');
+    }
+    if (this.selectFields.isEmpty() && !this.isSelectAll) {
+      throw new QueryException('pick is not set');
+    }
+  }
+
+  /**
+  * A method to construct the SELECT clause of a SOQL query based on the specified field map.
+  *
+  * @param fieldMap A mapping of field names to Schema.SObjectField
+  * @return The constructed SELECT clause as a string
+  */
+  private String buildSelectFields(Map<String, Schema.SObjectField> fieldMap) {
+    String selectFieldsString = '';
+    if (this.isSelectAll) {
+      for (String fieldName : fieldMap.keyset()) {
+        if (selectFieldsString == null || selectFieldsString == '') {
+          selectFieldsString = fieldName;
+        } else {
+          selectFieldsString = selectFieldsString + ', ' + fieldName;
+        }
+      }
+    } else {
+      selectFieldsString = String.join(this.selectFields, ', ');
+    }
+
+    for(Query child : this.children) {
+      selectFieldsString += ', (' + child.toChildrenSoql() + ')';
+    }
+
+    return selectFieldsString;
+  }
+
   /**
   * Constructs the WHERE clause.
   *
@@ -622,6 +783,7 @@ public class Query {
         Query queryWithSource = new Query(
           this.sObjectType,
           query.selectFields,
+          query.children,
           query.andWhereClauses,
           query.orWhereClauses,
           query.andQueries,
@@ -646,6 +808,7 @@ public class Query {
         Query queryWithSource = new Query(
           this.sObjectType,
           query.selectFields,
+          query.children,
           query.andWhereClauses,
           query.orWhereClauses,
           query.andQueries,
@@ -676,51 +839,19 @@ public class Query {
     return whereClauseString;
   }
 
-  // ---------- generate SOQL ----------
   /**
-  * Generates the SOQL query.
+  * A method to generate a plural name based on the specified object name.
   *
-  * @return The SOQL query
+  * @param objectName The singular form of the object name
+  * @return The generated plural form of the object name
   */
-  public String toSoql() {
-    Boolean isSObjectTypeNull = this.sObjectType == null;
-    if (isSObjectTypeNull) {
-      throw new QueryException('source is not set');
-    }
-    if (this.selectFields.isEmpty() && !this.isSelectAll) {
-      throw new QueryException('pick is not set');
-    }
-
-    String selectFieldsString = '';
-    Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
-    if (this.isSelectAll) {
-      for (String fieldName : fieldMap.keyset()) {
-        if (selectFieldsString == null || selectFieldsString == '') {
-          selectFieldsString = fieldName;
-        } else {
-          selectFieldsString = selectFieldsString + ', ' + fieldName;
-        }
-      }
+  private String generatePluralName(String objectName) {
+    if (objectName.endsWith('y')) {
+        return objectName.left(objectName.length() - 1) + 'ies'; // ex) "Company" → "Companies"
+    } else if (objectName.endsWith('s') || objectName.endsWith('x') || objectName.endsWith('z')) {
+        return objectName + 'es'; // ex) "Box" → "Boxes"
     } else {
-      selectFieldsString = String.join(this.selectFields, ', ');
+        return objectName + 's'; // ex) "Car" → "Cars"
     }
-
-    String query = 'SELECT ' + selectFieldsString + ' FROM ' + this.sObjectType.getDescribe().getName();
-
-    String whereClause = this.buildWhereClause(fieldMap);
-    if (whereClause != '') {
-      query += ' WHERE ' + whereClause;
-    }
-
-    if(this.limitNumber != null) {
-      query += ' LIMIT ' + this.limitNumber;
-    }
-
-    if(this.orderByClause != null) {
-      query += ' ' + this.orderByClause.build();
-    }
-
-    System.debug('SOQL: ' + query);
-    return query;
   }
 }

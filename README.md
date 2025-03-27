@@ -199,6 +199,7 @@ List<Id> oppIds = new List<Id>{'006000000000000', '006000000000001'};
 ### join
 
 You can add filtering conditions for another table using subqueries.
+Note: While this example uses the term "join," it refers to SOQL's ability to filter related records using subqueries, which is conceptually similar to SQL joins but implemented differently.
 ```apex
 (new Query())
     .source(Opportunity.getSObjectType())

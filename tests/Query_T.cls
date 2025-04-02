@@ -35,6 +35,17 @@ public with sharing class Query_T {
     Assert.isTrue(queryString.contains('closedate'), testTitle);
     Assert.isTrue(queryString.contains('stagename'), testTitle);
 
+    testTitle = '正常系: withParentを使用して親レコードを一緒に取得するクエリを作成できる';
+    System.debug(testTitle);
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .withParent(new ParentClause('OwnerId', new List<String>{ 'Name', 'Id' }))
+      .withParent(new ParentClause('LastModifiedById', 'Name'))
+      .condition('Name', '=', 'testAccount');
+    queryString = 'SELECT Id, Owner.Name, Owner.Id, LastModifiedBy.Name FROM Opportunity WHERE (Name = \'testOpportunity\')';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
     testTitle = '正常系: withChildrenを使用して子レコードを一緒に取得するクエリを作成できる';
     System.debug(testTitle);
     Query contactQuery = (new Query()).source(Contact.getSObjectType()).pick('FirstName').isNotNull('Name');

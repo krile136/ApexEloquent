@@ -1,6 +1,7 @@
 public class Query {
   private final Schema.SObjectType sObjectType;
   private final List<String> selectFields;
+  private final List<ParentClause> parents;
   private final List<Query> children;
   private final List<WhereClauseInterface> andWhereClauses;
   private final List<WhereClauseInterface> orWhereClauses;
@@ -17,6 +18,7 @@ public class Query {
   public Query() {
     this.sObjectType = null;
     this.selectFields = new List<String>();
+    this.parents = new List<ParentClause>();
     this.children = new List<Query>();
     this.andWhereClauses = new List<WhereClauseInterface>();
     this.orWhereClauses = new List<WhereClauseInterface>();
@@ -33,6 +35,7 @@ public class Query {
   public Query(
     Schema.SObjectType sObjectType,
     List<String> selectFields,
+    List<ParentClause> parents,
     List<Query> children,
     List<WhereClauseInterface> andWhereClauses,
     List<WhereClauseInterface> orWhereClauses,
@@ -45,6 +48,7 @@ public class Query {
   ) {
     this.sObjectType = sObjectType;
     this.selectFields = selectFields;
+    this.parents = parents;
     this.children = children;
     this.andWhereClauses = andWhereClauses;
     this.orWhereClauses = orWhereClauses;
@@ -69,6 +73,7 @@ public class Query {
     return new Query(
       sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -94,6 +99,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       newSelectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -119,6 +125,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       newSelectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -140,6 +147,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       new List<String>(),
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -152,6 +160,24 @@ public class Query {
     );
   }
 
+  public Query withParent(ParentClause parent) {
+    List<ParentClause> newParents = this.parents;
+    newParents.add(parent);
+    return new Query(
+      this.sObjectType,
+      this.selectFields,
+      newParents,
+      this.children,
+      this.andWhereClauses,
+      this.orWhereClauses,
+      this.andQueries,
+      this.orQueries,
+      this.joinClauses,
+      this.isSelectAll,
+      this.orderByClause,
+      this.limitNumber
+    );
+  }
 
   /**
   * Add Child query
@@ -165,6 +191,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       newChildren,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -193,6 +220,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       newWhereClauses,
       this.orWhereClauses,
@@ -223,6 +251,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       newWhereClauses,
@@ -255,6 +284,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       newWhereClauses,
       this.orWhereClauses,
@@ -290,6 +320,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       newWhereClauses,
@@ -317,6 +348,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -347,6 +379,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -376,6 +409,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -399,6 +433,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -423,6 +458,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -447,6 +483,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -472,6 +509,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -495,6 +533,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -519,6 +558,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -544,6 +584,7 @@ public class Query {
     return new Query(
       this.sObjectType,
       this.selectFields,
+      this.parents,
       this.children,
       this.andWhereClauses,
       this.orWhereClauses,
@@ -722,6 +763,8 @@ public class Query {
   */
   private String buildSelectFields(Map<String, Schema.SObjectField> fieldMap) {
     String selectFieldsString = '';
+    
+    // add select fields
     if (this.isSelectAll) {
       for (String fieldName : fieldMap.keyset()) {
         if (selectFieldsString == null || selectFieldsString == '') {
@@ -734,6 +777,16 @@ public class Query {
       selectFieldsString = String.join(this.selectFields, ', ');
     }
 
+    // Add parent queries
+    List<String> parentFields = new List<String>();
+    for(ParentClause parent : this.parents) {
+      parentFields.add(parent.build(fieldMap));
+    }
+    if(!parentFields.isEmpty()) {
+      selectFieldsString += ', ' + String.join(parentFields, ', ');
+    }
+
+    // Add child queries
     for(Query child : this.children) {
       selectFieldsString += ', (' + child.toChildrenSoql(this.sObjectType) + ')';
     }
@@ -787,6 +840,7 @@ public class Query {
         Query queryWithSource = new Query(
           this.sObjectType,
           query.selectFields,
+          query.parents,
           query.children,
           query.andWhereClauses,
           query.orWhereClauses,
@@ -812,6 +866,7 @@ public class Query {
         Query queryWithSource = new Query(
           this.sObjectType,
           query.selectFields,
+          query.parents,
           query.children,
           query.andWhereClauses,
           query.orWhereClauses,

@@ -1,6 +1,8 @@
 @isTest(seeAllData=false)
 public with sharing class Query_T {
-  public static testMethod void testQuery() {
+
+  @isTest(seeAllData=false)
+  public static void testQuery() {
     String testTitle;
     Query query;
     String queryString;
@@ -65,6 +67,17 @@ public with sharing class Query_T {
       .condition('Name', '=', 'Test')
       .condition('Id', 'IN', ids);
     queryString = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\' AND Id IN (\'006000000000000\', \'006000000000001\'))';
+    Assert.areEqual(queryString, query.toSoql(), testTitle);
+
+    testTitle = '正常系: AND条件の配列のなかにnullを含む場合、nullにシングルクォーテーションは含まれない';
+    System.debug(testTitle);
+    ids = new List<String>{ '006000000000000', null };
+    query = (new Query())
+      .source(oppSource)
+      .pick('Id')
+      .condition('Name', '=', 'Test')
+      .condition('Id', 'IN', ids);
+    queryString = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\' AND Id IN (\'006000000000000\', null))';
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 
     testTitle = '正常系: AND条件に配列を使用してクエリを作成できるが、配列が空の場合はヒットしない条件が追加される';

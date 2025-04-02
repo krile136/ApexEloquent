@@ -26,7 +26,8 @@ public with sharing class ListWhereClause  extends AbstractWhereClause {
     List<String> castedValues = new List<String>();
     for (Object value : this.values) {
       String valueString = this.formatAndCastToString(value);
-      if (valueString == 'NULL') {
+      String upperValueString = valueString.toUpperCase();
+      if (upperValueString == 'NULL') {
         castedValues.add(valueString);
         continue;
       }

@@ -25,13 +25,11 @@ public with sharing class ListWhereClause  extends AbstractWhereClause {
 
     List<String> castedValues = new List<String>();
     for (Object value : this.values) {
-      String valueString = this.formatAndCastToString(value);
-      String upperValueString = valueString.toUpperCase();
-      if (upperValueString == 'NULL') {
-        castedValues.add(valueString);
+      if(value == null) {
+        castedValues.add('NULL');
         continue;
       }
-
+      String valueString = this.formatAndCastToString(value);
       if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
         castedValues.add('\'' + valueString + '\'');
       } else {

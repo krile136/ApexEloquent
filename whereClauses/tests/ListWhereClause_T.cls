@@ -1,6 +1,7 @@
 @isTest(seeAllData=false)
 public with sharing class ListWhereClause_T {
-  public static testMethod void testBuild() {
+  @isTest(seeAllData=false)
+  public static void testBuild() {
     String testtitle;
     WhereClauseInterface whereClause;
     String build;

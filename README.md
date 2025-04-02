@@ -172,6 +172,33 @@ List<String> fields = new List<String>{Name, CloseDate};
 (new Query()).pick('Id').pick(fields);
 ```
 
+### withParent
+
+Add relation(parent) to SELECT clause.
+The relation name is automatically determined from the relation field name, so there is no need to look it up.
+```apex
+(new Query())
+    .source(Opportunity.getSObjectType())
+    .pick('Id')
+    .withParent(new ParentClause('OwnerId', new List<String>{ 'Id', 'Name' });
+// SELECT Id, Owner.Id, Owner.Name FROM Opportunity
+```
+
+### withChildren
+Add Relation(children) to SELECT clause.
+Plural or child object names with `__r` are automatically generated from source, so you don't need to look them up.
+```apex
+(new Query())
+    .source(Account.getSObjectType())
+    .pick('Id')
+    .withChildren((new Query())
+        .source(Opportunity.getSObjectType())
+        .pick('Name')
+        .isNotNull('Name')
+    );
+// SELECT Id, (SELECT Name From Opportunities WHERE (Name != NULL))
+```
+
 ### condition
 
 Specify the `WHERE` clause in SOQL

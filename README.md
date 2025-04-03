@@ -76,6 +76,21 @@ Opportunity have only one dependency of Account, but if class needs object that 
 
 The Repository pattern frees you from these dependencies and makes it easier to write tests.
 
+What's even better about Apex Eloquent is that the tests take less time to run.
+|ms|Using SOQL directly Test|Using Apex Eloquent Test|
+|:---:|:---:|:---:|
+|1|296|66|
+|2|225|71|
+|3|345|58|
+|4|333|63|
+|5|238|64|
+
+This comparison is due to freshly created environments.
+
+In a real project, the difference in execution time will likely be even larger due to triggers and other factors.
+
+By writing test classes using Apex Eloquent, you can speed up the logic validation cycle.
+
 # Methods
 
 ## Query Class

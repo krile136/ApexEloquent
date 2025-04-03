@@ -32,6 +32,7 @@ Opportunity opp = [SELECT ID, Name From Opportunity WHERE ID = :oppId AND ......
     1. When using strings, you need to manipulate the string, making it hard to generalize and cumbersome to modify conditions.
     1. When writing queries directly, this is not possible.
 1. Writing queries as strings does not allow IDE autocomplete for variables.
+2. `FIELDS(ALL)` as `SELECT *` cannot be used in Apex
 1. In both methods, variables cannot be used in the SELECT clause.
 1. Writing test classes always requires database dependencies, meaning test data must be inserted.
     1. As the number of test target classes increases, test execution time becomes longer.

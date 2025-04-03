@@ -60,7 +60,9 @@ One that issues SOQL directly, and one that uses Apex Eloquent.
 |:---:|:---:|
 |<img width="658" alt="スクリーンショット 2025-04-03 23 16 07" src="https://github.com/user-attachments/assets/726c27ee-976c-4557-85d6-ff4ab530e189" />|<img width="732" alt="スクリーンショット 2025-04-03 23 16 24" src="https://github.com/user-attachments/assets/14b59600-a53d-4517-af50-a510746e0260" />|
 
-This increases the amount of description and makes it easier to read when the query becomes somewhat complex.
+# Writting test
+
+In `Usage example`, Apex Eloquent increases the amount of description and makes it easier to read when the query becomes somewhat complex.
 
 However, the real power of Apex Eloquent is in test classes.
 
@@ -76,6 +78,7 @@ Opportunity have only one dependency of Account, but if class needs object that 
 
 The Repository pattern frees you from these dependencies and makes it easier to write tests.
 
+# Testing Cycle
 What's even better about Apex Eloquent is that the tests take less time to run.
 |ms|Using SOQL directly Test|Using Apex Eloquent Test|
 |:---:|:---:|:---:|
@@ -87,7 +90,7 @@ What's even better about Apex Eloquent is that the tests take less time to run.
 
 This comparison is due to freshly created environments.
 
-In a real project, the difference in execution time will likely be even larger due to triggers and other factors.
+In a real project, the difference in execution time will likely be even larger due to dependencies, triggers and other factors.
 
 By writing test classes using Apex Eloquent, you can speed up the logic validation cycle.
 

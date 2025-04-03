@@ -11,6 +11,13 @@ This brings the following advantages:
 
 - **Improved type safety**: Enables IDE autocomplete for variables.
 
+# What's the difference from other SOQL builder ?
+What differentiates Apex Eloquent from other SOQL builder is using `Repository pattern`.
+
+The repository pattern brings testability to your projects.
+
+Furthermore, Apex Eloquent has Mock Repository as standard, so you don't need to prepare a Mock class.
+
 # Issues with Database Operations in Apex
 
 ### Writing Queries in Apex
@@ -39,34 +46,6 @@ Opportunity opp = [SELECT ID, Name From Opportunity WHERE ID = :oppId AND ......
 
 Apex Eloquent solves all these issues.
 
-
-# Demo
-
-SOQL
-```
-SELECT Id, Name FROM Opportunity WHERE (Id IN (\'006000000000000\', \'006000000000001\')) AND ((Name = \'Test\' AND CloseDate <= 2024-12-31)) AND (AccountId IN (SELECT Id FROM Account WHERE (Name = \'TestAccount\')))
-```
-
-Apex Eloquent
-```Apex
-Schema.SObjectType oppSource = Opportunity.getSObjectType();
-List<String> fields = new List<String>{ 'Id', 'Name' };
-List<Id> ids = new List<Id>{ '006000000000000', '006000000000001' };
-
-query = (new Query())
-    .pick(fields)
-    .source(oppSource)
-    .condition('Id', 'IN', ids)
-    .condition((new Query())
-        .condition('Name', '=', 'Test')
-        .condition('CloseDate', '<=', Date.newInstance(2024, 12, 31))
-    )
-    .join('AccountId', 'IN', (new Query())
-        .source(accountSource)
-        .pick('Id')
-        .condition('Name', '=', 'TestAccount')
-    );
-```
 
 # Installation 
 

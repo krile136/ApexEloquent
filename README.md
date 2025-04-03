@@ -70,9 +70,9 @@ However, the real power of Apex Eloquent is in test classes.
 |:---:|:---:|
 |<img width="644" alt="スクリーンショット 2025-04-03 23 32 24" src="https://github.com/user-attachments/assets/667f40d7-6dd3-4992-9385-95e4cb926179" />|<img width="860" alt="スクリーンショット 2025-04-03 23 32 08" src="https://github.com/user-attachments/assets/54edf8c7-ba84-460c-bb81-36d8f31b4324" />|
 
-Both tests are passed, but using SOQL Directory test needs inserting test data to database.
+Both tests are passed, but using SOQL Directly test needs inserting test data to database.
 
-But, Using Apex Eloquent Test does not need inserting test data, only create test target object.
+Using Apex Eloquent Test does not need inserting test data, only create test target object.
 
 Opportunity have only one dependency of Account, but if class needs object that have complex dependency, writting test class will become penance.
 

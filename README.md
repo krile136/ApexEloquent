@@ -54,84 +54,27 @@ Use `git submodule` to add Apex Eloquent to your Salesforce project.
 Test classes are written to meet the 75% code coverage requirement using standard fields of standard objects, so deployment should work without modifications. However, if tests fail, please maintain the test classes accordingly.
 
 # Usage
+Here are two patterns for the class that updates opportunity.
+One that issues SOQL directly, and one that uses Apex Eloquent.
+|Using SOQL directly|Using Apex Eloquent|
+|:---:|:---:|
+|<img width="658" alt="スクリーンショット 2025-04-03 23 16 07" src="https://github.com/user-attachments/assets/726c27ee-976c-4557-85d6-ff4ab530e189" />|<img width="732" alt="スクリーンショット 2025-04-03 23 16 24" src="https://github.com/user-attachments/assets/14b59600-a53d-4517-af50-a510746e0260" />|
 
-## Existing Implementation
+This increases the amount of description and makes it easier to read when the query becomes somewhat complex.
 
-Consider the following class that retrieves and updates an Opportunity record:
-```apex
-public with sharing class OppUpdater {
-  private final Id oppId;
+However, the real power of Apex Eloquent is in test classes.
 
-  public OppUpdater(Id oppId) {
-    this.oppId = oppId;
-  }
+|Using SOQL directly Test|Using Apex Eloquent Test|
+|:---:|:---:|
+|<img width="644" alt="スクリーンショット 2025-04-03 23 32 24" src="https://github.com/user-attachments/assets/667f40d7-6dd3-4992-9385-95e4cb926179" />|<img width="860" alt="スクリーンショット 2025-04-03 23 32 08" src="https://github.com/user-attachments/assets/54edf8c7-ba84-460c-bb81-36d8f31b4324" />|
 
-  public Opportunity execute(){
-    Opportunity opp = [SELECT ID, ....... FROM Opportunity WHERE ID = :this.oppId];
+Both tests are passed, but using SOQL Directory test needs inserting test data to database.
 
-    // Some update processing 
+But, Using Apex Eloquent Test does not need inserting test data, only create test target object.
 
-    update opp;
-    
-    return opp;
-  }
-}
-```
+Opportunity have only one dependency of Account, but if class needs object that have complex dependency, writting test class will become penance.
 
-## Converting to the Apex Eloquent Pattern
-
-When converted to the Apex Eloquent Pattern, the implementation looks like this:
-```apex
-public with sharing class OppUpdater {
-  private final Id oppId;
-  private final RepositoryInterface oppRepo;
-
-  public OppUpdater(Id oppId, RepositoryInterface oppRepo) {
-    this.oppId = oppId;
-    this.oppRepo = oppRepo ?? new Repository();
-  }
-
-  public Opportunity execute(){
-    List<String> selectFields = new List<String>{'ID', .........};
-    Schema.SObjectType oppSource = Opportunity.getSObjectType();
-    Query query = (new Query())
-      .pick(selectFields)
-      .source(oppSource)
-      .find(this.oppId)
-    Opportunity opp = (Opportunity) this.oppRepo.first(query);
-
-    // some update processing 
-
-    opp = this.oppRepo.doUpdate(opp);
-
-    return opp;
-  }
-}
-```
-
-## Writting Test Class
-
-By Using `RepositoryInterface`, you can verify the logic without interacting with the database.
-```apex
-@isTest(seeAllData=false)
-public with sharing class OppUpdater_T {
-  public static testMethod void testUpdate() {
-    // Prepare a mock Opportunity and mock repository
-    Opportunity mockOpp = new Opportunity();
-    MockRepository mockRepo = new MockRepository(mockOpp);
-
-    // By injecting the mock repository into OppUpdater’s constructor,
-    // the retrieved Opportunity in the execute method is replaced with mockOpp
-    Id dummyId = '006000000000000';
-    OppUpdater updater = new OppUpdater(dummyId, MockRepo);
-    Opportunity UpdatedOpp = updater.execute();
-
-    // Assert the update processing logic inside OppUpdater
-    Assert.areEqual(.......);
-    Assert.areEqual(.......);
-  }
-}
-```
+The Repository pattern frees you from these dependencies and makes it easier to write tests.
 
 # Methods
 

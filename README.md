@@ -58,7 +58,7 @@ Here are two patterns for the class that updates opportunity.
 One that issues SOQL directly, and one that uses Apex Eloquent.
 |Using SOQL directly|Using Apex Eloquent|
 |:---:|:---:|
-|<img width="658" alt="スクリーンショット 2025-04-03 23 16 07" src="https://github.com/user-attachments/assets/726c27ee-976c-4557-85d6-ff4ab530e189" />|<img width="732" alt="スクリーンショット 2025-04-03 23 16 24" src="https://github.com/user-attachments/assets/14b59600-a53d-4517-af50-a510746e0260" />|
+|<img width="658" alt="direct_SOQL_demo" src="./images/direct_SOQL_demo.png" />|<img width="732" alt="Apex_Eloquent_demo" src="./images/Apex_Eloquent_demo.png" />|
 
 # Writting test
 
@@ -68,7 +68,7 @@ However, the real power of Apex Eloquent is in test classes.
 
 |Using SOQL directly Test|Using Apex Eloquent Test|
 |:---:|:---:|
-|<img width="644" alt="スクリーンショット 2025-04-03 23 32 24" src="https://github.com/user-attachments/assets/667f40d7-6dd3-4992-9385-95e4cb926179" />|<img width="860" alt="スクリーンショット 2025-04-03 23 32 08" src="https://github.com/user-attachments/assets/54edf8c7-ba84-460c-bb81-36d8f31b4324" />|
+|<img width="644" alt="direct_SOQL_test" src="./images/direct_SOQL_test.png" />|<img width="860" alt="Apex_Eloquent_Test" src="./images/Apex_Eloquent_Test.png" />|
 
 Both tests are passed, but using SOQL Directly test needs inserting test data to database.
 

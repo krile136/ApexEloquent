@@ -87,7 +87,7 @@ public with sharing abstract class AbstractWhereClause implements WhereClauseInt
         String.valueOf(datetimeValue.second()).leftPad(2, '0') +
         'Z';
     }
-    return String.valueOf(value);
+    return String.escapeSingleQuotes(String.valueOf(value));
   }
 
 }

@@ -26,6 +26,7 @@ public class Query {
     this.orQueries = new List<Query>();
     this.joinClauses = new List<WhereClauseInterface>();
     this.isSelectAll = false;
+    this.orderByClause = null;
     this.limitNumber = null;
   }
 

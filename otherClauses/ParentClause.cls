@@ -2,11 +2,23 @@ public with sharing class ParentClause {
   private String relationFieldName;
   private List<String> parentFields;
 
+  /**
+  * constroctor with one parent field name
+  *
+  * @param relationFieldName The name of the relationship Field
+  * @param parentFieldName The name of the parent field
+  */
   public ParentClause(String relationFieldName, String parentFieldName) {
     this.relationFieldName = relationFieldName;
     this.parentFields = new List<String>{parentFieldName};
   }
 
+  /**
+  * constroctor with multiple parent field names
+  *
+  * @param relationFieldName The name of the relationship Field
+  * @param parentFields The names of the parent fields
+  */
   public ParentClause(String relationFieldName, List<String> parentFields) {
     this.relationFieldName = relationFieldName;
     this.parentFields = parentFields;
@@ -47,7 +59,7 @@ public with sharing class ParentClause {
     List<String> parentFieldNames = new List<String>();
     for(String parentFieldName : this.parentFields) {
       String parentRelationName = relationName + '.' + parentFieldName;
-      parentFieldNames.add(parentRelationName);
+      parentFieldNames.add(String.escapeSingleQuotes(parentRelationName));
     }
     return String.join(parentFieldNames, ', ');
   }

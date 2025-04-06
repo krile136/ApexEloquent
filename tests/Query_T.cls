@@ -15,7 +15,7 @@ public with sharing class Query_T {
     queryString = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\')';
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 
-    testTitle = '正常系: fieldを複数指定してレコードを取得するクエリを作成できる';
+    testTitle = '正常系: fieldを複数指定してレコードを取得するクエリを作成できる';                                                                                                 
     System.debug(testTitle);
     List<String> fields = new List<String>{ 'Id', 'Name' };
     query = (new Query()).source(oppSource).pick(fields).condition('Id', '=', '006000000000000');
@@ -42,7 +42,7 @@ public with sharing class Query_T {
       .pick('Id')
       .withParent(new ParentClause('OwnerId', new List<String>{ 'Name', 'Id' }))
       .withParent(new ParentClause('LastModifiedById', 'Name'))
-      .condition('Name', '=', 'testAccount');
+      .condition('Name', '=', 'testOpportunity');
     queryString = 'SELECT Id, Owner.Name, Owner.Id, LastModifiedBy.Name FROM Opportunity WHERE (Name = \'testOpportunity\')';
     Assert.areEqual(queryString, query.toSoql(), testTitle);
 

@@ -74,18 +74,24 @@ public with sharing abstract class AbstractWhereClause implements WhereClauseInt
     }
     if (value instanceof Datetime) {
       Datetime datetimeValue = (Datetime) value;
-      return datetimeValue.year() +
-        '-' +
-        String.valueOf(datetimeValue.month()).leftPad(2, '0') +
-        '-' +
-        String.valueOf(datetimeValue.day()).leftPad(2, '0') +
-        'T' +
-        String.valueOf(datetimeValue.hour()).leftPad(2, '0') +
-        ':' +
-        String.valueOf(datetimeValue.minute()).leftPad(2, '0') +
-        ':' +
-        String.valueOf(datetimeValue.second()).leftPad(2, '0') +
-        'Z';
+      // Get the timezone offset in milliseconds
+      Integer offsetMillis = UserInfo.getTimeZone().getOffset(datetimeValue);
+      // Convert offset to hours
+      Integer offsetHours = offsetMillis / (1000 * 60 * 60);
+      // Adjust the datetime by subtracting the offset
+      Datetime adjustedDatetime = datetimeValue.addHours(-offsetHours);
+      return adjustedDatetime.year() +
+          '-' +
+          String.valueOf(adjustedDatetime.month()).leftPad(2, '0') +
+          '-' +
+          String.valueOf(adjustedDatetime.day()).leftPad(2, '0') +
+          'T' +
+          String.valueOf(adjustedDatetime.hour()).leftPad(2, '0') +
+          ':' +
+          String.valueOf(adjustedDatetime.minute()).leftPad(2, '0') +
+          ':' +
+          String.valueOf(adjustedDatetime.second()).leftPad(2, '0') +
+          'Z';
     }
     return String.escapeSingleQuotes(String.valueOf(value));
   }

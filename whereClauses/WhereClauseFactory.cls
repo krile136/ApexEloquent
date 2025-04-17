@@ -1,5 +1,8 @@
 public with sharing class WhereClauseFactory {
   public static WhereClauseInterface create(Schema.SObjectType sObjectType, String field, String operator, Object value) {
+    if(value instanceof Set<Id>) {
+      return new ListWhereClause(sObjectType, null, field, operator, new List<Id>((Set<Id>) value));
+    }
     if (value instanceof Query) {
       return new SubQueryWhereClause(sObjectType, null, field, operator, (Query) value);
     }

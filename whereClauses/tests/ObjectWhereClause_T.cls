@@ -29,10 +29,26 @@ public with sharing class ObjectWhereClause_T {
 
     testTitle = '正常系: Where句が組み立てられる(DateTimeがキャストされる)';
     Schema.SObjectType contactSource = Contact.getSObjectType();
+    Datetime dt = DateTime.newInstance(2024, 4, 1, 12, 34, 56);
     Map<String, Schema.SObjectField> contactFieldMap = contactSource.getDescribe().fields.getMap();
-    whereClause = new ObjectWhereClause(contactSource, contactFieldMap, 'LastCURequestDate', '=', DateTime.newInstance(2024, 4, 1, 12, 34, 56));
+    whereClause = new ObjectWhereClause(contactSource, contactFieldMap, 'LastCURequestDate', '=', dt);
     build = whereClause.build();
-    expected = 'LastCURequestDate = 2024-04-01T12:34:56Z';
+    Integer offsetMillis = UserInfo.getTimeZone().getOffset(dt);
+    Integer offsetHours = offsetMillis / (1000 * 60 * 60);
+    Datetime adjustedDatetime = dt.addHours(-offsetHours);
+    expected = 'LastCURequestDate = ' +
+          adjustedDatetime.year() +
+          '-' +
+          String.valueOf(adjustedDatetime.month()).leftPad(2, '0') +
+          '-' +
+          String.valueOf(adjustedDatetime.day()).leftPad(2, '0') +
+          'T' +
+          String.valueOf(adjustedDatetime.hour()).leftPad(2, '0') +
+          ':' +
+          String.valueOf(adjustedDatetime.minute()).leftPad(2, '0') +
+          ':' +
+          String.valueOf(adjustedDatetime.second()).leftPad(2, '0') +
+          'Z';
     System.assertEquals(expected, build, testTitle);
 
     testTitle = '異常系: SOQLインジェクションに対応できている';

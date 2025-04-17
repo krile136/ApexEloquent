@@ -49,9 +49,48 @@ Apex Eloquent solves all these issues.
 
 # Installation 
 
-Use `git submodule` to add Apex Eloquent to your Salesforce project.
+## 1. Prepare install tool
+Using `Make` for installing Apex Eloquent to your project.
+If you have already install `Make`, below command show make version.
+Make version is not shown, you have to install Make.
+```
+$ make -v
+GNU Make 4.3
+.....
+```
+
+## 2. Get Apex Eloquent
+Pull ApexEloquent using `git submodule` command.
+```
+$ cd force-app/main/default/classes
+
+$ git submodule add https://github.com/krile136/ApexEloquent.git ApexEloquent
+```
+
+## 3. Deploy to your org
+Deploy ApexEloquent using `make deply` command.
+```
+make deploy
+```
 
 Test classes are written to meet the 75% code coverage requirement using standard fields of standard objects, so deployment should work without modifications. However, if tests fail, please maintain the test classes accordingly.
+
+# Update ApexEloquent
+
+## 1. Update code
+Execute below command in your project root directory.
+```
+git submodule update
+```
+
+## 2. Run Redeploy
+Delete old classes, and deploy new classes.
+```
+$ cd force-app/main/default/classes/ApexEloquent
+
+$ make redeploy
+```
+
 
 # Usage
 Here are two patterns for the class that updates opportunity.

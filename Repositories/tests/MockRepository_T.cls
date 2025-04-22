@@ -1,104 +1,184 @@
 @isTest(seeAllData=false)
-public with sharing class MockRepository_T {
-  public static testMethod void testMockDML() {
-    String testTitle;
-    Query query;
-    RepositoryInterface repository;
+private class MockRepository_T {
+  @isTest
+  static void testFirstMethod() {
+    // Arrange
+    Opportunity mockOpp = new Opportunity(Id = '006000000000009');
+    RepositoryInterface repository = new MockRepository(mockOpp);
+    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
 
-    Opportunity mockOpp;
-    Opportunity opp;
+    // Act
+    Opportunity opp = (Opportunity) repository.first(query);
 
-    testTitle = '正常系: firstメソッドの取得結果がMockで指定したものに変わる';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
-    mockOpp.Id = '006000000000009';
-    repository = new MockRepository(mockOpp);
-    query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
-    opp = (Opportunity) repository.first(query);
-    Assert.areEqual(mockOpp.Id, opp.Id, testTitle);
+    // Assert
+    Assert.areEqual(mockOpp.Id, opp.Id);
+  }
 
-    testTitle = '正常系: firstOrFailメソッドの取得結果がMockで指定したものに変わる';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
-    mockOpp.Id = '006000000000009';
-    repository = new MockRepository(mockOpp);
-    query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
-    opp = (Opportunity) repository.firstOrFail(query);
-    Assert.areEqual(mockOpp.Id, opp.Id, testTitle);
+  @isTest
+  static void testFirstAsEvaluatorMethod() {
+    // Arrange
+    Opportunity mockOpp = new Opportunity(Name = 'TestOpp');
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'MockOpp' };
+    MockEvaluator mockEvaluator = new MockEvaluator(mockOpp, fieldToValue);
+    RepositoryInterface repository = new MockRepository(mockEvaluator);
+    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
 
-    testTitle = '正常系: getメソッドの取得結果がMockで指定したものに変わる';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
-    mockOpp.Id = '006000000000009';
-    repository = new MockRepository(new List<SObject>{ mockOpp });
-    query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+    // Act
+    EvaluatorInterface evaluator = repository.firstAsEvaluator(query);
+
+    // Assert
+    Assert.areEqual('MockOpp', evaluator.get('Name'));
+  }
+
+  @isTest
+  static void testFirstOrFailMethod() {
+    // Arrange
+    Opportunity mockOpp = new Opportunity(Id = '006000000000009');
+    RepositoryInterface repository = new MockRepository(mockOpp);
+    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+
+    // Act
+    Opportunity opp = (Opportunity) repository.firstOrFail(query);
+
+    // Assert
+    Assert.areEqual(mockOpp.Id, opp.Id);
+  }
+
+  @isTest
+  static void testFirstOrFailAsEvaluatorMethod() {
+    // Arrange
+    Opportunity mockOpp = new Opportunity(Name = 'TestOpp');
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'MockOpp' };
+    MockEvaluator mockEvaluator = new MockEvaluator(mockOpp, fieldToValue);
+    RepositoryInterface repository = new MockRepository(mockEvaluator);
+    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+
+    // Act
+    EvaluatorInterface evaluator = repository.firstOrFailAsEvaluator(query);
+
+    // Assert
+    Assert.areEqual('MockOpp', evaluator.get('Name'));
+  }
+
+  @isTest
+  static void testGetMethod() {
+    // Arrange
+    Opportunity mockOpp = new Opportunity(Id = '006000000000009');
+    RepositoryInterface repository = new MockRepository(new List<SObject>{ mockOpp });
+    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+
+    // Act
     List<Opportunity> opps = (List<Opportunity>) repository.get(query);
-    Assert.areEqual(1, opps.size(), testTitle);
-    Assert.areEqual(mockOpp.Id, opps[0].Id, testTitle);
 
-    testTitle = '正常系: getメソッドの取得結果がMockで指定したものに変わる';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
-    mockOpp.Id = '006000000000009';
-    repository = new MockRepository(new List<SObject>{ mockOpp });
-    query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
-    opps = (List<Opportunity>) repository.getOrFail(query);
-    Assert.areEqual(1, opps.size(), testTitle);
-    Assert.areEqual(mockOpp.Id, opps[0].Id, testTitle);
+    // Assert
+    Assert.areEqual(1, opps.size());
+    Assert.areEqual(mockOpp.Id, opps[0].Id);
+  }
 
-    testTitle = '正常系: MockでもInsertすることができ、架空のIDがセットされる（レコードを一つ挿入）';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
-    repository = new MockRepository();
+  @isTest
+  static void testGetAsEvaluatorsMethod() {
+    // Arrange
+    Opportunity mockOpp1 = new Opportunity(Name = 'TestOpp1');
+    Map<String, Object> fieldToValue1 = new Map<String, Object>{ 'Name' => 'MockOpp1' };
+    MockEvaluator mockEvaluator1 = new MockEvaluator(mockOpp1, fieldToValue1);
+    Opportunity mockOpp2 = new Opportunity(Name = 'TestOpp2');
+    Map<String, Object> fieldToValue2 = new Map<String, Object>{ 'Name' => 'MockOpp2' };
+    MockEvaluator mockEvaluator2 = new MockEvaluator(mockOpp2, fieldToValue2);
+    RepositoryInterface repository = new MockRepository(new List<EvaluatorInterface>{ mockEvaluator1, mockEvaluator2 });
+    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+
+    // Act
+    List<EvaluatorInterface> evaluators = repository.getAsEvaluators(query);
+
+    // Assert
+    Assert.areEqual(2, evaluators.size());
+    Assert.areEqual('MockOpp1', evaluators[0].get('Name'));
+    Assert.areEqual('MockOpp2', evaluators[1].get('Name'));
+  }
+
+  @isTest
+  static void testInsertSingleRecord() {
+    // Arrange
+    Opportunity mockOpp = new Opportunity();
+    RepositoryInterface repository = new MockRepository();
+
+    // Act
     Opportunity insertedOpp = (Opportunity) repository.doInsert(mockOpp);
-    Assert.areEqual('006000000000000', insertedOpp.Id, testTitle);
 
-    testTitle = '正常系: MockでもInsertすることができ、架空のIDがセットされる（レコードを複数挿入）';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
+    // Assert
+    Assert.areEqual('006000000000000', insertedOpp.Id);
+  }
+
+  @isTest
+  static void testInsertMultipleRecords() {
+    // Arrange
+    Opportunity mockOpp1 = new Opportunity();
     Opportunity mockOpp2 = new Opportunity();
-    List<Opportunity> mockOpps = new List<Opportunity>{ mockOpp, mockOpp2 };
-    repository = new MockRepository();
+    List<Opportunity> mockOpps = new List<Opportunity>{ mockOpp1, mockOpp2 };
+    RepositoryInterface repository = new MockRepository();
+
+    // Act
     List<Opportunity> insertedOpps = (List<Opportunity>) repository.doInsert(mockOpps);
-    Assert.areEqual('006000000000000', insertedOpps[0].Id, testTitle);
-    Assert.areEqual('006000000000001', insertedOpps[1].Id, testTitle);
 
-    testTitle = '正常系: MockでもUpdateすることができ、引数のレコードがそのまま返る(レコードを一つ更新)';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
-    mockOpp.Id = '006000000000009';
-    repository = new MockRepository();
+    // Assert
+    Assert.areEqual('006000000000000', insertedOpps[0].Id);
+    Assert.areEqual('006000000000001', insertedOpps[1].Id);
+  }
+
+  @isTest
+  static void testUpdateSingleRecord() {
+    // Arrange
+    Opportunity mockOpp = new Opportunity(Id = '006000000000009');
+    RepositoryInterface repository = new MockRepository();
+
+    // Act
     Opportunity updatedOpp = (Opportunity) repository.doUpdate(mockOpp);
-    Assert.areEqual(mockOpp.Id, updatedOpp.Id, testTitle);
 
-    testTitle = '正常系: MockでもUpdateすることができ、引数のレコードがそのまま返る(レコードを複数更新)';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
-    mockOpp.Id = '006000000000009';
-    mockOpp2 = new Opportunity();
-    mockOpp2.Id = '006000000000010';
-    mockOpps = new List<Opportunity>{ mockOpp, mockOpp2 };
-    repository = new MockRepository();
+    // Assert
+    Assert.areEqual(mockOpp.Id, updatedOpp.Id);
+  }
+
+  @isTest
+  static void testUpdateMultipleRecords() {
+    // Arrange
+    Opportunity mockOpp1 = new Opportunity(Id = '006000000000009');
+    Opportunity mockOpp2 = new Opportunity(Id = '006000000000010');
+    List<Opportunity> mockOpps = new List<Opportunity>{ mockOpp1, mockOpp2 };
+    RepositoryInterface repository = new MockRepository();
+
+    // Act
     List<Opportunity> updatedOpps = (List<Opportunity>) repository.doUpdate(mockOpps);
-    Assert.areEqual(mockOpp.Id, updatedOpps[0].Id, testTitle);
-    Assert.areEqual(mockOpp2.Id, updatedOpps[1].Id, testTitle);
 
-    testTitle = '正常系: MockでもDeleteすることができる。(レコードを一つ削除)';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
-    mockOpp.Id = '006000000000009';
-    repository = new MockRepository();
+    // Assert
+    Assert.areEqual(mockOpp1.Id, updatedOpps[0].Id);
+    Assert.areEqual(mockOpp2.Id, updatedOpps[1].Id);
+  }
+
+  @isTest
+  static void testDeleteSingleRecord() {
+    // Arrange
+    Opportunity mockOpp = new Opportunity(Id = '006000000000009');
+    RepositoryInterface repository = new MockRepository();
+
+    // Act
     repository.doDelete(mockOpp);
 
-    testTitle = '正常系: MockでもDeleteすることができる。(レコードを複数削除)';
-    System.debug(testTitle);
-    mockOpp = new Opportunity();
-    mockOpp.Id = '006000000000009';
-    mockOpp2 = new Opportunity();
-    mockOpp2.Id = '006000000000010';
-    mockOpps = new List<Opportunity>{ mockOpp, mockOpp2 };
-    repository = new MockRepository();
+    // Assert
+    // No exception should be thrown
+  }
+
+  @isTest
+  static void testDeleteMultipleRecords() {
+    // Arrange
+    Opportunity mockOpp1 = new Opportunity(Id = '006000000000009');
+    Opportunity mockOpp2 = new Opportunity(Id = '006000000000010');
+    List<Opportunity> mockOpps = new List<Opportunity>{ mockOpp1, mockOpp2 };
+    RepositoryInterface repository = new MockRepository();
+
+    // Act
     repository.doDelete(mockOpps);
 
+    // Assert
+    // No exception should be thrown
   }
 }

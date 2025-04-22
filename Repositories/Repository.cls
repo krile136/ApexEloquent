@@ -13,20 +13,18 @@ public with sharing class Repository implements RepositoryInterface {
   }
 
   /**
-  * Executes SOQL and retrieves the results.
-  * Throws an exception if the number of retrieved records is 0.
+  * Executes SOQL and retrieves the results as Evaluator.
   *
   * @param query: SOQL query
-  * @return Retrieved results
-  * @throws QueryException If the number of retrieved records is 0
+  * @return Retrieved results as Evaluator
   */
-  public List<SObject> getOrFail(Query query) {
-    String soql = query.toSoql();
-    List<SObject> objects = (List<SObject>) Database.query(soql);
-    if (objects.isEmpty()) {
-      throw new QueryException('No records found for query: ' + soql);
+  public List<EvaluatorInterface> getAsEvaluators(Query query) {
+    List<SObject> records = get(query);
+    List<EvaluatorInterface> evaluators = new List<EvaluatorInterface>();
+    for (SObject record : records) {
+      evaluators.add(new Evaluator(record));
     }
-    return objects;
+    return evaluators;
   }
 
   /**
@@ -44,6 +42,21 @@ public with sharing class Repository implements RepositoryInterface {
     return records[0];
   }
 
+  /**
+  * Executes SOQL and returns the first record as Evaluator.
+  * Returns null if the number of retrieved records is 0.
+  *
+  * @param query SOQL query
+  * @return Retrieved result as Evaluator
+  */
+  public Evaluator firstAsEvaluator(Query query) {
+    List<SObject> records = get(query);
+    if (records.isEmpty()) {
+      return null;
+    }
+    return new Evaluator(records[0]);
+  }
+
 
   /**
   * Executes SOQL and returns the first record.
@@ -59,6 +72,22 @@ public with sharing class Repository implements RepositoryInterface {
       throw new QueryException('No records found for query: ' + query.toSoql());
     }
     return records[0];
+  }
+
+  /**
+  * Executes SOQL and returns the first record as Evaluator.
+  * Throws an exception if the number of retrieved records is 0.
+  *
+  * @param query SOQL query
+  * @return Retrieved result as Evaluator
+  * @throws QueryException If the number of retrieved records is 0
+  */
+  public Evaluator firstOrFailAsEvaluator(Query query) {
+    List<SObject> records = get(query);
+    if (records.isEmpty()) {
+      throw new QueryException('No records found for query: ' + query.toSoql());
+    }
+    return new Evaluator(records[0]);
   }
 
   /**

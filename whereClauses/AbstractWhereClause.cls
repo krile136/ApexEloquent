@@ -56,7 +56,9 @@ public with sharing abstract class AbstractWhereClause implements WhereClauseInt
       throw new QueryException('sourceが設定されていません');
     }
     if (!this.fieldMap.containsKey(field)) {
-      throw new QueryException('指定したフィールドはオブジェクトの項目に存在しません');
+      // フィールドが存在しない場合は、String型として扱う
+      // 例) Queue.Name とかはSObjectTypeがQueueSObjectと認識されフィールドにNameが存在しないがクエリ発行はできる
+      return Schema.DisplayType.STRING;
     }
     Schema.DisplayType fieldType = this.fieldMap.get(field).getDescribe().getType();
     return fieldType;

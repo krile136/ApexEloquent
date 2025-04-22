@@ -63,13 +63,13 @@ public class Query {
 
   // ---------- FROM clause ----------
   /**
-  * Sets the source (FROM) of the query.
-  * Please specify the sObjectType argument as follows:
-  * .source(Opportunity.getSObjectType())
-  *
-  * @param sObjectType: The sObjectType of the source object
-  * @return Query
-  */
+   * Sets the source (FROM) of the query.
+   * Please specify the sObjectType argument as follows:
+   * .source(Opportunity.getSObjectType())
+   *
+   * @param sObjectType: The sObjectType of the source object
+   * @return Query
+   */
   public Query source(Schema.SObjectType sObjectType) {
     return new Query(
       sObjectType,
@@ -89,11 +89,11 @@ public class Query {
 
   // ---------- SELECT clause ----------
   /**
-  * Sets the fields (SELECT) of the query.
-  *
-  * @param selectField: The name of the field to select
-  * @return Query
-  */
+   * Sets the fields (SELECT) of the query.
+   *
+   * @param selectField: The name of the field to select
+   * @return Query
+   */
   public Query pick(String selectField) {
     List<String> newSelectFields = this.selectFields;
     newSelectFields.add(selectField);
@@ -113,13 +113,12 @@ public class Query {
     );
   }
 
-
   /**
-  * Sets the fields (SELECT) of the query.
-  *
-  * @param selectFields: The fields to select (multiple)
-  * @return Query
-  */
+   * Sets the fields (SELECT) of the query.
+   *
+   * @param selectFields: The fields to select (multiple)
+   * @return Query
+   */
   public Query pick(List<String> selectFields) {
     List<String> newSelectFields = this.selectFields;
     newSelectFields.addAll(selectFields);
@@ -140,10 +139,10 @@ public class Query {
   }
 
   /**
-  * Selects all fields.
-  *
-  * @return Query
-  */
+   * Selects all fields.
+   *
+   * @return Query
+   */
   public Query pickAll() {
     return new Query(
       this.sObjectType,
@@ -161,7 +160,15 @@ public class Query {
     );
   }
 
-  public Query withParent(ParentClause parent) {
+  // ---------- Relationship ----------
+
+  /**
+   * Sets the parent query.
+   *
+   * @param parent: The parent query to be added
+   * @return A new Query object with the parent query added
+   */
+  public Query withParents(ParentClause parent) {
     List<ParentClause> newParents = this.parents;
     newParents.add(parent);
     return new Query(
@@ -181,11 +188,23 @@ public class Query {
   }
 
   /**
-  * Add Child query
-  *
-  * @param child: The child query to be added
-  * @return A new Query object with the child query added
-  */
+   * Sets the parent query.
+   *
+   * @param parentFieldName: The name of the parent field
+   * @param parentQuery: The parent query to be added
+   * @return A new Query object with the parent query added
+   */
+  public Query withParent(String parentFieldName, Query parentQuery) {
+    ParentClause parent = new ParentClause(parentFieldName, parentQuery);
+    return this.withParents(parent);
+  }
+
+  /**
+   * Add Child query
+   *
+   * @param child: The child query to be added
+   * @return A new Query object with the child query added
+   */
   public Query withChildren(Query child) {
     List<Query> newChildren = this.children;
     newChildren.add(child);
@@ -207,13 +226,13 @@ public class Query {
 
   // ---------- WHERE clause (add one field) ----------
   /**
-  * Sets the WHERE (AND) condition.
-  *
-  * @param field: The field name
-  * @param operator: The operator
-  * @param value: The value
-  * @return Query
-  */
+   * Sets the WHERE (AND) condition.
+   *
+   * @param field: The field name
+   * @param operator: The operator
+   * @param value: The value
+   * @return Query
+   */
   public Query condition(String field, String operator, Object value) {
     WhereClauseInterface whereClause = WhereClauseFactory.create(this.sObjectType, field, operator, value);
     List<WhereClauseInterface> newWhereClauses = this.andWhereClauses;
@@ -235,17 +254,14 @@ public class Query {
   }
 
   /**
-  * Sets the WHERE (OR) condition.
-  *
-  * @param field: The field name
-  * @param operator: The operator
-  * @param value: The value
-  * @return Query
-  */
+   * Sets the WHERE (OR) condition.
+   *
+   * @param field: The field name
+   * @param operator: The operator
+   * @param value: The value
+   * @return Query
+   */
   public Query orCondition(String field, String operator, Object value) {
-    if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
-      throw new QueryException('The first condition must be specified as an AND condition');
-    }
     WhereClauseInterface whereClause = WhereClauseFactory.create(this.sObjectType, field, operator, value);
     List<WhereClauseInterface> newWhereClauses = this.orWhereClauses;
     newWhereClauses.add(whereClause);
@@ -267,15 +283,15 @@ public class Query {
 
   // ---------- WHERE clause(add multiple fields) ----------
   /**
-  * Sets the WHERE (AND) condition.
-  *
-  * @param field: The field name
-  * @param operator: The operator
-  * @param values: The values (multiple)
-  * @return Query
-  */
+   * Sets the WHERE (AND) condition.
+   *
+   * @param field: The field name
+   * @param operator: The operator
+   * @param values: The values (multiple)
+   * @return Query
+   */
   public Query condition(String field, String operator, List<Object> values) {
-    if(values.isEmpty()) {
+    if (values.isEmpty()) {
       // Convert to a condition that never hits if an empty list is passed
       return this.condition('Id', '=', (Object) null);
     }
@@ -299,21 +315,21 @@ public class Query {
   }
 
   /**
-  * Sets the WHERE (OR) condition.
-  * Cannot be combined with join clauses.
-  *
-  * @param field: The field name
-  * @param operator: The operator
-  * @param values: The values (multiple)
-  * @return Query
-  */
+   * Sets the WHERE (OR) condition.
+   * Cannot be combined with join clauses.
+   *
+   * @param field: The field name
+   * @param operator: The operator
+   * @param values: The values (multiple)
+   * @return Query
+   */
   public Query orCondition(String field, String operator, List<Object> values) {
     if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
       throw new QueryException('The first condition must be specified as an AND condition');
     }
-    if(values.isEmpty()) {
+    if (values.isEmpty()) {
       // Convert to a condition that never hits if an empty list is passed
-      return this.orCondition('Id', '=', (Object) null); 
+      return this.orCondition('Id', '=', (Object) null);
     }
     WhereClauseInterface whereClause = WhereClauseFactory.create(this.sObjectType, field, operator, values);
     List<WhereClauseInterface> newWhereClauses = this.orWhereClauses;
@@ -336,12 +352,12 @@ public class Query {
 
   // ---------- WHERE clause (add conditions enclosed in parentheses in the query) ----------
   /**
-  * Sets the WHERE (AND) condition.
-  * You can add conditions enclosed in parentheses using a query.
-  *
-  * @param query: The query
-  * @return Query
-  */
+   * Sets the WHERE (AND) condition.
+   * You can add conditions enclosed in parentheses using a query.
+   *
+   * @param query: The query
+   * @return Query
+   */
   public Query condition(Query query) {
     List<Query> newAndQueries = this.andQueries;
     newAndQueries.add(query);
@@ -363,13 +379,13 @@ public class Query {
   }
 
   /**
-  * Sets the WHERE (OR) condition.
-  * You can add conditions enclosed in parentheses using a query.
-  * Cannot be combined with join clauses.
-  *
-  * @param query: The query
-  * @return Query
-  */
+   * Sets the WHERE (OR) condition.
+   * You can add conditions enclosed in parentheses using a query.
+   * Cannot be combined with join clauses.
+   *
+   * @param query: The query
+   * @return Query
+   */
   public Query orCondition(Query query) {
     if (this.andWhereClauses.isEmpty() && this.orWhereClauses.isEmpty()) {
       throw new QueryException('The first condition must be specified as an AND condition');
@@ -395,14 +411,14 @@ public class Query {
 
   // ---------- join clause ----------
   /**
-  * Sets the JOIN clause.
-  * Cannot be combined with OR conditions.
-  *
-  * @param field: The field name
-  * @param operator: The operator
-  * @param subQuery: The subquery
-  * @return Query
-  */
+   * Sets the JOIN clause.
+   * Cannot be combined with OR conditions.
+   *
+   * @param field: The field name
+   * @param operator: The operator
+   * @param subQuery: The subquery
+   * @return Query
+   */
   public Query join(String field, String operator, Query subQuery) {
     List<WhereClauseInterface> newJoinClauses = this.joinClauses;
     WhereClauseInterface joinClause = WhereClauseFactory.create(this.sObjectType, field, operator, subQuery);
@@ -425,11 +441,11 @@ public class Query {
 
   // ---------- limit clause ----------
   /**
-  * Sets the LIMIT clause.
-  *
-  * @param limitNumber: The number of records to retrieve
-  * @return Query
-  */
+   * Sets the LIMIT clause.
+   *
+   * @param limitNumber: The number of records to retrieve
+   * @return Query
+   */
   public Query restrict(Integer limitNumber) {
     return new Query(
       this.sObjectType,
@@ -449,11 +465,11 @@ public class Query {
 
   // ---------- ORDER BY clause ----------
   /**
-  * Sets the ORDER BY clause.
-  *
-  * @param field: The field name
-  * @return Query
-  */
+   * Sets the ORDER BY clause.
+   *
+   * @param field: The field name
+   * @return Query
+   */
   public Query orderBy(String field) {
     OrderByClause orderByClause = new OrderByClause(field);
     return new Query(
@@ -473,12 +489,12 @@ public class Query {
   }
 
   /**
-  * Sets the ORDER BY clause.
-  *
-  * @param field: The field name
-  * @param order: The sort order
-  * @return Query
-  */
+   * Sets the ORDER BY clause.
+   *
+   * @param field: The field name
+   * @param order: The sort order
+   * @return Query
+   */
   public Query orderBy(String field, String order) {
     OrderByClause orderByClause = new OrderByClause(field, order);
     return new Query(
@@ -498,13 +514,13 @@ public class Query {
   }
 
   /**
-  * Sets the ORDER BY clause.
-  *
-  * @param field: The field name
-  * @param order: The sort order
-  * @param nullsOperator: The order for NULLS
-  * @return Query
-  */
+   * Sets the ORDER BY clause.
+   *
+   * @param field: The field name
+   * @param order: The sort order
+   * @param nullsOperator: The order for NULLS
+   * @return Query
+   */
   public Query orderBy(String field, String order, String nullsOperator) {
     OrderByClause orderByClause = new OrderByClause(field, order, nullsOperator);
     return new Query(
@@ -524,11 +540,11 @@ public class Query {
   }
 
   /**
-  * Sets the ORDER BY clause.
-  *
-  * @param fields: The field names (multiple)
-  * @return Query
-  */
+   * Sets the ORDER BY clause.
+   *
+   * @param fields: The field names (multiple)
+   * @return Query
+   */
   public Query orderBy(List<String> fields) {
     OrderByClause orderByClause = new OrderByClause(fields);
     return new Query(
@@ -548,12 +564,12 @@ public class Query {
   }
 
   /**
-  * Sets the ORDER BY clause.
-  *
-  * @param fields: The field names (multiple)
-  * @param order: The sort order
-  * @return Query
-  */
+   * Sets the ORDER BY clause.
+   *
+   * @param fields: The field names (multiple)
+   * @param order: The sort order
+   * @return Query
+   */
   public Query orderBy(List<String> fields, String order) {
     OrderByClause orderByClause = new OrderByClause(fields, order);
     return new Query(
@@ -573,13 +589,13 @@ public class Query {
   }
 
   /**
-  * Sets the ORDER BY clause.
-  *
-  * @param fields: The field names (multiple)
-  * @param order: The sort order
-  * @param nullsOperator: The order for NULLS
-  * @return Query
-  */
+   * Sets the ORDER BY clause.
+   *
+   * @param fields: The field names (multiple)
+   * @param order: The sort order
+   * @param nullsOperator: The order for NULLS
+   * @return Query
+   */
   public Query orderBy(List<String> fields, String order, String nullsOperator) {
     OrderByClause orderByClause = new OrderByClause(fields, order, nullsOperator);
     return new Query(
@@ -598,68 +614,67 @@ public class Query {
     );
   }
 
-
   // ---------- Useful methods ----------
   /**
-  * Adds a condition to retrieve records by specifying the Id.
-  *
-  * @param recordId: The record Id
-  * @return Query
-  */
+   * Adds a condition to retrieve records by specifying the Id.
+   *
+   * @param recordId: The record Id
+   * @return Query
+   */
   public Query find(Id recordId) {
     return this.condition('Id', '=', recordId);
   }
 
   /**
-  * Adds a condition to retrieve records by specifying multiple IDs.
-  *
-  * @param recordIds: The record IDs (multiple)
-  * @return Query
-  */
+   * Adds a condition to retrieve records by specifying multiple IDs.
+   *
+   * @param recordIds: The record IDs (multiple)
+   * @return Query
+   */
   public Query findMany(List<Id> recordIds) {
     return this.condition('Id', 'IN', recordIds);
   }
 
   /**
-  * Adds a condition to retrieve records where the field value is between from and to (inclusive).
-  *
-  * @param field: The field name
-  * @param fromValue: The lower bound of the range
-  * @param toValue: The upper bound of the range
-  * @return Query
-  */
+   * Adds a condition to retrieve records where the field value is between from and to (inclusive).
+   *
+   * @param field: The field name
+   * @param fromValue: The lower bound of the range
+   * @param toValue: The upper bound of the range
+   * @return Query
+   */
   public Query betweenInclusive(String field, Object fromValue, Object toValue) {
     return this.condition(field, '>=', fromValue).condition(field, '<=', toValue);
   }
 
   /**
-  * Adds a condition to retrieve records where the field value is between from and to (exclusive).
-  *
-  * @param field: The field name
-  * @param fromValue: The lower bound of the range
-  * @param toValue: The upper bound of the range
-  * @return Query
-  */
+   * Adds a condition to retrieve records where the field value is between from and to (exclusive).
+   *
+   * @param field: The field name
+   * @param fromValue: The lower bound of the range
+   * @param toValue: The upper bound of the range
+   * @return Query
+   */
   public Query betweenExclusive(String field, Object fromValue, Object toValue) {
     return this.condition(field, '>', fromValue).condition(field, '<', toValue);
   }
 
   /**
-  * Sets a condition where the specified field is NULL.
-  *
-  * @param field: The name of the field
-  * @return Query
-  */
+   * Sets a condition where the specified field is NULL.
+   *
+   * @param field: The name of the field
+   * @return Query
+   */
   public Query isNull(String field) {
     return this.condition(field, '=', (Object) null);
   }
 
   /**
-  * Sets a condition where the specified field is NOT NULL.
-  *
-  * @param field: The name of the field
-  * @return Query
-  */
+   * Sets a condition where the specified field is NOT NULL.
+   *
+   * @param field: The name of the field
+   * @return Query
+   */
   public QUery isNotNull(String field) {
     return this.condition(field, '!=', (Object) null);
   }
@@ -668,10 +683,10 @@ public class Query {
 
   // ---------- generate SOQL ----------
   /**
-  * Generates the SOQL query.
-  *
-  * @return The SOQL query
-  */
+   * Generates the SOQL query.
+   *
+   * @return The SOQL query
+   */
   public String toSoql() {
     this.validateParams();
 
@@ -687,28 +702,48 @@ public class Query {
     return query;
   }
 
+  public List<String> getSelectFields() {
+    return this.selectFields;
+  }
+
+  public List<ParentClause> getParents() {
+    return this.parents;
+  }
+
+  public Boolean hasParent() {
+    return !this.parents.isEmpty();
+  }
+
+  public List<WhereClauseInterface> getAndWhereClauses() {
+    return this.andWhereClauses;
+  }
+
+  public List<WhereClauseInterface> getOrWhereClauses() {
+    return this.orWhereClauses;
+  }
+
   /**
-  * Generate the Children SOQL query.
-  *
-  * @return The SOQL query
-  */
+   * Generate the Children SOQL query.
+   *
+   * @return The SOQL query
+   */
   private String toChildrenSoql(Schema.SObjectType parentSObjectType) {
     this.validateParams();
 
     Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
 
     String selectFieldsString = this.buildSelectFields(fieldMap);
-    
+
     String fromString;
     String objectName = this.sObjectType.getDescribe().getName();
     List<Schema.ChildRelationship> parentChildRelationships = parentSObjectType.getDescribe().getChildRelationships();
-    for(Schema.ChildRelationship relationship : parentChildRelationships) {
-      if(relationship.getChildSObject().getDescribe().getName() == objectName) {
+    for (Schema.ChildRelationship relationship : parentChildRelationships) {
+      if (relationship.getChildSObject().getDescribe().getName() == objectName) {
         fromString = relationship.getRelationshipName();
         break;
       }
     }
-    if(fromString == null) {
+    if (fromString == null) {
       throw new QueryException('The child object is not related to the parent object');
     }
 
@@ -719,24 +754,24 @@ public class Query {
   }
 
   /**
-  * A method to construct the portion of a SOQL query following the WHERE clause 
-  * (including WHERE clause, LIMIT clause, and ORDER BY clause).
-  *
-  * @param query The SOQL query string to be constructed
-  * @param fieldMap A mapping of field names to Schema.SObjectField
-  * @return The constructed SOQL query string
-  */
-  private String buildQueryTrail(String query, Map<String, Schema.SObjectField> fieldMap){
+   * A method to construct the portion of a SOQL query following the WHERE clause
+   * (including WHERE clause, LIMIT clause, and ORDER BY clause).
+   *
+   * @param query The SOQL query string to be constructed
+   * @param fieldMap A mapping of field names to Schema.SObjectField
+   * @return The constructed SOQL query string
+   */
+  private String buildQueryTrail(String query, Map<String, Schema.SObjectField> fieldMap) {
     String whereClause = this.buildWhereClause(fieldMap);
     if (whereClause != '') {
       query += ' WHERE ' + whereClause;
     }
 
-    if(this.limitNumber != null) {
+    if (this.limitNumber != null) {
       query += ' LIMIT ' + this.limitNumber;
     }
 
-    if(this.orderByClause != null) {
+    if (this.orderByClause != null) {
       query += ' ' + this.orderByClause.build();
     }
 
@@ -744,8 +779,8 @@ public class Query {
   }
 
   /**
-  * Validates the parameters.
-  */
+   * Validates the parameters.
+   */
   private void validateParams() {
     Boolean isSObjectTypeNull = this.sObjectType == null;
     if (isSObjectTypeNull) {
@@ -757,14 +792,14 @@ public class Query {
   }
 
   /**
-  * A method to construct the SELECT clause of a SOQL query based on the specified field map.
-  *
-  * @param fieldMap A mapping of field names to Schema.SObjectField
-  * @return The constructed SELECT clause as a string
-  */
+   * A method to construct the SELECT clause of a SOQL query based on the specified field map.
+   *
+   * @param fieldMap A mapping of field names to Schema.SObjectField
+   * @return The constructed SELECT clause as a string
+   */
   private String buildSelectFields(Map<String, Schema.SObjectField> fieldMap) {
     String selectFieldsString = '';
-    
+
     // add select fields
     if (this.isSelectAll) {
       for (String fieldName : fieldMap.keyset()) {
@@ -779,16 +814,12 @@ public class Query {
     }
 
     // Add parent queries
-    List<String> parentFields = new List<String>();
-    for(ParentClause parent : this.parents) {
-      parentFields.add(parent.build(fieldMap));
-    }
-    if(!parentFields.isEmpty()) {
-      selectFieldsString += ', ' + String.join(parentFields, ', ');
+    for (ParentClause parent : this.parents) {
+      selectFieldsString += ', ' + parent.buildSelectClause(fieldMap, null);
     }
 
     // Add child queries
-    for(Query child : this.children) {
+    for (Query child : this.children) {
       selectFieldsString += ', (' + child.toChildrenSoql(this.sObjectType) + ')';
     }
 
@@ -796,15 +827,16 @@ public class Query {
   }
 
   /**
-  * Constructs the WHERE clause.
-  *
-  * @param fieldMap: The map of fields
-  * @return The constructed WHERE clause
-  */
+   * Constructs the WHERE clause.
+   *
+   * @param fieldMap: The map of fields
+   * @return The constructed WHERE clause
+   */
   private String buildWhereClause(Map<String, Schema.SObjectField> fieldMap) {
     Boolean hasOrCondition = false;
 
     String whereClauseString = '';
+    System.debug('hasParent: ' + this.hasParent());
 
     if (!this.andWhereClauses.isEmpty()) {
       whereClauseString += '(';
@@ -813,8 +845,27 @@ public class Query {
         WhereClauseInterface whereClauseWithSource = whereClause.overrideMetaData(this.sObjectType, fieldMap);
         whereClauseStrings.add(whereClauseWithSource.build());
       }
+      if (hasParent()) {
+        for (ParentClause parent : this.parents) {
+          String parentWhereClause = parent.buildWhereClause(fieldMap, null);
+          if (parentWhereClause != '') {
+            whereClauseStrings.add(parent.buildWhereClause(fieldMap, null));
+          }
+        }
+      }
       whereClauseString += String.join(whereClauseStrings, ' AND ');
       whereClauseString += ')';
+    } else if (this.hasParent()) {
+      String parentWhereClauseString = '';
+      for (ParentClause parent : this.parents) {
+        String parentWhereClause = parent.buildWhereClause(fieldMap, null);
+        if (parentWhereClause != '') {
+          parentWhereClauseString += parent.buildWhereClause(fieldMap, null);
+        }
+      }
+      if(parentWhereClauseString != ''){
+        whereClauseString += '(' + parentWhereClauseString + ')';
+      }
     }
 
     if (!this.orWhereClauses.isEmpty()) {
@@ -827,6 +878,10 @@ public class Query {
       for (WhereClauseInterface whereClause : this.orWhereClauses) {
         WhereClauseInterface whereClauseWithSource = whereClause.overrideMetaData(this.sObjectType, fieldMap);
         whereClauseStrings.add(whereClauseWithSource.build());
+      }
+      for (ParentClause parent : this.parents) {
+        System.debug('parent: ' + parent);
+        whereClauseStrings.add(parent.buildOrWhereClause(fieldMap, null));
       }
       whereClauseString += String.join(whereClauseStrings, ' OR ');
       whereClauseString += ')';

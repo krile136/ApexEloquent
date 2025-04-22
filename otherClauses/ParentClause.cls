@@ -1,66 +1,138 @@
 public with sharing class ParentClause {
   private String relationFieldName;
-  private List<String> parentFields;
+  private Query parentQuery;
 
   /**
-  * constroctor with one parent field name
-  *
-  * @param relationFieldName The name of the relationship Field
-  * @param parentFieldName The name of the parent field
-  */
-  public ParentClause(String relationFieldName, String parentFieldName) {
+   * constroctor with multiple parent field names
+   *
+   * @param relationFieldName The name of the relationship Field
+   * @param parentFields The names of the parent fields
+   */
+  public ParentClause(String relationFieldName, Query parentQuery) {
     this.relationFieldName = relationFieldName;
-    this.parentFields = new List<String>{parentFieldName};
+    this.parentQuery = parentQuery;
   }
 
   /**
-  * constroctor with multiple parent field names
-  *
-  * @param relationFieldName The name of the relationship Field
-  * @param parentFields The names of the parent fields
-  */
-  public ParentClause(String relationFieldName, List<String> parentFields) {
-    this.relationFieldName = relationFieldName;
-    this.parentFields = parentFields;
-  }
+   * Constructs the relationship names of parent fields using the specified field map.
+   *
+   * @param fieldMap A mapping of object field names to Schema.SObjectField
+   * @return A comma-separated string of parent field relationship names
+   * @throws QueryException If the parent field list is empty
+   * @throws QueryException If the specified relationship ID field does not exist in the field map
+   * @throws QueryException If the specified relationship ID field is not of a reference type
+   * @throws QueryException If the specified relationship ID field does not have a relationship name
+   */
+  public String buildSelectClause(Map<String, Schema.SObjectField> fieldMap, String childObjectName) {
+    Validated validated = this.validate(fieldMap);
 
-
-  /**
-  * Constructs the relationship names of parent fields using the specified field map.
-  *
-  * @param fieldMap A mapping of object field names to Schema.SObjectField
-  * @return A comma-separated string of parent field relationship names
-  * @throws QueryException If the parent field list is empty
-  * @throws QueryException If the specified relationship ID field does not exist in the field map
-  * @throws QueryException If the specified relationship ID field is not of a reference type
-  * @throws QueryException If the specified relationship ID field does not have a relationship name
-  */
-  public String build(Map<String, Schema.SObjectField> fieldMap) {
-    if(this.parentFields.isEmpty()) {
-      throw new QueryException('The parent fields list is empty');
+    List<String> parentSelects = new List<String>();
+    for (String parentFieldName : this.parentQuery.getSelectFields()) {
+      String parentSelect = '';
+      if (childObjectName != null) {
+        parentSelect = childObjectName + '.';
+      }
+      parentSelect += validated.relationName + '.' + parentFieldName;
+      parentSelects.add(parentSelect);
     }
 
-    if(!fieldMap.containsKey(this.relationFieldName)) {
-      throw new QueryException('The specified relation ID field does not exist in the object\'s fields');
+    if (this.parentquery.hasParent()) {
+      if (childObjectName == null) {
+        childObjectName = validated.relationName;
+      } else {
+        childObjectName += '.' + validated.relationName;
+      }
+      for (ParentClause grandParentClause : this.parentQuery.getParents()) {
+        Map<String, Schema.SObjectField> parentFieldMap = validated.relationFieldDescribe.getSObjectType().getDescribe().fields.getMap();
+        String grandParentSelectsAsString = grandParentClause.buildSelectClause(parentFieldMap, childObjectName);
+        parentSelects.add(grandParentSelectsAsString);
+      }
+    }
+    if (parentSelects.isEmpty()) {
+      throw new QueryException('The parent fields list is empty');
+    }
+    return String.join(parentSelects, ', ');
+  }
+
+  public String buildWhereClause(Map<String, Schema.SObjectField> fieldMap, String childObjectName) {
+    return buildCombinedWhereClause(fieldMap, childObjectName, ' AND ');
+  }
+
+  public String buildOrWhereClause(Map<String, Schema.SObjectField> fieldMap, String childObjectName) {
+    return buildCombinedWhereClause(fieldMap, childObjectName, ' OR ');
+  }
+
+  private String buildCombinedWhereClause(Map<String, Schema.SObjectField> fieldMap, String childObjectName, String separator) {
+    Validated validated = this.validate(fieldMap);
+
+    List<WhereClauseInterface> whereClauses = separator == ' AND ' ? this.parentQuery.getAndWhereClauses() : this.parentQuery.getOrWhereClauses();
+
+    if (whereClauses.isEmpty()) {
+      return '';
+    }
+
+    if (childObjectName == null) {
+      childObjectName = validated.relationName;
+    } else {
+      childObjectName += '.' + validated.relationName;
+    }
+
+    List<String> whereClauseStrings = new List<String>();
+    Schema.SObjectType parentSObjectType = validated.relationFieldDescribe.getSObjectType();
+    Map<String, Schema.SObjectField> parentFieldMap = parentSObjectType.getDescribe().fields.getMap();
+
+    for (WhereClauseInterface whereClause : whereClauses) {
+      WhereClauseInterface whereClauseWithSource = whereClause.overrideMetaData(parentSObjectType, parentFieldMap);
+      String whereClauseAsString = whereClauseWithSource.build();
+      whereClauseStrings.add(childObjectName + '.' + whereClauseAsString);
+    }
+
+    if (whereClauseStrings.isEmpty()) {
+      return '';
+    }
+
+    if (this.parentQuery.hasParent()) {
+      for (ParentClause grandParentClause : this.parentQuery.getParents()) {
+        String grandParentWhereClauseAsString = '';
+        if (separator == ' AND ') {
+          grandParentWhereClauseAsString = grandParentClause.buildWhereClause(parentFieldMap, childObjectName);
+        } else {
+          grandParentWhereClauseAsString = grandParentClause.buildOrWhereClause(parentFieldMap, childObjectName);
+        }
+        whereClauseStrings.add(grandParentWhereClauseAsString);
+      }
+    }
+
+    return String.join(whereClauseStrings, separator);
+  }
+
+  private Validated validate(Map<String, Schema.SObjectField> fieldMap) {
+    if (!fieldMap.containsKey(this.relationFieldName)) {
+      throw new QueryException('The specified relation ID field does not exist in the object\'s fields. field name: ' + this.relationFieldName);
     }
 
     Schema.SObjectField relationField = fieldMap.get(this.relationFieldName);
     Schema.DescribeFieldResult relationFieldDescribe = relationField.getDescribe();
 
-    if(relationFieldDescribe.getType() != Schema.DisplayType.REFERENCE){
-      throw new QueryException('The specified relation ID field is not of reference type');
+    if (relationFieldDescribe.getType() != Schema.DisplayType.REFERENCE) {
+      throw new QueryException('The specified relation ID field is not of reference type. field name: ' + this.relationFieldName);
     }
 
     String relationName = relationFieldDescribe.getRelationshipName();
-    if(relationName == null){
-      throw new QueryException('The specified relation ID field does not have a relationship name');
+    if (relationName == null) {
+      throw new QueryException('The specified relation ID field does not have a relationship name. field name: ' + this.relationFieldName);
     }
 
-    List<String> parentFieldNames = new List<String>();
-    for(String parentFieldName : this.parentFields) {
-      String parentRelationName = relationName + '.' + parentFieldName;
-      parentFieldNames.add(String.escapeSingleQuotes(parentRelationName));
+    return new Validated(relationFieldDescribe, relationName);
+  }
+
+  private class Validated {
+    public Schema.DescribeFieldResult relationFieldDescribe;
+    public String relationName;
+
+    public Validated(Schema.DescribeFieldResult relationFieldDescribe, String relationName) {
+      this.relationFieldDescribe = relationFieldDescribe;
+      this.relationName = relationName;
     }
-    return String.join(parentFieldNames, ', ');
   }
 }

@@ -52,10 +52,10 @@ public with sharing class ObjectWhereClause_T {
     System.assertEquals(expected, build, testTitle);
 
     testTitle = '異常系: SOQLインジェクションに対応できている';
-    whereClause = new ObjectWhereClause(accountSource, accountFieldMap, 'SLAExpirationDate__c', '=', '2024-01-01 OR Name LIKE \'%\'');
+    whereClause = new ObjectWhereClause(oppSource, oppFieldMap, 'CloseDate', '=', '2024-01-01 OR Name LIKE \'%\'');
     build = whereClause.build();
-    expected = 'SLAExpirationDate__c = 2024-01-01 OR Name LIKE %';
-    expected = 'SLAExpirationDate__c = 2024-01-01 OR Name LIKE \\\'%\\\'';
+    expected = 'CloseDate = 2024-01-01 OR Name LIKE %';
+    expected = 'CloseDate = 2024-01-01 OR Name LIKE \\\'%\\\'';
     System.assertEquals(expected, build, testTitle);
 
   }

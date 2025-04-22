@@ -153,14 +153,27 @@ List<String> fields = new List<String>{Name, CloseDate};
 
 ### withParent
 
-Add relation(parent) to SELECT clause.
+Add relation(parent) to SELECT And WHERE clause.
 The relation name is automatically determined from the relation field name, so there is no need to look it up.
 ```apex
 (new Query())
     .source(Opportunity.getSObjectType())
     .pick('Id')
-    .withParent(new ParentClause('OwnerId', new List<String>{ 'Id', 'Name' });
-// SELECT Id, Owner.Id, Owner.Name FROM Opportunity
+    .withParents(new ParentClause('AccountId', (new Query()).pick('Name').pick('Id').condition('Name', '=', 'testAccount')))
+    .condition('Name', '=', 'testOpportunity');
+
+// SELECT Id, Account.Name, Account.Id FROM Opportunity WHERE (Name = 'testOpportunity' AND Account.Name = 'testAccount')
+```
+
+WithParent method can write without ParentClause.
+```apex
+(new Query())
+    .source(Opportunity.getSObjectType())
+    .pick('Id')
+    .withParents('AccountId', (new Query()).pick('Name').pick('Id').condition('Name', '=', 'testAccount'))
+    .condition('Name', '=', 'testOpportunity');
+
+// SELECT Id, Account.Name, Account.Id FROM Opportunity WHERE (Name = 'testOpportunity' AND Account.Name = 'testAccount')
 ```
 
 ### withChildren

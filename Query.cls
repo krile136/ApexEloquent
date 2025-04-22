@@ -194,7 +194,7 @@ public class Query {
    * @param parentQuery: The parent query to be added
    * @return A new Query object with the parent query added
    */
-  public Query withParent(String parentFieldName, Query parentQuery) {
+  public Query withParents(String parentFieldName, Query parentQuery) {
     ParentClause parent = new ParentClause(parentFieldName, parentQuery);
     return this.withParents(parent);
   }

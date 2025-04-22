@@ -64,6 +64,23 @@ public with sharing class Query_T {
   }
 
   @isTest
+  public static void testQueryWithParentsWithoutParentClauseInstance() {
+    // Arrange
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .withParents('AccountId', (new Query()).pick('Name').pick('Id').condition('Name', '=', 'testAccount'))
+      .condition('Name', '=', 'testOpportunity');
+
+    // Act
+    String actual = 'SELECT Id, Account.Name, Account.Id FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\')';
+
+    // Assert
+    String expected = 'SELECT Id, Account.Name, Account.Id FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\')';
+    Assert.areEqual(expected, actual);
+  }
+
+  @isTest
   public static void testQueryWithParentsWithoutChildrenCondition() {
     // Arrange
     Query query = (new Query())

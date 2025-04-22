@@ -67,27 +67,22 @@ $ git submodule add https://github.com/krile136/ApexEloquent.git ApexEloquent
 ```
 
 ## 3. Deploy to your org
-Deploy ApexEloquent using `make deply` command.
+Deploy ApexEloquent using `make install` command.
 ```
-$ make deploy
+$ make install
 ```
 
 Test classes are written to meet the 75% code coverage requirement using standard fields of standard objects, so deployment should work without modifications. However, if tests fail, please maintain the test classes accordingly.
 
 # Update ApexEloquent
 
-## 1. Update code
 Execute below command in your project root directory.
-```
-$ git submodule update
-```
-
-## 2. Run Redeploy
-Delete old classes, and deploy new classes.
 ```
 $ cd force-app/main/default/classes/ApexEloquent
 
-$ make redeploy
+$ git pull
+
+$ make install
 ```
 
 
@@ -154,6 +149,7 @@ List<String> fields = new List<String>{Name, CloseDate};
 ### withParent
 
 Add relation(parent) to SELECT And WHERE clause.
+
 The relation name is automatically determined from the relation field name, so there is no need to look it up.
 ```apex
 (new Query())
@@ -178,6 +174,7 @@ WithParent method can write without ParentClause.
 
 ### withChildren
 Add Relation(children) to SELECT clause.
+
 Plural or child object names with `__r` are automatically generated from source, so you don't need to look them up.
 ```apex
 (new Query())
@@ -194,6 +191,7 @@ Plural or child object names with `__r` are automatically generated from source,
 ### condition
 
 Specify the `WHERE` clause in SOQL
+
 In the case of orCondition, you can add OR conditions.
 ```apex
 (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Name', '=', 'test');
@@ -218,6 +216,7 @@ List<Id> oppIds = new List<Id>{'006000000000000', '006000000000001'};
 ### join
 
 You can add filtering conditions for another table using subqueries.
+
 Note: While this example uses the term "join," it refers to SOQL's ability to filter related records using subqueries, which is conceptually similar to SQL joins but implemented differently.
 ```apex
 (new Query())
@@ -271,7 +270,9 @@ By passing the Query class, you can retrieve data, and by passing SObject to met
 ### get
 
 Executes SOQL and retrieves the results.
+
 The return value is `List<SObject>`, so cast it to the appropriate object type.
+
 If the number of retrieved records is 0, an empty array is returned.
 ```apex
 List<Opportunity> opps = (List<Opportunity>) (new Repository()).get(query);
@@ -280,7 +281,9 @@ List<Opportunity> opps = (List<Opportunity>) (new Repository()).get(query);
 ### getOrFail
 
 Executes SOQL and retrieves the results.
+
 The return value is `List<SObject>`, so cast it to the appropriate object type.
+
 If the number of retrieved records is 0, an error is thrown.
 ```apex
 try {
@@ -293,6 +296,7 @@ try {
 ### first
 
 Executes SOQL and returns the first record from the results.
+
 If the number of retrieved records is 0, `null` is returned.
 ```apex
 Opportunity opp = (Opportunity) (new Repository()).first(query);
@@ -301,6 +305,7 @@ Opportunity opp = (Opportunity) (new Repository()).first(query);
 ### firstOrFail
 
 Executes SOQL and returns the first record from the results.
+
 If the number of retrieved records is 0, an error is thrown.
 ```apex
 try { 
@@ -313,6 +318,7 @@ try {
 ### doInsert
 
 Inserts the SObject passed as an argument into the database.
+
 The return value is the record with the ID added after insertion.
 ```apex
 insertOpp = (new Repository()).doInsert(insertOpp);

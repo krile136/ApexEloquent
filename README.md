@@ -111,6 +111,33 @@ Opportunity have only one dependency of Account, but if class needs object that 
 
 The Repository pattern frees you from these dependencies and makes it easier to write tests.
 
+# MockEvaluator - Mocking Non-writable Fields
+In Apex, it’s not possible to assign values to non-writable fields. This often becomes a challenge when writing unit tests that rely on such fields.
+
+Apex Eloquent provides a built-in MockEvaluator class that allows you to mock any field value, including read-only fields, without inserting records into the database.
+This feature enhances the flexibility of testing with repositories and enables fully isolated unit tests without any database dependency.
+
+## Basic Usage
+
+```
+@isTest
+public static void testGetUsingEvaluator() {
+    // Arrange
+    SObject record = new Account(); // original record
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+        'NonWritableField' => 'Test' // mocked return value
+    };
+
+    MockEvaluator evaluator = new MockEvaluator(record, fieldToValue);
+
+    // Act
+    String nonWritableFieldValue = (String) evaluator.get('NonWritableField');
+
+    // Assert
+    System.assertEquals('Test', nonWritableFieldBalue);
+}
+```
+
 # Testing Cycle
 What's even better about Apex Eloquent is that the tests take less time to run.
 |ms|Using SOQL directly Test|Using Apex Eloquent Test|

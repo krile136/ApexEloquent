@@ -1,103 +1,187 @@
-@isTest(seeAllData=false)
+@isTest
 public with sharing class Repository_T {
-  public static testMethod void testDML() {
-    String testTitle;
-    Query query;
+
+  @isTest
+  static void testFirstMethod() {
+    // Arrange
+    Schema.SObjectType oppSource = Opportunity.getSObjectType();
+    Id oppId = '006000000000000';
+    Query query = (new Query()).source(oppSource).pick('Id').condition('Id', '=', oppId);
     RepositoryInterface repository = new Repository();
 
+    // Act
+    Opportunity opp = (Opportunity) repository.first(query);
+
+    // Assert
+    Assert.isNull(opp);
+  }
+
+  @isTest
+  static void testFirstAsEvaluatorMethod() {
+    // Arrange
     Schema.SObjectType oppSource = Opportunity.getSObjectType();
-
-    Opportunity opp;
-
-    testTitle = '正常系: firstメソッドで取得が実行される';
-    System.debug(testTitle);
     Id oppId = '006000000000000';
-    query = (new Query()).source(oppSource).pick('Id').condition('Id', '=', oppId);
-    opp = (Opportunity) repository.first(query);
+    Query query = (new Query()).source(oppSource).pick('Id').condition('Id', '=', oppId);
+    RepositoryInterface repository = new Repository();
 
-    testTitle = '正常系: firstOrFailメソッドで取得が実行される';
-    System.debug(testTitle);
-    query = (new Query()).source(oppSource).pick('Id').condition('Id', '=', oppId);
-    try{
-      opp = (Opportunity) repository.firstOrFail(query);
-      Assert.fail(testTitle);
+    // Act
+    EvaluatorInterface evaluator = repository.firstAsEvaluator(query);
+
+    // Assert
+    Assert.isNull(evaluator);
+  }
+
+  @isTest
+  static void testFirstOrFailMethod() {
+    // Arrange
+    Schema.SObjectType oppSource = Opportunity.getSObjectType();
+    Id oppId = '006000000000000';
+    Query query = (new Query()).source(oppSource).pick('Id').condition('Id', '=', oppId);
+    RepositoryInterface repository = new Repository();
+
+    // Act & Assert
+    try {
+      Opportunity opp = (Opportunity) repository.firstOrFail(query);
+      Assert.fail();
     } catch (QueryException e) {
       System.debug(e.getMessage());
     }
+  }
 
-    testTitle = '正常系: getメソッドで取得が実行される';
-    System.debug(testTitle);
+  @isTest
+  static void testFirstOrFailAsEvaluatorMethod() {
+    // Arrange
+    Schema.SObjectType oppSource = Opportunity.getSObjectType();
+    Id oppId = '006000000000000';
+    Query query = (new Query()).source(oppSource).pick('Id').condition('Id', '=', oppId);
+    RepositoryInterface repository = new Repository();
+
+    // Act & Assert
+    try {
+      EvaluatorInterface evaluator = repository.firstOrFailAsEvaluator(query);
+      Assert.fail();
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGetMethod() {
+    // Arrange
+    Schema.SObjectType oppSource = Opportunity.getSObjectType();
+    Id oppId = '006000000000000';
+    Query query = (new Query()).source(oppSource).pick('Id').condition('Id', '=', oppId);
+    RepositoryInterface repository = new Repository();
+
+    // Act
     List<Opportunity> opps = (List<Opportunity>) repository.get(query);
-    Assert.areEqual(0, opps.size(), testTitle);
 
-    testTitle = '正常系: getOrFailメソッドで取得が実行される';
-    System.debug(testTitle);
-    try{
-      opps = (List<Opportunity>) repository.getOrFail(query);
-      Assert.fail(testTitle);
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-    }
+    // Assert
+    Assert.areEqual(0, opps.size());
+  }
 
-    testTitle = '正常系: Insertが実行される';
-    System.debug(testTitle);
-    opp = new Opportunity();
+  @isTest
+  static void testGetAsEvaluatorsMethod() {
+    // Arrange
+    Schema.SObjectType oppSource = Opportunity.getSObjectType();
+    Id oppId = '006000000000000';
+    Query query = (new Query()).source(oppSource).pick('Id').condition('Id', '=', oppId);
+    RepositoryInterface repository = new Repository();
+
+    // Act
+    List<EvaluatorInterface> evaluators = repository.getAsEvaluators(query);
+
+    // Assert
+    Assert.areEqual(0, evaluators.size());
+  }
+
+  @isTest
+  static void testInsertSingleRecord() {
+    // Arrange
+    Opportunity opp = new Opportunity();
     opp.Name = 'Test';
-    try{
+    RepositoryInterface repository = new Repository();
+
+    // Act & Assert
+    try {
       opp = (Opportunity) repository.doInsert(opp);
     } catch (DmlException e) {
-      // 例外が発生するが、テスト自体は成功
       System.debug(e.getMessage());
     }
+  }
 
-    testTitle = '正常系: Insertが実行される（複数レコード）';
-    System.debug(testTitle);
-    Opportunity opp2 = new Opportunity();
-    opp2.Name = 'Test2';
-    List<Opportunity> oppsToInsert = new List<Opportunity>{ opp, opp2 };
-    try{
-      opps = (List<Opportunity>) repository.doInsert(oppsToInsert);
+  @isTest
+  static void testInsertMultipleRecords() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Name = 'Test1');
+    Opportunity opp2 = new Opportunity(Name = 'Test2');
+    List<Opportunity> oppsToInsert = new List<Opportunity>{ opp1, opp2 };
+    RepositoryInterface repository = new Repository();
+
+    // Act & Assert
+    try {
+      List<Opportunity> opps = (List<Opportunity>) repository.doInsert(oppsToInsert);
     } catch (DmlException e) {
-      // 例外が発生するが、テスト自体は成功
       System.debug(e.getMessage());
     }
+  }
 
-    testTitle = '正常系: Updateが実行される';
-    System.debug(testTitle);
-    try{
+  @isTest
+  static void testUpdateSingleRecord() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
+    RepositoryInterface repository = new Repository();
+
+    // Act & Assert
+    try {
       opp = (Opportunity) repository.doUpdate(opp);
     } catch (DmlException e) {
-      // 例外が発生するが、テスト自体は成功
       System.debug(e.getMessage());
     }
+  }
 
-    testTitle = '正常系: Updateが実行される（複数レコード）';
-    System.debug(testTitle);
-    try{
-      opps = (List<Opportunity>) repository.doUpdate(oppsToInsert);
+  @isTest
+  static void testUpdateMultipleRecords() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
+    List<Opportunity> oppsToUpdate = new List<Opportunity>{ opp1, opp2 };
+    RepositoryInterface repository = new Repository();
+
+    // Act & Assert
+    try {
+      List<Opportunity> opps = (List<Opportunity>) repository.doUpdate(oppsToUpdate);
     } catch (DmlException e) {
-      // 例外が発生するが、テスト自体は成功
       System.debug(e.getMessage());
     }
+  }
 
-    testTitle = '正常系: Deleteが実行される';
-    System.debug(testTitle);
-    opp.Id = '006000000000000';
-    try{
+  @isTest
+  static void testDeleteSingleRecord() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000');
+    RepositoryInterface repository = new Repository();
+
+    // Act & Assert
+    try {
       repository.doDelete(opp);
     } catch (DmlException e) {
-      // 例外が発生するが、テスト自体は成功
       System.debug(e.getMessage());
     }
+  }
 
-    testTitle = '正常系: Deleteが実行される（複数レコード）';
-    System.debug(testTitle);
-    opp.Id = '006000000000000';
-    opp2.Id = '006000000000001';
-    try{
-      repository.doDelete(new List<Opportunity>{ opp, opp2 });
+  @isTest
+  static void testDeleteMultipleRecords() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001');
+    List<Opportunity> oppsToDelete = new List<Opportunity>{ opp1, opp2 };
+    RepositoryInterface repository = new Repository();
+
+    // Act & Assert
+    try {
+      repository.doDelete(oppsToDelete);
     } catch (DmlException e) {
-      // 例外が発生するが、テスト自体は成功
       System.debug(e.getMessage());
     }
   }

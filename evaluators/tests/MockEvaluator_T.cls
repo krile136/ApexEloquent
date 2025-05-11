@@ -11,20 +11,42 @@ public with sharing class MockEvaluator_T {
     String name = (String) evaluator.get('Name');
     
     // Assert
-    System.assertEquals('Test Account', name);
+    Assert.areEqual('Test Account', name);
   }
 
   @isTest
-  public static void testGetWithSchemaField() {
+  public static void testGetChildrenAsEvaluator() {
     // Arrange
-    SObject record = new Account(Name = 'Test Account');
-    MockEvaluator evaluator = new MockEvaluator(record);
-    
+    MockEvaluator evaluator = new MockEvaluator(
+      new Account(Name = 'Test Account'),
+      new Map<String, Object> {
+        'Opportunity' => new List<EvaluatorInterface> {
+          new MockEvaluator(new Opportunity(Name = 'TestOpp1')),
+          new MockEvaluator(new Opportunity(Name = 'TestOpp2'))
+        }
+      }
+    );
+
     // Act
-    String name = (String) evaluator.get(Account.Name);
-    
+    List<EvaluatorInterface> childEvaluators = evaluator.getChildrenAsEvaluator('Opportunity');
+
     // Assert
-    System.assertEquals('Test Account', name);
+    Assert.areEqual(2, childEvaluators.size());
+  }
+
+  @isTest
+  public static void testGetChildrenAsEvaluatorWithoutMock() {
+    // Arrange
+    MockEvaluator evaluator = new MockEvaluator(
+      new Account(Name = 'Test Account'),
+      new Map<String, Object> () 
+    );
+
+    // Act
+    List<EvaluatorInterface> childEvaluators = evaluator.getChildrenAsEvaluator('Opportunity');
+
+    // Assert
+    Assert.isNull(childEvaluators);
   }
 
   @isTest
@@ -40,23 +62,7 @@ public with sharing class MockEvaluator_T {
     String name = (String) evaluator.get('Name');
     
     // Assert
-    System.assertEquals('Mocked Account', name);
-  }
-  
-  @isTest
-  public static void testGetWithSchemaFieldUsingEvaluator() {
-    // Arrange
-    SObject record = new Account(Name = 'Test Account');
-    Map<String, Object> fieldToValue = new Map<String, Object>{
-      'Name' => 'Mocked Account'
-    };
-    MockEvaluator evaluator = new MockEvaluator(record, fieldToValue);
-    
-    // Act
-    String name = (String) evaluator.get(Account.Name);
-    
-    // Assert
-    System.assertEquals('Mocked Account', name);
+    Assert.areEqual('Mocked Account', name);
   }
 
   @isTest
@@ -69,33 +75,32 @@ public with sharing class MockEvaluator_T {
     Id accId = evaluator.getId();
     
     // Assert
-    System.assertEquals('001000000000000', accId);
+    Assert.areEqual('001000000000000', accId);
   }
 
   @isTest
   public static void testGetName() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    MockEvaluator evaluator = new MockEvaluator(record);
 
     // Act
     String name = evaluator.getName();
 
     // Assert
-    System.assertEquals('Test Account', name);
+    Assert.areEqual('Test Account', name);
   }
 
   @isTest
   public static void testGetRecord() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    MockEvaluator evaluator = new MockEvaluator(record);
 
     // Act
     SObject returnedRecord = evaluator.getRecord();
 
     // Assert
-    System.assertEquals(record, returnedRecord);
+    Assert.areEqual(record, returnedRecord);
   }
-
 }

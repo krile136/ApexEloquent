@@ -863,7 +863,7 @@ public class Query {
           parentWhereClauseString += parent.buildWhereClause(fieldMap, null);
         }
       }
-      if(parentWhereClauseString != ''){
+      if (parentWhereClauseString != '') {
         whereClauseString += '(' + parentWhereClauseString + ')';
       }
     }

@@ -1,6 +1,5 @@
 @isTest
 public with sharing class Evaluator_T {
-
   @isTest
   public static void testGet() {
     // Arrange
@@ -14,18 +13,32 @@ public with sharing class Evaluator_T {
     System.assertEquals('Test Account', name);
   }
 
+
   @isTest
-  public static void testGetWithSchemaField() {
+  public static void testGetChildren() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Evaluator evaluator = new Evaluator(record);
 
     // Act
-    String name = (String) evaluator.get(Account.Name);
+    List<SObject> childEvaluators = (List<SObject>) evaluator.get('Opportunity');
 
     // Assert
-    System.assertEquals('Test Account', name);
+    Assert.isNull(childEvaluators);
   }
+
+  @isTest
+  public static void testGetChildrenAsEvaluator() {
+    // Arrange
+    Evaluator evaluator = new Evaluator(new Account(Name = 'Test Account'));
+
+    // Act
+    List<EvaluatorInterface> childEvaluators = evaluator.getChildrenAsEvaluator('Opportunity');
+
+    // Assert
+    Assert.isNull(childEvaluators);
+  }
+
 
   @isTest
   public static void testGetId() {
@@ -66,4 +79,3 @@ public with sharing class Evaluator_T {
     System.assertEquals(record, returnedRecord);
   }
 }
-

@@ -16,76 +16,99 @@ public with sharing class Evaluator implements EvaluatorInterface {
   public Object get(String fieldName) {
     Schema.DescribeSObjectResult describeResult = record.getSObjectType().getDescribe();
 
-    // Check if the fieldName is a child relationship
-    List<Schema.ChildRelationship> children = describeResult.getChildRelationships();
-    for (Schema.ChildRelationship child : children) {
-      if (child.getChildSObject().getDescribe().getName() == fieldName) {
-        String relationName = child.getRelationshipName();
-        List<SObject> childSObjects = record.getSObjects(relationName);
-        if (childSObjects == null) {
-          return null;
-        }
-        return childSObjects;
-      }
-    }
-
     // validate the fieldName
     Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
     if (!fieldMap.containsKey(fieldName)) {
       throw new QueryException(
-        'The specified field does not exist in the object\'s fields. object name: ' + describeResult.getName() + ', field name ' + fieldName
+        'The specified field does not exist in the object\'s fields. object name: ' + describeResult.getName() + ', field name: ' + fieldName
       );
     }
 
-    Schema.SObjectField field = fieldMap.get(fieldName);
-    Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
-    if (fieldDescribe.getType() != Schema.DisplayType.Reference) {
-      return record.get(fieldName);
+    return record.get(fieldName);
+  }
+
+  public Object getRelation(String relationName) {
+    Schema.DescribeSObjectResult describeResult = record.getSObjectType().getDescribe();
+    Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
+
+    // Check if the fieldName is a child relationship
+    List<Schema.ChildRelationship> children = describeResult.getChildRelationships();
+    for (Schema.ChildRelationship child : children) {
+      if (child.getChildSObject().getDescribe().getName() == relationName) {
+        String childRelationName = child.getRelationshipName();
+        List<SObject> childRecords = new List<SObject>();
+        for(SObject childSObject : record.getSObjects(childRelationName)) {
+          childRecords.add(childSObject);
+        }
+        return childRecords;
+      }
     }
 
-    String relationName = fieldDescribe.getRelationshipName();
-    return record.getSObject(relationName);
+    String errorMessage =
+      'The relationName is not children Object Name or Parent relationId field Name. object name: ' +
+      describeResult.getName() +
+      ', relation name ' +
+      relationName;
+
+    Schema.SObjectField field = fieldMap.get(relationName);
+    if (field == null) {
+      throw new QueryException(errorMessage);
+    }
+
+    Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
+    if (fieldDescribe.getType() != Schema.DisplayType.Reference) {
+      throw new QueryException(errorMessage);
+    }
+
+    String parentRelationName = fieldDescribe.getRelationshipName();
+    return record.getSObject(parentRelationName);
   }
 
   /**
    * @inheritDoc
+   *
+   * This method is very similar to getRelation method, but getSObjects method occur error when children record count is over 200.
+   * so, getSobjects method needs to use in loop.
    */
-  public Object getRelationAsEvaluator(String fieldName) {
-    Object fieldValue = get(fieldName);
-    if (fieldValue == null) {
+  public Object getRelationAsEvaluator(String relationName) {
+    Schema.DescribeSObjectResult describeResult = record.getSObjectType().getDescribe();
+    Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
+
+    // Check if the fieldName is a child relationship
+    List<Schema.ChildRelationship> children = describeResult.getChildRelationships();
+    for (Schema.ChildRelationship child : children) {
+      if (child.getChildSObject().getDescribe().getName() == relationName) {
+        String childRelationName = child.getRelationshipName();
+        List<EvaluatorInterface> childEvaluators = new List<EvaluatorInterface>();
+        for (SObject childSObject : record.getSObjects(childRelationName)) {
+          childEvaluators.add(new Evaluator(childSObject));
+        }
+        return childEvaluators;
+      }
+    }
+
+    String errorMessage =
+      'The relationName is not children Object Name or Parent relationId field Name. object name: ' +
+      describeResult.getName() +
+      ', relation name ' +
+      relationName;
+
+    Schema.SObjectField field = fieldMap.get(relationName);
+    if (field == null) {
+      throw new QueryException(errorMessage);
+    }
+
+    Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
+    if (fieldDescribe.getType() != Schema.DisplayType.Reference) {
+      throw new QueryException(errorMessage);
+    }
+
+    String parentRelationName = fieldDescribe.getRelationshipName();
+    SObject parentSObject = record.getSObject(parentRelationName);
+    if(parentSObject == null) {
       return null;
     }
-    if (fieldValue instanceof List<SObject>) {
-      List<SObject> childSObjects = (List<SObject>) fieldValue;
-      List<EvaluatorInterface> evaluators = new List<EvaluatorInterface>();
-      for (SObject childSObject : childSObjects) {
-        evaluators.add(new Evaluator(childSObject));
-      }
-      return evaluators;
-    } else if (fieldValue instanceof SObject) {
-      return new Evaluator((SObject) fieldValue);
-    }
-    throw new IllegalArgumentException('Field value is not a parent or a children. field name: ' + fieldName);
-  }
-
-  public List<EvaluatorInterface> getChildrenAsEvaluator(String fieldName) {
-    List<Schema.ChildRelationship> children = record.getSObjectType().getDescribe().getChildRelationships();
-    for (Schema.ChildRelationship child : children) {
-      if (child.getChildSObject().getDescribe().getName() == fieldName) {
-        String relationName = child.getRelationshipName();
-        List<SObject> childSObjects = record.getSObjects(relationName);
-        if (childSObjects == null) {
-          return null;
-        }
-        List<EvaluatorInterface> evaluators = new List<EvaluatorInterface>();
-        for (SObject childSObject : childSObjects) {
-          evaluators.add(new Evaluator(childSObject));
-        }
-        return evaluators;
-      }
-    }
-
-    return null;
+    return new Evaluator((SObject) parentSObject);
   }
 
   /**
@@ -107,5 +130,9 @@ public with sharing class Evaluator implements EvaluatorInterface {
    */
   public SObject getRecord() {
     return record;
+  }
+
+  public EvaluatorInterface setRecord(SObject record) {
+    return new Evaluator(record);
   }
 }

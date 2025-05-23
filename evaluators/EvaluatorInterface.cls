@@ -2,42 +2,40 @@ public interface EvaluatorInterface {
   /**
    * get SObject field value.
    *
-   * if you want to get child SObject, field name should be child SObject name.
-   * example: Account has Opportunity as child, in this case, fieldName should be Opportunity.
-   *
-   * if you want to get parent SObject, field name should be parent relationId field name.
-   * example: Opportunity has Account as Parent via accountId, in this case, fieldName should be accountId.
-   *
    * @param fieldName field name
    * @return field value
    */
   Object get(String fieldName);
 
   /**
+   * **Description**
+   * Get relation Object.
+   *
+   * If you want to get `child SObject`, `relationName` should be `child SObject name`.
+   * Example: Account has Opportunity as child. In this case, `relationName` should be `Opportunity`.
+   *
+   * If you want to get `parent SObject`, `relationName` should be parent `relationId field name`.
+   * Example: Opportunity has Account as Parent via `accountId`. In this case, `relationName` should be `accountId`.
+   *
+   * **Note**
+   * @param relationName (child Object Name or parent relationId field name)
+   * @return relation Object as `Evaluator`
+   */
+  Object getRelation(String relationName);
+
+  /**
    * get relation Object as Evaluator.
    *
-   * if you want to get child SObject, field name should be child SObject name.
-   * example: Account has Opportunity as child, in this case, fieldName should be Opportunity.
+   * if you want to get child SObject, relationName should be child SObject name.
+   * example: Account has Opportunity as child, in this case, relationName should be `Opportunity`.
    *
-   * if you want to get parent SObject, field name should be parent relationId field name.
-   * example: Opportunity has Account as Parent via accountId, in this case, fieldName should be accountId.
+   * if you want to get parent SObject, relationName should be parent relationId field name.
+   * example: Opportunity has Account as Parent via accountId, in this case, relationName should be `accountId`.
    *
    * @param relationName (child Object Name or parent relationId field name)
    * @return relation Object as Evaluator
    */
   Object getRelationAsEvaluator(String fieldName);
-
-  /**
-   * @deprecated
-   * use getRelationAsEvaluator instead.
-   *
-   * if you want to get child SObject, field name should be child SObject name.
-   * example: Account has Opportunity as child, in this case, fieldName should be Opportunity.
-   *
-   * @param fieldName field Name
-   * @return field value
-   */
-  List<EvaluatorInterface> getChildrenAsEvaluator(String fieldName);
 
   /**
    * get Id
@@ -63,4 +61,6 @@ public interface EvaluatorInterface {
    * @return SObject
    */
   SObject getRecord();
+
+  EvaluatorInterface setRecord(SObject record);
 }

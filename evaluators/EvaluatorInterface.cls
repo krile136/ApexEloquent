@@ -54,13 +54,15 @@ public interface EvaluatorInterface {
   /**
    * get SObject
    *
-   * This method is provided as an option.
-   * Please limit its use to operations such as utilizing SObject methods
-   * or performing update, insert, and other operations.
-   *
    * @return SObject
    */
   SObject getRecord();
 
+  /**
+  * set Evaluatot SObject property
+  *
+  * @param record SObject
+  * @return EvaluatorInterface
+  */
   EvaluatorInterface setRecord(SObject record);
 }

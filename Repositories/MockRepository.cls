@@ -3,11 +3,17 @@ public with sharing class MockRepository implements RepositoryInterface {
   private final List<EvaluatorInterface> evaluators;
   private Integer insertCount;
 
+  /**
+   * @inheritDoc
+   */
   public MockRepository() {
     this.records = new List<SObject>();
     this.insertCount = 0;
   }
 
+  /**
+   * @inheritDoc
+   */
   public MockRepository(SObject record) {
     if (record == null) {
       this.records = new List<SObject>();
@@ -19,17 +25,23 @@ public with sharing class MockRepository implements RepositoryInterface {
     this.insertCount = 0;
   }
 
+  /**
+   * @inheritDoc
+   */
   public MockRepository(List<SObject> records) {
     this.records = records;
     List<EvaluatorInterface> evaluators = new List<EvaluatorInterface>();
-    for(SObject record : records) {
+    for (SObject record : records) {
       evaluators.add(new MockEvaluator(record));
     }
     this.evaluators = evaluators;
     this.insertCount = 0;
   }
 
-  public MockRepository(EvaluatorInterface evaluator){
+  /**
+   * @inheritDoc
+   */
+  public MockRepository(EvaluatorInterface evaluator) {
     if (evaluator == null) {
       this.records = new List<SObject>();
       this.evaluators = new List<EvaluatorInterface>();
@@ -40,23 +52,37 @@ public with sharing class MockRepository implements RepositoryInterface {
     this.insertCount = 0;
   }
 
+  /**
+   * @inheritDoc
+   */
   public MockRepository(List<EvaluatorInterface> evaluators) {
     this.evaluators = evaluators;
     List<SObject> records = new List<SObject>();
-    for(EvaluatorInterface evaluator : evaluators) {
+    for (EvaluatorInterface evaluator : evaluators) {
       records.add(evaluator.getRecord());
     }
     this.records = records;
     this.insertCount = 0;
   }
 
+  /**
+   * @inheritDoc
+   */
   public List<SObject> get(Query query) {
     return this.records;
   }
 
+  /**
+   * @inheritDoc
+   */
+
   public List<EvaluatorInterface> getAsEvaluators(Query query) {
     return this.evaluators;
   }
+
+  /**
+   * @inheritDoc
+   */
 
   public SObject first(Query query) {
     if (this.records.isEmpty()) {
@@ -65,6 +91,9 @@ public with sharing class MockRepository implements RepositoryInterface {
     return this.records[0];
   }
 
+  /**
+   * @inheritDoc
+   */
   public EvaluatorInterface firstAsEvaluator(Query query) {
     if (this.evaluators.isEmpty()) {
       return null;
@@ -72,6 +101,9 @@ public with sharing class MockRepository implements RepositoryInterface {
     return this.evaluators[0];
   }
 
+  /**
+   * @inheritDoc
+   */
   public SObject firstOrFail(Query query) {
     if (this.records.isEmpty()) {
       throw new QueryException('No records found for query: ' + query.toSoql());
@@ -79,6 +111,9 @@ public with sharing class MockRepository implements RepositoryInterface {
     return this.records[0];
   }
 
+  /**
+   * @inheritDoc
+   */
   public EvaluatorInterface firstOrFailAsEvaluator(Query query) {
     if (this.evaluators.isEmpty()) {
       throw new QueryException('No records found for query: ' + query.toSoql());
@@ -86,11 +121,17 @@ public with sharing class MockRepository implements RepositoryInterface {
     return this.evaluators[0];
   }
 
+  /**
+   * @inheritDoc
+   */
   public SObject doInsert(SObject record) {
     record.Id = this.genereteId(record);
     return record;
   }
 
+  /**
+   * @inheritDoc
+   */
   public List<SObject> doInsert(List<SObject> records) {
     for (SObject record : records) {
       record.Id = this.genereteId(record);
@@ -98,22 +139,40 @@ public with sharing class MockRepository implements RepositoryInterface {
     return records;
   }
 
+  /**
+   * @inheritDoc
+   */
   public SObject doUpdate(SObject record) {
     return record;
   }
 
+  /**
+   * @inheritDoc
+   */
   public List<SObject> doUpdate(List<SObject> records) {
     return records;
   }
 
+  /**
+   * @inheritDoc
+   */
   public void doDelete(SObject record) {
     return;
   }
 
+  /**
+   * @inheritDoc
+   */
   public void doDelete(List<SObject> records) {
     return;
   }
 
+  /**
+  * generate a mock Id for the record
+  *
+  * @param record SObject to be inserted
+  * @return generated Id
+  */
   private String genereteId(SObject record) {
     String prefix = record.getSObjectType().getDescribe().getKeyPrefix();
     String generatedId = prefix + String.valueOf(this.insertCount).leftPad(12, '0');

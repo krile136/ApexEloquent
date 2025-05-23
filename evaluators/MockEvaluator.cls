@@ -23,10 +23,7 @@ public with sharing class MockEvaluator implements EvaluatorInterface {
   }
 
   /**
-   * get field value
-   *
-   * @param fieldName field Name
-   * @return field value
+   * @inheritDoc
    */
   public Object get(String fieldName) {
     if (fieldToValue.containsKey(fieldName)) {
@@ -36,6 +33,9 @@ public with sharing class MockEvaluator implements EvaluatorInterface {
     return evaluator.get(fieldName);
   }
 
+  /**
+   * @inheritDoc
+   */
   public Object getRelation(String relationName) {
     if (fieldToValue.containsKey(relationName)) {
       return fieldToValue.get(relationName);
@@ -44,6 +44,9 @@ public with sharing class MockEvaluator implements EvaluatorInterface {
     return evaluator.getRelation(relationName);
   }
 
+  /**
+   * @inheritDoc
+   */
   public Object getRelationAsEvaluator(String relationName) {
     if(fieldToValue.containsKey(relationName)) {
       return fieldToValue.get(relationName);
@@ -54,34 +57,29 @@ public with sharing class MockEvaluator implements EvaluatorInterface {
   }
 
   /**
-   * get Id
-   *
-   * @return Id
+   * @inheritDoc
    */
   public Id getId() {
     return (Id) record.get('Id');
   }
 
   /**
-   * get Name
-   *
-   * @return Name
+   * @inheritDoc
    */
   public String getName() {
     return (String) record.get('Name');
   }
 
   /**
-   * get SObject
-   *
-   * This method is provided as an option.
-   * Please limit its use to operations such as utilizing SObject methods
-   * or performing update, insert, and other operations.
+   * @inheritDoc
    */
   public SObject getRecord() {
     return record;
   }
 
+  /**
+   * @inheritDoc
+   */
   public EvaluatorInterface setRecord(SObject record) {
     return new MockEvaluator(this.record, this.fieldToValue);
   }

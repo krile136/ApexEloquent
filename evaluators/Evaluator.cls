@@ -27,6 +27,9 @@ public with sharing class Evaluator implements EvaluatorInterface {
     return record.get(fieldName);
   }
 
+  /**
+   * @inheritDoc
+   */
   public Object getRelation(String relationName) {
     Schema.DescribeSObjectResult describeResult = record.getSObjectType().getDescribe();
     Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
@@ -66,9 +69,6 @@ public with sharing class Evaluator implements EvaluatorInterface {
 
   /**
    * @inheritDoc
-   *
-   * This method is very similar to getRelation method, but getSObjects method occur error when children record count is over 200.
-   * so, getSobjects method needs to use in loop.
    */
   public Object getRelationAsEvaluator(String relationName) {
     Schema.DescribeSObjectResult describeResult = record.getSObjectType().getDescribe();
@@ -132,6 +132,9 @@ public with sharing class Evaluator implements EvaluatorInterface {
     return record;
   }
 
+  /**
+   * @inheritDoc
+   */
   public EvaluatorInterface setRecord(SObject record) {
     return new Evaluator(record);
   }

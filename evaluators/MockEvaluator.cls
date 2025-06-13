@@ -1,5 +1,4 @@
-public with sharing class MockEvaluator implements EvaluatorInterface {
-  private final SObject record;
+public with sharing class MockEvaluator extends AbstractEvaluator {
   private final Map<String, Object> fieldToValue;
 
   /**
@@ -7,6 +6,7 @@ public with sharing class MockEvaluator implements EvaluatorInterface {
    *
    * @param record SObject
    */
+  @TestVisible
   public MockEvaluator(SObject record) {
     this(record, new Map<String, Object>());
   }
@@ -17,70 +17,116 @@ public with sharing class MockEvaluator implements EvaluatorInterface {
    * @param record SObject
    * @param fieldToValue Map of field name to value
    */
+  @TestVisible
   public MockEvaluator(SObject record, Map<String, Object> fieldToValue) {
-    this.record = record;
+    super(record);
+    this.fieldToValue = fieldToValue;
+  }
+
+  /**
+   * constructor with picked fields and relation fields
+   *
+   * @param record SObject
+   * @param pickedFields List of field names to be picked
+   * @param pickedRelationFields Map of relation names to be picked
+   * @param fieldToValue Map of field name to value
+   */
+  private MockEvaluator(
+    SObject record,
+    List<String> pickedFields,
+    Map<String, Object> pickedRelationFields,
+    Map<String, Object> fieldToValue
+  ) {
+    super(record, pickedFields, pickedRelationFields);
     this.fieldToValue = fieldToValue;
   }
 
   /**
    * @inheritDoc
    */
-  public Object get(String fieldName) {
+  public override Object get(String fieldName) {
     if (fieldToValue.containsKey(fieldName)) {
       return fieldToValue.get(fieldName);
     }
-    Evaluator evaluator = new Evaluator(record);
+    Evaluator evaluator = new Evaluator(this.record);
     return evaluator.get(fieldName);
   }
 
   /**
    * @inheritDoc
    */
-  public Object getRelation(String relationName) {
+  public override Object getRelation(String relationName) {
     if (fieldToValue.containsKey(relationName)) {
       return fieldToValue.get(relationName);
     }
-    Evaluator evaluator = new Evaluator(record);
+    Evaluator evaluator = new Evaluator(this.record);
     return evaluator.getRelation(relationName);
   }
 
   /**
    * @inheritDoc
    */
-  public Object getRelationAsEvaluator(String relationName) {
-    if(fieldToValue.containsKey(relationName)) {
+  public override Object getRelationAsEvaluator(String relationName) {
+    if (fieldToValue.containsKey(relationName)) {
       return fieldToValue.get(relationName);
     }
 
-    Evaluator evaluator = new Evaluator(record);
+    Evaluator evaluator = new Evaluator(this.record);
     return evaluator.getRelationAsEvaluator(relationName);
   }
 
   /**
    * @inheritDoc
    */
-  public Id getId() {
-    return (Id) record.get('Id');
+  public override Object getParent(String parentFieldName) {
+    if (fieldToValue.containsKey(parentFieldName)) {
+      return fieldToValue.get(parentFieldName);
+    }
+    Evaluator evaluator = new Evaluator(this.record);
+    return evaluator.getParent(parentFieldName);
   }
 
   /**
    * @inheritDoc
    */
-  public String getName() {
-    return (String) record.get('Name');
+  public override EvaluatorInterface getParentAsEvaluator(String parentFieldName) {
+    if (fieldToValue.containsKey(parentFieldName)) {
+      return (EvaluatorInterface) fieldToValue.get(parentFieldName);
+    }
+    Evaluator evaluator = new Evaluator(this.record);
+    return evaluator.getParentAsEvaluator(parentFieldName);
   }
 
   /**
    * @inheritDoc
    */
-  public SObject getRecord() {
-    return record;
+  public override List<Object> getChildren(String childObjectName) {
+    Evaluator evaluator = new Evaluator(this.record);
+    return evaluator.getChildren(childObjectName);
   }
 
   /**
    * @inheritDoc
    */
-  public EvaluatorInterface setRecord(SObject record) {
-    return new MockEvaluator(this.record, this.fieldToValue);
+  public override List<EvaluatorInterface> getChildrenAsEvaluators(String childObjectName) {
+    Evaluator evaluator = new Evaluator(this.record);
+    return evaluator.getChildrenAsEvaluators(childObjectName);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public override EvaluatorInterface setRecord(SObject record) {
+    return new MockEvaluator(record, this.fieldToValue);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public override EvaluatorInterface setPickedFields(
+    List<String> pickedFields,
+    Map<String, Object> pickedRelationFields
+  ) {
+    return new MockEvaluator(this.record, pickedFields, pickedRelationFields, this.fieldToValue);
   }
 }

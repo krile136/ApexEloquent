@@ -1,26 +1,38 @@
-public with sharing class Evaluator implements EvaluatorInterface {
-  private final SObject record;
-
+public with sharing class Evaluator extends AbstractEvaluator {
   /**
    * constructor
    *
    * @param record SObject
    */
   public Evaluator(SObject record) {
-    this.record = record;
+    super(record);
+  }
+
+  /**
+   * constructor with picked fields and relation fields
+   *
+   * @param record SObject
+   * @param pickedFields List of field names to be picked
+   * @param pickedRelationFields Map of relation names to be picked
+   */
+  public Evaluator(SObject record, List<String> pickedFields, Map<String, Object> pickedRelationFields) {
+    super(record, pickedFields, pickedRelationFields);
   }
 
   /**
    * @inheritDoc
    */
-  public Object get(String fieldName) {
-    Schema.DescribeSObjectResult describeResult = record.getSObjectType().getDescribe();
+  public override Object get(String fieldName) {
+    Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
 
     // validate the fieldName
     Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
     if (!fieldMap.containsKey(fieldName)) {
       throw new QueryException(
-        'The specified field does not exist in the object\'s fields. object name: ' + describeResult.getName() + ', field name: ' + fieldName
+        'The specified field does not exist in the object\'s fields. object name: ' +
+          describeResult.getName() +
+          ', field name: ' +
+          fieldName
       );
     }
 
@@ -30,8 +42,8 @@ public with sharing class Evaluator implements EvaluatorInterface {
   /**
    * @inheritDoc
    */
-  public Object getRelation(String relationName) {
-    Schema.DescribeSObjectResult describeResult = record.getSObjectType().getDescribe();
+  public override Object getRelation(String relationName) {
+    Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
     Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
 
     // Check if the fieldName is a child relationship
@@ -40,7 +52,7 @@ public with sharing class Evaluator implements EvaluatorInterface {
       if (child.getChildSObject().getDescribe().getName() == relationName) {
         String childRelationName = child.getRelationshipName();
         List<SObject> childRecords = new List<SObject>();
-        for(SObject childSObject : record.getSObjects(childRelationName)) {
+        for (SObject childSObject : this.record.getSObjects(childRelationName)) {
           childRecords.add(childSObject);
         }
         return childRecords;
@@ -64,14 +76,14 @@ public with sharing class Evaluator implements EvaluatorInterface {
     }
 
     String parentRelationName = fieldDescribe.getRelationshipName();
-    return record.getSObject(parentRelationName);
+    return this.record.getSObject(parentRelationName);
   }
 
   /**
    * @inheritDoc
    */
-  public Object getRelationAsEvaluator(String relationName) {
-    Schema.DescribeSObjectResult describeResult = record.getSObjectType().getDescribe();
+  public override Object getRelationAsEvaluator(String relationName) {
+    Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
     Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
 
     // Check if the fieldName is a child relationship
@@ -80,7 +92,7 @@ public with sharing class Evaluator implements EvaluatorInterface {
       if (child.getChildSObject().getDescribe().getName() == relationName) {
         String childRelationName = child.getRelationshipName();
         List<EvaluatorInterface> childEvaluators = new List<EvaluatorInterface>();
-        for (SObject childSObject : record.getSObjects(childRelationName)) {
+        for (SObject childSObject : this.record.getSObjects(childRelationName)) {
           childEvaluators.add(new Evaluator(childSObject));
         }
         return childEvaluators;
@@ -104,8 +116,8 @@ public with sharing class Evaluator implements EvaluatorInterface {
     }
 
     String parentRelationName = fieldDescribe.getRelationshipName();
-    SObject parentSObject = record.getSObject(parentRelationName);
-    if(parentSObject == null) {
+    SObject parentSObject = this.record.getSObject(parentRelationName);
+    if (parentSObject == null) {
       return null;
     }
     return new Evaluator((SObject) parentSObject);
@@ -114,28 +126,111 @@ public with sharing class Evaluator implements EvaluatorInterface {
   /**
    * @inheritDoc
    */
-  public Id getId() {
-    return (Id) record.get('Id');
+  public override Object getParent(String parentFieldName) {
+    Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
+    Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
+
+    Schema.SObjectField field = fieldMap.get(parentFieldName);
+    if (field == null) {
+      throw new QueryException(
+        'The specified parentFieldName does not exist in the object\'s fields. object name: ' +
+          describeResult.getName() +
+          ', field name: ' +
+          parentFieldName
+      );
+    }
+
+    Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
+    if (fieldDescribe.getType() != Schema.DisplayType.Reference) {
+      throw new QueryException(
+        'The specified parentFieldName is not a reference type. object name: ' +
+          describeResult.getName() +
+          ', field name: ' +
+          parentFieldName
+      );
+    }
+
+    String parentRelationName = fieldDescribe.getRelationshipName();
+    return this.record.getSObject(parentRelationName);
   }
 
   /**
    * @inheritDoc
    */
-  public String getName() {
-    return (String) record.get('Name');
+  public override EvaluatorInterface getParentAsEvaluator(String parentFieldName) {
+    SObject parentSObject = (SObject) getParent(parentFieldName);
+    if (parentSObject == null) {
+      return null;
+    }
+    return new Evaluator(parentSObject);
   }
 
   /**
    * @inheritDoc
    */
-  public SObject getRecord() {
-    return record;
+  public override List<Object> getChildren(String childObjectName) {
+    Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
+    List<Schema.ChildRelationship> children = describeResult.getChildRelationships();
+
+    for (Schema.ChildRelationship child : children) {
+      if (child.getChildSObject().getDescribe().getName() == childObjectName) {
+        String childRelationName = child.getRelationshipName();
+        List<SObject> childRecords = new List<SObject>();
+        for (SObject childSObject : this.record.getSObjects(childRelationName)) {
+          childRecords.add(childSObject);
+        }
+        return childRecords;
+      }
+    }
+
+    throw new QueryException(
+      'The specified childObjectName does not exist in the object\'s child relationships. object name: ' +
+        describeResult.getName() +
+        ', child name: ' +
+        childObjectName
+    );
   }
 
   /**
    * @inheritDoc
    */
-  public EvaluatorInterface setRecord(SObject record) {
+  public override List<EvaluatorInterface> getChildrenAsEvaluators(String childObjectName) {
+    Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
+    List<Schema.ChildRelationship> children = describeResult.getChildRelationships();
+
+    for (Schema.ChildRelationship child : children) {
+      if (child.getChildSObject().getDescribe().getName() == childObjectName) {
+        String childRelationName = child.getRelationshipName();
+        List<EvaluatorInterface> childEvaluators = new List<EvaluatorInterface>();
+        for (SObject childSObject : this.record.getSObjects(childRelationName)) {
+          childEvaluators.add(new Evaluator(childSObject));
+        }
+        return childEvaluators;
+      }
+    }
+
+    throw new QueryException(
+      'The specified childObjectName does not exist in the object\'s child relationships. object name: ' +
+        describeResult.getName() +
+        ', child name: ' +
+        childObjectName
+    );
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public override EvaluatorInterface setRecord(SObject record) {
     return new Evaluator(record);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public override EvaluatorInterface setPickedFields(
+    List<String> pickedFields,
+    Map<String, Object> pickedRelationFields
+  ) {
+    return new Evaluator(this.record, pickedFields, pickedRelationFields);
   }
 }

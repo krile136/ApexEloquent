@@ -38,6 +38,38 @@ public interface EvaluatorInterface {
   Object getRelationAsEvaluator(String fieldName);
 
   /**
+   * get parent Object.
+   *
+   * @param parentFieldName parent relationId field name
+   * @return parent Object
+   */
+  Object getParent(String parentFieldName);
+
+  /**
+   * get parent SObject as Evaluator.
+   *
+   * @param parentFieldName parent relationId field name
+   * @return parent SObject as Evaluator
+   */
+  EvaluatorInterface getParentAsEvaluator(String parentFieldName);
+
+  /**
+   * get child SObject list.
+   *
+   * @param childObjectName child SObject name
+   * @return child SObject list
+   */
+  List<Object> getChildren(String childObjectName);
+
+  /**
+   * get child SObject list as Evaluator.
+   *
+   * @param childObjectName child SObject name
+   * @return child SObject list as Evaluator
+   */
+  List<EvaluatorInterface> getChildrenAsEvaluators(String childObjectName);
+
+  /**
    * get Id
    *
    * @return Id
@@ -59,10 +91,19 @@ public interface EvaluatorInterface {
   SObject getRecord();
 
   /**
-  * set Evaluatot SObject property
-  *
-  * @param record SObject
-  * @return EvaluatorInterface
-  */
+   * set Evaluatot SObject property
+   *
+   * @param record SObject
+   * @return EvaluatorInterface
+   */
   EvaluatorInterface setRecord(SObject record);
+
+  /**
+   * set picked fields and relation fields.
+   *
+   * @param pickedFields List of field names to be picked
+   * @param pickedRelationFields Map of relation names to be picked
+   * @return EvaluatorInterface
+   */
+  EvaluatorInterface setPickedFields(List<String> pickedFields, Map<String, Object> pickedRelationFields);
 }

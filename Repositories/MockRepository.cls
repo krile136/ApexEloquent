@@ -8,6 +8,7 @@ public with sharing class MockRepository implements RepositoryInterface {
    */
   public MockRepository() {
     this.records = new List<SObject>();
+    this.evaluators = new List<EvaluatorInterface>();
     this.insertCount = 0;
   }
 
@@ -77,7 +78,13 @@ public with sharing class MockRepository implements RepositoryInterface {
    */
 
   public List<EvaluatorInterface> getAsEvaluators(Query query) {
-    return this.evaluators;
+    List<String> pickedFields = new List<String>();
+    Map<String, Object> pickedRelationFields = new Map<String, Object>();
+    List<EvaluatorInterface> evaluatorsWithPickedFields = new List<EvaluatorInterface>();
+    for(EvaluatorInterface evaluator : this.evaluators) {
+      evaluatorsWithPickedFields.add(evaluator.setPickedFields(pickedFields, pickedRelationFields));
+    }
+    return evaluatorsWithPickedFields;
   }
 
   /**
@@ -98,7 +105,10 @@ public with sharing class MockRepository implements RepositoryInterface {
     if (this.evaluators.isEmpty()) {
       return null;
     }
-    return this.evaluators[0];
+    EvaluatorInterface firstEvaluator = this.evaluators[0];
+    List<String> pickedFields = new List<String>();
+    Map<String, Object> pickedRelationFields = new Map<String, Object>();
+    return firstEvaluator.setPickedFields(pickedFields, pickedRelationFields);
   }
 
   /**
@@ -118,7 +128,10 @@ public with sharing class MockRepository implements RepositoryInterface {
     if (this.evaluators.isEmpty()) {
       throw new QueryException('No records found for query: ' + query.toSoql());
     }
-    return this.evaluators[0];
+    EvaluatorInterface firstEvaluator = this.evaluators[0];
+    List<String> pickedFields = new List<String>();
+    Map<String, Object> pickedRelationFields = new Map<String, Object>();
+    return firstEvaluator.setPickedFields(pickedFields, pickedRelationFields);
   }
 
   /**
@@ -168,11 +181,11 @@ public with sharing class MockRepository implements RepositoryInterface {
   }
 
   /**
-  * generate a mock Id for the record
-  *
-  * @param record SObject to be inserted
-  * @return generated Id
-  */
+   * generate a mock Id for the record
+   *
+   * @param record SObject to be inserted
+   * @return generated Id
+   */
   private String genereteId(SObject record) {
     String prefix = record.getSObjectType().getDescribe().getKeyPrefix();
     String generatedId = prefix + String.valueOf(this.insertCount).leftPad(12, '0');

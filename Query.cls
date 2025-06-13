@@ -767,12 +767,12 @@ public class Query {
       query += ' WHERE ' + whereClause;
     }
 
-    if (this.limitNumber != null) {
-      query += ' LIMIT ' + this.limitNumber;
-    }
-
     if (this.orderByClause != null) {
       query += ' ' + this.orderByClause.build();
+    }
+
+    if (this.limitNumber != null) {
+      query += ' LIMIT ' + this.limitNumber;
     }
 
     return query;

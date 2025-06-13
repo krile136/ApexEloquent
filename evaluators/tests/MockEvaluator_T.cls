@@ -1,15 +1,14 @@
 @isTest
 public with sharing class MockEvaluator_T {
-  
   @isTest
   public static void testGet() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     MockEvaluator evaluator = new MockEvaluator(record);
-    
+
     // Act
     String name = (String) evaluator.get('Name');
-    
+
     // Assert
     Assert.areEqual('Test Account', name);
   }
@@ -18,14 +17,12 @@ public with sharing class MockEvaluator_T {
   public static void testGetUsingEvaluator() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Map<String, Object> fieldToValue = new Map<String, Object>{
-      'Name' => 'Mocked Account'
-    };
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'Mocked Account' };
     MockEvaluator evaluator = new MockEvaluator(record, fieldToValue);
-    
+
     // Act
     String name = (String) evaluator.get('Name');
-    
+
     // Assert
     Assert.areEqual('Mocked Account', name);
   }
@@ -35,8 +32,8 @@ public with sharing class MockEvaluator_T {
     // Arrange
     MockEvaluator evaluator = new MockEvaluator(
       new Account(Name = 'Test Account'),
-      new Map<String, Object> {
-        'Opportunity' => new List<Opportunity> {
+      new Map<String, Object>{
+        'Opportunity' => new List<Opportunity>{
           new Opportunity(Name = 'TestOpp1'),
           new Opportunity(Name = 'TestOpp2')
         }
@@ -53,9 +50,7 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelation_WhenChildrenIsNull_ThenReturnEmptyList() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(
-      new Account(Name = 'Test Account')
-    );
+    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'));
 
     // Act
     List<Opportunity> children = (List<Opportunity>) evaluator.getRelation('Opportunity');
@@ -70,9 +65,7 @@ public with sharing class MockEvaluator_T {
     Account parent = new Account(Name = 'Parent Account');
     MockEvaluator evaluator = new MockEvaluator(
       new Opportunity(Name = 'Test Opportunity'),
-      new Map<String, Object> {
-        'AccountId' => parent
-      }
+      new Map<String, Object>{ 'AccountId' => parent }
     );
 
     // Act
@@ -85,9 +78,7 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelation_WhenParentIsNull_ThenReturnNull() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(
-      new Opportunity(Name = 'Test Opportunity')
-    );
+    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'));
 
     // Act
     Account parentAccount = (Account) evaluator.getRelation('AccountId');
@@ -101,8 +92,8 @@ public with sharing class MockEvaluator_T {
     // Arrange
     MockEvaluator evaluator = new MockEvaluator(
       new Account(Name = 'Test Account'),
-      new Map<String, Object> {
-        'Opportunity' => new List<MockEvaluator> {
+      new Map<String, Object>{
+        'Opportunity' => new List<MockEvaluator>{
           new MockEvaluator(new Opportunity(Name = 'TestOpp1')),
           new MockEvaluator(new Opportunity(Name = 'TestOpp2'))
         }
@@ -110,7 +101,9 @@ public with sharing class MockEvaluator_T {
     );
 
     // Act
-    List<EvaluatorInterface> childrenEvaluators = (List<EvaluatorInterface>) evaluator.getRelationAsEvaluator('Opportunity');
+    List<EvaluatorInterface> childrenEvaluators = (List<EvaluatorInterface>) evaluator.getRelationAsEvaluator(
+      'Opportunity'
+    );
 
     // Assert
     Assert.areEqual(2, childrenEvaluators.size());
@@ -119,12 +112,12 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelationAsEvaluator_WhenChildrenIsNull_ThenReturnEmptyList() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(
-      new Account(Name = 'Test Account')
-    );
+    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'));
 
     // Act
-    List<EvaluatorInterface> childrenEvaluators = (List<EvaluatorInterface>) evaluator.getRelationAsEvaluator('Opportunity');
+    List<EvaluatorInterface> childrenEvaluators = (List<EvaluatorInterface>) evaluator.getRelationAsEvaluator(
+      'Opportunity'
+    );
 
     // Assert
     Assert.areEqual(0, childrenEvaluators.size());
@@ -136,9 +129,7 @@ public with sharing class MockEvaluator_T {
     Account parent = new Account(Name = 'Parent Account');
     MockEvaluator evaluator = new MockEvaluator(
       new Opportunity(Name = 'Test Opportunity'),
-      new Map<String, Object> {
-        'AccountId' => new MockEvaluator(parent)
-      }
+      new Map<String, Object>{ 'AccountId' => new MockEvaluator(parent) }
     );
 
     // Act
@@ -151,9 +142,7 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelationAsEvaluator_WhenParentIsNull_ThenReturnNull() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(
-      new Opportunity(Name = 'Test Opportunity')
-    );
+    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'));
 
     // Act
     EvaluatorInterface parentEvaluator = (EvaluatorInterface) evaluator.getRelationAsEvaluator('AccountId');
@@ -167,10 +156,10 @@ public with sharing class MockEvaluator_T {
     // Arrange
     SObject record = new Account(Id = '001000000000000');
     MockEvaluator evaluator = new MockEvaluator(record);
-    
+
     // Act
     Id accId = evaluator.getId();
-    
+
     // Assert
     Assert.areEqual('001000000000000', accId);
   }
@@ -201,4 +190,115 @@ public with sharing class MockEvaluator_T {
     Assert.areEqual(record, returnedRecord);
   }
 
+  @isTest
+  static void testGetParent_WhenParentExists_ThenReturnParentObject() {
+    // Arrange
+    Account parent = new Account(Name = 'Parent Account');
+    MockEvaluator evaluator = new MockEvaluator(
+      new Opportunity(Name = 'Test Opportunity'),
+      new Map<String, Object>{ 'AccountId' => parent }
+    );
+
+    // Act
+    Account parentAccount = (Account) evaluator.getParent('AccountId');
+
+    // Assert
+    Assert.areEqual(parent, parentAccount);
+  }
+
+  @isTest
+  static void testGetParent_WhenParentIsNull_ThenReturnNull() {
+    // Arrange
+    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'));
+
+    // Act
+    Account parentAccount = (Account) evaluator.getParent('AccountId');
+
+    // Assert
+    System.assertEquals(null, parentAccount);
+  }
+
+  @isTest
+  static void testGetParentAsEvaluator_WhenParentExists_ThenReturnParentEvaluator() {
+    // Arrange
+    Account parent = new Account(Name = 'Parent Account');
+    MockEvaluator evaluator = new MockEvaluator(
+      new Opportunity(Name = 'Test Opportunity'),
+      new Map<String, Object>{ 'AccountId' => new MockEvaluator(parent) }
+    );
+
+    // Act
+    EvaluatorInterface parentEvaluator = evaluator.getParentAsEvaluator('AccountId');
+
+    // Assert
+    Assert.areEqual(parent, parentEvaluator.getRecord());
+  }
+
+  @isTest
+  static void testGetParentAsEvaluator_WhenParentIsNull_ThenReturnNull() {
+    // Arrange
+    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'));
+
+    // Act
+    EvaluatorInterface parentEvaluator = evaluator.getParentAsEvaluator('AccountId');
+
+    // Assert
+    System.assertEquals(null, parentEvaluator);
+  }
+
+  @isTest
+  static void testGetChildren_WhenChildrenExist_ThenReturnChildrenList() {
+    // Arrange
+    MockEvaluator evaluator = new MockEvaluator(
+      new Account(Name = 'Test Account'),
+      new Map<String, Object>{ 'Opportunity' => new List<Opportunity>{ new Opportunity() } }
+    );
+
+    // Act
+    List<Object> children = evaluator.getChildren('Opportunity');
+
+    // Assert
+    Assert.areEqual(1, children.size());
+  }
+
+  @isTest
+  static void testGetChildren_WhenChildrenAreNull_ThenReturnEmptyList() {
+    // Arrange
+    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'));
+
+    // Act
+    List<Object> children = evaluator.getChildren('Contact');
+
+    // Assert
+    Assert.areEqual(0, children.size());
+  }
+
+  @isTest
+  static void testGetChildrenAsEvaluators_WhenChildrenExist_ThenReturnChildrenEvaluatorList() {
+    // Arrange
+    MockEvaluator evaluator = new MockEvaluator(
+      new Account(Name = 'Test Account'),
+      new Map<String, Object>{
+        'Opportunity' => new List<EvaluatorInterface>{ new MockEvaluator(new Opportunity()) }
+      }
+    );
+
+    // Act
+    List<EvaluatorInterface> childrenEvaluators = evaluator.getChildrenAsEvaluators('Opportunity');
+
+    // Assert
+    Assert.areEqual(1, childrenEvaluators.size());
+  }
+
+  @isTest
+  static void testGetChildrenAsEvaluators_WhenChildrenAreNull_ThenReturnEmptyList() {
+    // Arrange
+    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'));
+
+    // Act
+    List<EvaluatorInterface> childrenEvaluators = evaluator.getChildrenAsEvaluators('Contact');
+
+    // Assert
+    Assert.areEqual(0, childrenEvaluators.size());
+  }
 }

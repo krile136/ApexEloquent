@@ -100,14 +100,27 @@ public with sharing class MockEvaluator extends AbstractEvaluator {
   /**
    * @inheritDoc
    */
+<<<<<<< Updated upstream
   public override List<Object> getChildren(String childObjectName) {
     Evaluator evaluator = new Evaluator(this.record);
     return evaluator.getChildren(childObjectName);
+||||||| Stash base
+  public SObject getRecord() {
+    return record;
+=======
+  public override List<Object> getChildren(String childObjectName) {
+    if (fieldToValue.containsKey(childObjectName)) {
+      return (List<Object>) fieldToValue.get(childObjectName);
+    }
+    Evaluator evaluator = new Evaluator(this.record);
+    return evaluator.getChildren(childObjectName);
+>>>>>>> Stashed changes
   }
 
   /**
    * @inheritDoc
    */
+<<<<<<< Updated upstream
   public override List<EvaluatorInterface> getChildrenAsEvaluators(String childObjectName) {
     Evaluator evaluator = new Evaluator(this.record);
     return evaluator.getChildrenAsEvaluators(childObjectName);
@@ -128,5 +141,33 @@ public with sharing class MockEvaluator extends AbstractEvaluator {
     Map<String, Object> pickedRelationFields
   ) {
     return new MockEvaluator(this.record, pickedFields, pickedRelationFields, this.fieldToValue);
+||||||| Stash base
+  public EvaluatorInterface setRecord(SObject record) {
+    return new MockEvaluator(this.record, this.fieldToValue);
+=======
+  public override List<EvaluatorInterface> getChildrenAsEvaluators(String childObjectName) {
+    if (fieldToValue.containsKey(childObjectName)) {
+      return (List<EvaluatorInterface>) fieldToValue.get(childObjectName);
+    }
+    Evaluator evaluator = new Evaluator(this.record);
+    return evaluator.getChildrenAsEvaluators(childObjectName);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public override EvaluatorInterface setRecord(SObject record) {
+    return new MockEvaluator(record, this.fieldToValue);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public override EvaluatorInterface setPickedFields(
+    List<String> pickedFields,
+    Map<String, Object> pickedRelationFields
+  ) {
+    return new MockEvaluator(this.record, pickedFields, pickedRelationFields, this.fieldToValue);
+>>>>>>> Stashed changes
   }
 }

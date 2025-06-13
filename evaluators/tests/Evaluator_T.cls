@@ -163,4 +163,132 @@ public with sharing class Evaluator_T {
     // Assert
     System.assertEquals(record, returnedRecord);
   }
+
+  @isTest
+  static void testGetParent_WhenParentIsNull_ThenReturnNull() {
+    // Arrange
+    SObject record = new Opportunity(Name = 'Test Opportunity');
+    Evaluator evaluator = new Evaluator(record);
+
+    // Act
+    Account parentAccount = (Account) evaluator.getParent('AccountId');
+
+    // Assert
+    Assert.isNull(parentAccount, 'Expected parent account to be null');
+  }
+
+  @isTest
+  static void testGetParentAsEvaluator_WhenParentIsNull_ThenReturnNull() {
+    // Arrange
+    SObject record = new Opportunity(Name = 'Test Opportunity');
+    Evaluator evaluator = new Evaluator(record);
+
+    // Act
+    EvaluatorInterface parentEvaluator = evaluator.getParentAsEvaluator('AccountId');
+
+    // Assert
+    Assert.isNull(parentEvaluator, 'Expected parent evaluator to be null');
+  }
+
+  @isTest
+  static void testGetChildren_WhenChildrenAreNull_ThenReturnEmptyList() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Evaluator evaluator = new Evaluator(record);
+
+    // Act
+    List<Object> children = evaluator.getChildren('Contact');
+
+    // Assert
+    Assert.isTrue(children.isEmpty(), 'Expected children list to be empty');
+  }
+
+  @isTest
+  static void testGetChildrenAsEvaluators_WhenChildrenAreNull_ThenReturnEmptyList() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Evaluator evaluator = new Evaluator(record);
+
+    // Act
+    List<EvaluatorInterface> childrenEvaluators = evaluator.getChildrenAsEvaluators('Contact');
+
+    // Assert
+    Assert.isTrue(childrenEvaluators.isEmpty(), 'Expected children evaluators list to be empty');
+  }
+
+  @isTest
+  static void testGetParent_WhenFieldNameDoesNotExist_ThenErrorOccurred() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Evaluator evaluator = new Evaluator(record);
+
+    // Act / Assert
+    try {
+      Object parent = evaluator.getParent('NonExistentField');
+      Assert.fail('Expected an exception to be thrown');
+    } catch (Exception e) {
+      Assert.areEqual('The specified parentFieldName does not exist in the object\'s fields. object name: Account, field name: NonExistentField', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGetParent_WhenFieldIsNotReferenceType_ThenErrorOccurred() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Evaluator evaluator = new Evaluator(record);
+
+    // Act / Assert
+    try {
+      Object parent = evaluator.getParent('Name');
+      Assert.fail('Expected an exception to be thrown');
+    } catch (Exception e) {
+      Assert.areEqual('The specified parentFieldName is not a reference type. object name: Account, field name: Name', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGetParentAsEvaluator_WhenFieldNameDoesNotExist_ThenErrorOccurred() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Evaluator evaluator = new Evaluator(record);
+
+    // Act / Assert
+    try {
+      EvaluatorInterface parentEvaluator = evaluator.getParentAsEvaluator('NonExistentField');
+      Assert.fail('Expected an exception to be thrown');
+    } catch (Exception e) {
+      Assert.areEqual('The specified parentFieldName does not exist in the object\'s fields. object name: Account, field name: NonExistentField', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGetChildren_WhenChildObjectNameDoesNotExist_ThenErrorOccurred() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Evaluator evaluator = new Evaluator(record);
+
+    // Act / Assert
+    try {
+      List<Object> children = evaluator.getChildren('NonExistentChildObject');
+      Assert.fail('Expected an exception to be thrown');
+    } catch (Exception e) {
+      Assert.areEqual('The specified childObjectName does not exist in the object\'s child relationships. object name: Account, child name: NonExistentChildObject', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGetChildrenAsEvaluators_WhenChildObjectNameDoesNotExist_ThenErrorOccurred() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Evaluator evaluator = new Evaluator(record);
+
+    // Act / Assert
+    try {
+      List<EvaluatorInterface> childrenEvaluators = evaluator.getChildrenAsEvaluators('NonExistentChildObject');
+      Assert.fail('Expected an exception to be thrown');
+    } catch (Exception e) {
+      Assert.areEqual('The specified childObjectName does not exist in the object\'s child relationships. object name: Account, child name: NonExistentChildObject', e.getMessage());
+    }
+  }
+
 }

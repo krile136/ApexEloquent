@@ -702,8 +702,38 @@ public class Query {
     return query;
   }
 
-  public List<String> getSelectFields() {
-    return this.selectFields;
+  /**
+   * get selected Fields.
+   *
+   * @param parentSObjectType: The parent SObject type
+   * @return selected fields list
+   */
+  public List<String> getSelectedFields() {
+    List<String> selectFields = new List<String>();
+
+    if (this.isSelectAll) {
+      Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
+      for (String fieldName : fieldMap.keyset()) {
+        selectFields.add(fieldName.toLowerCase());
+      }
+    } else {
+      for (String fieldName : this.selectFields) {
+        selectFields.add(fieldName.toLowerCase());
+      }
+    }
+
+    return selectFields;
+  }
+
+  public Boolean hasSource() {
+    return this.sObjectType != null;
+  }
+
+  public String getSourceName() {
+    if (this.sObjectType == null) {
+      throw new QueryException('source is not set');
+    }
+    return this.sObjectType.getDescribe().getName();
   }
 
   public List<ParentClause> getParents() {
@@ -736,7 +766,8 @@ public class Query {
 
     String fromString;
     String objectName = this.sObjectType.getDescribe().getName();
-    List<Schema.ChildRelationship> parentChildRelationships = parentSObjectType.getDescribe().getChildRelationships();
+    List<Schema.ChildRelationship> parentChildRelationships = parentSObjectType.getDescribe()
+      .getChildRelationships();
     for (Schema.ChildRelationship relationship : parentChildRelationships) {
       if (relationship.getChildSObject().getDescribe().getName() == objectName) {
         fromString = relationship.getRelationshipName();
@@ -787,7 +818,7 @@ public class Query {
       throw new QueryException('source is not set');
     }
     if (this.selectFields.isEmpty() && !this.isSelectAll) {
-      throw new QueryException('pick is not set');
+      this.selectFields.add('Id');
     }
   }
 
@@ -801,16 +832,12 @@ public class Query {
     String selectFieldsString = '';
 
     // add select fields
-    if (this.isSelectAll) {
-      for (String fieldName : fieldMap.keyset()) {
-        if (selectFieldsString == null || selectFieldsString == '') {
-          selectFieldsString = fieldName;
-        } else {
-          selectFieldsString = selectFieldsString + ', ' + fieldName;
-        }
+    for (String fieldName : this.getSelectedFields()) {
+      if (selectFieldsString == null || selectFieldsString == '') {
+        selectFieldsString = fieldName;
+      } else {
+        selectFieldsString = selectFieldsString + ', ' + fieldName;
       }
-    } else {
-      selectFieldsString = String.join(this.selectFields, ', ');
     }
 
     // Add parent queries
@@ -826,6 +853,34 @@ public class Query {
     return selectFieldsString;
   }
 
+  public FieldStructure buildFieldStructure() {
+    List<String> selectedFields = this.getSelectedFields();
+
+    Map<String, FieldStructure> relationFieldStructures = new Map<String, FieldStructure>();
+    Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
+    for (ParentClause parent : this.parents) {
+      String parentFieldName = parent.getRelationFieldName();
+      FieldStructure parentFieldStructure = parent.getFieldStructure(fieldMap);
+      relationFieldStructures.put(parentFieldName, parentFieldStructure);
+    }
+
+    relationFieldStructures = this.addChildrenFieldStructure(relationFieldStructures);
+
+    return new FieldStructure(selectedFields, relationFieldStructures);
+  }
+
+  private Map<String, FieldStructure> addChildrenFieldStructure(Map<String, FieldStructure> relationFieldStructures) {
+    for(Query child : this.children) {
+      String childName = child.getSourceName();
+      FieldStructure childFieldStructure = child.buildFieldStructure();
+      relationFieldStructures.put(childName, childFieldStructure);
+    }
+
+    return relationFieldStructures;
+  }
+
+  
+
   /**
    * Constructs the WHERE clause.
    *
@@ -836,7 +891,6 @@ public class Query {
     Boolean hasOrCondition = false;
 
     String whereClauseString = '';
-    System.debug('hasParent: ' + this.hasParent());
 
     if (!this.andWhereClauses.isEmpty()) {
       whereClauseString += '(';
@@ -880,7 +934,6 @@ public class Query {
         whereClauseStrings.add(whereClauseWithSource.build());
       }
       for (ParentClause parent : this.parents) {
-        System.debug('parent: ' + parent);
         whereClauseStrings.add(parent.buildOrWhereClause(fieldMap, null));
       }
       whereClauseString += String.join(whereClauseStrings, ' OR ');

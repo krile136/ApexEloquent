@@ -10,7 +10,7 @@ public with sharing class ParentClause_T {
     String actual = parentClause.buildSelectClause(oppFieldMap, null);
 
     // Assert
-    String expected = 'Owner.Id, Owner.Name';
+    String expected = 'Owner.id, Owner.name';
     Assert.areEqual(expected, actual);
   }
 
@@ -19,7 +19,10 @@ public with sharing class ParentClause_T {
     // Arrange
     ParentClause parentClause = new ParentClause(
       'ContractId',
-      (new Query()).pick('Id').pick('Name').withParents(new parentClause('AccountId', (new Query()).pick('Id').pick('Name')))
+      (new Query())
+        .pick('Id')
+        .pick('Name')
+        .withParents(new parentClause('AccountId', (new Query()).pick('Id').pick('Name')))
     );
     Map<String, Schema.SObjectField> oppFieldMap = Opportunity.getSObjectType().getDescribe().fields.getMap();
 
@@ -27,7 +30,7 @@ public with sharing class ParentClause_T {
     String actual = parentClause.buildSelectClause(oppFieldMap, null);
 
     // Assert
-    String expected = 'Contract.Id, Contract.Name, Contract.Account.Id, Contract.Account.Name';
+    String expected = 'Contract.id, Contract.name, Contract.Account.id, Contract.Account.name';
     Assert.areEqual(expected, actual);
   }
 
@@ -107,7 +110,14 @@ public with sharing class ParentClause_T {
         .condition('Id', '=', '001000000000000')
         .condition('Name', '=', 'Test')
         .withParents(
-          new ParentClause('AccountId', (new Query()).pick('Id').pick('Name').condition('Id', '=', '001000000000001').condition('Name', '=', 'Test2'))
+          new ParentClause(
+            'AccountId',
+            (new Query())
+              .pick('Id')
+              .pick('Name')
+              .condition('Id', '=', '001000000000001')
+              .condition('Name', '=', 'Test2')
+          )
         )
     );
     Map<String, Schema.SObjectField> oppFieldMap = Opportunity.getSObjectType().getDescribe().fields.getMap();
@@ -125,7 +135,11 @@ public with sharing class ParentClause_T {
     // Arrange
     ParentClause parentClause = new ParentClause(
       'OwnerId',
-      (new Query()).pick('Id').pick('Name').orCondition('Id', '=', '001000000000000').orCondition('Name', '=', 'Test')
+      (new Query())
+        .pick('Id')
+        .pick('Name')
+        .orCondition('Id', '=', '001000000000000')
+        .orCondition('Name', '=', 'Test')
     );
     Map<String, Schema.SObjectField> oppFieldMap = Opportunity.getSObjectType().getDescribe().fields.getMap();
 
@@ -148,7 +162,14 @@ public with sharing class ParentClause_T {
         .orCondition('Id', '=', '001000000000000')
         .orCondition('Name', '=', 'Test')
         .withParents(
-          new ParentClause('AccountId', (new Query()).pick('Id').pick('Name').orCondition('Id', '=', '001000000000001').orCondition('Name', '=', 'Test2'))
+          new ParentClause(
+            'AccountId',
+            (new Query())
+              .pick('Id')
+              .pick('Name')
+              .orCondition('Id', '=', '001000000000001')
+              .orCondition('Name', '=', 'Test2')
+          )
         )
     );
     Map<String, Schema.SObjectField> oppFieldMap = Opportunity.getSObjectType().getDescribe().fields.getMap();
@@ -159,5 +180,78 @@ public with sharing class ParentClause_T {
     // Assert
     String expected = 'Contract.Id = \'001000000000000\' OR Contract.Name = \'Test\' OR Contract.Account.Id = \'001000000000001\' OR Contract.Account.Name = \'Test2\'';
     Assert.areEqual(expected, actual);
+  }
+
+  @isTest
+  static void testGetFieldStructure_WhenSelectAllFields_ThenGetAllFields() {
+    // Arrange
+    ParentClause parentClause = new ParentClause(
+      'ContractId',
+      (new Query()).pickAll().condition('Id', '=', '001000000000000')
+    );
+    Map<String, Schema.SObjectField> childrenFieldMap = Opportunity.getSObjectType().getDescribe().fields.getMap();
+
+    // Act
+    FieldStructure actual = parentClause.getFieldStructure(childrenFieldMap);
+
+    // Assert
+    List<String> expectedFields = new List<String>{ 'id', 'name', 'startdate', 'enddate', 'status' };
+    for (String field : expectedFields) {
+      Assert.isTrue(actual.hasField(field), 'Expected field ' + field + ' not found in picked fields');
+    }
+  }
+
+  @isTest
+  static void testGetFieldStructure_WhenSelectSpecificFields_ThenGetOnlyThoseFields() {
+    // Arrange
+    List<String> expectedFields = new List<String>{ 'Id', 'Name' };
+    ParentClause parentClause = new ParentClause(
+      'ContractId',
+      (new Query()).pick(expectedFields).condition('Id', '=', '001000000000000')
+    );
+    Map<String, Schema.SObjectField> childrenFieldMap = Opportunity.getSObjectType().getDescribe().fields.getMap();
+
+    // Act
+    FieldStructure actual = parentClause.getFieldStructure(childrenFieldMap);
+
+    // Assert
+    Assert.isTrue(
+      actual.getFieldCount() == expectedFields.size(),
+      'Expected ' + expectedFields.size() + ' fields, but got ' + actual.getFieldCount()
+    );
+    for (String field : expectedFields) {
+      field = field.toLowerCase();
+      Assert.isTrue(actual.hasField(field), 'Expected field ' + field + ' not found in picked fields');
+    }
+  }
+
+  @isTest
+  static void testGetPickedFieldStructure_WhenParentNest_ThenGetNestedParentFields() {
+    // Arrange
+    List<String> contractFields = new List<String>{ 'Id', 'Name', 'ContractNumber', 'ContractTerm' };
+    List<String> accountFields = new List<String>{ 'Id', 'Name', 'BillingAddress', 'Phone', 'Fax' };
+    ParentClause parentClause = new ParentClause(
+      'ContractId',
+      (new Query())
+        .pick(contractFields)
+        .withParents(new ParentClause('AccountId', (new Query()).pick(accountFields)))
+    );
+    Map<String, Schema.SObjectField> oppFieldMap = Opportunity.getSObjectType().getDescribe().fields.getMap();
+
+    // Act
+    FieldStructure actual = parentClause.getFieldStructure(oppFieldMap);
+    System.debug(actual);
+
+    // Assert
+    for(String contractField : contractFields) {
+      contractField = contractField.toLowerCase();
+      Assert.isTrue(actual.hasField(contractField), 'Expected contract field ' + contractField + ' not found in picked fields');
+    }
+    FieldStructure accountFieldStructure = actual.getRelationFieldStructure('AccountId');
+    Assert.isNotNull(accountFieldStructure, 'Expected AccountId relation field structure not found');
+    for(String accountField : accountFields) {
+      accountField = accountField.toLowerCase();
+      Assert.isTrue(accountFieldStructure.hasField(accountField), 'Expected account field ' + accountField + ' not found in picked fields');
+    }
   }
 }

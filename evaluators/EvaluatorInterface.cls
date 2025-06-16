@@ -101,9 +101,8 @@ public interface EvaluatorInterface {
   /**
    * set picked fields and relation fields.
    *
-   * @param pickedFields List of field names to be picked
-   * @param pickedRelationFields Map of relation names to be picked
+   * @param FieldStructure fieldStructure
    * @return EvaluatorInterface
    */
-  EvaluatorInterface setPickedFields(List<String> pickedFields, Map<String, Object> pickedRelationFields);
+  EvaluatorInterface setFieldStructure(FieldStructure fieldStructure);
 }

@@ -15,8 +15,9 @@ public with sharing class Repository implements RepositoryInterface {
   public List<EvaluatorInterface> getAsEvaluators(Query query) {
     List<SObject> records = get(query);
     List<EvaluatorInterface> evaluators = new List<EvaluatorInterface>();
+    FieldStructure fieldStructure = query.buildFieldStructure();
     for (SObject record : records) {
-      evaluators.add(new Evaluator(record));
+      evaluators.add(new Evaluator(record, fieldStructure));
     }
     return evaluators;
   }
@@ -40,7 +41,8 @@ public with sharing class Repository implements RepositoryInterface {
     if (records.isEmpty()) {
       return null;
     }
-    return new Evaluator(records[0]);
+    FieldStructure fieldStructure = query.buildFieldStructure();
+    return new Evaluator(records[0], fieldStructure);
   }
 
   /**
@@ -62,7 +64,8 @@ public with sharing class Repository implements RepositoryInterface {
     if (records.isEmpty()) {
       throw new QueryException('No records found for query: ' + query.toSoql());
     }
-    return new Evaluator(records[0]);
+    FieldStructure fieldStructure = query.buildFieldStructure();
+    return new Evaluator(records[0], fieldStructure);
   }
 
   /**

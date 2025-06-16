@@ -70,19 +70,19 @@ public with sharing class MockRepository implements RepositoryInterface {
    * @inheritDoc
    */
   public List<SObject> get(Query query) {
+    String soql = query.toSoql();   // for showing build SOQL
     return this.records;
   }
 
   /**
    * @inheritDoc
    */
-
   public List<EvaluatorInterface> getAsEvaluators(Query query) {
-    List<String> pickedFields = new List<String>();
-    Map<String, Object> pickedRelationFields = new Map<String, Object>();
+    String soql = query.toSoql();   // for showing build SOQL
+    FieldStructure fieldStructure = query.buildFieldStructure();
     List<EvaluatorInterface> evaluatorsWithPickedFields = new List<EvaluatorInterface>();
     for(EvaluatorInterface evaluator : this.evaluators) {
-      evaluatorsWithPickedFields.add(evaluator.setPickedFields(pickedFields, pickedRelationFields));
+      evaluatorsWithPickedFields.add(evaluator.setFieldStructure(fieldStructure));
     }
     return evaluatorsWithPickedFields;
   }
@@ -90,8 +90,8 @@ public with sharing class MockRepository implements RepositoryInterface {
   /**
    * @inheritDoc
    */
-
   public SObject first(Query query) {
+    String soql = query.toSoql();   // for showing build SOQL
     if (this.records.isEmpty()) {
       return null;
     }
@@ -102,19 +102,21 @@ public with sharing class MockRepository implements RepositoryInterface {
    * @inheritDoc
    */
   public EvaluatorInterface firstAsEvaluator(Query query) {
+    String soql = query.toSoql();   // for showing build SOQL
     if (this.evaluators.isEmpty()) {
       return null;
     }
     EvaluatorInterface firstEvaluator = this.evaluators[0];
-    List<String> pickedFields = new List<String>();
-    Map<String, Object> pickedRelationFields = new Map<String, Object>();
-    return firstEvaluator.setPickedFields(pickedFields, pickedRelationFields);
+    FieldStructure fieldStructure = query.buildFieldStructure();
+    return firstEvaluator.setFieldStructure(fieldStructure);
+  
   }
 
   /**
    * @inheritDoc
    */
   public SObject firstOrFail(Query query) {
+    String soql = query.toSoql();   // for showing build SOQL
     if (this.records.isEmpty()) {
       throw new QueryException('No records found for query: ' + query.toSoql());
     }
@@ -125,13 +127,13 @@ public with sharing class MockRepository implements RepositoryInterface {
    * @inheritDoc
    */
   public EvaluatorInterface firstOrFailAsEvaluator(Query query) {
+    String soql = query.toSoql();   // for showing build SOQL
     if (this.evaluators.isEmpty()) {
       throw new QueryException('No records found for query: ' + query.toSoql());
     }
     EvaluatorInterface firstEvaluator = this.evaluators[0];
-    List<String> pickedFields = new List<String>();
-    Map<String, Object> pickedRelationFields = new Map<String, Object>();
-    return firstEvaluator.setPickedFields(pickedFields, pickedRelationFields);
+    FieldStructure fieldStructure = query.buildFieldStructure(); 
+    return firstEvaluator.setFieldStructure(fieldStructure);
   }
 
   /**

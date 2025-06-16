@@ -1,7 +1,6 @@
 public with sharing abstract class AbstractEvaluator implements EvaluatorInterface {
   protected final SObject record;
-  protected final List<String> pickedFields;
-  protected final Map<String, Object> pickedRelationFields;
+  protected final FieldStructure fieldStructure;
 
   /**
    * constructoor
@@ -10,6 +9,7 @@ public with sharing abstract class AbstractEvaluator implements EvaluatorInterfa
    */
   protected AbstractEvaluator(SObject record) {
     this.record = record;
+    this.fieldStructure = null;
   }
 
   /**
@@ -19,16 +19,63 @@ public with sharing abstract class AbstractEvaluator implements EvaluatorInterfa
    * @param pickedFields List of field names to be picked
    * @param pickedRelationFields Map of relation names to be picked
    */
-  protected AbstractEvaluator(SObject record, List<String> pickedFields, Map<String, Object> pickedRelationFields) {
+  protected AbstractEvaluator(SObject record, FieldStructure fieldStructure) {
     this.record = record;
-    this.pickedFields = pickedFields;
-    this.pickedRelationFields = pickedRelationFields;
+    this.fieldStructure = fieldStructure;
+  }
+
+  /**
+    * validate the field name.
+    *
+    * @param fieldName field name to be validated
+    * @throws QueryException if the field is not picked in SOQL builder
+    */
+  protected void validateFieldName(String fieldName) {
+    if(this.fieldStructure == null) {
+      return;
+    }
+
+    String lowerCaseFieldName = fieldName.toLowerCase();
+    if (fieldStructure.hasField(lowerCaseFieldName)) {
+      return;
+    }
+
+    throw new QueryException(
+      'The specified field is not picked in SOQL builder. object name: ' +
+        this.record.getSObjectType().getDescribe().getName() +
+        ', field name: ' +
+        fieldName
+    );
+  }
+
+  /**
+    * validate the relation name.
+    *
+    * @param relationName relation name to be validated
+    * @throws QueryException if the relation is not exist in SOQL builder
+    */
+  protected void validateRelationName(String relationName) {
+    if(this.fieldStructure == null) {
+      return;
+    }
+
+    if (fieldStructure.hasRelation(relationName)) {
+      return;
+    }
+
+    throw new QueryException(
+      'The specified relation is not exist in SOQL builder. object name: ' +
+        this.record.getSObjectType().getDescribe().getName() +
+        ', relation name: ' +
+        relationName
+    );
   }
 
   /**
    * @inheritDoc
    */
   public Id getId() {
+    this.validateFieldName('id');
     return (Id) record.get('Id');
   }
 
@@ -36,6 +83,7 @@ public with sharing abstract class AbstractEvaluator implements EvaluatorInterfa
    * @inheritDoc
    */
   public String getName() {
+    this.validateFieldName('name');
     return (String) record.get('Name');
   }
 
@@ -55,5 +103,5 @@ public with sharing abstract class AbstractEvaluator implements EvaluatorInterfa
   public abstract List<Object> getChildren(String childObjectName);
   public abstract List<EvaluatorInterface> getChildrenAsEvaluators(String childObjectName);
   public abstract EvaluatorInterface setRecord(SObject record);
-  public abstract EvaluatorInterface setPickedFields(List<String> pickedFields, Map<String, Object> pickedRelationFields);
+  public abstract EvaluatorInterface setFieldStructure(FieldStructure fieldStructure);
 }

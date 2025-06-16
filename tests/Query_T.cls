@@ -3,13 +3,16 @@ public with sharing class Query_T {
   @isTest
   public static void testQuerySingleField() {
     // Arrange
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000');
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\')';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\')';
     Assert.areEqual(expected, query.toSoql());
   }
 
@@ -17,20 +20,26 @@ public with sharing class Query_T {
   public static void testQueryMultipleFields() {
     // Arrange
     List<String> fields = new List<String>{ 'Id', 'Name' };
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick(fields).condition('Id', '=', '006000000000000');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick(fields)
+      .condition('Id', '=', '006000000000000');
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id, Name FROM Opportunity WHERE (Id = \'006000000000000\')';
+    String expected = 'SELECT id, name FROM Opportunity WHERE (Id = \'006000000000000\')';
     Assert.areEqual(expected, query.toSoql());
   }
 
   @isTest
   public static void testQueryPickAllFields() {
     // Arrange
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pickAll().condition('Id', '=', '006000000000000');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pickAll()
+      .condition('Id', '=', '006000000000000');
 
     // Act
     String actual = query.toSoql();
@@ -51,14 +60,16 @@ public with sharing class Query_T {
     Query query = (new Query())
       .source(Opportunity.getSObjectType())
       .pick('Id')
-      .withParents(new ParentClause('AccountId', (new Query()).pick('Name').pick('Id').condition('Name', '=', 'testAccount')))
+      .withParents(
+        new ParentClause('AccountId', (new Query()).pick('Name').pick('Id').condition('Name', '=', 'testAccount'))
+      )
       .condition('Name', '=', 'testOpportunity');
 
     // Act
-    String actual = 'SELECT Id, Account.Name, Account.Id FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\')';
+    String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id, Account.Name, Account.Id FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\')';
+    String expected = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -72,10 +83,10 @@ public with sharing class Query_T {
       .condition('Name', '=', 'testOpportunity');
 
     // Act
-    String actual = 'SELECT Id, Account.Name, Account.Id FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\')';
+    String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id, Account.Name, Account.Id FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\')';
+    String expected = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -85,13 +96,15 @@ public with sharing class Query_T {
     Query query = (new Query())
       .source(Opportunity.getSObjectType())
       .pick('Id')
-      .withParents(new ParentClause('AccountId', (new Query()).pick('Name').pick('Id').condition('Name', '=', 'testAccount')));
+      .withParents(
+        new ParentClause('AccountId', (new Query()).pick('Name').pick('Id').condition('Name', '=', 'testAccount'))
+      );
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id, Account.Name, Account.Id FROM Opportunity WHERE (Account.Name = \'testAccount\')';
+    String expected = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE (Account.Name = \'testAccount\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -102,14 +115,16 @@ public with sharing class Query_T {
       .source(Opportunity.getSObjectType())
       .pick('Id')
       .withParents(new ParentClause('AccountId', (new Query()).pick('Name').condition('Name', '=', 'testAccount')))
-      .withParents(new ParentClause('ContractId', (new Query()).pick('Name').condition('Name', '=', 'testContract')))
+      .withParents(
+        new ParentClause('ContractId', (new Query()).pick('Name').condition('Name', '=', 'testContract'))
+      )
       .condition('Name', '=', 'testOpportunity');
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id, Account.Name, Contract.Name FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\' AND Contract.Name = \'testContract\')';
+    String expected = 'SELECT id, Account.name, Contract.name FROM Opportunity WHERE (Name = \'testOpportunity\' AND Account.Name = \'testAccount\' AND Contract.Name = \'testContract\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -126,7 +141,9 @@ public with sharing class Query_T {
             .pick('Name')
             .pick('Id')
             .condition('Name', '=', 'testContract')
-            .withParents(new ParentClause('AccountId', (new Query()).pick('Name').condition('Name', '=', 'testAccount')))
+            .withParents(
+              new ParentClause('AccountId', (new Query()).pick('Name').condition('Name', '=', 'testAccount'))
+            )
         )
       )
       .condition('Name', '=', 'testOpportunity');
@@ -135,7 +152,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id, Contract.Name, Contract.Id, Contract.Account.Name FROM Opportunity WHERE (Name = \'testOpportunity\' AND Contract.Name = \'testContract\' AND Contract.Account.Name = \'testAccount\')';
+    String expected = 'SELECT id, Contract.name, Contract.id, Contract.Account.name FROM Opportunity WHERE (Name = \'testOpportunity\' AND Contract.Name = \'testContract\' AND Contract.Account.Name = \'testAccount\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -149,14 +166,19 @@ public with sharing class Query_T {
         'OpportunityId',
         (new Query())
           .pick('Id')
-          .withParents(new ParentClause('AccountId', (new Query()).pick('Name').pick('Id').condition('Name', '=', 'testAccount')))
+          .withParents(
+            new ParentClause(
+              'AccountId',
+              (new Query()).pick('Name').pick('Id').condition('Name', '=', 'testAccount')
+            )
+          )
       );
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id, Opportunity.Id, Opportunity.Account.Name, Opportunity.Account.Id FROM OpportunityLineItem WHERE (Opportunity.Account.Name = \'testAccount\')';
+    String expected = 'SELECT id, Opportunity.id, Opportunity.Account.name, Opportunity.Account.id FROM OpportunityLineItem WHERE (Opportunity.Account.Name = \'testAccount\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -176,7 +198,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Name, (SELECT FirstName FROM Contacts WHERE (Name != NULL)), (SELECT Name FROM Opportunities WHERE (Name != NULL)) FROM Account WHERE (Name = \'testAccount\')';
+    String expected = 'SELECT name, (SELECT firstname FROM Contacts WHERE (Name != NULL)), (SELECT name FROM Opportunities WHERE (Name != NULL)) FROM Account WHERE (Name = \'testAccount\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -191,7 +213,12 @@ public with sharing class Query_T {
           .source(Contact.getSObjectType())
           .pick('Name')
           .condition('Name', '=', 'testContact')
-          .withChildren((new Query()).source(Opportunity.getSObjectType()).pick('Name').condition('Name', '=', 'testOpportunity'))
+          .withChildren(
+            (new Query())
+              .source(Opportunity.getSObjectType())
+              .pick('Name')
+              .condition('Name', '=', 'testOpportunity')
+          )
       )
       .condition('Name', '=', 'testAccount');
 
@@ -199,7 +226,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Name, (SELECT Name, (SELECT Name FROM Opportunities WHERE (Name = \'testOpportunity\')) FROM Contacts WHERE (Name = \'testContact\')) FROM Account WHERE (Name = \'testAccount\')';
+    String expected = 'SELECT name, (SELECT name, (SELECT name FROM Opportunities WHERE (Name = \'testOpportunity\')) FROM Contacts WHERE (Name = \'testContact\')) FROM Account WHERE (Name = \'testAccount\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -216,7 +243,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\' AND Name = \'Test\')';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\' AND Name = \'Test\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -224,13 +251,17 @@ public with sharing class Query_T {
   public static void testAndConditionQueryWithArray() {
     // Arrange
     List<String> ids = new List<String>{ '006000000000000', '006000000000001' };
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Name', '=', 'Test').condition('Id', 'IN', ids);
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Name', '=', 'Test')
+      .condition('Id', 'IN', ids);
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\' AND Id IN (\'006000000000000\', \'006000000000001\'))';
+    String expected = 'SELECT id FROM Opportunity WHERE (Name = \'Test\' AND Id IN (\'006000000000000\', \'006000000000001\'))';
     Assert.areEqual(expected, actual);
   }
 
@@ -238,13 +269,17 @@ public with sharing class Query_T {
   public static void testAndConditionQueryWithArrayIncludesNull() {
     // Arrange
     List<String> ids = new List<String>{ '006000000000000', null };
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Name', '=', 'Test').condition('Id', 'IN', ids);
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Name', '=', 'Test')
+      .condition('Id', 'IN', ids);
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\' AND Id IN (\'006000000000000\', NULL))';
+    String expected = 'SELECT id FROM Opportunity WHERE (Name = \'Test\' AND Id IN (\'006000000000000\', NULL))';
     Assert.areEqual(expected, actual);
   }
 
@@ -252,13 +287,17 @@ public with sharing class Query_T {
   public static void testAndConditionQueryWithEmptyArray() {
     // Arrange
     List<String> ids = new List<String>();
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Name', '=', 'Test').condition('Id', 'IN', ids);
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Name', '=', 'Test')
+      .condition('Id', 'IN', ids);
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\' AND Id = NULL)';
+    String expected = 'SELECT id FROM Opportunity WHERE (Name = \'Test\' AND Id = NULL)';
     Assert.areEqual(expected, actual);
   }
 
@@ -275,7 +314,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') OR (Name = \'Test\')';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') OR (Name = \'Test\')';
     Assert.areEqual(expected, actual);
   }
 
@@ -283,13 +322,17 @@ public with sharing class Query_T {
   public static void testOrConditionQueryWithArray() {
     // Arrange
     List<String> ids = new List<String>{ '006000000000000', '006000000000001' };
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Name', '=', 'Test').orCondition('Id', 'IN', ids);
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Name', '=', 'Test')
+      .orCondition('Id', 'IN', ids);
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\') OR (Id IN (\'006000000000000\', \'006000000000001\'))';
+    String expected = 'SELECT id FROM Opportunity WHERE (Name = \'Test\') OR (Id IN (\'006000000000000\', \'006000000000001\'))';
     Assert.areEqual(expected, actual);
   }
 
@@ -297,13 +340,17 @@ public with sharing class Query_T {
   public static void testOrConditionQueryWithEmptyArray() {
     // Arrange
     List<String> ids = new List<String>();
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Name', '=', 'Test').orCondition('Id', 'IN', ids);
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Name', '=', 'Test')
+      .orCondition('Id', 'IN', ids);
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Name = \'Test\') OR (Id = NULL)';
+    String expected = 'SELECT id FROM Opportunity WHERE (Name = \'Test\') OR (Id = NULL)';
     Assert.areEqual(expected, actual);
   }
 
@@ -314,13 +361,15 @@ public with sharing class Query_T {
       .source(Opportunity.getSObjectType())
       .pick('Id')
       .condition('Id', '=', '006000000000000')
-      .condition((new Query()).condition('Name', '=', 'Test').condition('CloseDate', '<=', Date.newInstance(2024, 12, 31)));
+      .condition(
+        (new Query()).condition('Name', '=', 'Test').condition('CloseDate', '<=', Date.newInstance(2024, 12, 31))
+      );
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') AND ((Name = \'Test\' AND CloseDate <= 2024-12-31))';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') AND ((Name = \'Test\' AND CloseDate <= 2024-12-31))';
     Assert.areEqual(expected, actual);
   }
 
@@ -331,13 +380,15 @@ public with sharing class Query_T {
       .source(Opportunity.getSObjectType())
       .pick('Id')
       .condition('Id', '=', '006000000000000')
-      .orCondition((new Query()).condition('Name', '=', 'Test').condition('CloseDate', '<=', Date.newInstance(2024, 12, 31)));
+      .orCondition(
+        (new Query()).condition('Name', '=', 'Test').condition('CloseDate', '<=', Date.newInstance(2024, 12, 31))
+      );
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') OR ((Name = \'Test\' AND CloseDate <= 2024-12-31))';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') OR ((Name = \'Test\' AND CloseDate <= 2024-12-31))';
     Assert.areEqual(expected, actual);
   }
 
@@ -348,13 +399,17 @@ public with sharing class Query_T {
       .source(Opportunity.getSObjectType())
       .pick('Id')
       .condition('Id', '=', '006000000000000')
-      .join('AccountId', 'IN', (new Query()).source(Account.getSObjectType()).pick('Id').condition('Name', '=', 'TestAccount'));
+      .join(
+        'AccountId',
+        'IN',
+        (new Query()).source(Account.getSObjectType()).pick('Id').condition('Name', '=', 'TestAccount')
+      );
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') AND (AccountId IN (SELECT Id FROM Account WHERE (Name = \'TestAccount\')))';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') AND (AccountId IN (SELECT id FROM Account WHERE (Name = \'TestAccount\')))';
     Assert.areEqual(expected, actual);
   }
 
@@ -365,53 +420,73 @@ public with sharing class Query_T {
       .source(Opportunity.getSObjectType())
       .pick('Id')
       .condition('Id', '=', '006000000000000')
-      .join('AccountId', 'IN', (new Query()).source(Account.getSObjectType()).pick('Id').condition('Name', '=', 'TestAccount'))
-      .join('ContactId', 'IN', (new Query()).source(Contact.getSObjectType()).pick('Id').condition('Name', '=', 'TestContact'));
+      .join(
+        'AccountId',
+        'IN',
+        (new Query()).source(Account.getSObjectType()).pick('Id').condition('Name', '=', 'TestAccount')
+      )
+      .join(
+        'ContactId',
+        'IN',
+        (new Query()).source(Contact.getSObjectType()).pick('Id').condition('Name', '=', 'TestContact')
+      );
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') AND (AccountId IN (SELECT Id FROM Account WHERE (Name = \'TestAccount\'))) AND (ContactId IN (SELECT Id FROM Contact WHERE (Name = \'TestContact\')))';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') AND (AccountId IN (SELECT id FROM Account WHERE (Name = \'TestAccount\'))) AND (ContactId IN (SELECT id FROM Contact WHERE (Name = \'TestContact\')))';
     Assert.areEqual(expected, actual);
   }
 
   @isTest
   public static void testQueryWithLimit() {
     // Arrange
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000').restrict(10);
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .restrict(10);
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') LIMIT 10';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') LIMIT 10';
     Assert.areEqual(expected, actual);
   }
 
   @isTest
   public static void testQueryWithOrderBy() {
     // Arrange
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000').orderBy('CloseDate');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .orderBy('CloseDate');
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate ASC';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate ASC';
     Assert.areEqual(expected, actual);
   }
 
   @isTest
   public static void testQueryWithOrderByDesc() {
     // Arrange
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000').orderBy('CloseDate', 'DESC');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .orderBy('CloseDate', 'DESC');
 
     // Act
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate DESC';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate DESC';
     Assert.areEqual(expected, actual);
   }
 
@@ -428,7 +503,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate ASC NULLS FIRST';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate ASC NULLS FIRST';
     Assert.areEqual(expected, actual);
   }
 
@@ -445,7 +520,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate, Name ASC';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate, Name ASC';
     Assert.areEqual(expected, actual);
   }
 
@@ -462,7 +537,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate, Name DESC';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate, Name DESC';
     Assert.areEqual(expected, actual);
   }
 
@@ -479,7 +554,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate, Name ASC NULLS FIRST';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000\') ORDER BY CloseDate, Name ASC NULLS FIRST';
     Assert.areEqual(expected, actual);
   }
 
@@ -492,7 +567,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id = \'006000000000000AAA\')'; // salesforce converts id which is 15 char to 18 char
+    String expected = 'SELECT id FROM Opportunity WHERE (Id = \'006000000000000AAA\')'; // salesforce converts id which is 15 char to 18 char
     Assert.areEqual(expected, actual);
   }
 
@@ -506,7 +581,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (Id IN (\'006000000000000\', \'006000000000001\'))';
+    String expected = 'SELECT id FROM Opportunity WHERE (Id IN (\'006000000000000\', \'006000000000001\'))';
     Assert.areEqual(expected, actual);
   }
 
@@ -522,7 +597,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (CloseDate >= 2024-01-01 AND CloseDate <= 2024-12-31)';
+    String expected = 'SELECT id FROM Opportunity WHERE (CloseDate >= 2024-01-01 AND CloseDate <= 2024-12-31)';
     Assert.areEqual(expected, actual);
   }
 
@@ -538,7 +613,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (CloseDate > 2024-01-01 AND CloseDate < 2024-12-31)';
+    String expected = 'SELECT id FROM Opportunity WHERE (CloseDate > 2024-01-01 AND CloseDate < 2024-12-31)';
     Assert.areEqual(expected, actual);
   }
 
@@ -551,7 +626,7 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (CloseDate = NULL)';
+    String expected = 'SELECT id FROM Opportunity WHERE (CloseDate = NULL)';
     Assert.areEqual(expected, actual);
   }
 
@@ -564,7 +639,165 @@ public with sharing class Query_T {
     String actual = query.toSoql();
 
     // Assert
-    String expected = 'SELECT Id FROM Opportunity WHERE (CloseDate != NULL)';
+    String expected = 'SELECT id FROM Opportunity WHERE (CloseDate != NULL)';
     Assert.areEqual(expected, actual);
+  }
+
+  @isTest
+  static void testGetSelectedFields_WhenAllFieldSelected_ThenGetAllField() {
+    // Arrange
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pickAll()
+      .condition('Id', '=', '006000000000000');
+
+    // Act
+    List<String> actual = query.getSelectedFields();
+
+    // Assert
+    // expected fields are lower case
+    List<String> expected = new List<String>{ 'id', 'name', 'closedate', 'stagename' };
+    for (String field : expected) {
+      Assert.isTrue(actual.contains(field), 'Expected field ' + field + ' to be in the select fields');
+    }
+  }
+
+  @isTest
+  static void testGetSelectedFields_WhenSomeFieldSelected_ThenGetSelectedFields() {
+    // Arrange
+    List<String> expected = new List<String>{ 'Id', 'Name' };
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick(expected)
+      .condition('Id', '=', '006000000000000');
+
+    // Act
+    List<String> actual = query.getSelectedFields();
+    System.debug('Actual select fields: ' + actual);
+
+    // Assert
+    Assert.areEqual(
+      expected.size(),
+      actual.size(),
+      'Expected number of fields does not match actual number of fields'
+    );
+    for (String field : expected) {
+      field = field.toLowerCase();
+      Assert.isTrue(actual.contains(field), 'Expected field ' + field + ' to be in the select fields');
+    }
+  }
+
+  @isTest
+  static void testBuildFieldStructure_WhenSourceIsOne_ThenGetFieldStructure() {
+    // Arrange
+    List<String> selectedFields = new List<String>{ 'Id', 'Name' };
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick(selectedFields)
+      .condition('Id', '=', '006000000000000');
+
+    // Act
+    FieldStructure actual = query.buildFieldStructure();
+
+    // Assert
+    for (String field : selectedFields) {
+      field = field.toLowerCase();
+      Assert.isTrue(actual.hasField(field), 'Expected field ' + field + ' to be in the field structure');
+    }
+  }
+
+  @isTest
+  static void testBuildFieldStructure_WhenWithParents_ThenGetParentStructure() {
+    // Arrange
+    List<String> oppFields = new List<String>{ 'Id', 'Name' };
+    List<String> contractFields = new List<String>{ 'Id', 'Name', 'ContractNumber', 'ContractTerm' };
+    List<String> accountFields = new List<String>{ 'Id', 'Name', 'BillingAddress', 'Phone', 'Fax' };
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick(oppFields)
+      .withParents(
+        'ContractId',
+        (new Query()).pick(contractFields).withParents('AccountId', (new Query()).pick(accountFields))
+      )
+      .condition('Id', '=', '006000000000000');
+
+    // Act
+    FieldStructure actual = query.buildFieldStructure();
+
+    // Assert oppFieldStructure
+    for (String field : oppFields) {
+      field = field.toLowerCase();
+      Assert.isTrue(actual.hasField(field), 'Expected field ' + field + ' to be in the field structure');
+    }
+    // Assert contractFieldStructure
+    Assert.isTrue(actual.hasRelation(), 'Expected field structure to have relation');
+    FieldStructure contractFieldStructure = actual.getRelationFieldStructure('ContractId');
+    Assert.isNotNull(contractFieldStructure, 'Expected ContractId relation field structure to be not null');
+    for (String field : contractFields) {
+      field = field.toLowerCase();
+      Assert.isTrue(
+        contractFieldStructure.hasField(field),
+        'Expected contract field ' + field + ' to be in the field structure'
+      );
+    }
+    // Assert accountFieldStructure
+    FieldStructure accountFieldStructure = contractFieldStructure.getRelationFieldStructure('AccountId');
+    Assert.isNotNull(accountFieldStructure, 'Expected AccountId relation field structure to be not null');
+    for (String field : accountFields) {
+      field = field.toLowerCase();
+      Assert.isTrue(
+        accountFieldStructure.hasField(field),
+        'Expected account field ' + field + ' to be in the field structure'
+      );
+    }
+  }
+
+  @isTest
+  static void testBuildFieldStructure_WhenWithChildren_ThenGetChildrenStructure() {
+    // Arrange
+    List<String> accountFields = new List<String>{ 'Id', 'Name', 'BillingAddress', 'Phone', 'Fax' };
+    List<String> contractFields = new List<String>{ 'Id', 'Name', 'ContractNumber', 'ContractTerm' };
+    List<String> oppFields = new List<String>{ 'Id', 'Name' };
+    Query query = (new Query())
+      .source(Account.getSObjectType())
+      .pick(accountFields)
+      .withChildren(
+        (new Query())
+          .source(Contract.getSObjectType())
+          .pick(contractFields)
+          .withChildren((new Query()).source(Opportunity.getSObjectType()).pick(oppFields))
+      )
+      .condition('Name', '=', 'Test Account');
+
+    // Act
+    FieldStructure actual = query.buildFieldStructure();
+    System.debug(actual);
+
+    // Assert accountFieldStructure
+    for (String field : accountFields) {
+      field = field.toLowerCase();
+      Assert.isTrue(actual.hasField(field), 'Expected field ' + field + ' to be in the field structure');
+    }
+    // Assert contractFieldStructure
+    Assert.isTrue(actual.hasRelation(), 'Expected field structure to have relation');
+    FieldStructure contractFieldStructure = actual.getRelationFieldStructure('Contract');
+    Assert.isNotNull(contractFieldStructure, 'Expected Contracts relation field structure to be not null');
+    for (String field : contractFields) {
+      field = field.toLowerCase();
+      Assert.isTrue(
+        contractFieldStructure.hasField(field),
+        'Expected contract field ' + field + ' to be in the field structure'
+      );
+    }
+    // Assert oppFieldStructure
+    FieldStructure oppFieldStructure = contractFieldStructure.getRelationFieldStructure('Opportunity');
+    Assert.isNotNull(oppFieldStructure, 'Expected Opportunities relation field structure to be not null');
+    for (String field : oppFields) {
+      field = field.toLowerCase();
+      Assert.isTrue(
+        oppFieldStructure.hasField(field),
+        'Expected opportunity field ' + field + ' to be in the field structure'
+      );
+    }
   }
 }

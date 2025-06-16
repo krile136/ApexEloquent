@@ -25,9 +25,12 @@ public with sharing class ParentClause {
    */
   public String buildSelectClause(Map<String, Schema.SObjectField> childFieldMap, String childObjectName) {
     Validated validated = this.validate(childFieldMap);
+    if(!this.parentQuery.hasParent()){
+      this.parentQuery = this.parentQuery.source(validated.relationSObjectType);
+    }
 
     List<String> parentSelects = new List<String>();
-    for (String parentFieldName : this.parentQuery.getSelectFields()) {
+    for (String parentFieldName : this.parentQuery.getSelectedFields()) {
       String parentSelect = '';
       if (childObjectName != null) {
         parentSelect = childObjectName + '.';
@@ -52,6 +55,33 @@ public with sharing class ParentClause {
       throw new QueryException('The parent fields list is empty');
     }
     return String.join(parentSelects, ', ');
+  }
+
+  public FieldStructure getFieldStructure(Map<String, Schema.SObjectField> childFieldMap) {
+    Validated validated = this.validate(childFieldMap);
+    if(!this.parentQuery.hasParent()){
+      this.parentQuery = this.parentQuery.source(validated.relationSObjectType);
+    }
+
+    List<String> selectedFields =  this.parentQuery.getSelectedFields();
+    FieldStructure fieldstructure = null;
+    if(this.parentQuery.hasParent()) {
+      Map<String, FieldStructure> grandParentFieldNameToFieldStructure = new Map<String, FieldStructure>();
+      Map<String, Schema.SObjectField> parentFieldMap = validated.relationSObjectType.getDescribe().fields.getMap();
+      for (ParentClause grandParentClause : this.parentQuery.getParents()) {
+        FieldStructure grandParentFieldStructure = grandParentClause.getFieldStructure(parentFieldMap);
+        grandParentFieldNameToFieldStructure.put(grandParentClause.getRelationFieldName(), grandParentFieldStructure);
+      }
+      fieldstructure = new FieldStructure(selectedFields, grandParentFieldNameToFieldStructure);
+    }else{
+      fieldstructure = new FieldStructure(selectedFields); 
+    }
+
+    return fieldstructure; 
+  }
+
+  public String getRelationFieldName() {
+    return this.relationFieldName;
   }
 
   public String buildWhereClause(Map<String, Schema.SObjectField> fieldMap, String childObjectName) {

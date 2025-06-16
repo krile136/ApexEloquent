@@ -15,14 +15,16 @@ public with sharing class Evaluator extends AbstractEvaluator {
    * @param pickedFields List of field names to be picked
    * @param pickedRelationFields Map of relation names to be picked
    */
-  public Evaluator(SObject record, List<String> pickedFields, Map<String, Object> pickedRelationFields) {
-    super(record, pickedFields, pickedRelationFields);
+  public Evaluator(SObject record, FieldStructure fieldStructure) {
+    super(record, fieldStructure);
   }
 
   /**
    * @inheritDoc
    */
   public override Object get(String fieldName) {
+    this.validateFieldName(fieldName);
+
     Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
 
     // validate the fieldName
@@ -43,6 +45,8 @@ public with sharing class Evaluator extends AbstractEvaluator {
    * @inheritDoc
    */
   public override Object getRelation(String relationName) {
+    this.validateRelationName(relationName);
+
     Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
     Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
 
@@ -83,6 +87,11 @@ public with sharing class Evaluator extends AbstractEvaluator {
    * @inheritDoc
    */
   public override Object getRelationAsEvaluator(String relationName) {
+    this.validateRelationName(relationName);
+    FieldStructure relationFieldStructure = this.fieldStructure == null
+      ? null
+      : this.fieldStructure.getRelationFieldStructure(relationName);
+
     Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
     Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
 
@@ -93,7 +102,7 @@ public with sharing class Evaluator extends AbstractEvaluator {
         String childRelationName = child.getRelationshipName();
         List<EvaluatorInterface> childEvaluators = new List<EvaluatorInterface>();
         for (SObject childSObject : this.record.getSObjects(childRelationName)) {
-          childEvaluators.add(new Evaluator(childSObject));
+          childEvaluators.add(new Evaluator(childSObject, relationFieldStructure));
         }
         return childEvaluators;
       }
@@ -120,13 +129,15 @@ public with sharing class Evaluator extends AbstractEvaluator {
     if (parentSObject == null) {
       return null;
     }
-    return new Evaluator((SObject) parentSObject);
+    return new Evaluator((SObject) parentSObject, relationFieldStructure);
   }
 
   /**
    * @inheritDoc
    */
   public override Object getParent(String parentFieldName) {
+    this.validateRelationName(parentFieldName);
+
     Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
     Map<String, Schema.SObjectField> fieldMap = describeResult.fields.getMap();
 
@@ -158,17 +169,24 @@ public with sharing class Evaluator extends AbstractEvaluator {
    * @inheritDoc
    */
   public override EvaluatorInterface getParentAsEvaluator(String parentFieldName) {
-    SObject parentSObject = (SObject) getParent(parentFieldName);
+    this.validateRelationName(parentFieldName);
+    FieldStructure parentFieldStructure = this.fieldStructure == null
+      ? null
+      : this.fieldStructure.getRelationFieldStructure(parentFieldName);
+
+    SObject parentSObject = (SObject) this.getParent(parentFieldName);
     if (parentSObject == null) {
       return null;
     }
-    return new Evaluator(parentSObject);
+    return new Evaluator(parentSObject, parentFieldStructure);
   }
 
   /**
    * @inheritDoc
    */
   public override List<Object> getChildren(String childObjectName) {
+    this.validateRelationName(childObjectName);
+
     Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
     List<Schema.ChildRelationship> children = describeResult.getChildRelationships();
 
@@ -195,6 +213,11 @@ public with sharing class Evaluator extends AbstractEvaluator {
    * @inheritDoc
    */
   public override List<EvaluatorInterface> getChildrenAsEvaluators(String childObjectName) {
+    this.validateRelationName(childObjectName);
+    FieldStructure childFieldStructure = this.fieldStructure == null
+      ? null
+      : this.fieldStructure.getRelationFieldStructure(childObjectName);
+
     Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
     List<Schema.ChildRelationship> children = describeResult.getChildRelationships();
 
@@ -203,7 +226,7 @@ public with sharing class Evaluator extends AbstractEvaluator {
         String childRelationName = child.getRelationshipName();
         List<EvaluatorInterface> childEvaluators = new List<EvaluatorInterface>();
         for (SObject childSObject : this.record.getSObjects(childRelationName)) {
-          childEvaluators.add(new Evaluator(childSObject));
+          childEvaluators.add(new Evaluator(childSObject, childFieldStructure));
         }
         return childEvaluators;
       }
@@ -227,10 +250,7 @@ public with sharing class Evaluator extends AbstractEvaluator {
   /**
    * @inheritDoc
    */
-  public override EvaluatorInterface setPickedFields(
-    List<String> pickedFields,
-    Map<String, Object> pickedRelationFields
-  ) {
-    return new Evaluator(this.record, pickedFields, pickedRelationFields);
+  public override EvaluatorInterface setFieldStructure(FieldStructure fieldStructure) {
+    return new Evaluator(this.record, fieldStructure);
   }
 }

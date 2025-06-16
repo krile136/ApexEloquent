@@ -5,7 +5,10 @@ private class MockRepository_T {
     // Arrange
     Opportunity mockOpp = new Opportunity(Id = '006000000000009');
     RepositoryInterface repository = new MockRepository(mockOpp);
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000');
 
     // Act
     Opportunity opp = (Opportunity) repository.first(query);
@@ -21,7 +24,11 @@ private class MockRepository_T {
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'MockOpp' };
     MockEvaluator mockEvaluator = new MockEvaluator(mockOpp, fieldToValue);
     RepositoryInterface repository = new MockRepository(mockEvaluator);
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .pick('Name')
+      .condition('Id', '=', '006000000000000');
 
     // Act
     EvaluatorInterface evaluator = repository.firstAsEvaluator(query);
@@ -35,7 +42,10 @@ private class MockRepository_T {
     // Arrange
     Opportunity mockOpp = new Opportunity(Id = '006000000000009');
     RepositoryInterface repository = new MockRepository(mockOpp);
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000');
 
     // Act
     Opportunity opp = (Opportunity) repository.firstOrFail(query);
@@ -51,7 +61,11 @@ private class MockRepository_T {
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'MockOpp' };
     MockEvaluator mockEvaluator = new MockEvaluator(mockOpp, fieldToValue);
     RepositoryInterface repository = new MockRepository(mockEvaluator);
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .pick('Name')
+      .condition('Id', '=', '006000000000000');
 
     // Act
     EvaluatorInterface evaluator = repository.firstOrFailAsEvaluator(query);
@@ -65,7 +79,10 @@ private class MockRepository_T {
     // Arrange
     Opportunity mockOpp = new Opportunity(Id = '006000000000009');
     RepositoryInterface repository = new MockRepository(new List<SObject>{ mockOpp });
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000');
 
     // Act
     List<Opportunity> opps = (List<Opportunity>) repository.get(query);
@@ -84,8 +101,14 @@ private class MockRepository_T {
     Opportunity mockOpp2 = new Opportunity(Name = 'TestOpp2');
     Map<String, Object> fieldToValue2 = new Map<String, Object>{ 'Name' => 'MockOpp2' };
     MockEvaluator mockEvaluator2 = new MockEvaluator(mockOpp2, fieldToValue2);
-    RepositoryInterface repository = new MockRepository(new List<EvaluatorInterface>{ mockEvaluator1, mockEvaluator2 });
-    Query query = (new Query()).source(Opportunity.getSObjectType()).pick('Id').condition('Id', '=', '006000000000000');
+    RepositoryInterface repository = new MockRepository(
+      new List<EvaluatorInterface>{ mockEvaluator1, mockEvaluator2 }
+    );
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .pick('Name')
+      .condition('Id', '=', '006000000000000');
 
     // Act
     List<EvaluatorInterface> evaluators = repository.getAsEvaluators(query);
@@ -180,5 +203,152 @@ private class MockRepository_T {
 
     // Assert
     // No exception should be thrown
+  }
+
+  @isTest
+  static void testGet_WhenFieldIsNotPick_ThenErrorThrown() {
+    // Arrange
+    Opportunity mockOpp = new Opportunity(Id = '006000000000009');
+    RepositoryInterface repository = new MockRepository(mockOpp);
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000');
+
+    // Act
+    EvaluatorInterface opp = repository.firstAsEvaluator(query);
+
+    // Assert
+    try {
+      String oppName = (String) opp.get('Name');
+      Assert.fail('Expected an exception due to unpicked field');
+    } catch (Exception e) {
+      String expected = 'The specified field is not picked in SOQL builder. object name: Opportunity, field name: Name';
+      Assert.areEqual(expected, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGet_WhenChildrenFieldIsNotPickUsingGetRelation_ThenErrorThrown() {
+    // Arrange
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .withChildren((new Query()).source(UW_Quote__c.getSObjectType()).pick('Id'));
+    MockEvaluator mockOpp = new MockEvaluator(
+      new Opportunity(Id = '006000000000009'),
+      new Map<String, Object>{
+        'UW_Quote__c' => new List<EvaluatorInterface>{ new MockEvaluator(new UW_Quote__c(Id = 'a05000000000001')) }
+      }
+    );
+    RepositoryInterface repository = new MockRepository(mockOpp);
+
+    // Act
+    EvaluatorInterface opp = repository.firstAsEvaluator(query);
+
+    // Assert
+    try {
+      List<EvaluatorInterface> quotes = (List<EvaluatorInterface>) opp.getRelationAsEvaluator('UW_Quote__c');
+      for (EvaluatorInterface quote : quotes) {
+        String quoteName = quote.getName(); // This field is not picked
+      }
+      Assert.fail('Expected an exception due to unpicked relation field');
+    } catch (Exception e) {
+      String expected = 'The specified field is not picked in SOQL builder. object name: UW_Quote__c, field name: name';
+      Assert.areEqual(expected, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGet_WhenChildrenFieldIsNotPickUsingGetChildren_ThenErrorThrown() {
+    // Arrange
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .withChildren((new Query()).source(UW_Quote__c.getSObjectType()).pick('Id'));
+    MockEvaluator mockOpp = new MockEvaluator(
+      new Opportunity(Id = '006000000000009'),
+      new Map<String, Object>{
+        'UW_Quote__c' => new List<EvaluatorInterface>{ new MockEvaluator(new UW_Quote__c(Id = 'a05000000000001')) }
+      }
+    );
+    RepositoryInterface repository = new MockRepository(mockOpp);
+
+    // Act
+    EvaluatorInterface opp = repository.firstAsEvaluator(query);
+
+    // Assert
+    try {
+      List<EvaluatorInterface> quotes = opp.getChildrenAsEvaluators('UW_Quote__c');
+      for (EvaluatorInterface quote : quotes) {
+        String quoteName = quote.getName(); // This field is not picked
+      }
+      Assert.fail('Expected an exception due to unpicked relation field');
+    } catch (Exception e) {
+      String expected = 'The specified field is not picked in SOQL builder. object name: UW_Quote__c, field name: name';
+      Assert.areEqual(expected, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGet_WhenParentFieldIsNotPickUsingGetRelation_ThenErrorThrown() {
+    // Arrange
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .withParents('AccountId', (new Query()).pick('Id'));
+    MockEvaluator mockOpp = new MockEvaluator(
+      new Opportunity(Id = '006000000000009'),
+      new Map<String, Object>{
+        'AccountId' => new MockEvaluator(new Account(Id = '001000000000001'))
+      }
+    );
+    RepositoryInterface repository = new MockRepository(mockOpp);
+
+    // Act
+    EvaluatorInterface opp = repository.firstAsEvaluator(query);
+
+    // Assert
+    try {
+      EvaluatorInterface parent = (EvaluatorINterface) opp.getRelationAsEvaluator('AccountId');
+      String parentName = parent.getName(); // This field is not picked
+      Assert.fail('Expected an exception due to unpicked parent field');
+    } catch (Exception e) {
+      String expected = 'The specified field is not picked in SOQL builder. object name: Account, field name: name';
+      Assert.areEqual(expected, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGet_WhenParentFieldIsNotPickUsingGetParent_ThenErrorThrown() {
+    // Arrange
+    Query query = (new Query())
+      .source(Opportunity.getSObjectType())
+      .pick('Id')
+      .condition('Id', '=', '006000000000000')
+      .withParents('AccountId', (new Query()).pick('Id'));
+    MockEvaluator mockOpp = new MockEvaluator(
+      new Opportunity(Id = '006000000000009'),
+      new Map<String, Object>{
+        'AccountId' => new MockEvaluator(new Account(Id = '001000000000001'))
+      }
+    );
+    RepositoryInterface repository = new MockRepository(mockOpp);
+
+    // Act
+    EvaluatorInterface opp = repository.firstAsEvaluator(query);
+
+    // Assert
+    try {
+      EvaluatorInterface parent = opp.getParentAsEvaluator('AccountId');
+      String parentName = parent.getName(); // This field is not picked
+      Assert.fail('Expected an exception due to unpicked parent field');
+    } catch (Exception e) {
+      String expected = 'The specified field is not picked in SOQL builder. object name: Account, field name: name';
+      Assert.areEqual(expected, e.getMessage());
+    }
   }
 }

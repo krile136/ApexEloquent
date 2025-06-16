@@ -4,7 +4,8 @@ public with sharing class Evaluator_T {
   public static void testGet() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'name' });
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     String name = (String) evaluator.get('Name');
@@ -17,14 +18,18 @@ public with sharing class Evaluator_T {
   static void testGet_WhenFieldNameIsNotExist_ThenErrorOccured() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'name', 'nonexistfield' });
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act / Assert
     try {
       Object nonExistField = evaluator.get('NonExistField');
       Assert.fail('Expected an exception to be thrown');
     } catch (Exception e) {
-      Assert.areEqual('The specified field does not exist in the object\'s fields. object name: Account, field name: NonExistField', e.getMessage());
+      Assert.areEqual(
+        'The specified field does not exist in the object\'s fields. object name: Account, field name: NonExistField',
+        e.getMessage()
+      );
     }
   }
 
@@ -32,7 +37,8 @@ public with sharing class Evaluator_T {
   static void testGet_WhenFieldValueIsNull_ThenReturnNull() {
     // Arrange
     SObject record = new Account();
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'name' });
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     Object fieldValue = evaluator.get('Name');
@@ -45,7 +51,11 @@ public with sharing class Evaluator_T {
   static void testGetRelation_WhenChildrenIsNull_ThenReturnChildObjectIsEmpty() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Opportunity' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     List<SObject> childRecords = (List<SObject>) evaluator.getRelation('Opportunity');
@@ -54,11 +64,15 @@ public with sharing class Evaluator_T {
     Assert.isTrue(childRecords.isEmpty(), 'Expected child records to be empty');
   }
 
-  @isTest 
+  @isTest
   static void testGetRelation_WhenParentIsNull_ThenReturnParentObjectIsNull() {
     // Arrange
     SObject record = new Opportunity(Name = 'Test Opportunity');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     SObject parentRecord = (SObject) evaluator.getRelation('AccountId');
@@ -71,7 +85,11 @@ public with sharing class Evaluator_T {
   static void testGetRelation_WhenRelationNameIsNotChildrenOrParent_ThenErrorOccured() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'NonExistRelation' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act / Assert
     try {
@@ -79,7 +97,10 @@ public with sharing class Evaluator_T {
       Assert.fail('Expected an exception to be thrown');
     } catch (Exception e) {
       System.debug(e.getStackTraceString());
-      Assert.areEqual('The relationName is not children Object Name or Parent relationId field Name. object name: Account, relation name NonExistRelation', e.getMessage());
+      Assert.areEqual(
+        'The relationName is not children Object Name or Parent relationId field Name. object name: Account, relation name NonExistRelation',
+        e.getMessage()
+      );
     }
   }
 
@@ -87,10 +108,16 @@ public with sharing class Evaluator_T {
   static void testGetRelationAsEvaluator_WhenChildrenIsNull_ThenReturnChildObjectIsEmpty() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Opportunity' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
-    List<EvaluatorInterface> childRecords = (List<EvaluatorInterface>) evaluator.getRelationAsEvaluator('Opportunity');
+    List<EvaluatorInterface> childRecords = (List<EvaluatorInterface>) evaluator.getRelationAsEvaluator(
+      'Opportunity'
+    );
 
     // Assert
     Assert.isTrue(childRecords.isEmpty(), 'Expected child records to be empty');
@@ -100,7 +127,11 @@ public with sharing class Evaluator_T {
   static void testRelationAsEvalutor_WhenParentIsNull_ThenReturnParentObjectIsNull() {
     // Arrange
     SObject record = new Opportunity(Name = 'Test Opportunity');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     EvaluatorInterface parentRecord = (EvaluatorInterface) evaluator.getRelationAsEvaluator('AccountId');
@@ -113,7 +144,11 @@ public with sharing class Evaluator_T {
   static void testGetRelationAsEvaluator_WhenRelationNameIsNotChildrenOrParent_ThenErrorOccured() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'NonExistRelation' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act / Assert
     try {
@@ -121,7 +156,10 @@ public with sharing class Evaluator_T {
       Assert.fail('Expected an exception to be thrown');
     } catch (Exception e) {
       System.debug(e.getStackTraceString());
-      Assert.areEqual('The relationName is not children Object Name or Parent relationId field Name. object name: Account, relation name NonExistRelation', e.getMessage());
+      Assert.areEqual(
+        'The relationName is not children Object Name or Parent relationId field Name. object name: Account, relation name NonExistRelation',
+        e.getMessage()
+      );
     }
   }
 
@@ -129,7 +167,8 @@ public with sharing class Evaluator_T {
   public static void testGetId() {
     // Arrange
     SObject record = new Account(Id = '001000000000000');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id' });
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     Id accId = evaluator.getId();
@@ -142,7 +181,8 @@ public with sharing class Evaluator_T {
   public static void testGetName() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'name' });
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     String name = evaluator.getName();
@@ -168,7 +208,11 @@ public with sharing class Evaluator_T {
   static void testGetParent_WhenParentIsNull_ThenReturnNull() {
     // Arrange
     SObject record = new Opportunity(Name = 'Test Opportunity');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     Account parentAccount = (Account) evaluator.getParent('AccountId');
@@ -181,7 +225,11 @@ public with sharing class Evaluator_T {
   static void testGetParentAsEvaluator_WhenParentIsNull_ThenReturnNull() {
     // Arrange
     SObject record = new Opportunity(Name = 'Test Opportunity');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     EvaluatorInterface parentEvaluator = evaluator.getParentAsEvaluator('AccountId');
@@ -194,7 +242,11 @@ public with sharing class Evaluator_T {
   static void testGetChildren_WhenChildrenAreNull_ThenReturnEmptyList() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Contact' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     List<Object> children = evaluator.getChildren('Contact');
@@ -207,7 +259,11 @@ public with sharing class Evaluator_T {
   static void testGetChildrenAsEvaluators_WhenChildrenAreNull_ThenReturnEmptyList() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Contact' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act
     List<EvaluatorInterface> childrenEvaluators = evaluator.getChildrenAsEvaluators('Contact');
@@ -220,14 +276,21 @@ public with sharing class Evaluator_T {
   static void testGetParent_WhenFieldNameDoesNotExist_ThenErrorOccurred() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'NonExistentField' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act / Assert
     try {
       Object parent = evaluator.getParent('NonExistentField');
       Assert.fail('Expected an exception to be thrown');
     } catch (Exception e) {
-      Assert.areEqual('The specified parentFieldName does not exist in the object\'s fields. object name: Account, field name: NonExistentField', e.getMessage());
+      Assert.areEqual(
+        'The specified parentFieldName does not exist in the object\'s fields. object name: Account, field name: NonExistentField',
+        e.getMessage()
+      );
     }
   }
 
@@ -235,14 +298,21 @@ public with sharing class Evaluator_T {
   static void testGetParent_WhenFieldIsNotReferenceType_ThenErrorOccurred() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Name' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act / Assert
     try {
       Object parent = evaluator.getParent('Name');
       Assert.fail('Expected an exception to be thrown');
     } catch (Exception e) {
-      Assert.areEqual('The specified parentFieldName is not a reference type. object name: Account, field name: Name', e.getMessage());
+      Assert.areEqual(
+        'The specified parentFieldName is not a reference type. object name: Account, field name: Name',
+        e.getMessage()
+      );
     }
   }
 
@@ -250,14 +320,21 @@ public with sharing class Evaluator_T {
   static void testGetParentAsEvaluator_WhenFieldNameDoesNotExist_ThenErrorOccurred() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'NonExistentField' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act / Assert
     try {
       EvaluatorInterface parentEvaluator = evaluator.getParentAsEvaluator('NonExistentField');
       Assert.fail('Expected an exception to be thrown');
     } catch (Exception e) {
-      Assert.areEqual('The specified parentFieldName does not exist in the object\'s fields. object name: Account, field name: NonExistentField', e.getMessage());
+      Assert.areEqual(
+        'The specified parentFieldName does not exist in the object\'s fields. object name: Account, field name: NonExistentField',
+        e.getMessage()
+      );
     }
   }
 
@@ -265,14 +342,21 @@ public with sharing class Evaluator_T {
   static void testGetChildren_WhenChildObjectNameDoesNotExist_ThenErrorOccurred() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'NonExistentChildObject' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act / Assert
     try {
       List<Object> children = evaluator.getChildren('NonExistentChildObject');
       Assert.fail('Expected an exception to be thrown');
     } catch (Exception e) {
-      Assert.areEqual('The specified childObjectName does not exist in the object\'s child relationships. object name: Account, child name: NonExistentChildObject', e.getMessage());
+      Assert.areEqual(
+        'The specified childObjectName does not exist in the object\'s child relationships. object name: Account, child name: NonExistentChildObject',
+        e.getMessage()
+      );
     }
   }
 
@@ -280,15 +364,21 @@ public with sharing class Evaluator_T {
   static void testGetChildrenAsEvaluators_WhenChildObjectNameDoesNotExist_ThenErrorOccurred() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    Evaluator evaluator = new Evaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'NonExistentChildObject' => new FieldStructure(new List<String>{ 'Id', 'Name' }) }
+    );
+    Evaluator evaluator = new Evaluator(record, fieldStructure);
 
     // Act / Assert
     try {
       List<EvaluatorInterface> childrenEvaluators = evaluator.getChildrenAsEvaluators('NonExistentChildObject');
       Assert.fail('Expected an exception to be thrown');
     } catch (Exception e) {
-      Assert.areEqual('The specified childObjectName does not exist in the object\'s child relationships. object name: Account, child name: NonExistentChildObject', e.getMessage());
+      Assert.areEqual(
+        'The specified childObjectName does not exist in the object\'s child relationships. object name: Account, child name: NonExistentChildObject',
+        e.getMessage()
+      );
     }
   }
-
 }

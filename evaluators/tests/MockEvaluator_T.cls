@@ -4,7 +4,8 @@ public with sharing class MockEvaluator_T {
   public static void testGet() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    MockEvaluator evaluator = new MockEvaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'name' });
+    MockEvaluator evaluator = new MockEvaluator(record, fieldStructure);
 
     // Act
     String name = (String) evaluator.get('Name');
@@ -18,7 +19,8 @@ public with sharing class MockEvaluator_T {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'Mocked Account' };
-    MockEvaluator evaluator = new MockEvaluator(record, fieldToValue);
+    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'name' });
+    MockEvaluator evaluator = new MockEvaluator(record, fieldStructure, fieldToValue);
 
     // Act
     String name = (String) evaluator.get('Name');
@@ -30,8 +32,13 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelation_WhenChildren_ThenReturnChildren() {
     // Arrange
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Opportunity' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
     MockEvaluator evaluator = new MockEvaluator(
       new Account(Name = 'Test Account'),
+      fieldStructure,
       new Map<String, Object>{
         'Opportunity' => new List<Opportunity>{
           new Opportunity(Name = 'TestOpp1'),
@@ -39,6 +46,7 @@ public with sharing class MockEvaluator_T {
         }
       }
     );
+
 
     // Act
     List<Opportunity> children = (List<Opportunity>) evaluator.getRelation('Opportunity');
@@ -50,7 +58,11 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelation_WhenChildrenIsNull_ThenReturnEmptyList() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'));
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Opportunity' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
+    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'), fieldStructure);
 
     // Act
     List<Opportunity> children = (List<Opportunity>) evaluator.getRelation('Opportunity');
@@ -62,9 +74,14 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelation_WhenParent_ThenReturnParent() {
     // Arrange
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
     Account parent = new Account(Name = 'Parent Account');
     MockEvaluator evaluator = new MockEvaluator(
       new Opportunity(Name = 'Test Opportunity'),
+      fieldStructure,
       new Map<String, Object>{ 'AccountId' => parent }
     );
 
@@ -78,7 +95,11 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelation_WhenParentIsNull_ThenReturnNull() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'));
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
+    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'), fieldStructure);
 
     // Act
     Account parentAccount = (Account) evaluator.getRelation('AccountId');
@@ -90,8 +111,13 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelationAsEvaluator_WhenChildren_ThenReturnChildrenEvaluator() {
     // Arrange
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Opportunity' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
     MockEvaluator evaluator = new MockEvaluator(
       new Account(Name = 'Test Account'),
+      fieldStructure,
       new Map<String, Object>{
         'Opportunity' => new List<MockEvaluator>{
           new MockEvaluator(new Opportunity(Name = 'TestOpp1')),
@@ -112,7 +138,11 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelationAsEvaluator_WhenChildrenIsNull_ThenReturnEmptyList() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'));
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Opportunity' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
+    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'), fieldStructure);
 
     // Act
     List<EvaluatorInterface> childrenEvaluators = (List<EvaluatorInterface>) evaluator.getRelationAsEvaluator(
@@ -126,9 +156,14 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelationAsEvaluator_WhenParent_ThenReturnParentEvaluator() {
     // Arrange
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
     Account parent = new Account(Name = 'Parent Account');
     MockEvaluator evaluator = new MockEvaluator(
       new Opportunity(Name = 'Test Opportunity'),
+      fieldStructure,
       new Map<String, Object>{ 'AccountId' => new MockEvaluator(parent) }
     );
 
@@ -142,7 +177,11 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetRelationAsEvaluator_WhenParentIsNull_ThenReturnNull() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'));
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
+    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'), fieldStructure);
 
     // Act
     EvaluatorInterface parentEvaluator = (EvaluatorInterface) evaluator.getRelationAsEvaluator('AccountId');
@@ -155,7 +194,8 @@ public with sharing class MockEvaluator_T {
   public static void testGetId() {
     // Arrange
     SObject record = new Account(Id = '001000000000000');
-    MockEvaluator evaluator = new MockEvaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id' });
+    MockEvaluator evaluator = new MockEvaluator(record, fieldStructure);
 
     // Act
     Id accId = evaluator.getId();
@@ -168,7 +208,8 @@ public with sharing class MockEvaluator_T {
   public static void testGetName() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
-    MockEvaluator evaluator = new MockEvaluator(record);
+    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'name' });
+    MockEvaluator evaluator = new MockEvaluator(record, fieldStructure);
 
     // Act
     String name = evaluator.getName();
@@ -194,8 +235,13 @@ public with sharing class MockEvaluator_T {
   static void testGetParent_WhenParentExists_ThenReturnParentObject() {
     // Arrange
     Account parent = new Account(Name = 'Parent Account');
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
     MockEvaluator evaluator = new MockEvaluator(
       new Opportunity(Name = 'Test Opportunity'),
+      fieldStructure,
       new Map<String, Object>{ 'AccountId' => parent }
     );
 
@@ -209,7 +255,11 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetParent_WhenParentIsNull_ThenReturnNull() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'));
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
+    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'), fieldStructure);
 
     // Act
     Account parentAccount = (Account) evaluator.getParent('AccountId');
@@ -221,9 +271,14 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetParentAsEvaluator_WhenParentExists_ThenReturnParentEvaluator() {
     // Arrange
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
     Account parent = new Account(Name = 'Parent Account');
     MockEvaluator evaluator = new MockEvaluator(
       new Opportunity(Name = 'Test Opportunity'),
+      fieldStructure,
       new Map<String, Object>{ 'AccountId' => new MockEvaluator(parent) }
     );
 
@@ -237,7 +292,11 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetParentAsEvaluator_WhenParentIsNull_ThenReturnNull() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'));
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'AccountId' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
+    MockEvaluator evaluator = new MockEvaluator(new Opportunity(Name = 'Test Opportunity'), fieldStructure);
 
     // Act
     EvaluatorInterface parentEvaluator = evaluator.getParentAsEvaluator('AccountId');
@@ -249,8 +308,13 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetChildren_WhenChildrenExist_ThenReturnChildrenList() {
     // Arrange
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Opportunity' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
     MockEvaluator evaluator = new MockEvaluator(
       new Account(Name = 'Test Account'),
+      fieldStructure,
       new Map<String, Object>{ 'Opportunity' => new List<Opportunity>{ new Opportunity() } }
     );
 
@@ -264,7 +328,11 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetChildren_WhenChildrenAreNull_ThenReturnEmptyList() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'));
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Contact' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
+    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'), fieldStructure);
 
     // Act
     List<Object> children = evaluator.getChildren('Contact');
@@ -276,8 +344,13 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetChildrenAsEvaluators_WhenChildrenExist_ThenReturnChildrenEvaluatorList() {
     // Arrange
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Opportunity' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
     MockEvaluator evaluator = new MockEvaluator(
       new Account(Name = 'Test Account'),
+      fieldStructure,
       new Map<String, Object>{
         'Opportunity' => new List<EvaluatorInterface>{ new MockEvaluator(new Opportunity()) }
       }
@@ -293,7 +366,11 @@ public with sharing class MockEvaluator_T {
   @isTest
   static void testGetChildrenAsEvaluators_WhenChildrenAreNull_ThenReturnEmptyList() {
     // Arrange
-    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'));
+    FieldStructure fieldStructure = new FieldStructure(
+      new List<String>(),
+      new Map<String, FieldStructure>{ 'Contact' => new FieldStructure(new List<String>{ 'id', 'name' }) }
+    );
+    MockEvaluator evaluator = new MockEvaluator(new Account(Name = 'Test Account'), fieldStructure);
 
     // Act
     List<EvaluatorInterface> childrenEvaluators = evaluator.getChildrenAsEvaluators('Contact');

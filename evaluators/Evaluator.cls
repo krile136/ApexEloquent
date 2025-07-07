@@ -23,8 +23,6 @@ public with sharing class Evaluator extends AbstractEvaluator {
    * @inheritDoc
    */
   public override Object get(String fieldName) {
-    this.validateFieldName(fieldName);
-
     Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
 
     // validate the fieldName

@@ -24,8 +24,11 @@ DEPLOY_CLASSES = \
 	Evaluator \
 	Evaluator_T \
 	MockEvaluator \
-	MockEvaluator_T
-	
+	MockEvaluator_T \
+  FieldStructure \
+  FieldStructure_T \
+  AbstractEvaluator
+
 .PHONY: deploy clean redeploy
 
 # 1. delete classes
@@ -35,8 +38,8 @@ uninstall:
 	@echo "Cleaning classes from org..."
 	@for class in $(DEPLOY_CLASSES); do \
 		echo "Deleting ApexClass:$$class"; \
-		sf project delete source -r --metadata ApexClass:$$class || echo "Skip: $$class not deleted"; \
-	done
+		sf project delete source --metadata ApexClass:$$class || echo "Skip: $$class not deleted"; \
+		done
 
 # 2. restore classes
 # deleting classes make local classes disappear.
@@ -47,9 +50,8 @@ restore:
 
 # 3. deploy classes
 install:
-	@echo "Deploying all classes at once..."
-	@sf project deploy start --metadata $(foreach class,$(DEPLOY_CLASSES),ApexClass:$(class)) --wait 10 || exit 1
+	@echo "Deploying all Apex classes from ApexEloquent directory..."
+	@sf project deploy start --source-dir . --wait 10 || exit 1
 
 # 4. redeploy（clean → restore → deploy）
 redeploy: uninstall restore install
-

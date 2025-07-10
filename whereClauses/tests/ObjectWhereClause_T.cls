@@ -1,62 +1,113 @@
-@isTest(seeAllData=false)
+@isTest
 public with sharing class ObjectWhereClause_T {
-
-  @isTest(seeAllData=false)
-  public static void testBuild() {
+  @isTest
+  static void testBuild_WhenIdEqualsValue_ThenCorrectWhereClause() {
+    // Arrange
     Schema.SObjectType oppSource = Opportunity.getSObjectType();
     Map<String, Schema.SObjectField> oppFieldMap = oppSource.getDescribe().fields.getMap();
-    Schema.SObjectType accountSource = Account.getSObjectType();
-    Map<String, Schema.SObjectField> accountFieldMap = accountSource.getDescribe().fields.getMap();
-
-    String testTitle = '正常系: Where句が組み立てられる';
     WhereClauseInterface whereClause = new ObjectWhereClause(oppSource, null, 'Id', '=', '006000000000000');
-    whereClause = whereClause.overrideMetaData(accountSource, accountFieldMap);
+    whereClause = whereClause.overrideMetaData(oppSource, oppFieldMap);
+
+    // Act
     String build = whereClause.build();
+
+    // Assert
     String expected = 'Id = \'006000000000000\'';
-    System.assertEquals(expected, build, testTitle);
+    Assert.areEqual(expected, build);
+  }
 
-    testTitle = '正常系: Where句が組み立てられる(null)';
-    whereClause = new ObjectWhereClause(oppSource, oppFieldMap, 'Id', '!=', null);
-    build = whereClause.build();
-    expected = 'Id != NULL';
-    System.assertEquals(expected, build, testTitle);
+  @isTest
+  static void testBuild_WhenIdNotEqualsNull_ThenCorrectWhereClause() {
+    // Arrange
+    Schema.SObjectType oppSource = Opportunity.getSObjectType();
+    Map<String, Schema.SObjectField> oppFieldMap = oppSource.getDescribe().fields.getMap();
+    WhereClauseInterface whereClause = new ObjectWhereClause(oppSource, oppFieldMap, 'Id', '!=', null);
 
-    testTitle = '正常系: Where句が組み立てられる(Dateがキャストされる)';
-    whereClause = new ObjectWhereClause(oppSource, oppFieldMap, 'CloseDate', '=', Date.newinstance(2024, 12, 31));
-    build = whereClause.build();
-    expected = 'CloseDate = 2024-12-31';
-    System.assertEquals(expected, build, testTitle);
+    // Act
+    String build = whereClause.build();
 
-    testTitle = '正常系: Where句が組み立てられる(DateTimeがキャストされる)';
+    // Assert
+    String expected = 'Id != NULL';
+    System.assertEquals(expected, build);
+  }
+
+  @isTest
+  static void testBuild_WhenDateEqualsValue_ThenCorrectWhereClause() {
+    // Arrange
+    Schema.SObjectType oppSource = Opportunity.getSObjectType();
+    Map<String, Schema.SObjectField> oppFieldMap = oppSource.getDescribe().fields.getMap();
+    WhereClauseInterface whereClause = new ObjectWhereClause(
+      oppSource,
+      oppFieldMap,
+      'CloseDate',
+      '=',
+      Date.newinstance(2024, 12, 31)
+    );
+
+    // Act
+    String build = whereClause.build();
+
+    // Assert
+    String expected = 'CloseDate = 2024-12-31';
+    Assert.areEqual(expected, build);
+  }
+
+  @isTest
+  static void testBuild_WhenDateTimeEqualsValue_ThenCorrectWhereClause() {
+    // Arrange
     Schema.SObjectType contactSource = Contact.getSObjectType();
     Datetime dt = DateTime.newInstance(2024, 4, 1, 12, 34, 56);
     Map<String, Schema.SObjectField> contactFieldMap = contactSource.getDescribe().fields.getMap();
-    whereClause = new ObjectWhereClause(contactSource, contactFieldMap, 'LastCURequestDate', '=', dt);
-    build = whereClause.build();
+    WhereClauseInterface whereClause = new ObjectWhereClause(
+      contactSource,
+      contactFieldMap,
+      'LastCURequestDate',
+      '=',
+      dt
+    );
+
+    // Act
+    String build = whereClause.build();
     Integer offsetMillis = UserInfo.getTimeZone().getOffset(dt);
     Integer offsetHours = offsetMillis / (1000 * 60 * 60);
     Datetime adjustedDatetime = dt.addHours(-offsetHours);
-    expected = 'LastCURequestDate = ' +
-          adjustedDatetime.year() +
-          '-' +
-          String.valueOf(adjustedDatetime.month()).leftPad(2, '0') +
-          '-' +
-          String.valueOf(adjustedDatetime.day()).leftPad(2, '0') +
-          'T' +
-          String.valueOf(adjustedDatetime.hour()).leftPad(2, '0') +
-          ':' +
-          String.valueOf(adjustedDatetime.minute()).leftPad(2, '0') +
-          ':' +
-          String.valueOf(adjustedDatetime.second()).leftPad(2, '0') +
-          'Z';
-    System.assertEquals(expected, build, testTitle);
+    String expected =
+      'LastCURequestDate = ' +
+      adjustedDatetime.year() +
+      '-' +
+      String.valueOf(adjustedDatetime.month()).leftPad(2, '0') +
+      '-' +
+      String.valueOf(adjustedDatetime.day()).leftPad(2, '0') +
+      'T' +
+      String.valueOf(adjustedDatetime.hour()).leftPad(2, '0') +
+      ':' +
+      String.valueOf(adjustedDatetime.minute()).leftPad(2, '0') +
+      ':' +
+      String.valueOf(adjustedDatetime.second()).leftPad(2, '0') +
+      'Z';
 
-    testTitle = '異常系: SOQLインジェクションに対応できている';
-    whereClause = new ObjectWhereClause(oppSource, oppFieldMap, 'CloseDate', '=', '2024-01-01 OR Name LIKE \'%\'');
-    build = whereClause.build();
-    expected = 'CloseDate = 2024-01-01 OR Name LIKE %';
-    expected = 'CloseDate = 2024-01-01 OR Name LIKE \\\'%\\\'';
-    System.assertEquals(expected, build, testTitle);
+    // Assert
+    Assert.areEqual(expected, build);
+  }
 
+  @isTest
+  static void testBuild_WhenInjectionAttempt_ThenCorrectlySanitized() {
+    // Arrange
+    Schema.SObjectType oppSource = Opportunity.getSObjectType();
+    Map<String, Schema.SObjectField> oppFieldMap = oppSource.getDescribe().fields.getMap();
+    WhereClauseInterface whereClause = new ObjectWhereClause(
+      oppSource,
+      oppFieldMap,
+      'CloseDate',
+      '=',
+      '2024-01-01 OR Name LIKE \'%\''
+    );
+
+    // Act
+    String build = whereClause.build();
+
+    // Assert
+    String expected = 'CloseDate = 2024-01-01 OR Name LIKE \\\'%\\\'';
+    Assert.areEqual(expected, build);
   }
 }

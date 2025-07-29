@@ -31,7 +31,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name = \'Test Account\')';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -44,7 +44,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name = NULL)';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = NULL';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -57,7 +57,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name != \'Test Account\')';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name != \'Test Account\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -70,7 +70,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name != NULL)';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name != NULL';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -85,7 +85,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE (TotalOpportunityQuantity > 1000)';
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity > 1000';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -118,7 +118,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE (TotalOpportunityQuantity >= 1000)';
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity >= 1000';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -151,7 +151,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE (TotalOpportunityQuantity < 1000)';
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity < 1000';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -184,7 +184,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE (TotalOpportunityQuantity <= 1000)';
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity <= 1000';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -215,7 +215,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name LIKE \'%Test%\')';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name LIKE \'%Test%\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -244,7 +244,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE ((NOT Name LIKE \'%Test%\'))';
+    String expectedSoql = 'SELECT id FROM Account WHERE (NOT Name LIKE \'%Test%\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -274,7 +274,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name IN (\'Test Account 1\', \'Test Account 2\'))';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name IN (\'Test Account 1\', \'Test Account 2\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -288,7 +288,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Id IN (\'001000000000000AAA\', \'001000000000000AAB\'))';
+    String expectedSoql = 'SELECT id FROM Account WHERE Id IN (\'001000000000000AAA\', \'001000000000000AAB\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -302,7 +302,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name IN (\'Test Account 1\', NULL))';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name IN (\'Test Account 1\', NULL)';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -316,9 +316,9 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name NOT IN (\'Test Account 1\', \'Test Account 2\'))';
-    Assert.areEqual(expectedSoql, soql); 
-  } 
+    String expectedSoql = 'SELECT id FROM Account WHERE Name NOT IN (\'Test Account 1\', \'Test Account 2\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
 
   @isTest
   public static void testNotIn_WhenValueIsIdSet_ThenAddNotInCondition() {
@@ -330,7 +330,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Id NOT IN (\'001000000000000AAA\', \'001000000000000AAB\'))';
+    String expectedSoql = 'SELECT id FROM Account WHERE Id NOT IN (\'001000000000000AAA\', \'001000000000000AAB\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -344,7 +344,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name NOT IN (\'Test Account 1\', NULL))';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name NOT IN (\'Test Account 1\', NULL)';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -360,7 +360,7 @@ public with sharing class ScribeTest {
     // Assert
     // Note: this test assert soql building with INCUDES condition is success.
     // If you execute below expected soql, Type field is not multi picklist field, so it will throw exception.
-    String expectedSoql = 'SELECT id FROM Account WHERE (Type INCLUDES (\'Type1\', \'Type2\'))';
+    String expectedSoql = 'SELECT id FROM Account WHERE Type INCLUDES (\'Type1\', \'Type2\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -376,7 +376,7 @@ public with sharing class ScribeTest {
     // Assert
     // Note: this test assert soql building with EXCLUDES condition is success.
     // If you execute below expected soql, Type field is not multi picklist field, so it will throw exception.
-    String expectedSoql = 'SELECT id FROM Account WHERE (Type EXCLUDES (\'Type1\', \'Type2\'))';
+    String expectedSoql = 'SELECT id FROM Account WHERE Type EXCLUDES (\'Type1\', \'Type2\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -389,7 +389,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name = NULL)';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = NULL';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -402,7 +402,47 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (Name != NULL)';
+    String expectedSoql = 'SELECT id FROM Account WHERE Name != NULL';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testEqual_WhenAddAndConditionAfterOrCondition_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .whereEqual('Name', 'Test Account')
+        .orCondition()
+        .whereEqual('Name', 'Or Account Name')
+        .whereEqual('Name', 'And Account Name');
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testEqual_WhenAddOrConditionAfterOrCondition_ThenAddOrCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .whereEqual('Name', 'Test Account')
+      .orCondition()
+      .whereEqual('Name', 'Or Account Name')
+      .orCondition()
+      .whereEqual('Name', 'Another Or Account Name');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\' OR Name = \'Or Account Name\' OR Name = \'Another Or Account Name\'';
     Assert.areEqual(expectedSoql, soql);
   }
 }

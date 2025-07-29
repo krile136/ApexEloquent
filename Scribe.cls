@@ -4,7 +4,12 @@ public with sharing class Scribe {
   @TestVisible
   private Set<String> selectFields = new Set<String>();
   private List<IConditionClause> andConditions = new List<IConditionClause>();
+  private List<IConditionClause> orConditions = new List<IConditionClause>();
+  private List<ConditionPart> conditionParts = new List<ConditionPart>();
+
   private Boolean isSelectAll = false;
+  private Boolean isNextConditionOr = false;
+  private Boolean canOnlyAddOrCondition = false;
 
   /**
    * constructor
@@ -60,6 +65,15 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  // ------ add or condition ------
+  public Scribe orCondition() {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.isNextConditionOr = true;
+    clonedScribe.canOnlyAddOrCondition = true;
+
+    return clonedScribe;
+  }
+
   // ------ where methods ------
 
   public Scribe whereEqual(String fieldName, Object value) {
@@ -72,7 +86,9 @@ public with sharing class Scribe {
     } else {
       conditionClause = new EqualConditionClause(clonedScribe.sObjectType, null, fieldName, value);
     }
-    clonedScribe.andConditions.add(conditionClause);
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -87,7 +103,9 @@ public with sharing class Scribe {
     } else {
       conditionClause = new NotEqualConditionClause(clonedScribe.sObjectType, null, fieldName, value);
     }
-    clonedScribe.andConditions.add(conditionClause);
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -96,8 +114,15 @@ public with sharing class Scribe {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new GreaterThanConditionClause(clonedScribe.sObjectType, null, fieldName, value);
-    clonedScribe.andConditions.add(conditionClause);
+    IConditionClause conditionClause = new GreaterThanConditionClause(
+      clonedScribe.sObjectType,
+      null,
+      fieldName,
+      value
+    );
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -106,8 +131,15 @@ public with sharing class Scribe {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new GreaterThanOrEqualConditionClause(clonedScribe.sObjectType, null, fieldName, value);
-    clonedScribe.andConditions.add(conditionClause);
+    IConditionClause conditionClause = new GreaterThanOrEqualConditionClause(
+      clonedScribe.sObjectType,
+      null,
+      fieldName,
+      value
+    );
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -116,8 +148,15 @@ public with sharing class Scribe {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new LessThanConditionClause(clonedScribe.sObjectType, null, fieldName, value);
-    clonedScribe.andConditions.add(conditionClause);
+    IConditionClause conditionClause = new LessThanConditionClause(
+      clonedScribe.sObjectType,
+      null,
+      fieldName,
+      value
+    );
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -126,8 +165,15 @@ public with sharing class Scribe {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new LessThanOrEqualConditionClause(clonedScribe.sObjectType, null, fieldName, value);
-    clonedScribe.andConditions.add(conditionClause);
+    IConditionClause conditionClause = new LessThanOrEqualConditionClause(
+      clonedScribe.sObjectType,
+      null,
+      fieldName,
+      value
+    );
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -137,7 +183,9 @@ public with sharing class Scribe {
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new LikeConditionClause(clonedScribe.sObjectType, null, fieldName, value);
-    clonedScribe.andConditions.add(conditionClause);
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -146,8 +194,15 @@ public with sharing class Scribe {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new NotLikeConditionClause(clonedScribe.sObjectType, null, fieldName, value);
-    clonedScribe.andConditions.add(conditionClause);
+    IConditionClause conditionClause = new NotLikeConditionClause(
+      clonedScribe.sObjectType,
+      null,
+      fieldName,
+      value
+    );
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -157,7 +212,9 @@ public with sharing class Scribe {
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new InConditionClause(clonedScribe.sObjectType, null, fieldName, values);
-    clonedScribe.andConditions.add(conditionClause);
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -167,7 +224,9 @@ public with sharing class Scribe {
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new NotInConditionClause(clonedScribe.sObjectType, null, fieldName, values);
-    clonedScribe.andConditions.add(conditionClause);
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -176,8 +235,15 @@ public with sharing class Scribe {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new IncludesConditionClause(clonedScribe.sObjectType, null, fieldName, values);
-    clonedScribe.andConditions.add(conditionClause);
+    IConditionClause conditionClause = new IncludesConditionClause(
+      clonedScribe.sObjectType,
+      null,
+      fieldName,
+      values
+    );
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -186,22 +252,35 @@ public with sharing class Scribe {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new ExcludeConditionClause(clonedScribe.sObjectType, null, fieldName, values);
-    clonedScribe.andConditions.add(conditionClause);
+    IConditionClause conditionClause = new ExcludeConditionClause(
+      clonedScribe.sObjectType,
+      null,
+      fieldName,
+      values
+    );
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
-  
+
   public Scribe whereNull(String fieldName) {
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.andConditions.add(new IsNullConditionClause(clonedScribe.sObjectType, null, fieldName));
+    IconditionClause conditionClause = new IsNullConditionClause(clonedScribe.sObjectType, null, fieldName);
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
 
   public Scribe whereNotNull(String fieldName) {
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.andConditions.add(new IsNotNullConditionClause(clonedScribe.sObjectType, null, fieldName));
+    IconditionClause conditionClause = new IsNotNullConditionClause(clonedScribe.sObjectType, null, fieldName);
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
@@ -218,6 +297,7 @@ public with sharing class Scribe {
 
     query = this.buildWhereClause(query, fieldMap);
 
+    System.debug('SOQL Query: ' + query);
     return query;
   }
 
@@ -248,6 +328,11 @@ public with sharing class Scribe {
     Scribe newScribe = new Scribe(this.sObjectType);
     newScribe.selectFields = this.selectFields.clone();
     newScribe.andConditions = this.andConditions.clone();
+    newScribe.conditionParts = this.conditionParts.clone();
+
+    newScribe.isSelectAll = this.isSelectAll;
+    newScribe.isNextConditionOr = this.isNextConditionOr;
+    newScribe.canOnlyAddOrCondition = this.canOnlyAddOrCondition;
 
     return newScribe;
   }
@@ -255,6 +340,13 @@ public with sharing class Scribe {
   private void validateConditionClause(String fieldName) {
     if (String.isBlank(fieldName)) {
       throw new QueryException('フィールド名が空です。');
+    }
+    System.debug('isNextConditionOr: ' + this.isNextConditionOr);
+    System.debug('canOnlyAddOrCondition: ' + this.canOnlyAddOrCondition);
+    if (this.canOnlyAddOrCondition && !this.isNextConditionOr) {
+      throw new QueryException(
+        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。'
+      );
     }
   }
 
@@ -297,13 +389,23 @@ public with sharing class Scribe {
   private String buildWhereClause(String query, Map<String, Schema.SObjectField> fieldMap) {
     String whereClauseString = '';
 
-    if (!this.andConditions.isEmpty()) {
-      List<String> andConditionsAsString = new List<String>();
-      for (IConditionClause condition : this.andConditions) {
-        IConditionClause overridedCondition = condition.overrideMetaData(this.sObjectType, fieldMap);
-        andConditionsAsString.add(overridedCondition.build());
+    if (this.conditionParts.isEmpty()) {
+      return '';
+    }
+
+    for (ConditionPart conditionPart : this.conditionParts) {
+      IConditionClause condition = conditionPart.condition.overrideMetaData(this.sObjectType, fieldMap);
+      if (conditionPart.isOr) {
+        if (whereClauseString != '') {
+          whereClauseString += ' OR ';
+        }
+        whereClauseString += condition.build();
+      } else {
+        if (whereClauseString != '') {
+          whereClauseString += ' AND ';
+        }
+        whereClauseString += condition.build();
       }
-      whereClauseString += '(' + String.join(andConditionsAsString, ' AND ') + ')';
     }
 
     if (whereClauseString != '') {
@@ -311,5 +413,15 @@ public with sharing class Scribe {
     }
 
     return query;
+  }
+
+  private class ConditionPart {
+    public IConditionClause condition;
+    public Boolean isOr = false;
+
+    public ConditionPart(IConditionClause condition, Boolean isOr) {
+      this.condition = condition;
+      this.isOr = isOr;
+    }
   }
 }

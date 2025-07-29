@@ -62,11 +62,146 @@ public with sharing class Scribe {
 
   // ------ where methods ------
 
-  public Scribe equal(String fieldName, Object value) {
-    this.validateConditionClause(fieldName, value);
+  public Scribe whereEqual(String fieldName, Object value) {
+    this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.andConditions.add(new EqualConditionClause(clonedScribe.sObjectType, null, fieldName, value));
+    IConditionClause conditionClause;
+    if (value == null) {
+      conditionClause = new IsNullConditionClause(clonedScribe.sObjectType, null, fieldName);
+    } else {
+      conditionClause = new EqualConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    }
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereNotEqual(String fieldName, Object value) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause;
+    if (value == null) {
+      conditionClause = new IsNotNullConditionClause(clonedScribe.sObjectType, null, fieldName);
+    } else {
+      conditionClause = new NotEqualConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    }
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereGreaterThan(String fieldName, Object value) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new GreaterThanConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereGreaterThanOrEqual(String fieldName, Object value) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new GreaterThanOrEqualConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereLessThan(String fieldName, Object value) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new LessThanConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereLessThanOrEqual(String fieldName, Object value) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new LessThanOrEqualConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereLike(String fieldName, String value) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new LikeConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereNotLike(String fieldName, String value) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new NotLikeConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereIn(String fieldName, Object values) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new InConditionClause(clonedScribe.sObjectType, null, fieldName, values);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereNotIn(String fieldName, Object values) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new NotInConditionClause(clonedScribe.sObjectType, null, fieldName, values);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereIncludes(String fieldName, List<String> values) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new IncludesConditionClause(clonedScribe.sObjectType, null, fieldName, values);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe whereExcludes(String fieldName, List<String> values) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    IConditionClause conditionClause = new ExcludeConditionClause(clonedScribe.sObjectType, null, fieldName, values);
+    clonedScribe.andConditions.add(conditionClause);
+
+    return clonedScribe;
+  }
+  
+  public Scribe whereNull(String fieldName) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.andConditions.add(new IsNullConditionClause(clonedScribe.sObjectType, null, fieldName));
+
+    return clonedScribe;
+  }
+
+  public Scribe whereNotNull(String fieldName) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.andConditions.add(new IsNotNullConditionClause(clonedScribe.sObjectType, null, fieldName));
 
     return clonedScribe;
   }
@@ -117,12 +252,9 @@ public with sharing class Scribe {
     return newScribe;
   }
 
-  private void validateConditionClause(String fieldName, Object value) {
+  private void validateConditionClause(String fieldName) {
     if (String.isBlank(fieldName)) {
       throw new QueryException('フィールド名が空です。');
-    }
-    if (value == null) {
-      throw new QueryException('値がnullです。');
     }
   }
 
@@ -174,7 +306,7 @@ public with sharing class Scribe {
       whereClauseString += '(' + String.join(andConditionsAsString, ' AND ') + ')';
     }
 
-    if(whereClauseString != '') {
+    if (whereClauseString != '') {
       query += ' WHERE ' + whereClauseString;
     }
 

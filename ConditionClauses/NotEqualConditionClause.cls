@@ -1,7 +1,7 @@
-public with sharing class EqualConditionClause extends AbstractConditionClause {
+public with sharing class NotEqualConditionClause extends AbstractConditionClause {
   private final Object value;
 
-  public EqualConditionClause(
+  public NotEqualConditionClause(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap,
     String field,
@@ -12,14 +12,14 @@ public with sharing class EqualConditionClause extends AbstractConditionClause {
   }
 
   public override String build() {
-    return String.format('{0} = {1}', new List<String>{ this.field, this.checkAndCast() });
+    return String.format('{0} != {1}', new List<String>{ this.field, this.checkAndCast() });
   }
 
   public override IConditionClause overrideMetaData(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
   ) {
-    return new EqualConditionClause(sObjectType, fieldMap, this.field, this.value);
+    return new NotEqualConditionClause(sObjectType, fieldMap, this.field, this.value);
   }
 
   private String checkAndCast() {

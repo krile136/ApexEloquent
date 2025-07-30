@@ -445,4 +445,121 @@ public with sharing class ScribeTest {
     String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\' OR Name = \'Or Account Name\' OR Name = \'Another Or Account Name\'';
     Assert.areEqual(expectedSoql, soql);
   }
+
+  @isTest
+  public static void testGroup_WhenAddGroup_ThenAddGroupCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereEqual('Name', 'Test Opportunity')
+      .group(Scribe.group()
+        .whereGreaterThan('TotalOpportunityQuantity', 10000)
+        .orCondition()
+        .whereEqual('Type', 'Test Type')
+      );
+  
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (TotalOpportunityQuantity > 10000 OR Type = \'Test Type\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testGroup_WhenAddOrGroup_ThenAddOrGroupCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereEqual('Name', 'Test Opportunity')
+      .orCondition()
+      .group(Scribe.group()
+        .whereGreaterThan('TotalOpportunityQuantity', 10000)
+        .orCondition()
+        .whereEqual('Type', 'Test Type')
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE Name = \'Test Opportunity\' OR (TotalOpportunityQuantity > 10000 OR Type = \'Test Type\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testGroup_WhenAddMultiGroup_ThenAddMultiGroupCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereEqual('Name', 'Test Opportunity')
+      .group(Scribe.group()
+        .whereGreaterThan('TotalOpportunityQuantity', 10000)
+        .orCondition()
+        .whereEqual('Type', 'Test Type')
+      )
+      .group(Scribe.group()
+        .whereLessThan('CloseDate', Date.newInstance(2030, 12, 31))
+        .orCondition()
+        .whereEqual('StageName', 'Closed Won')
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (TotalOpportunityQuantity > 10000 OR Type = \'Test Type\') AND (CloseDate < 2030-12-31 OR StageName = \'Closed Won\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testGroup_WhenAddAndConditionAfterOrConditionInGroup_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .whereEqual('Name', 'Test Account')
+        .group(Scribe.group()
+          .whereGreaterThan('TotalOpportunityQuantity', 10000)
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
+          .whereEqual('StageName', 'Closed Won') // This should throw an exception
+        );
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testGroup_WhenAddAndGroupAfterOrGroup_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .whereEqual('Name', 'Test Account')
+        .orCondition()
+        .group(Scribe.group()
+          .whereGreaterThan('TotalOpportunityQuantity', 10000)
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
+        )
+        .group(Scribe.group()
+          .whereEqual('StageName', 'Closed Won') // This should throw an exception
+        );
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        e.getMessage()
+      );
+    }
+  }
 }

@@ -3,8 +3,6 @@ public with sharing class Scribe {
   private Schema.SObjectType sObjectType;
   @TestVisible
   private Set<String> selectFields = new Set<String>();
-  private List<IConditionClause> andConditions = new List<IConditionClause>();
-  private List<IConditionClause> orConditions = new List<IConditionClause>();
   private List<ConditionPart> conditionParts = new List<ConditionPart>();
 
   private Boolean isSelectAll = false;
@@ -285,6 +283,22 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  public Scribe group(Scribe groupScribe) {
+    this.validateConditionOperator();
+
+    if (groupScribe == null) {
+      throw new QueryException('グループ化するScribeがnullです。');
+    }
+
+    Scribe clonedScribe = this.deepClone();
+    Conditionpart groupConditionPart = new ConditionPart(groupScribe, this.isNextConditionOr);
+    clonedScribe.sObjectType = this.sObjectType;
+    clonedScribe.conditionParts.add(groupConditionPart);
+    clonedScribe.isNextConditionOr = false;
+
+    return clonedScribe;
+  }
+
   public String toSoql() {
     this.validateAndInitialize();
 
@@ -295,7 +309,10 @@ public with sharing class Scribe {
 
     String query = String.format('SELECT {0} FROM {1}', new List<String>{ selectFieldsString, fromString });
 
-    query = this.buildWhereClause(query, fieldMap);
+    String whereString = this.buildWhereClause(fieldMap);
+    if (whereString != '') {
+      query += ' WHERE ' + whereString;
+    }
 
     System.debug('SOQL Query: ' + query);
     return query;
@@ -327,7 +344,6 @@ public with sharing class Scribe {
   private Scribe deepClone() {
     Scribe newScribe = new Scribe(this.sObjectType);
     newScribe.selectFields = this.selectFields.clone();
-    newScribe.andConditions = this.andConditions.clone();
     newScribe.conditionParts = this.conditionParts.clone();
 
     newScribe.isSelectAll = this.isSelectAll;
@@ -341,9 +357,11 @@ public with sharing class Scribe {
     if (String.isBlank(fieldName)) {
       throw new QueryException('フィールド名が空です。');
     }
-    System.debug('isNextConditionOr: ' + this.isNextConditionOr);
-    System.debug('canOnlyAddOrCondition: ' + this.canOnlyAddOrCondition);
-    if (this.canOnlyAddOrCondition && !this.isNextConditionOr) {
+    this.validateConditionOperator();
+  }
+
+  private void validateConditionOperator() {
+  if (this.canOnlyAddOrCondition && !this.isNextConditionOr) {
       throw new QueryException(
         'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。'
       );
@@ -386,7 +404,7 @@ public with sharing class Scribe {
     return selectFieldsString;
   }
 
-  private String buildWhereClause(String query, Map<String, Schema.SObjectField> fieldMap) {
+  private String buildWhereClause(Map<String, Schema.SObjectField> fieldMap) {
     String whereClauseString = '';
 
     if (this.conditionParts.isEmpty()) {
@@ -394,33 +412,41 @@ public with sharing class Scribe {
     }
 
     for (ConditionPart conditionPart : this.conditionParts) {
-      IConditionClause condition = conditionPart.condition.overrideMetaData(this.sObjectType, fieldMap);
-      if (conditionPart.isOr) {
+      String clause = '';
+      if (conditionPart.condition != null) {
+        IConditionClause condition = conditionPart.condition.overrideMetaData(this.sObjectType, fieldMap);
+        clause = condition.build();
+      } else if (conditionPart.groupScribe != null) {
+        Scribe groupScribe = conditionPart.groupScribe;
+        groupScribe.sObjectType = this.sObjectType;
+        clause = String.format('({0})', new List<String>{groupScribe.buildWhereClause(fieldMap)});
+      }
+
+      if (clause != '') {
         if (whereClauseString != '') {
-          whereClauseString += ' OR ';
+          whereClauseString += conditionPart.isOr ? ' OR ' : ' AND ';
         }
-        whereClauseString += condition.build();
-      } else {
-        if (whereClauseString != '') {
-          whereClauseString += ' AND ';
-        }
-        whereClauseString += condition.build();
+        whereClauseString += clause;
       }
     }
 
-    if (whereClauseString != '') {
-      query += ' WHERE ' + whereClauseString;
-    }
-
-    return query;
+    return whereClauseString;
   }
 
   private class ConditionPart {
     public IConditionClause condition;
+    public Scribe groupScribe;
     public Boolean isOr = false;
 
     public ConditionPart(IConditionClause condition, Boolean isOr) {
       this.condition = condition;
+      this.groupScribe = null;
+      this.isOr = isOr;
+    }
+
+    public ConditionPart(Scribe groupScribe, Boolean isOr) {
+      this.condition = null;
+      this.groupScribe = groupScribe;
       this.isOr = isOr;
     }
   }

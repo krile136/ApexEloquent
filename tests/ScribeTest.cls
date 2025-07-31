@@ -407,6 +407,25 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  public static void testOrCondition_WhenAddOrConditionAtFirst_ThenThrownException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .orCondition()
+        .whereEqual('Name', 'Test Account');
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'OR条件を最初に設定することはできません。where系メソッドを使用してAND条件を追加してください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
   public static void testEqual_WhenAddAndConditionAfterOrCondition_ThenThrowException() {
     // Arrange / Act / Assert
     try {
@@ -558,6 +577,84 @@ public with sharing class ScribeTest {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
         'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testIN_WhenUsingSubquery_ThenAddInSubQueryCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereIn('AccountId', Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .whereEqual('Name', 'Test Account'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE AccountId IN (SELECT id FROM Account WHERE Name = \'Test Account\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testIn_WhenUsingSubqueryWithOrCondition_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereLike('Name', '%Test%')
+      .orCondition()
+      .whereIn('AccountId', Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .whereLike('Name', '%Test%'));
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'OR条件の後にINサブクエリを追加することはできません。クエリの分割や見直しを検討してください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testNotIn_WhenUsingSubquery_ThenAddNotInSubQueryCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereNotIn('AccountId', Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .whereEqual('Name', 'Test Account'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE AccountId NOT IN (SELECT id FROM Account WHERE Name = \'Test Account\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testNotIn_WhenUsingSubqueryWithOrCondition_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereLike('Name', '%Test%')
+      .orCondition()
+      .whereNotIn('AccountId', Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .whereLike('Name', '%Test%'));
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'OR条件の後にNOT INサブクエリを追加することはできません。クエリの分割や見直しを検討してください。',
         e.getMessage()
       );
     }

@@ -4,6 +4,7 @@ public with sharing class Scribe {
   @TestVisible
   private Set<String> selectFields = new Set<String>();
   private List<ConditionPart> conditionParts = new List<ConditionPart>();
+  private List<Scribe> children = new List<Scribe>();
 
   private Boolean isSelectAll = false;
   private Boolean isNextConditionOr = false;
@@ -37,9 +38,7 @@ public with sharing class Scribe {
     return new Scribe(null);
   }
 
-  // ------------ instance methods ------------
-
-  // ------ select methods ------
+  // ------------ select methods ------------
 
   public Scribe field(String fieldName) {
     if (String.isBlank(fieldName)) {
@@ -63,16 +62,20 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
-  // ------ add or condition ------
+  // ------------ add OR methods ------------
   public Scribe orCondition() {
     Scribe clonedScribe = this.deepClone();
+
+    if (clonedScribe.conditionParts.isEmpty()) {
+      throw new QueryException('OR条件を最初に設定することはできません。where系メソッドを使用してAND条件を追加してください。');
+    }
     clonedScribe.isNextConditionOr = true;
     clonedScribe.canOnlyAddOrCondition = true;
 
     return clonedScribe;
   }
 
-  // ------ where methods ------
+  // ------------ where methods ------------
 
   public Scribe whereEqual(String fieldName, Object value) {
     this.validateConditionClause(fieldName);
@@ -217,11 +220,57 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  public Scribe whereIn(String fieldName, Scribe subQuery) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    if (clonedScribe.isNextConditionOr) {
+      throw new QueryException(
+        'OR条件の後にINサブクエリを追加することはできません。クエリの分割や見直しを検討してください。'
+      );
+    }
+
+    IConditionClause conditionClause = new InSubQueryConditionClause(
+      clonedScribe.sObjectType,
+      null,
+      fieldName,
+      subQuery
+    );
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
+
+    return clonedScribe;
+  }
+
   public Scribe whereNotIn(String fieldName, Object values) {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new NotInConditionClause(clonedScribe.sObjectType, null, fieldName, values);
+    ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
+    clonedScribe.conditionParts.add(conditionPart);
+    clonedScribe.isNextConditionOr = false;
+
+    return clonedScribe;
+  }
+
+  public Scribe whereNotIn(String fieldName, Scribe subQuery) {
+    this.validateConditionClause(fieldName);
+
+    Scribe clonedScribe = this.deepClone();
+    if (clonedScribe.isNextConditionOr) {
+      throw new QueryException(
+        'OR条件の後にNOT INサブクエリを追加することはできません。クエリの分割や見直しを検討してください。'
+      );
+    }
+
+    IConditionClause conditionClause = new NotInSubQueryConditionClause(
+      clonedScribe.sObjectType,
+      null,
+      fieldName,
+      subQuery
+    );
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -283,6 +332,8 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  // ------------ group methods ------------
+
   public Scribe group(Scribe groupScribe) {
     this.validateConditionOperator();
 
@@ -295,6 +346,19 @@ public with sharing class Scribe {
     clonedScribe.sObjectType = this.sObjectType;
     clonedScribe.conditionParts.add(groupConditionPart);
     clonedScribe.isNextConditionOr = false;
+
+    return clonedScribe;
+  }
+
+  // ------------ add relation methods ------------
+
+  public Scribe withChildren(Scribe childScribe) {
+    if (childScribe == null) {
+      throw new QueryException('子のScribeがnullです。');
+    }
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.children.add(childScribe);
 
     return clonedScribe;
   }
@@ -345,6 +409,7 @@ public with sharing class Scribe {
     Scribe newScribe = new Scribe(this.sObjectType);
     newScribe.selectFields = this.selectFields.clone();
     newScribe.conditionParts = this.conditionParts.clone();
+    newScribe.children = this.children.clone();
 
     newScribe.isSelectAll = this.isSelectAll;
     newScribe.isNextConditionOr = this.isNextConditionOr;
@@ -361,7 +426,7 @@ public with sharing class Scribe {
   }
 
   private void validateConditionOperator() {
-  if (this.canOnlyAddOrCondition && !this.isNextConditionOr) {
+    if (this.canOnlyAddOrCondition && !this.isNextConditionOr) {
       throw new QueryException(
         'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。'
       );
@@ -419,7 +484,7 @@ public with sharing class Scribe {
       } else if (conditionPart.groupScribe != null) {
         Scribe groupScribe = conditionPart.groupScribe;
         groupScribe.sObjectType = this.sObjectType;
-        clause = String.format('({0})', new List<String>{groupScribe.buildWhereClause(fieldMap)});
+        clause = String.format('({0})', new List<String>{ groupScribe.buildWhereClause(fieldMap) });
       }
 
       if (clause != '') {

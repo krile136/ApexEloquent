@@ -471,12 +471,13 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
-      .group(Scribe.group()
-        .whereGreaterThan('TotalOpportunityQuantity', 10000)
-        .orCondition()
-        .whereEqual('Type', 'Test Type')
+      .group(
+        Scribe.group()
+          .whereGreaterThan('TotalOpportunityQuantity', 10000)
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
       );
-  
+
     // Act
     String soql = scribe.toSoql();
 
@@ -492,10 +493,11 @@ public with sharing class ScribeTest {
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
       .orCondition()
-      .group(Scribe.group()
-        .whereGreaterThan('TotalOpportunityQuantity', 10000)
-        .orCondition()
-        .whereEqual('Type', 'Test Type')
+      .group(
+        Scribe.group()
+          .whereGreaterThan('TotalOpportunityQuantity', 10000)
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
       );
 
     // Act
@@ -512,15 +514,17 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
-      .group(Scribe.group()
-        .whereGreaterThan('TotalOpportunityQuantity', 10000)
-        .orCondition()
-        .whereEqual('Type', 'Test Type')
+      .group(
+        Scribe.group()
+          .whereGreaterThan('TotalOpportunityQuantity', 10000)
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
       )
-      .group(Scribe.group()
-        .whereLessThan('CloseDate', Date.newInstance(2030, 12, 31))
-        .orCondition()
-        .whereEqual('StageName', 'Closed Won')
+      .group(
+        Scribe.group()
+          .whereLessThan('CloseDate', Date.newInstance(2030, 12, 31))
+          .orCondition()
+          .whereEqual('StageName', 'Closed Won')
       );
 
     // Act
@@ -538,11 +542,12 @@ public with sharing class ScribeTest {
       Scribe scribe = Scribe.source(Account.getSObjectType())
         .field('Id')
         .whereEqual('Name', 'Test Account')
-        .group(Scribe.group()
-          .whereGreaterThan('TotalOpportunityQuantity', 10000)
-          .orCondition()
-          .whereEqual('Type', 'Test Type')
-          .whereEqual('StageName', 'Closed Won') // This should throw an exception
+        .group(
+          Scribe.group()
+            .whereGreaterThan('TotalOpportunityQuantity', 10000)
+            .orCondition()
+            .whereEqual('Type', 'Test Type')
+            .whereEqual('StageName', 'Closed Won') // This should throw an exception
         );
 
       Assert.fail('Expected exception to be thrown');
@@ -563,13 +568,14 @@ public with sharing class ScribeTest {
         .field('Id')
         .whereEqual('Name', 'Test Account')
         .orCondition()
-        .group(Scribe.group()
-          .whereGreaterThan('TotalOpportunityQuantity', 10000)
-          .orCondition()
-          .whereEqual('Type', 'Test Type')
+        .group(
+          Scribe.group()
+            .whereGreaterThan('TotalOpportunityQuantity', 10000)
+            .orCondition()
+            .whereEqual('Type', 'Test Type')
         )
-        .group(Scribe.group()
-          .whereEqual('StageName', 'Closed Won') // This should throw an exception
+        .group(
+          Scribe.group().whereEqual('StageName', 'Closed Won') // This should throw an exception
         );
 
       Assert.fail('Expected exception to be thrown');
@@ -587,9 +593,10 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .whereIn('AccountId', Scribe.source(Account.getSObjectType())
-        .field('Id')
-        .whereEqual('Name', 'Test Account'));
+      .whereIn(
+        'AccountId',
+        Scribe.source(Account.getSObjectType()).field('Id').whereEqual('Name', 'Test Account')
+      );
 
     // Act
     String soql = scribe.toSoql();
@@ -604,12 +611,10 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereLike('Name', '%Test%')
-      .orCondition()
-      .whereIn('AccountId', Scribe.source(Account.getSObjectType())
         .field('Id')
-        .whereLike('Name', '%Test%'));
+        .whereLike('Name', '%Test%')
+        .orCondition()
+        .whereIn('AccountId', Scribe.source(Account.getSObjectType()).field('Id').whereLike('Name', '%Test%'));
 
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
@@ -626,9 +631,10 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .whereNotIn('AccountId', Scribe.source(Account.getSObjectType())
-        .field('Id')
-        .whereEqual('Name', 'Test Account'));
+      .whereNotIn(
+        'AccountId',
+        Scribe.source(Account.getSObjectType()).field('Id').whereEqual('Name', 'Test Account')
+      );
 
     // Act
     String soql = scribe.toSoql();
@@ -643,18 +649,158 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereLike('Name', '%Test%')
-      .orCondition()
-      .whereNotIn('AccountId', Scribe.source(Account.getSObjectType())
         .field('Id')
-        .whereLike('Name', '%Test%'));
+        .whereLike('Name', '%Test%')
+        .orCondition()
+        .whereNotIn('AccountId', Scribe.source(Account.getSObjectType()).field('Id').whereLike('Name', '%Test%'));
 
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
         'OR条件の後にNOT INサブクエリを追加することはできません。クエリの分割や見直しを検討してください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testWithChildren_ThenAddWithChildrenCondition_ThenAddWithChildrenCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'))
+      .whereEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, (SELECT id FROM Opportunities WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithChildren_WhenAddParallelWithChildrenCondition_ThenAddParallelWithChildrenCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'))
+      .withChildren(Scribe.source(Contact.getSObjectType()).field('Id').whereNotNull('Email'))
+      .whereEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, (SELECT id FROM Opportunities WHERE Name != NULL), (SELECT id FROM Contacts WHERE Email != NULL) FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithChildren_WhenAddNestedWithChildrenCondition_ThenAddNestedWithChildrenCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .withChildren(
+        Scribe.source(Contact.getSObjectType())
+          .field('Id')
+          .whereNotNull('Name')
+          .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').whereNotNull('Email'))
+      )
+      .whereEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, (SELECT id, (SELECT id FROM Opportunities WHERE Email != NULL) FROM Contacts WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithChildren_WhenAddWithChildrenConditionAfterOrCondition_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .whereEqual('Name', 'Test Account')
+        .orCondition()
+        .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'));
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'orConditionメソッドに続くメソッドはWhere系もしくはgroupメソッドでなければなりません。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testWithChildren_WhenAddOverFourNestChildren_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .withChildren(
+        Scribe.source(Contact.getSObjectType())
+          .field('Id')
+          .withChildren(
+            Scribe.source(Opportunity.getSObjectType())
+              .field('Id')
+              .withChildren(
+                Scribe.source(Quote.getSObjectType())
+                  .field('Id')
+                  .withChildren(
+                    Scribe.source(Order.getSObjectType())
+                      .field('Id')
+                      .withChildren(Scribe.source(OrderItem.getSObjectType()).field('Id'))
+                  )
+              )
+          )
+      );
+
+    // Act / Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'ネストの深度が最大値を超えました。最大ネスト深度: 4, オブジェクト名: OrderItem',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testWithChildren_WhenAddOverFourNestChildrenUsingOtherScribeInstance_ThenThrowException() {
+    // Arrange
+    Scribe oppScribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .withChildren(
+        Scribe.source(Quote.getSObjectType())
+          .field('Id')
+          .withChildren(
+            Scribe.source(Order.getSObjectType())
+              .field('Id')
+              .withChildren(Scribe.source(OrderItem.getSObjectType()).field('Id'))
+          )
+      );
+
+    Scribe accountScribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .withChildren(Scribe.source(Contact.getSObjectType()).field('Id').withChildren(oppScribe));
+
+    // Act / Assert
+    try {
+      String soql = accountScribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'ネストの深度が最大値を超えました。最大ネスト深度: 4, オブジェクト名: OrderItem',
         e.getMessage()
       );
     }

@@ -419,7 +419,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'OR条件を最初に設定することはできません。where系メソッドを使用してAND条件を追加してください。',
+        'OR条件を最初に設定することはできません。where系メソッドを使用してAND条件を追加してください。parentCondition内でエラーが起きている場合は引数のScribeクラスをScribe.asParent()から始めてください。',
         e.getMessage()
       );
     }
@@ -472,7 +472,7 @@ public with sharing class ScribeTest {
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
       .group(
-        Scribe.group()
+        Scribe.asGroup()
           .whereGreaterThan('TotalOpportunityQuantity', 10000)
           .orCondition()
           .whereEqual('Type', 'Test Type')
@@ -494,7 +494,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Opportunity')
       .orCondition()
       .group(
-        Scribe.group()
+        Scribe.asGroup()
           .whereGreaterThan('TotalOpportunityQuantity', 10000)
           .orCondition()
           .whereEqual('Type', 'Test Type')
@@ -515,13 +515,13 @@ public with sharing class ScribeTest {
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
       .group(
-        Scribe.group()
+        Scribe.asGroup()
           .whereGreaterThan('TotalOpportunityQuantity', 10000)
           .orCondition()
           .whereEqual('Type', 'Test Type')
       )
       .group(
-        Scribe.group()
+        Scribe.asGroup()
           .whereLessThan('CloseDate', Date.newInstance(2030, 12, 31))
           .orCondition()
           .whereEqual('StageName', 'Closed Won')
@@ -543,7 +543,7 @@ public with sharing class ScribeTest {
         .field('Id')
         .whereEqual('Name', 'Test Account')
         .group(
-          Scribe.group()
+          Scribe.asGroup()
             .whereGreaterThan('TotalOpportunityQuantity', 10000)
             .orCondition()
             .whereEqual('Type', 'Test Type')
@@ -569,13 +569,13 @@ public with sharing class ScribeTest {
         .whereEqual('Name', 'Test Account')
         .orCondition()
         .group(
-          Scribe.group()
+          Scribe.asGroup()
             .whereGreaterThan('TotalOpportunityQuantity', 10000)
             .orCondition()
             .whereEqual('Type', 'Test Type')
         )
         .group(
-          Scribe.group().whereEqual('StageName', 'Closed Won') // This should throw an exception
+          Scribe.asGroup().whereEqual('StageName', 'Closed Won') // This should throw an exception
         );
 
       Assert.fail('Expected exception to be thrown');
@@ -811,9 +811,8 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity');
-
 
     // Act
     String soql = scribe.toSoql();
@@ -824,11 +823,31 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  public static void testWithParent_WhenAddOnlyParentFieldUsingAsGroup_ThenErrorThrown() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('Id')
+        .parentField('AccountId', Scribe.asGroup().field('Name').field('Id'))
+        .whereEqual('Name', 'Test Opportunity');
+
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'parentFieldメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
   public static void testWithParent_AddOnlyParentCondition_ThenAddOnlyParentCondition() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'));
+      .parentCondition('AccountId', Scribe.asParent().whereEqual('Name', 'Test Account'));
 
     // Act
     String soql = scribe.toSoql();
@@ -838,15 +857,33 @@ public with sharing class ScribeTest {
     Assert.areEqual(expectedSoql, soql);
   }
 
+  @isTest
+  public static void testWithParent_AddOnlyParentConditionUsingAsGroup_ThenErrorThrown() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('Id')
+        .parentCondition('AccountId', Scribe.asGroup().whereEqual('Name', 'Test Account'));
+
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'parentConditionメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。',
+        e.getMessage()
+      );
+    }
+  }
 
   @isTest
   public static void testWithParent_WhenAddWithParentCondition_ThenAddWithParentCondition() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
-      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'));
+      .parentCondition('AccountId', Scribe.asParent().whereEqual('Name', 'Test Account'));
 
     // Act
     String soql = scribe.toSoql();
@@ -861,9 +898,12 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
-      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account').whereEqual('Type', 'Test Type'));
+      .parentCondition(
+        'AccountId',
+        Scribe.asParent().whereEqual('Name', 'Test Account').whereEqual('Type', 'Test Type')
+      );
 
     // Act
     String soql = scribe.toSoql();
@@ -878,10 +918,10 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
-      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'))
-      .whereParent('AccountId', Scribe.group().whereEqual('Type', 'Test Type'));
+      .parentCondition('AccountId', Scribe.asParent().whereEqual('Name', 'Test Account'))
+      .parentCondition('AccountId', Scribe.asParent().whereEqual('Type', 'Test Type'));
 
     // Act
     String soql = scribe.toSoql();
@@ -896,11 +936,11 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
-      .whereParent(
+      .parentCondition(
         'AccountId',
-        Scribe.group().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+        Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
       );
 
     // Act
@@ -912,59 +952,60 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  public static void testWithParent_WhenAddOrConditionParentAsGroup_ThenAddOrConditionParentAsGroup() {
+  public static void testWithParent_WhenAddParentConditionAfterOrCondition_ThenThrownError() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('Id')
+        .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+        .whereEqual('Name', 'Test Opportunity')
+        .orCondition()
+        .parentCondition(
+          'AccountId',
+          Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+        );
+
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'orConditionメソッドに続くメソッドはWhere系もしくはgroupメソッドでなければなりません。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddOrConditionAtFirstInParentCondition_ThenAddOrParentCondition() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity')
+      .parentCondition('AccountId', Scribe.asParent().orCondition().whereEqual('Name', 'Test Account'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' OR Account.Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddOrConditionParentAsGroup_ThenAddOrConditionParentAsasGroup() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
       .group(
-        Scribe.group()
-          .whereParent(
+        Scribe.asGroup()
+          .parentCondition(
             'AccountId',
-            Scribe.group().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+            Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
           )
-      );
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Account.Name = \'Test Account\' OR Account.Type = \'Test Type\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  public static void testWithParent_WhenAddOrConditionParentUsintAnotherMethod_ThenAddOrConditionParent() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
-      .whereEqual('Name', 'Test Opportunity')
-      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'))
-      .orCondition()
-      .whereParent('AccountId', Scribe.group().whereEqual('Type', 'Test Type'));
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\' OR Account.Type = \'Test Type\'';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  public static void testWithParent_WhenAddOrConditionParentUsintAnotherMethodAsGroup_ThenAddOrConditionParentAsGroup() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
-      .whereEqual('Name', 'Test Opportunity')
-      .group(
-        Scribe.group()
-          .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'))
-          .orCondition()
-          .whereParent('AccountId', Scribe.group().whereEqual('Type', 'Test Type'))
       );
 
     // Act
@@ -982,21 +1023,55 @@ public with sharing class ScribeTest {
       .field('Id')
       .parentField(
         'ContractId',
-        Scribe.group().field('Name').field('Id').parentField('AccountId', Scribe.group().field('Name').field('Id'))
+        Scribe.asParent()
+          .field('Id')
+          .field('Name')
+          .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
       )
       .whereEqual('Name', 'Test Opportunity')
-      .whereParent(
+      .parentCondition(
         'ContractId',
-        Scribe.group()
+        Scribe.asParent()
           .whereEqual('Name', 'Test Contract')
-          .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'))
+          .parentCondition('AccountId', Scribe.asParent().whereEqual('Name', 'Test Account'))
       );
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id, Contract.Id, Contract.Name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Contract.Name = \'Test Contract\' AND Contract.Account.Name = \'Test Account\'';
+    String expectedSoql = 'SELECT id, Contract.id, Contract.name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Contract.Name = \'Test Contract\' AND Contract.Account.Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddThreeNestedParentOrCondition_ThenAddNestedParentCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField(
+        'ContractId',
+        Scribe.asParent()
+          .field('Id')
+          .field('Name')
+          .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      )
+      .whereEqual('Name', 'Test Opportunity')
+      .parentCondition(
+        'ContractId',
+        Scribe.asParent()
+          .whereEqual('Name', 'Test Contract')
+          .parentCondition(
+            'AccountId',
+            Scribe.asParent().whereEqual('Name', 'Test Account').whereEqual('Type', 'Test Type')
+          )
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Contract.id, Contract.name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Contract.Name = \'Test Contract\' AND Contract.Account.Name = \'Test Account\' AND Contract.Account.Type = \'Test Type\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -1005,10 +1080,10 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
-      .whereParent(
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentCondition(
         'AccountId',
-        Scribe.group().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+        Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
       )
       .whereEqual('Name', 'Test Opportunity');
 
@@ -1030,14 +1105,14 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
-      .whereParent(
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentCondition(
         'ContractId',
-        Scribe.group()
+        Scribe.asParent()
           .whereEqual('Name', 'Test Contract')
-          .whereParent(
+          .parentCondition(
             'AccountId',
-            Scribe.group().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+            Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
           )
       )
       .whereEqual('Name', 'Test Opportunity');
@@ -1050,6 +1125,49 @@ public with sharing class ScribeTest {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
         'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddOverFourNestedParentFieldOver_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+      .field('Id')
+      .parentField(
+        'OrderId',
+        Scribe.asParent()
+          .field('Id')
+          .parentField(
+            'OriginalOrderId',
+            Scribe.asParent()
+              .field('Id')
+              .parentField(
+                'QuoteId',
+                Scribe.asParent()
+                  .field('Id')
+                  .parentField(
+                    'OpportunityId',
+                    Scribe.asParent()
+                      .field('Id')
+                      .parentField(
+                        'ContractId',
+                        Scribe.asParent().field('Id').parentField('AccountId', Scribe.asParent().field('Id'))
+                      )
+                  )
+              )
+          )
+      );
+
+    // Act / Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        '親方向のネスト深度が最大値を超えました。最大ネスト深度: 5, オブジェクト名: Account',
         e.getMessage()
       );
     }

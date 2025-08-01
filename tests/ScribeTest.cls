@@ -919,7 +919,7 @@ public with sharing class ScribeTest {
       .parentField('AccountId', Scribe.group().field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
       .group(
-        Sribe.group()
+        Scribe.group()
           .whereParent(
             'AccountId',
             Scribe.group().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')

@@ -805,4 +805,253 @@ public with sharing class ScribeTest {
       );
     }
   }
+
+  @isTest
+  public static void testWithParent_WhenAddOnlyParentField_ThenAddOnlyParentField() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity');
+
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_AddOnlyParentCondition_ThenAddOnlyParentCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE Account.Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+
+  @isTest
+  public static void testWithParent_WhenAddWithParentCondition_ThenAddWithParentCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity')
+      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddWithParentMultipleCondition_ThenAddWithParentMultipleCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity')
+      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account').whereEqual('Type', 'Test Type'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\' AND Account.Type = \'Test Type\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddWithParentMultipleConditionByAnotherMethod_ThenAddWithParentMultipleCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity')
+      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'))
+      .whereParent('AccountId', Scribe.group().whereEqual('Type', 'Test Type'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\' AND Account.Type = \'Test Type\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddOrConditionParent_ThenAddOrConditionParent() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity')
+      .whereParent(
+        'AccountId',
+        Scribe.group().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\' OR Account.Type = \'Test Type\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddOrConditionParentAsGroup_ThenAddOrConditionParentAsGroup() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity')
+      .group(
+        Sribe.group()
+          .whereParent(
+            'AccountId',
+            Scribe.group().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+          )
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Account.Name = \'Test Account\' OR Account.Type = \'Test Type\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddOrConditionParentUsintAnotherMethod_ThenAddOrConditionParent() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity')
+      .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'))
+      .orCondition()
+      .whereParent('AccountId', Scribe.group().whereEqual('Type', 'Test Type'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\' OR Account.Type = \'Test Type\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddOrConditionParentUsintAnotherMethodAsGroup_ThenAddOrConditionParentAsGroup() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity')
+      .group(
+        Scribe.group()
+          .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'))
+          .orCondition()
+          .whereParent('AccountId', Scribe.group().whereEqual('Type', 'Test Type'))
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Account.Name = \'Test Account\' OR Account.Type = \'Test Type\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddNestedParent_ThenAddNestedParentCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField(
+        'ContractId',
+        Scribe.group().field('Name').field('Id').parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      )
+      .whereEqual('Name', 'Test Opportunity')
+      .whereParent(
+        'ContractId',
+        Scribe.group()
+          .whereEqual('Name', 'Test Contract')
+          .whereParent('AccountId', Scribe.group().whereEqual('Name', 'Test Account'))
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Contract.Id, Contract.Name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Contract.Name = \'Test Contract\' AND Contract.Account.Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddAndConditionAfterOrParentCondition_ThenErrorThrown() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereParent(
+        'AccountId',
+        Scribe.group().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+      )
+      .whereEqual('Name', 'Test Opportunity');
+
+    // Act / Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  public static void testWithParent_WhenAddAndConditionAfterNestedOrParentCondition_ThenErrorThrown() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.group().field('Name').field('Id'))
+      .whereParent(
+        'ContractId',
+        Scribe.group()
+          .whereEqual('Name', 'Test Contract')
+          .whereParent(
+            'AccountId',
+            Scribe.group().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+          )
+      )
+      .whereEqual('Name', 'Test Opportunity');
+
+    // Act / Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        e.getMessage()
+      );
+    }
+  }
 }

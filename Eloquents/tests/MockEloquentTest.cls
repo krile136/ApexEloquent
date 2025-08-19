@@ -600,4 +600,205 @@ public with sharing class MockEloquentTest {
       );
     }
   }
+
+  @isTest
+  static void testFirst_WhenEntryExists_ThenReturnFirstEntry() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    IEntry entry = eloquent.first(scribe);
+
+    // Assert
+    Assert.isNotNull(entry, 'Expected first entry to be returned');
+    Assert.areEqual('006000000000000001', entry.getId(), 'Expected entry ID to match');
+  }
+
+  @isTest
+  static void testFirst_WhenNoEntries_ThenReturnNull() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    IEntry entry = eloquent.first(scribe);
+
+    // Assert
+    Assert.isNull(entry, 'Expected null when no entries exist');
+  }
+
+  @isTest
+  static void testFirst_WhenFieldisNotSelected_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    try {
+      IEntry entry = eloquent.first(scribe);
+      entry.getName(); // This field is not selected in the Scribe query
+      Assert.fail('Expected QueryException to be thrown for non-selected field');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.isTrue(
+        e.getMessage()
+          .contains('The specified field is not selected in Scribe. object name: Opportunity, field name: Name'),
+        'Expected QueryException with specific message for non-selected field'
+      );
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenEntryExists_ThenReturnFirstEntry() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    IEntry entry = eloquent.firstOrFail(scribe);
+
+    // Assert
+    Assert.isNotNull(entry, 'Expected first entry to be returned');
+    Assert.areEqual('006000000000000001', entry.getId(), 'Expected entry ID to match');
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenNoEntries_ThenReturnNull() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    try {
+      IEntry entry = eloquent.firstOrFail(scribe);
+      Assert.fail('Expected QueryException to be thrown when no entries exist');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual(
+        'No records found for query: ' + scribe.toSoql(),
+        e.getMessage(),
+        'Expected QueryException with specific message'
+      );
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenFieldisNotSelected_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    try {
+      IEntry entry = eloquent.first(scribe);
+      entry.getName(); // This field is not selected in the Scribe query
+      Assert.fail('Expected QueryException to be thrown for non-selected field');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.isTrue(
+        e.getMessage()
+          .contains('The specified field is not selected in Scribe. object name: Opportunity, field name: Name'),
+        'Expected QueryException with specific message for non-selected field'
+      );
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenRecordIsInserted_ThenReturnRecordWithId() {
+    // Arrange
+    Opportunity record = new Opportunity(Name = 'Test Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Opportunity insertedRecord = (Opportunity) eloquent.doInsert(record);
+
+    // Assert
+    Assert.isNotNull(insertedRecord.Id, 'Expected record to have an Id after insertion');
+    Assert.areEqual('Test Opportunity', insertedRecord.Name, 'Expected record Name to match');
+    Assert.areEqual('006000000000000', insertedRecord.Id, 'Expected record Id to be generated');
+  }
+
+  @isTest
+  static void testDoInsert_WhenMultipleRecordsAreInserted_ThenReturnRecordsWithIds() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Name = 'Test Opportunity 1'),
+      new Opportunity(Name = 'Test Opportunity 2')
+    };
+    IEloquent eloquent = new MockEloquent();
+    // Act
+    List<Opportunity> insertedRecords = (List<Opportunity>) eloquent.doInsert(records);
+    // Assert
+    Assert.isTrue(insertedRecords.size() == 2, 'Expected two records to be inserted');
+    for (Integer i = 0; i < insertedRecords.size(); i++) {
+      Opportunity record = insertedRecords[i]; 
+      Assert.isNotNull(record.Id, 'Expected each record to have an Id after insertion');
+      String generatedId = '00600000000000' + String.valueOf(i);
+      Assert.areEqual(generatedId, record.Id, 'Expected each record Id to be generated');
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenRecordIsUpdated_ThenReturnRecord() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Opportunity updatedRecord = (Opportunity) eloquent.doUpdate(record);
+
+    // Assert
+    Assert.isNotNull(updatedRecord.Id, 'Expected record to have an Id after update');
+    Assert.areEqual('Updated Opportunity', updatedRecord.Name, 'Expected record Name to match after update');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenMultipleRecordsAreUpdated_ThenReturnRecords() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity 1'),
+      new Opportunity(Id = '006000000000002', Name = 'Updated Opportunity 2')
+    };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Opportunity> updatedRecords = (List<Opportunity>) eloquent.doUpdate(records);
+
+    // Assert
+    Assert.isTrue(updatedRecords.size() == 2, 'Expected two records to be updated');
+  }
+
+  @isTest
+  static void testDoDelete_WhenRecordIsDeleted_ThenNoExceptionThrown() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Test Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    eloquent.doDelete(record);
+
+    // Assert
+    // No exception should be thrown, indicating successful deletion
+  }
+
+  @isTest
+  static void testDoDelete_WhenMultipleRecordsAreDeleted_ThenNoExceptionThrown() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Id = '006000000000001', Name = 'Test Opportunity 1'),
+      new Opportunity(Id = '006000000000002', Name = 'Test Opportunity 2')
+    };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    eloquent.doDelete(records);
+
+    // Assert
+    // No exception should be thrown, indicating successful deletion
+  }
 }

@@ -1172,4 +1172,168 @@ public with sharing class ScribeTest {
       );
     }
   }
+
+  @isTest
+  public static void testBuildFieldStructure_WhenAddField_ThenReturnFieldStructure() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').field('Name').field('Type');
+
+    // Act
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+
+    // Assert
+    Assert.isTrue(fieldStructure.hasField('id'));
+    Assert.isTrue(fieldStructure.hasField('name'));
+    Assert.isTrue(fieldStructure.hasField('type'));
+    Assert.isFalse(fieldStructure.hasField('nonSelectedField'));
+  }
+
+  @isTest
+  public static void testBuildFieldStructure_WhenAddParentField_ThenReturnFieldStructureWithParentFields() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField('ContractId', Scribe.asParent().field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity');
+
+    // Act
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+
+    // Assert
+    Assert.isTrue(fieldStructure.hasField('id'));
+    Assert.isTrue(fieldStructure.hasRelation('accountid'));
+    FieldStructure accountFieldStructure = fieldStructure.getRelationFieldStructure('accountid');
+    Assert.isTrue(accountFieldStructure.hasField('name'));
+    Assert.isTrue(accountFieldStructure.hasField('id'));
+    Assert.isTrue(fieldStructure.hasRelation('contractid'));
+    FieldStructure contractFieldStructure = fieldStructure.getRelationFieldStructure('contractid');
+    Assert.isTrue(contractFieldStructure.hasField('name'));
+    Assert.isTrue(contractFieldStructure.hasField('id'));
+  }
+
+  @isTest
+  public static void testBuildFieldStructure_WhenAddNestedParentField_ThenReturnFieldStructureWithNestedParentFields() {
+    // Arrange
+    List<String> fields = new List<String>{ 'Id', 'Name' };
+    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+      .field('id')
+      .field('ListPrice')
+      .parentField(
+        'OrderId',
+        Scribe.asParent()
+          .fields(fields)
+          .parentField(
+            'OriginalOrderId',
+            Scribe.asParent()
+              .fields(fields)
+              .parentField(
+                'QuoteId',
+                Scribe.asParent()
+                  .fields(fields)
+                  .parentField(
+                    'OpportunityId',
+                    Scribe.asParent().fields(fields).parentField('ContractId', Scribe.asParent().fields(fields))
+                  )
+              )
+          )
+      );
+
+    // Act
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+
+    // Assert
+    Assert.isTrue(fieldStructure.hasField('id'));
+    Assert.isTrue(fieldStructure.hasField('listprice'));
+    Assert.isTrue(fieldStructure.hasRelation('orderid'));
+    FieldStructure orderFieldStructure = fieldStructure.getRelationFieldStructure('orderid');
+    Assert.isTrue(orderFieldStructure.hasField('id'));
+    Assert.isTrue(orderFieldStructure.hasField('name'));
+    Assert.isTrue(orderFieldStructure.hasRelation('originalorderid'));
+    FieldStructure originalOrderFieldStructure = orderFieldStructure.getRelationFieldStructure('originalorderid');
+    Assert.isTrue(originalOrderFieldStructure.hasField('id'));
+    Assert.isTrue(originalOrderFieldStructure.hasField('name'));
+    Assert.isTrue(originalOrderFieldStructure.hasRelation('quoteid'));
+    FieldStructure quoteFieldStructure = originalOrderFieldStructure.getRelationFieldStructure('quoteid');
+    Assert.isTrue(quoteFieldStructure.hasField('id'));
+    Assert.isTrue(quoteFieldStructure.hasField('name'));
+    Assert.isTrue(quoteFieldStructure.hasRelation('opportunityid'));
+    FieldStructure opportunityFieldStructure = quoteFieldStructure.getRelationFieldStructure('opportunityid');
+    Assert.isTrue(opportunityFieldStructure.hasField('id'));
+    Assert.isTrue(opportunityFieldStructure.hasField('name'));
+    Assert.isTrue(opportunityFieldStructure.hasRelation('contractid'));
+    FieldStructure contractFieldStructure = opportunityFieldStructure.getRelationFieldStructure('contractid');
+    Assert.isTrue(contractFieldStructure.hasField('id'));
+    Assert.isTrue(contractFieldStructure.hasField('name'));
+  }
+
+  @isTest
+  public static void testBuildFieldStructure_WhenAddWithChildren_ThenReturnFieldStructureWithChildren() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').field('Name'))
+      .withChildren(Scribe.source(Contact.getSObjectType()).field('Id').field('Email'));
+
+    // Act
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+
+    // Assert
+    Assert.isTrue(fieldStructure.hasField('id'));
+    Assert.isTrue(fieldStructure.hasRelation('opportunity'));
+    FieldStructure opportunitiesFieldStructure = fieldStructure.getRelationFieldStructure('opportunity');
+    Assert.isTrue(opportunitiesFieldStructure.hasField('id'));
+    Assert.isTrue(opportunitiesFieldStructure.hasField('name'));
+    Assert.isTrue(fieldStructure.hasRelation('contact'));
+    FieldStructure contactsFieldStructure = fieldStructure.getRelationFieldStructure('contact');
+    Assert.isTrue(contactsFieldStructure.hasField('id'));
+    Assert.isTrue(contactsFieldStructure.hasField('email'));
+    Assert.isFalse(contactsFieldStructure.hasField('name'));
+  }
+
+  @isTest
+  public static void testBuildFieldStructure_WhenAddNestedChildrenField_ThenReturnFieldStructureWithNestedChildren() {
+    // Arrange
+    List<String> fields = new List<String>{ 'Id', 'Name' };
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .fields(fields)
+      .withChildren(
+        Scribe.source(Contact.getSObjectType())
+          .fields(fields)
+          .withChildren(
+            Scribe.source(Opportunity.getSObjectType())
+              .fields(fields)
+              .withChildren(
+                Scribe.source(Quote.getSObjectType())
+                  .fields(fields)
+                  .withChildren(Scribe.source(Order.getSObjectType()).fields(fields))
+              )
+          )
+      );
+
+    // Act
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+
+    // Assert
+    Assert.isTrue(fieldStructure.hasField('id'));
+    Assert.isTrue(fieldStructure.hasField('name'));
+    Assert.isTrue(fieldStructure.hasRelation('contact'));
+    FieldStructure contactFieldStructure = fieldStructure.getRelationFieldStructure('contact');
+    Assert.isTrue(contactFieldStructure.hasField('id'));
+    Assert.isTrue(contactFieldStructure.hasField('name'));
+    Assert.isTrue(contactFieldStructure.hasRelation('opportunity'));
+    FieldStructure opportunityFieldStructure = contactFieldStructure.getRelationFieldStructure('opportunity');
+    Assert.isTrue(opportunityFieldStructure.hasField('id'));
+    Assert.isTrue(opportunityFieldStructure.hasField('name'));
+    Assert.isTrue(opportunityFieldStructure.hasRelation('quote'));
+    FieldStructure quoteFieldStructure = opportunityFieldStructure.getRelationFieldStructure('quote');
+    Assert.isTrue(quoteFieldStructure.hasField('id'));
+    Assert.isTrue(quoteFieldStructure.hasField('name'));
+    Assert.isTrue(quoteFieldStructure.hasRelation('order'));
+    FieldStructure orderFieldStructure = quoteFieldStructure.getRelationFieldStructure('order');
+    Assert.isTrue(orderFieldStructure.hasField('id'));
+    Assert.isTrue(orderFieldStructure.hasField('name'));
+    Assert.isFalse(orderFieldStructure.hasField('email'));
+
+  }
 }

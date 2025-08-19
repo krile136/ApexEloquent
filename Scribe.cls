@@ -1,6 +1,7 @@
 public with sharing class Scribe {
   @TestVisible
   private Schema.SObjectType sObjectType;
+  private Schema.DescribeSObjectResult describe;
   @TestVisible
   private Set<String> selectFields = new Set<String>();
   private List<ConditionPart> conditionParts = new List<ConditionPart>();
@@ -23,6 +24,7 @@ public with sharing class Scribe {
    */
   public Scribe(Schema.SObjectType sObjectType) {
     this.sObjectType = sObjectType;
+    this.describe = sObjectType != null ? sObjectType.getDescribe() : null;
   }
 
   // ------------ static methods ------------
@@ -351,6 +353,30 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  public FieldStructure buildFieldStructure() {
+    Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
+
+    Map<String, FieldStructure> relationFieldStructures = new Map<String, FieldStructure>();
+    if (!this.parents.isEmpty()) {
+      for (ParentScribe parent : this.parents) {
+        String parentFieldName = parent.getRelationFieldName().toLowerCase();
+        FieldStructure parentFieldStructure = parent.buildFieldStructure(fieldMap);
+        relationFieldStructures.put(parentFieldName, parentFieldStructure);
+      }
+    }
+
+    if (!this.children.isEmpty()) {
+      for (Scribe child : this.children) {
+        String childObjectname = child.getDescribe().getName().toLowerCase();
+        FieldStructure childFieldStructure = child.buildFieldStructure();
+        relationFieldStructures.put(childObjectname, childFieldStructure);
+      }
+    }
+
+    List<String> selectedFields = this.getSelectedFields(fieldMap);
+    return new FieldStructure(selectedFields, relationFieldStructures);
+  }
+
   // ------------ group methods ------------
 
   public Scribe group(Scribe groupScribe) {
@@ -417,10 +443,10 @@ public with sharing class Scribe {
   public String toSoql() {
     this.validateAndInitialize();
 
-    Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
+    Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
 
     String selectFieldsString = this.buildSelectFields(fieldMap, 0);
-    String fromString = this.sObjectType.getDescribe().getName();
+    String fromString = this.describe.getName();
 
     String query = String.format('SELECT {0} FROM {1}', new List<String>{ selectFieldsString, fromString });
 
@@ -463,6 +489,7 @@ public with sharing class Scribe {
   }
 
   // ------------ private methods ------------
+
   private Scribe deepClone() {
     Scribe newScribe = new Scribe(this.sObjectType);
     newScribe.selectFields = this.selectFields.clone();
@@ -478,44 +505,6 @@ public with sharing class Scribe {
     return newScribe;
   }
 
-  // ------------ validation methods ------------
-
-  private void validateConditionClause(String fieldName) {
-    if (String.isBlank(fieldName)) {
-      throw new QueryException('フィールド名が空です。');
-    }
-    this.validateConditionOperator();
-  }
-
-  private void validateConditionOperator() {
-    if (this.canOnlyAddOrCondition && !this.isNextConditionOr) {
-      throw new QueryException(
-        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。'
-      );
-    }
-  }
-
-  private void validateOrConditionNotAllowed() {
-    if (this.isNextConditionOr) {
-      throw new QueryException(
-        'orConditionメソッドに続くメソッドはWhere系もしくはgroupメソッドでなければなりません。'
-      );
-    }
-  }
-
-  /**
-   * Validates the parameters.
-   */
-  private void validateAndInitialize() {
-    Boolean isSObjectTypeNull = this.sObjectType == null;
-    if (isSObjectTypeNull) {
-      throw new QueryException('source is not set');
-    }
-    if (this.selectFields.isEmpty() && !this.isSelectAll) {
-      this.selectFields.add('Id');
-    }
-  }
-
   /**
    * A method to construct the SELECT clause of a SOQL query based on the specified field map.
    *
@@ -528,7 +517,6 @@ public with sharing class Scribe {
 
     // Add parent queries
     for (ParentScribe parent : this.parents) {
-      System.debug('isParent? : ' + parent.scribe.isParent);
       if (!parent.scribe.isParent) {
         String error = 'parentFieldメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
         throw new QueryException(error);
@@ -542,7 +530,7 @@ public with sharing class Scribe {
       if (lowerNestingDepth > this.MAX_LOWER_NESTING_DEPTH) {
         List<String> overNestedChildrenNames = new List<String>();
         for (Scribe child : this.children) {
-          overNestedChildrenNames.add(child.sObjectType.getDescribe().getName());
+          overNestedChildrenNames.add(child.getDescribe().getName());
         }
         String error = String.format(
           'ネストの深度が最大値を超えました。最大ネスト深度: {0}, オブジェクト名: {1}',
@@ -621,12 +609,11 @@ public with sharing class Scribe {
   private String buildChildSoql(Schema.SObjectType parentSObjectType, Integer lowerNestingdepth) {
     this.validateAndInitialize();
 
-    Map<String, Schema.SObjectField> fieldMap = this.sObjectType.getDescribe().fields.getMap();
-
+    Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
     String selectFieldsString = this.buildSelectFields(fieldMap, lowerNestingDepth);
 
     String fromString;
-    String objectName = this.sObjectType.getDescribe().getName();
+    String objectName = this.describe.getName();
     List<Schema.ChildRelationship> childRelationships = parentSObjectType.getDescribe().getChildRelationships();
     for (Schema.ChildRelationship childRelationship : childRelationships) {
       if (childRelationship.getChildSObject().getDescribe().getName() == objectName) {
@@ -648,6 +635,50 @@ public with sharing class Scribe {
 
     return query;
   }
+  
+  private Schema.DescribeSObjectResult getDescribe() {
+    return this.describe;
+  }
+
+  //  ------------ validation methods ------------
+
+  private void validateConditionClause(String fieldName) {
+    if (String.isBlank(fieldName)) {
+      throw new QueryException('フィールド名が空です。');
+    }
+    this.validateConditionOperator();
+  }
+
+  private void validateConditionOperator() {
+    if (this.canOnlyAddOrCondition && !this.isNextConditionOr) {
+      throw new QueryException(
+        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。'
+      );
+    }
+  }
+
+  private void validateOrConditionNotAllowed() {
+    if (this.isNextConditionOr) {
+      throw new QueryException(
+        'orConditionメソッドに続くメソッドはWhere系もしくはgroupメソッドでなければなりません。'
+      );
+    }
+  }
+
+  /**
+   * Validates the parameters.
+   */
+  private void validateAndInitialize() {
+    Boolean isSObjectTypeNull = this.sObjectType == null;
+    if (isSObjectTypeNull) {
+      throw new QueryException('source is not set');
+    }
+    if (this.selectFields.isEmpty() && !this.isSelectAll) {
+      this.selectFields.add('Id');
+    }
+  }
+
+  // ------------ inner classes ------------
 
   private class ConditionPart {
     public IConditionClause condition;
@@ -677,16 +708,16 @@ public with sharing class Scribe {
 
   private class ParentObjectData {
     public Schema.DescribeFieldResult relationFieldDescribe;
-    public String relationName;
+    public String relationFieldName;
     public Schema.SObjectType relationSObjectType;
 
     public ParentObjectData(
       Schema.DescribeFieldResult relationFieldDescribe,
-      String relationName,
+      String relationFieldName,
       Schema.SObjectType relationSObjectType
     ) {
       this.relationFieldDescribe = relationFieldDescribe;
-      this.relationName = relationName;
+      this.relationFieldName = relationFieldName;
       this.relationSObjectType = relationSObjectType;
     }
   }
@@ -704,14 +735,18 @@ public with sharing class Scribe {
   }
 
   private class ParentScribe {
-    public String relationName;
+    public String relationFieldName;
     public Scribe scribe;
 
     private final Integer MAX_UPPER_NESTING_DEPTH = 5;
 
-    public ParentScribe(String relationName, Scribe scribe) {
-      this.relationName = relationName;
+    public ParentScribe(String relationFieldName, Scribe scribe) {
+      this.relationFieldName = relationFieldName;
       this.scribe = scribe;
+    }
+
+    public String getRelationFieldName() {
+      return this.relationFieldName;
     }
 
     public String buildSelectClause(
@@ -747,15 +782,15 @@ public with sharing class Scribe {
         if (childObjectName != null) {
           parentSelect = childObjectName + '.';
         }
-        parentSelect += parentObjectData.relationName + '.' + parentFieldName;
+        parentSelect += parentObjectData.relationFieldName + '.' + parentFieldName;
         parentSelects.add(parentSelect);
       }
 
       if (!this.scribe.parents.isEmpty()) {
         if (childObjectName == null) {
-          childObjectName = parentObjectData.relationName;
+          childObjectName = parentObjectData.relationFieldName;
         } else {
-          childObjectName += '.' + parentObjectData.relationName;
+          childObjectName += '.' + parentObjectData.relationFieldName;
         }
         for (ParentScribe grandParentScribe : this.scribe.parents) {
           if (!grandParentScribe.scribe.isParent) {
@@ -787,9 +822,9 @@ public with sharing class Scribe {
 
       String newChildObjectName;
       if (childObjectName == null) {
-        newChildObjectName = parentObjectData.relationName;
+        newChildObjectName = parentObjectData.relationFieldName;
       } else {
-        newChildObjectName = childObjectName + '.' + parentObjectData.relationName;
+        newChildObjectName = childObjectName + '.' + parentObjectData.relationFieldName;
       }
 
       Schema.SObjectType parentSObjectType = parentObjectData.relationSObjectType;
@@ -800,38 +835,66 @@ public with sharing class Scribe {
     }
 
     private ParentObjectData validate(Map<String, Schema.SObjectField> fieldMap) {
-      if (!fieldMap.containsKey(this.relationName)) {
+      if (!fieldMap.containsKey(this.relationFieldName)) {
         throw new QueryException(
           'The specified relation ID field does not exist in the object\'s fields. field name: ' +
-          this.relationName
+          this.relationFieldName
         );
       }
 
-      Schema.SObjectField relationField = fieldMap.get(this.relationName);
+      Schema.SObjectField relationField = fieldMap.get(this.relationFieldName);
       Schema.DescribeFieldResult relationFieldDescribe = relationField.getDescribe();
 
       if (relationFieldDescribe.getType() != Schema.DisplayType.REFERENCE) {
         throw new QueryException(
-          'The specified relation ID field is not of reference type. field name: ' + this.relationName
+          'The specified relation ID field is not of reference type. field name: ' + this.relationFieldName
         );
       }
 
-      String relationNameString = relationFieldDescribe.getRelationshipName();
-      if (relationNameString == null) {
+      String relationFieldNameString = relationFieldDescribe.getRelationshipName();
+      if (relationFieldNameString == null) {
         throw new QueryException(
-          'The specified relation ID field does not have a relationship name. field name: ' + this.relationName
+          'The specified relation ID field does not have a relationship name. field name: ' +
+          this.relationFieldName
         );
       }
 
       if (relationFieldDescribe.isNamePointing()) {
         throw new QueryException(
           'Sorry, we don\'t support relation IDs that can point to multiple SObject types yet. ' +
-          this.relationName
+          this.relationFieldName
         );
       }
 
       Schema.SObjectType relationSObjectType = relationFieldDescribe.getReferenceTo()[0];
-      return new ParentObjectData(relationFieldDescribe, relationNameString, relationSObjectType);
+      return new ParentObjectData(relationFieldDescribe, relationFieldNameString, relationSObjectType);
+    }
+
+    public FieldStructure buildFieldStructure(Map<String, Schema.SObjectField> childFieldMap) {
+      ParentObjectData parentObjectData = this.validate(childFieldMap);
+      if (this.scribe.sObjectType == null) {
+        this.scribe.sObjectType = parentObjectData.relationSObjectType;
+      }
+
+      List<String> parentSelects = new List<String>();
+      List<String> parentFieldNames = this.scribe.getSelectedFields(
+        parentObjectData.relationSObjectType.getDescribe().fields.getMap()
+      );
+      for (String parentFieldName : parentFieldNames) {
+        parentSelects.add(parentFieldName);
+      }
+
+      Map<String, FieldStructure> grandParentFieldStructures = new Map<String, FieldStructure>();
+      if (!this.scribe.parents.isEmpty()) {
+        Map<String, Schema.sObjectField> parentFieldMap = parentObjectData.relationSObjectType.getDescribe()
+          .fields.getMap();
+        for (ParentScribe grandParentScribe : this.scribe.parents) {
+          String grandParentRelationFieldName = grandParentScribe.getRelationFieldName().toLowerCase();
+          FieldStructure grandParentFieldStructure = grandParentScribe.buildFieldStructure(parentFieldMap);
+          grandParentFieldStructures.put(grandParentRelationFieldName, grandParentFieldStructure);
+        }
+      }
+      return new FieldStructure(parentSelects, grandParentFieldStructures);
     }
   }
 }

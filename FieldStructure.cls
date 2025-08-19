@@ -60,6 +60,6 @@ public with sharing class FieldStructure {
     if (this.relations.containsKey(relationName)) {
       return this.relations.get(relationName);
     }
-    return null;
+    return new FieldStructure();
   }
 }

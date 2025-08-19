@@ -7,11 +7,14 @@ public with sharing class Scribe {
   private List<ConditionPart> conditionParts = new List<ConditionPart>();
   private List<Scribe> children = new List<Scribe>();
   private List<ParentScribe> parents = new List<ParentScribe>();
+  private Scribe.OrderByClause orderByClause;
 
   private Boolean isSelectAll = false;
   private Boolean isNextConditionOr = false;
   private Boolean canOnlyAddOrCondition = false;
   private Boolean isParent = false;
+
+  private Integer limitNumber = 0;
 
   private final Integer MAX_UPPER_NESTING_DEPTH = 5;
   private final Integer MAX_LOWER_NESTING_DEPTH = 4;
@@ -71,6 +74,13 @@ public with sharing class Scribe {
 
     Scribe clonedScribe = this.deepClone();
     clonedScribe.selectFields.addAll(new Set<String>(fieldNames));
+
+    return clonedScribe;
+  }
+
+  public Scribe allFields() {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.isSelectAll = true;
 
     return clonedScribe;
   }
@@ -438,6 +448,54 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  // ------------ other clauses ------------
+
+  public Scribe take(Integer limitNumber) {
+    if (limitNumber == null || limitNumber <= 0) {
+      throw new QueryException('takeの値は1以上の整数でなければなりません。');
+    }
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.limitNumber = limitNumber;
+
+    return clonedScribe;
+  }
+
+  public Scribe orderBy(String field) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.orderByClause = new Scribe.OrderByClause(field);
+    return clonedScribe;
+  }
+
+  public Scribe orderBy(String field, String order) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.orderByClause = new Scribe.OrderByClause(field, order);
+    return clonedScribe;
+  }
+
+  public Scribe orderBy(String field, String order, String nullsOperator) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.orderByClause = new Scribe.OrderByClause(field, order, nullsOperator);
+    return clonedScribe;
+  }
+
+  public Scribe orderBy(List<String> fields) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.orderByClause = new Scribe.OrderByClause(fields);
+    return clonedScribe;
+  }
+
+  public Scribe orderBy(List<String> fields, String order) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.orderByClause = new Scribe.OrderByClause(fields, order);
+    return clonedScribe;
+  }
+
+  public Scribe orderBy(List<String> fields, String order, String nullsOperator) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.orderByClause = new Scribe.OrderByClause(fields, order, nullsOperator);
+    return clonedScribe;
+  }
+
   // ------------ build methods ------------
 
   public String toSoql() {
@@ -463,6 +521,14 @@ public with sharing class Scribe {
       query += ' WHERE ' + whereString;
     }
 
+    if(this.orderByClause != null) {
+      query += ' ' + this.orderByClause.build();
+    }
+
+    if (this.limitNumber > 0) {
+      query += ' LIMIT ' + String.valueOf(this.limitNumber);
+    }
+
     return query;
   }
 
@@ -477,10 +543,18 @@ public with sharing class Scribe {
 
     if (this.isSelectAll) {
       for (String fieldName : fieldMap.keyset()) {
+        System.debug('Adding field: ' + fieldName);
         selectFields.add(fieldName.toLowerCase());
       }
     } else {
       for (String fieldName : this.selectFields) {
+        if (!fieldMap.containsKey(fieldName.toLowerCase())) {
+          String error = String.format(
+            'The specified field does not exist in the object\'s fields. object name: {0}, field name: {1}',
+            new List<String>{ this.describe.getName(), fieldName }
+          );
+          throw new QueryException(error);
+        }
         selectFields.add(fieldName.toLowerCase());
       }
     }
@@ -635,7 +709,7 @@ public with sharing class Scribe {
 
     return query;
   }
-  
+
   private Schema.DescribeSObjectResult getDescribe() {
     return this.describe;
   }
@@ -895,6 +969,98 @@ public with sharing class Scribe {
         }
       }
       return new FieldStructure(parentSelects, grandParentFieldStructures);
+    }
+  }
+
+  private class OrderByClause {
+    private Set<String> ORDERS = new Set<String>{ 'ASC', 'DESC' };
+    private Set<String> NULLS_OPERATORS = new Set<String>{ 'FIRST', 'LAST' };
+
+    private final List<String> fields;
+    private final String order;
+    private final String nullsOperator;
+
+    public OrderByClause(String field) {
+      this.validateField(field);
+      this.fields = new List<String>{ field };
+      this.order = 'ASC';
+      this.nullsOperator = null;
+    }
+
+    public OrderByClause(String field, String order) {
+      this.validateField(field);
+      this.validateOrder(order);
+      this.fields = new List<String>{ field };
+      this.order = order;
+      this.nullsOperator = null;
+    }
+
+    public OrderByClause(String field, String order, String nullsOperator) {
+      this.validateField(field);
+      this.validateOrder(order);
+      this.validateNullsOperator(nullsOperator);
+      this.fields = new List<String>{ field };
+      this.order = order;
+      this.nullsOperator = nullsOperator;
+    }
+
+    public OrderByClause(List<String> fields) {
+      this.validateFields(fields);
+      this.fields = fields;
+      this.order = 'ASC';
+      this.nullsOperator = null;
+    }
+
+    public OrderByClause(List<String> fields, String order) {
+      this.validateFields(fields);
+      this.validateOrder(order);
+      this.fields = fields;
+      this.order = order;
+      this.nullsOperator = null;
+    }
+
+    public OrderByClause(List<String> fields, String order, String nullsOperator) {
+      this.validateFields(fields);
+      this.validateOrder(order);
+      this.validateNullsOperator(nullsOperator);
+      this.fields = fields;
+      this.order = order;
+      this.nullsOperator = nullsOperator;
+    }
+
+    public String build() {
+      String orderBy = 'ORDER BY ' + String.join(this.fields, ', ') + ' ' + this.order;
+      if (this.nullsOperator != null) {
+        orderBy += ' NULLS ' + this.nullsOperator;
+      }
+      return orderBy;
+    }
+
+    private void validateField(String field) {
+      if(String.isBlank(field)) {
+        throw new QueryException('orderByのフィールド名が空です。');
+      }
+    }
+
+    private void validateFields(List<String> fields) {
+      if (fields == null || fields.isEmpty()) {
+        throw new QueryException('orderByのフィールド名のリストが空です。');
+      }
+      for (String field : fields) {
+        this.validateField(field);
+      }
+    }
+
+    private void validateOrder(String order) {
+      if (String.isBlank(order) || !this.ORDERS.contains(order.toUpperCase())) {
+        throw new QueryException('orderByのorderが無効です。\'ASC\' or \'DESC\' を入力してください。');
+      }
+    }
+
+    private void validateNullsOperator(String nullsOperator) {
+      if (String.isBlank(nullsOperator) || !this.NULLS_OPERATORS.contains(nullsOperator.toUpperCase())) {
+        throw new QueryException('orderByのnullsOperatorが無効です。\'FIRST\' or \'LAST\' を入力してください。');
+      }
     }
   }
 }

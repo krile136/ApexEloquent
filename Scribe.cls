@@ -389,7 +389,7 @@ public with sharing class Scribe {
 
   // ------------ group methods ------------
 
-  public Scribe group(Scribe groupScribe) {
+  public Scribe whereGroup(Scribe groupScribe) {
     this.validateConditionOperator();
 
     if (groupScribe == null) {

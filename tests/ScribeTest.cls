@@ -536,12 +536,12 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testGroup_WhenAddGroup_ThenAddGroupCondition() {
+  static void testWhereGroup_WhenAddGroup_ThenAddGroupCondition() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
-      .group(
+      .whereGroup(
         Scribe.asGroup()
           .whereGreaterThan('TotalOpportunityQuantity', 10000)
           .orCondition()
@@ -557,13 +557,13 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testGroup_WhenAddOrGroup_ThenAddOrGroupCondition() {
+  static void testWhereGroupGroup_WhenAddOrGroup_ThenAddOrGroupCondition() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
       .orCondition()
-      .group(
+      .whereGroup(
         Scribe.asGroup()
           .whereGreaterThan('TotalOpportunityQuantity', 10000)
           .orCondition()
@@ -579,18 +579,18 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testGroup_WhenAddMultiGroup_ThenAddMultiGroupCondition() {
+  static void testWhereGroup_WhenAddMultiGroup_ThenAddMultiGroupCondition() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
-      .group(
+      .whereGroup(
         Scribe.asGroup()
           .whereGreaterThan('TotalOpportunityQuantity', 10000)
           .orCondition()
           .whereEqual('Type', 'Test Type')
       )
-      .group(
+      .whereGroup(
         Scribe.asGroup()
           .whereLessThan('CloseDate', Date.newInstance(2030, 12, 31))
           .orCondition()
@@ -606,13 +606,13 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testGroup_WhenAddAndConditionAfterOrConditionInGroup_ThenThrowException() {
+  static void testWhereGroup_WhenAddAndConditionAfterOrConditionInGroup_ThenThrowException() {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.source(Account.getSObjectType())
         .field('Id')
         .whereEqual('Name', 'Test Account')
-        .group(
+        .whereGroup(
           Scribe.asGroup()
             .whereGreaterThan('TotalOpportunityQuantity', 10000)
             .orCondition()
@@ -631,20 +631,20 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testGroup_WhenAddAndGroupAfterOrGroup_ThenThrowException() {
+  static void testWhereGroup_WhenAddAndGroupAfterOrGroup_ThenThrowException() {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.source(Account.getSObjectType())
         .field('Id')
         .whereEqual('Name', 'Test Account')
         .orCondition()
-        .group(
+        .whereGroup(
           Scribe.asGroup()
             .whereGreaterThan('TotalOpportunityQuantity', 10000)
             .orCondition()
             .whereEqual('Type', 'Test Type')
         )
-        .group(
+        .whereGroup(
           Scribe.asGroup().whereEqual('StageName', 'Closed Won') // This should throw an exception
         );
 
@@ -1070,7 +1070,7 @@ public with sharing class ScribeTest {
       .field('Id')
       .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
-      .group(
+      .whereGroup(
         Scribe.asGroup()
           .parentCondition(
             'AccountId',

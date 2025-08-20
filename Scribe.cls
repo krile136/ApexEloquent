@@ -4,17 +4,21 @@ public with sharing class Scribe implements IScribe {
   private Schema.DescribeSObjectResult describe;
   @TestVisible
   private Set<String> selectFields = new Set<String>();
+  private List<IAggregateClause> aggregateClauses = new List<IAggregateClause>();
   private List<ConditionPart> conditionParts = new List<ConditionPart>();
-  private List<Scribe> children = new List<Scribe>();
-  private List<ParentScribe> parents = new List<ParentScribe>();
   private Scribe.OrderByClause orderByClause;
+
+  private List<String> groupByFields = new List<String>();
 
   private Boolean isSelectAll = false;
   private Boolean isNextConditionOr = false;
   private Boolean canOnlyAddOrCondition = false;
 
+  private List<ParentScribe> parents = new List<ParentScribe>();
   private Boolean isParent = false;
   String parentRelationIdFieldName;
+
+  private List<Scribe> children = new List<Scribe>();
   private Boolean isChild = false;
 
   private Integer limitNumber = 0;
@@ -98,6 +102,93 @@ public with sharing class Scribe implements IScribe {
   public Scribe allFields() {
     Scribe clonedScribe = this.deepClone();
     clonedScribe.isSelectAll = true;
+
+    return clonedScribe;
+  }
+
+  // ------------ aggregate methods ------------
+  public Scribe average(String fieldName, String alias) {
+    this.validateAddAggregateClause();
+    IAggregateClause averageClause = new AverageClause(this.sObjectType, null, fieldName, alias);
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.aggregateClauses.add(averageClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe count(String fieldName, String alias) {
+    this.validateAddAggregateClause();
+    IAggregateClause countClause = new CountClause(this.sObjectType, null, fieldName, alias);
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.aggregateClauses.add(countClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe countDistinct(String fieldName, String alias) {
+    this.validateAddAggregateClause();
+    IAggregateClause countDistinctClause = new CountDistinctClause(this.sObjectType, null, fieldName, alias);
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.aggregateClauses.add(countDistinctClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe min(String fieldName, String alias) {
+    this.validateAddAggregateClause();
+    IAggregateClause minClause = new MinClause(this.sObjectType, null, fieldName, alias);
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.aggregateClauses.add(minClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe max(String fieldName, String alias) {
+    this.validateAddAggregateClause();
+    IAggregateClause maxClause = new MaxClause(this.sObjectType, null, fieldName, alias);
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.aggregateClauses.add(maxClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe sum(String fieldName, String alias) {
+    this.validateAddAggregateClause();
+    IAggregateClause sumClause = new SumClause(this.sObjectType, null, fieldName, alias);
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.aggregateClauses.add(sumClause);
+
+    return clonedScribe;
+  }
+
+  public Scribe groupByField(string fieldName) {
+    this.validateAddAggregateClause();
+
+    if (String.isBlank(fieldName)) {
+      throw new QueryException('グループ化するフィールド名が空です。');
+    }
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.groupByFields.add(fieldName);
+
+    return clonedScribe;
+  }
+
+  public Scribe groupByFields(List<String> fieldNames) {
+    this.validateAddAggregateClause();
+
+    if (fieldNames == null || fieldNames.isEmpty()) {
+      throw new QueryException('グループ化するフィールド名のリストが空です。');
+    }
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.groupByFields.addAll(fieldNames);
 
     return clonedScribe;
   }
@@ -431,6 +522,10 @@ public with sharing class Scribe implements IScribe {
       throw new QueryException('子のScribeがnullです。');
     }
 
+    if(!this.groupByFields.isEmpty() || !this.aggregateClauses.isEmpty()){
+      throw new QueryException('集計関数はwithChildrenメソッドと同時に使用することはできません。');
+    }
+
     System.debug(childScribe);
 
     if (!childScribe.isChild) {
@@ -457,7 +552,9 @@ public with sharing class Scribe implements IScribe {
     }
 
     Scribe clonedScribe = this.deepClone();
-    ConditionPart parentConditionPart = new ConditionPart(new ParentScribe(parentScribe.parentRelationIdFieldName, parentScribe));
+    ConditionPart parentConditionPart = new ConditionPart(
+      new ParentScribe(parentScribe.parentRelationIdFieldName, parentScribe)
+    );
     clonedScribe.conditionParts.add(parentConditionPart);
     clonedScribe.isNextConditionOr = false;
 
@@ -542,18 +639,24 @@ public with sharing class Scribe implements IScribe {
 
     String query = String.format('SELECT {0} FROM {1}', new List<String>{ selectFieldsString, fromString });
 
-    query = this.buildQueryTrail(query, fieldMap);
+    query = this.buildQueryTrail(query, fieldMap, selectFieldsString);
 
     System.debug('SOQL Query: ' + query);
     return query;
   }
 
-  private String buildQueryTrail(String query, Map<String, Schema.SObjectField> fieldMap) {
+  private String buildQueryTrail(
+    String query,
+    Map<String, Schema.SObjectField> fieldMap,
+    String selectFieldsString
+  ) {
     WhereClauseData whereClauseData = this.buildWhereClause(fieldMap, null);
     String whereString = whereClauseData.whereClauseString;
     if (whereString != '') {
       query += ' WHERE ' + whereString;
     }
+
+    query = this.buildGroupByFields(query, fieldMap, selectFieldsString);
 
     if (this.orderByClause != null) {
       query += ' ' + this.orderByClause.build();
@@ -600,9 +703,11 @@ public with sharing class Scribe implements IScribe {
   private Scribe deepClone() {
     Scribe newScribe = new Scribe(this.sObjectType);
     newScribe.selectFields = this.selectFields.clone();
+    newScribe.aggregateClauses = this.aggregateClauses.clone();
     newScribe.conditionParts = this.conditionParts.clone();
     newScribe.children = this.children.clone();
     newScribe.parents = this.parents.clone();
+    newScribe.groupByFields = this.groupByFields.clone();
 
     newScribe.isSelectAll = this.isSelectAll;
     newScribe.isNextConditionOr = this.isNextConditionOr;
@@ -621,8 +726,23 @@ public with sharing class Scribe implements IScribe {
    * @return The constructed SELECT clause as a string
    */
   private String buildSelectFields(Map<String, Schema.SObjectField> fieldMap, Integer lowerNestingDepth) {
+    String selectFieldsString = '';
+
     // add select fields
-    String selectFieldsString = String.join(this.getSelectedFields(fieldMap), ', ');
+    System.debug('selectFields count: ' + this.selectFields.size());
+    if (this.isSelectAll || !this.selectFields.isEmpty()) {
+      System.debug('add select fields');
+      selectFieldsString = String.join(this.getSelectedFields(fieldMap), ', ');
+    }
+
+    // add aggregate clauses
+    for (IAggregateClause aggregateClause : this.aggregateClauses) {
+      if (selectFieldsString != '') {
+        selectFieldsString += ', ';
+      }
+      aggregateClause = aggregateClause.overrideMetaData(this.sObjectType, fieldMap);
+      selectFieldsString += aggregateClause.build();
+    }
 
     // Add parent queries
     for (ParentScribe parent : this.parents) {
@@ -732,13 +852,54 @@ public with sharing class Scribe implements IScribe {
     }
 
     String query = String.format('SELECT {0} FROM {1}', new List<String>{ selectFieldsString, fromString });
-    query = this.buildQueryTrail(query, fieldMap);
+    query = this.buildQueryTrail(query, fieldMap, selectFieldsString);
 
     return query;
   }
 
   private Schema.DescribeSObjectResult getDescribe() {
     return this.describe;
+  }
+
+  private String buildGroupByFields(String query, Map<String, Schema.SObjectField> fieldMap, String selectFieldsString) {
+    if (this.groupByFields.isEmpty()) {
+      return query;
+    }
+
+    List<String> groupByLowerCaseFields = new List<String>();
+    for(String groupByField : this.groupByFields) {
+      if (!fieldMap.containsKey(groupByField.toLowerCase())) {
+        String error = String.format(
+          'The specified group by field does not exist in the object\'s fields. object name: {0}, field name: {1}',
+          new List<String>{ this.describe.getName(), groupByField }
+        );
+        throw new QueryException(error);
+      }
+      groupByLowerCaseFields.add(groupByField.toLowerCase());
+    }
+
+    List<String> selectFields = selectFieldsString.split(', ');
+    List<String> nonGroupedFields = new List<String>();
+    // selectFieldsはrootのフィールド、集計系、親フィールドのどれかが含まれている
+    // 子フィールドはgroupByと併用できずエラーで除外されるのでここでは考慮しない
+    for (String selectField : selectFields) {
+      if(selectField.contains('(') && selectField.contains(')')) {
+        // Skip aggregate functions
+        continue;
+      }
+      if (!groupByLowerCaseFields.contains(selectField)) {
+        nonGroupedFields.add(selectField);
+      }
+    }
+    if (!nonGroupedFields.isEmpty()) {
+      String error = String.format(
+        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: {0}',
+        new List<String>{ String.join(nonGroupedFields, ', ') }
+      );
+      throw new QueryException(error);
+    }
+
+    return query + ' GROUP BY ' + String.join(this.groupByFields, ', ');
   }
 
   //  ------------ validation methods ------------
@@ -766,6 +927,15 @@ public with sharing class Scribe implements IScribe {
     }
   }
 
+  private void validateAddAggregateClause() {
+    if (this.isChild) {
+      throw new QueryException('子のScribeでは集計関数を使用できません。');
+    }
+    if(!this.children.isEmpty()) {
+      throw new QueryException('集計関数はwithChildrenメソッドと同時に使用することはできません。');
+    }
+  }
+
   /**
    * Validates the parameters.
    */
@@ -774,7 +944,7 @@ public with sharing class Scribe implements IScribe {
     if (isSObjectTypeNull) {
       throw new QueryException('source is not set');
     }
-    if (this.selectFields.isEmpty() && !this.isSelectAll) {
+    if (this.selectFields.isEmpty() && !this.isSelectAll && this.aggregateClauses.isEmpty()) {
       this.selectFields.add('Id');
     }
   }

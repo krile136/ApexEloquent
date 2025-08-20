@@ -1008,7 +1008,10 @@ public with sharing class ScribeTest {
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
       .parentCondition(
-        Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+        Scribe.asParent('AccountId')
+          .whereEqual('Name', 'Test Account')
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
       );
 
     // Act
@@ -1029,7 +1032,10 @@ public with sharing class ScribeTest {
         .whereEqual('Name', 'Test Opportunity')
         .orCondition()
         .parentCondition(
-          Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+          Scribe.asParent('AccountId')
+            .whereEqual('Name', 'Test Account')
+            .orCondition()
+            .whereEqual('Type', 'Test Type')
         );
 
       String soql = scribe.toSoql();
@@ -1070,7 +1076,10 @@ public with sharing class ScribeTest {
       .whereGroup(
         Scribe.asGroup()
           .parentCondition(
-            Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+            Scribe.asParent('AccountId')
+              .whereEqual('Name', 'Test Account')
+              .orCondition()
+              .whereEqual('Type', 'Test Type')
           )
       );
 
@@ -1143,7 +1152,10 @@ public with sharing class ScribeTest {
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .parentCondition(
-        Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+        Scribe.asParent('AccountId')
+          .whereEqual('Name', 'Test Account')
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
       )
       .whereEqual('Name', 'Test Opportunity');
 
@@ -1170,7 +1182,10 @@ public with sharing class ScribeTest {
         Scribe.asParent('ContractId')
           .whereEqual('Name', 'Test Contract')
           .parentCondition(
-            Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+            Scribe.asParent('AccountId')
+              .whereEqual('Name', 'Test Account')
+              .orCondition()
+              .whereEqual('Type', 'Test Type')
           )
       )
       .whereEqual('Name', 'Test Opportunity');
@@ -1206,7 +1221,9 @@ public with sharing class ScribeTest {
                     Scribe.asParent('OpportunityId')
                       .field('Id')
                       .parentField(
-                        Scribe.asParent('ContractId').field('Id').parentField(Scribe.asParent('AccountId').field('Id'))
+                        Scribe.asParent('ContractId')
+                          .field('Id')
+                          .parentField(Scribe.asParent('AccountId').field('Id'))
                       )
                   )
               )
@@ -1282,7 +1299,9 @@ public with sharing class ScribeTest {
                 Scribe.asParent('QuoteId')
                   .fields(fields)
                   .parentField(
-                    Scribe.asParent('OpportunityId').fields(fields).parentField(Scribe.asParent('ContractId').fields(fields))
+                    Scribe.asParent('OpportunityId')
+                      .fields(fields)
+                      .parentField(Scribe.asParent('ContractId').fields(fields))
                   )
               )
           )
@@ -1409,7 +1428,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  public static void testOrderBy_WhenAddField_ThenReturnOrderByField() {
+  static void testOrderBy_WhenAddField_ThenReturnOrderByField() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
@@ -1425,7 +1444,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  public static void testOrderBy_WhenAddFieldAndOrder_ThenReturnOrderByFieldAndOrder() {
+  static void testOrderBy_WhenAddFieldAndOrder_ThenReturnOrderByFieldAndOrder() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
@@ -1441,7 +1460,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  public static void testOrderBy_WhenAddFieldAndOrderAndNullsOperator_ThenReturnOrderByFieldAndOrderAndNullsOperator() {
+  static void testOrderBy_WhenAddFieldAndOrderAndNullsOperator_ThenReturnOrderByFieldAndOrderAndNullsOperator() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
@@ -1457,7 +1476,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  public static void testOrderBy_WhenAddMultipleFields_ThenReturnOrderByMultipleFileds() {
+  static void testOrderBy_WhenAddMultipleFields_ThenReturnOrderByMultipleFileds() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
@@ -1473,7 +1492,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  public static void testOrderBy_WhenAddMultipleFieldsAndOrder_ThenReturnOrderByMultipleFiledsAndOrder() {
+  static void testOrderBy_WhenAddMultipleFieldsAndOrder_ThenReturnOrderByMultipleFiledsAndOrder() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
@@ -1489,7 +1508,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  public static void testOrderBy_WhenAddMultipleFieldsAndOrderAndNullsOperator_ThenReturnOrderByMultipleFiledsAndOrderAndNullsOperator() {
+  static void testOrderBy_WhenAddMultipleFieldsAndOrderAndNullsOperator_ThenReturnOrderByMultipleFiledsAndOrderAndNullsOperator() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
@@ -1502,5 +1521,380 @@ public with sharing class ScribeTest {
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE Id = \'006000000000000\' ORDER BY CloseDate, Name ASC NULLS FIRST';
     Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testAverage_WhenAddAverageField_ThenReturnAverageField() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).average('Amount', 'amountAvg');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT AVG(Amount) amountAvg FROM Opportunity';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testAvarage_WhenAddNonExistFieldToAverage_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).average('NonExistField', 'amountAvg');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAverage_WhenAddNonSupportedFieldToAverage_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).average('Name', 'nameAvg');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field type is not supported for AVERAGE. object name: Opportunity, field name: Name, field type: STRING';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testCount_WhenAddCountField_ThenReturnCountField() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).count('Id', 'oppCount');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT COUNT(Id) oppCount FROM Opportunity';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testCount_WhenAddNonExistFieldToCount_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).count('NonExistField', 'oppCount');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testCount_WhenAddNonSupportedFieldToCount_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).count('IsPrivate', 'countIsPrivate');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field type is not supported for COUNT. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testCountDistinct_WhenAddCountDistinctField_ThenReturnCountDistinctField() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).countDistinct('AccountId', 'accountCount');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT COUNT_DISTINCT(AccountId) accountCount FROM Opportunity';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testCountDistinct_WhenAddNonExistFieldToCountDistinct_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).countDistinct('NonExistField', 'accountCount');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testCountDistinct_WhenAddNonSupportedFieldToCountDistinct_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .countDistinct('IsPrivate', 'countDistinctIsPrivate');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field type is not supported for COUNT_DISTINCT. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testMax_WhenAddMaxField_ThenReturnMaxField() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).max('Amount', 'amountMax');
+
+    // ActionLinkGroupTemplate
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT MAX(Amount) amountMax FROM Opportunity';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testMax_WhenAddNonExistFieldToMax_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).max('NonExistField', 'amountMax');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testMax_WhenAddNonSupportedFieldToMax_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).max('IsPrivate', 'maxIsPrivate');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field type is not supported for MAX. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testMin_WhenAddMinField_ThenReturnMinField() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).min('Amount', 'amountMin');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT MIN(Amount) amountMin FROM Opportunity';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testMin_WhenAddNonExistFieldToMin_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).min('NonExistField', 'amountMin');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testMin_WhenAddNonSupportedFieldToMin_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).min('IsPrivate', 'minIsPrivate');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field type is not supported for MIN. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testSum_WhenAddSumField_ThenReturnSumField() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).sum('Amount', 'amountSum');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT SUM(Amount) amountSum FROM Opportunity';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testSum_WhenAddNonExistFieldToSum_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).sum('NonExistField', 'amountSum');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testSum_WhenAddNonSupportedFieldToSum_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).sum('Name', 'nameSum');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      String expectedMessage = 'The specified field type is not supported for SUM. object name: Opportunity, field name: Name, field type: STRING';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAllAggregateFunctions_WhenAddAllAggregateFunctions_ThenReturnAllAggregateFunctions() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .average('Amount', 'amountAvg')
+      .count('Id', 'oppCount')
+      .countDistinct('AccountId', 'accountCount')
+      .max('Amount', 'amountMax')
+      .min('Amount', 'amountMin')
+      .sum('Amount', 'amountSum');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT AVG(Amount) amountAvg, COUNT(Id) oppCount, COUNT_DISTINCT(AccountId) accountCount, MAX(Amount) amountMax, MIN(Amount) amountMin, SUM(Amount) amountSum FROM Opportunity';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testGroupByField_WhenAddGroupByField_ThenReturnGroupByField() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'amountAvg')
+      .groupByField('StageName');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT stagename, AVG(Amount) amountAvg FROM Opportunity GROUP BY StageName';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testGroupByField_WhenSelectedFieldNotInGroupBy_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('Id') // Id is not in GROUP BY
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByField('StageName');
+
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testGroupByFields_WhenAddGroupByFields_ThenReturnGroupByFields() {
+    // Arrange
+    List<String> fields = new List<String>{ 'StageName', 'CloseDate' };
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .fields(fields)
+      .average('Amount', 'amountAvg')
+      .groupByFields(fields);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT stagename, closedate, AVG(Amount) amountAvg FROM Opportunity GROUP BY StageName, CloseDate';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testGroupByFields_WhenSelectedFieldNotInGroupBy_ThenThrowException() {
+    // Arrange
+    List<String> fields = new List<String>{ 'StageName', 'CloseDate' };
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id') // Id is not in GROUP BY
+      .fields(fields)
+      .average('Amount', 'amountAvg')
+      .groupByFields(fields);
+
+    // Act & Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testGroupByField_WhenUsingAfterWithChildrenMethod_ThenThrownException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').field('Email'))
+        .groupByField('StageName');
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('集計関数はwithChildrenメソッドと同時に使用することはできません。', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGroupByField_WhenUsingBeforeWithChildrenMethod_ThenThrownError() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByField('StageName')
+        .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').field('Email'));
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('集計関数はwithChildrenメソッドと同時に使用することはできません。', e.getMessage());
+    }
   }
 }

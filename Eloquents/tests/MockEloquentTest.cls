@@ -51,7 +51,7 @@ public with sharing class MockEloquentTest {
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .field('Name')
-      .parentField('AccountId', Scribe.asParent().field('Id').field('Name'))
+      .parentField(Scribe.asParent('AccountId').field('Id').field('Name'))
       .whereEqual('Id', '006000000000001');
     MockEntry oppEntry = new MockEntry(
       new Opportunity(Id = '006000000000001', Name = 'Test Opportunity'),
@@ -80,20 +80,16 @@ public with sharing class MockEloquentTest {
     Scribe scribe = Scribe.source(OrderItem.getSObjectType())
       .field('ListPrice')
       .parentField(
-        'OrderId',
-        Scribe.asParent()
+        Scribe.asParent('OrderId')
           .fields(fields)
           .parentField(
-            'OriginalOrderId',
-            Scribe.asParent()
+            Scribe.asParent('OriginalOrderId')
               .fields(fields)
               .parentField(
-                'QuoteId',
-                Scribe.asParent()
+                Scribe.asParent('QuoteId')
                   .fields(fields)
                   .parentField(
-                    'OpportunityId',
-                    Scribe.asParent().fields(fields).parentField('ContractId', Scribe.asParent().fields(fields))
+                    Scribe.asParent('OpportunityId').fields(fields).parentField(Scribe.asParent('ContractId').fields(fields))
                   )
               )
           )
@@ -162,7 +158,7 @@ public with sharing class MockEloquentTest {
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .field('Id')
       .field('Name')
-      .withChildren(Scribe.source(Contact.getSObjectType()).field('Id').field('Name'))
+      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').field('Name'))
       .whereEqual('Id', '001000000000001');
     MockEntry accountEntry = new MockEntry(
       new Account(Id = '001000000000001', Name = 'Test Account'),
@@ -200,15 +196,15 @@ public with sharing class MockEloquentTest {
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .fields(fields)
       .withChildren(
-        Scribe.source(Contact.getSObjectType())
+        Scribe.asChild(Contact.getSObjectType())
           .fields(fields)
           .withChildren(
-            Scribe.source(Opportunity.getSObjectType())
+            Scribe.asChild(Opportunity.getSObjectType())
               .fields(fields)
               .withChildren(
-                Scribe.source(Quote.getSObjectType())
+                Scribe.asChild(Quote.getSObjectType())
                   .fields(fields)
-                  .withChildren(Scribe.source(Order.getSObjectType()).fields(fields))
+                  .withChildren(Scribe.asChild(Order.getSObjectType()).fields(fields))
               )
           )
       );
@@ -353,7 +349,7 @@ public with sharing class MockEloquentTest {
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .field('Name')
-      .parentField('AccountId', Scribe.asParent().field('Id')) // 'Name' field is not selected
+      .parentField(Scribe.asParent('AccountId').field('Id')) // 'Name' field is not selected
       .whereEqual('Id', '006000000000001');
     MockEntry oppEntry = new MockEntry(
       new Opportunity(Id = '006000000000001', Name = 'Test Opportunity'),
@@ -491,7 +487,7 @@ public with sharing class MockEloquentTest {
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .field('Id')
       .field('Name')
-      .withChildren(Scribe.source(Contact.getSObjectType()).field('Id')) // 'Name' field is not selected
+      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id')) // 'Name' field is not selected
       .whereEqual('Id', '001000000000001');
     MockEntry accountEntry = new MockEntry(
       new Account(Id = '001000000000001', Name = 'Test Account'),
@@ -535,15 +531,15 @@ public with sharing class MockEloquentTest {
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .fields(fields)
       .withChildren(
-        Scribe.source(Contact.getSObjectType())
+        Scribe.asChild(Contact.getSObjectType())
           .fields(fields)
           .withChildren(
-            Scribe.source(Opportunity.getSObjectType())
+            Scribe.asChild(Opportunity.getSObjectType())
               .fields(fields)
               .withChildren(
-                Scribe.source(Quote.getSObjectType())
+                Scribe.asChild(Quote.getSObjectType())
                   .fields(fields)
-                  .withChildren(Scribe.source(Order.getSObjectType()).fields(fields))
+                  .withChildren(Scribe.asChild(Order.getSObjectType()).fields(fields))
               )
           )
       );

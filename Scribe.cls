@@ -1,4 +1,4 @@
-public with sharing class Scribe {
+public with sharing class Scribe implements IScribe {
   @TestVisible
   private Schema.SObjectType sObjectType;
   private Schema.DescribeSObjectResult describe;
@@ -12,7 +12,10 @@ public with sharing class Scribe {
   private Boolean isSelectAll = false;
   private Boolean isNextConditionOr = false;
   private Boolean canOnlyAddOrCondition = false;
+
   private Boolean isParent = false;
+  String parentRelationIdFieldName;
+  private Boolean isChild = false;
 
   private Integer limitNumber = 0;
 
@@ -48,9 +51,23 @@ public with sharing class Scribe {
     return new Scribe(null);
   }
 
-  public static Scribe asParent() {
+  public static Scribe asParent(String parentRelationIdFieldName) {
+    if (String.isBlank(parentRelationIdFieldName)) {
+      throw new QueryException('親のリレーションIDフィールド名が空です。');
+    }
     Scribe newScribe = new Scribe(null);
     newScribe.isParent = true;
+    newScribe.parentRelationIdFieldName = parentRelationIdFieldName;
+    return newScribe;
+  }
+
+  public static Scribe asChild(Schema.SObjectType childSObjectType) {
+    if (childSObjectType == null) {
+      throw new QueryException('childSObjectTypeがnullです。');
+    }
+    Scribe newScribe = new Scribe(childSObjectType);
+    newScribe.isChild = true;
+
     return newScribe;
   }
 
@@ -414,36 +431,53 @@ public with sharing class Scribe {
       throw new QueryException('子のScribeがnullです。');
     }
 
+    System.debug(childScribe);
+
+    if (!childScribe.isChild) {
+      String error = 'withChildrenメソッドの引数のScribeクラスは、はScribe.asChild()で生成されたScribeクラスを入れてください。';
+      throw new QueryException(error);
+    }
+
     Scribe clonedScribe = this.deepClone();
     clonedScribe.children.add(childScribe);
 
     return clonedScribe;
   }
 
-  public Scribe parentCondition(String relationIdFieldName, Scribe parentScribe) {
+  public Scribe parentCondition(Scribe parentScribe) {
     this.validateOrConditionNotAllowed();
 
     if (parentScribe == null) {
       throw new QueryException('親のScribeがnullです。');
     }
 
+    if (!parentScribe.isParent) {
+      String error = 'parentConditionメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
+      throw new QueryException(error);
+    }
+
     Scribe clonedScribe = this.deepClone();
-    ConditionPart parentConditionPart = new ConditionPart(new ParentScribe(relationIdFieldName, parentScribe));
+    ConditionPart parentConditionPart = new ConditionPart(new ParentScribe(parentScribe.parentRelationIdFieldName, parentScribe));
     clonedScribe.conditionParts.add(parentConditionPart);
     clonedScribe.isNextConditionOr = false;
 
     return clonedScribe;
   }
 
-  public Scribe parentField(String relationIdFieldName, Scribe parentScribe) {
+  public Scribe parentField(Scribe parentScribe) {
     this.validateOrConditionNotAllowed();
 
     if (parentScribe == null) {
       throw new QueryException('親のScribeがnullです。');
     }
 
+    if (!parentScribe.isParent) {
+      String error = 'parentFieldメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
+      throw new QueryException(error);
+    }
+
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.parents.add(new ParentScribe(relationIdFieldName, parentScribe));
+    clonedScribe.parents.add(new ParentScribe(parentScribe.parentRelationIdFieldName, parentScribe));
 
     return clonedScribe;
   }
@@ -521,7 +555,7 @@ public with sharing class Scribe {
       query += ' WHERE ' + whereString;
     }
 
-    if(this.orderByClause != null) {
+    if (this.orderByClause != null) {
       query += ' ' + this.orderByClause.build();
     }
 
@@ -543,7 +577,6 @@ public with sharing class Scribe {
 
     if (this.isSelectAll) {
       for (String fieldName : fieldMap.keyset()) {
-        System.debug('Adding field: ' + fieldName);
         selectFields.add(fieldName.toLowerCase());
       }
     } else {
@@ -575,6 +608,8 @@ public with sharing class Scribe {
     newScribe.isNextConditionOr = this.isNextConditionOr;
     newScribe.canOnlyAddOrCondition = this.canOnlyAddOrCondition;
     newScribe.isParent = this.isParent;
+    newScribe.parentRelationIdFieldName = this.parentRelationIdFieldName;
+    newScribe.isChild = this.isChild;
 
     return newScribe;
   }
@@ -591,10 +626,6 @@ public with sharing class Scribe {
 
     // Add parent queries
     for (ParentScribe parent : this.parents) {
-      if (!parent.scribe.isParent) {
-        String error = 'parentFieldメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
-        throw new QueryException(error);
-      }
       selectFieldsString += ', ' + parent.buildSelectClause(fieldMap, null, 0);
     }
 
@@ -659,10 +690,6 @@ public with sharing class Scribe {
         isLastOperatorOr = conditionPart.isOr;
       } else if (conditionPart.parentScribe != null) {
         ParentScribe parentScribe = conditionPart.parentScribe;
-        if (!parentScribe.scribe.isParent) {
-          String error = 'parentConditionメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
-          throw new QueryException(error);
-        }
         WhereClauseData parentWhereClauseData = parentScribe.buildWhereClause(fieldMap, childObjectName);
         clause = parentWhereClauseData.whereClauseString;
         isLastOperatorOr = parentWhereClauseData.isLastOperatorOr;
@@ -808,7 +835,7 @@ public with sharing class Scribe {
     }
   }
 
-  private class ParentScribe {
+  private class ParentScribe implements IScribe {
     public String relationFieldName;
     public Scribe scribe;
 
@@ -867,10 +894,6 @@ public with sharing class Scribe {
           childObjectName += '.' + parentObjectData.relationFieldName;
         }
         for (ParentScribe grandParentScribe : this.scribe.parents) {
-          if (!grandParentScribe.scribe.isParent) {
-            String error = 'parentFieldメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
-            throw new QueryException(error);
-          }
           Map<String, Schema.SObjectField> parentFieldMap = parentObjectData.relationSObjectType.getDescribe()
             .fields.getMap();
           String grandParentSelectsAsString = grandParentScribe.buildSelectClause(
@@ -1037,7 +1060,7 @@ public with sharing class Scribe {
     }
 
     private void validateField(String field) {
-      if(String.isBlank(field)) {
+      if (String.isBlank(field)) {
         throw new QueryException('orderByのフィールド名が空です。');
       }
     }

@@ -739,7 +739,7 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .field('Id')
-      .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'))
+      .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'))
       .whereEqual('Name', 'Test Account');
 
     // Act
@@ -755,8 +755,8 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .field('Id')
-      .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'))
-      .withChildren(Scribe.source(Contact.getSObjectType()).field('Id').whereNotNull('Email'))
+      .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'))
+      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').whereNotNull('Email'))
       .whereEqual('Name', 'Test Account');
 
     // Act
@@ -773,10 +773,10 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .field('Id')
       .withChildren(
-        Scribe.source(Contact.getSObjectType())
+        Scribe.asChild(Contact.getSObjectType())
           .field('Id')
           .whereNotNull('Name')
-          .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').whereNotNull('Email'))
+          .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Email'))
       )
       .whereEqual('Name', 'Test Account');
 
@@ -796,7 +796,7 @@ public with sharing class ScribeTest {
         .field('Id')
         .whereEqual('Name', 'Test Account')
         .orCondition()
-        .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'));
+        .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'));
 
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
@@ -814,18 +814,18 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .field('Id')
       .withChildren(
-        Scribe.source(Contact.getSObjectType())
+        Scribe.asChild(Contact.getSObjectType())
           .field('Id')
           .withChildren(
-            Scribe.source(Opportunity.getSObjectType())
+            Scribe.asChild(Opportunity.getSObjectType())
               .field('Id')
               .withChildren(
-                Scribe.source(Quote.getSObjectType())
+                Scribe.asChild(Quote.getSObjectType())
                   .field('Id')
                   .withChildren(
-                    Scribe.source(Order.getSObjectType())
+                    Scribe.asChild(Order.getSObjectType())
                       .field('Id')
-                      .withChildren(Scribe.source(OrderItem.getSObjectType()).field('Id'))
+                      .withChildren(Scribe.asChild(OrderItem.getSObjectType()).field('Id'))
                   )
               )
           )
@@ -847,21 +847,21 @@ public with sharing class ScribeTest {
   @isTest
   static void testWithChildren_WhenAddOverFourNestChildrenUsingOtherScribeInstance_ThenThrowException() {
     // Arrange
-    Scribe oppScribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe oppScribe = Scribe.asChild(Opportunity.getSObjectType())
       .field('Id')
       .withChildren(
-        Scribe.source(Quote.getSObjectType())
+        Scribe.asChild(Quote.getSObjectType())
           .field('Id')
           .withChildren(
-            Scribe.source(Order.getSObjectType())
+            Scribe.asChild(Order.getSObjectType())
               .field('Id')
-              .withChildren(Scribe.source(OrderItem.getSObjectType()).field('Id'))
+              .withChildren(Scribe.asChild(OrderItem.getSObjectType()).field('Id'))
           )
       );
 
     Scribe accountScribe = Scribe.source(Account.getSObjectType())
       .field('Id')
-      .withChildren(Scribe.source(Contact.getSObjectType()).field('Id').withChildren(oppScribe));
+      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').withChildren(oppScribe));
 
     // Act / Assert
     try {
@@ -881,7 +881,7 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity');
 
     // Act
@@ -898,7 +898,7 @@ public with sharing class ScribeTest {
     try {
       Scribe scribe = Scribe.source(Opportunity.getSObjectType())
         .field('Id')
-        .parentField('AccountId', Scribe.asGroup().field('Name').field('Id'))
+        .parentField(Scribe.asGroup().field('Name').field('Id'))
         .whereEqual('Name', 'Test Opportunity');
 
       String soql = scribe.toSoql();
@@ -917,7 +917,7 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentCondition('AccountId', Scribe.asParent().whereEqual('Name', 'Test Account'));
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Name', 'Test Account'));
 
     // Act
     String soql = scribe.toSoql();
@@ -933,7 +933,7 @@ public with sharing class ScribeTest {
     try {
       Scribe scribe = Scribe.source(Opportunity.getSObjectType())
         .field('Id')
-        .parentCondition('AccountId', Scribe.asGroup().whereEqual('Name', 'Test Account'));
+        .parentCondition(Scribe.asGroup().whereEqual('Name', 'Test Account'));
 
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
@@ -951,9 +951,9 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
-      .parentCondition('AccountId', Scribe.asParent().whereEqual('Name', 'Test Account'));
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Name', 'Test Account'));
 
     // Act
     String soql = scribe.toSoql();
@@ -968,11 +968,10 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
       .parentCondition(
-        'AccountId',
-        Scribe.asParent().whereEqual('Name', 'Test Account').whereEqual('Type', 'Test Type')
+        Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').whereEqual('Type', 'Test Type')
       );
 
     // Act
@@ -988,10 +987,10 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
-      .parentCondition('AccountId', Scribe.asParent().whereEqual('Name', 'Test Account'))
-      .parentCondition('AccountId', Scribe.asParent().whereEqual('Type', 'Test Type'));
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Name', 'Test Account'))
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Type', 'Test Type'));
 
     // Act
     String soql = scribe.toSoql();
@@ -1006,11 +1005,10 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
       .parentCondition(
-        'AccountId',
-        Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+        Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
       );
 
     // Act
@@ -1027,12 +1025,11 @@ public with sharing class ScribeTest {
     try {
       Scribe scribe = Scribe.source(Opportunity.getSObjectType())
         .field('Id')
-        .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+        .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
         .whereEqual('Name', 'Test Opportunity')
         .orCondition()
         .parentCondition(
-          'AccountId',
-          Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+          Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
         );
 
       String soql = scribe.toSoql();
@@ -1051,9 +1048,9 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
-      .parentCondition('AccountId', Scribe.asParent().orCondition().whereEqual('Name', 'Test Account'));
+      .parentCondition(Scribe.asParent('AccountId').orCondition().whereEqual('Name', 'Test Account'));
 
     // Act
     String soql = scribe.toSoql();
@@ -1068,13 +1065,12 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
       .whereGroup(
         Scribe.asGroup()
           .parentCondition(
-            'AccountId',
-            Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+            Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
           )
       );
 
@@ -1092,18 +1088,16 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .parentField(
-        'ContractId',
-        Scribe.asParent()
+        Scribe.asParent('ContractId')
           .field('Id')
           .field('Name')
-          .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+          .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       )
       .whereEqual('Name', 'Test Opportunity')
       .parentCondition(
-        'ContractId',
-        Scribe.asParent()
+        Scribe.asParent('ContractId')
           .whereEqual('Name', 'Test Contract')
-          .parentCondition('AccountId', Scribe.asParent().whereEqual('Name', 'Test Account'))
+          .parentCondition(Scribe.asParent('AccountId').whereEqual('Name', 'Test Account'))
       );
 
     // Act
@@ -1120,20 +1114,17 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .parentField(
-        'ContractId',
-        Scribe.asParent()
+        Scribe.asParent('ContractId')
           .field('Id')
           .field('Name')
-          .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+          .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       )
       .whereEqual('Name', 'Test Opportunity')
       .parentCondition(
-        'ContractId',
-        Scribe.asParent()
+        Scribe.asParent('ContractId')
           .whereEqual('Name', 'Test Contract')
           .parentCondition(
-            'AccountId',
-            Scribe.asParent().whereEqual('Name', 'Test Account').whereEqual('Type', 'Test Type')
+            Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').whereEqual('Type', 'Test Type')
           )
       );
 
@@ -1150,10 +1141,9 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .parentCondition(
-        'AccountId',
-        Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+        Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
       )
       .whereEqual('Name', 'Test Opportunity');
 
@@ -1175,14 +1165,12 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .parentCondition(
-        'ContractId',
-        Scribe.asParent()
+        Scribe.asParent('ContractId')
           .whereEqual('Name', 'Test Contract')
           .parentCondition(
-            'AccountId',
-            Scribe.asParent().whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
+            Scribe.asParent('AccountId').whereEqual('Name', 'Test Account').orCondition().whereEqual('Type', 'Test Type')
           )
       )
       .whereEqual('Name', 'Test Opportunity');
@@ -1206,24 +1194,19 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.source(OrderItem.getSObjectType())
       .field('Id')
       .parentField(
-        'OrderId',
-        Scribe.asParent()
+        Scribe.asParent('OrderId')
           .field('Id')
           .parentField(
-            'OriginalOrderId',
-            Scribe.asParent()
+            Scribe.asParent('OriginalOrderId')
               .field('Id')
               .parentField(
-                'QuoteId',
-                Scribe.asParent()
+                Scribe.asParent('QuoteId')
                   .field('Id')
                   .parentField(
-                    'OpportunityId',
-                    Scribe.asParent()
+                    Scribe.asParent('OpportunityId')
                       .field('Id')
                       .parentField(
-                        'ContractId',
-                        Scribe.asParent().field('Id').parentField('AccountId', Scribe.asParent().field('Id'))
+                        Scribe.asParent('ContractId').field('Id').parentField(Scribe.asParent('AccountId').field('Id'))
                       )
                   )
               )
@@ -1263,8 +1246,8 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .parentField('AccountId', Scribe.asParent().field('Name').field('Id'))
-      .parentField('ContractId', Scribe.asParent().field('Name').field('Id'))
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
+      .parentField(Scribe.asParent('ContractId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity');
 
     // Act
@@ -1290,20 +1273,16 @@ public with sharing class ScribeTest {
       .field('id')
       .field('ListPrice')
       .parentField(
-        'OrderId',
-        Scribe.asParent()
+        Scribe.asParent('OrderId')
           .fields(fields)
           .parentField(
-            'OriginalOrderId',
-            Scribe.asParent()
+            Scribe.asParent('OriginalOrderId')
               .fields(fields)
               .parentField(
-                'QuoteId',
-                Scribe.asParent()
+                Scribe.asParent('QuoteId')
                   .fields(fields)
                   .parentField(
-                    'OpportunityId',
-                    Scribe.asParent().fields(fields).parentField('ContractId', Scribe.asParent().fields(fields))
+                    Scribe.asParent('OpportunityId').fields(fields).parentField(Scribe.asParent('ContractId').fields(fields))
                   )
               )
           )
@@ -1342,8 +1321,8 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .field('Id')
-      .withChildren(Scribe.source(Opportunity.getSObjectType()).field('Id').field('Name'))
-      .withChildren(Scribe.source(Contact.getSObjectType()).field('Id').field('Email'));
+      .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').field('Name'))
+      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').field('Email'));
 
     // Act
     FieldStructure fieldStructure = scribe.buildFieldStructure();
@@ -1368,15 +1347,15 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .fields(fields)
       .withChildren(
-        Scribe.source(Contact.getSObjectType())
+        Scribe.asChild(Contact.getSObjectType())
           .fields(fields)
           .withChildren(
-            Scribe.source(Opportunity.getSObjectType())
+            Scribe.asChild(Opportunity.getSObjectType())
               .fields(fields)
               .withChildren(
-                Scribe.source(Quote.getSObjectType())
+                Scribe.asChild(Quote.getSObjectType())
                   .fields(fields)
-                  .withChildren(Scribe.source(Order.getSObjectType()).fields(fields))
+                  .withChildren(Scribe.asChild(Order.getSObjectType()).fields(fields))
               )
           )
       );
@@ -1404,15 +1383,12 @@ public with sharing class ScribeTest {
     Assert.isTrue(orderFieldStructure.hasField('id'));
     Assert.isTrue(orderFieldStructure.hasField('name'));
     Assert.isFalse(orderFieldStructure.hasField('email'));
-
   }
 
   @isTest
   static void testTake_WhenAddTake_ThenReturnLimitSoql() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
-      .field('Id')
-      .take(10);
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').take(10);
 
     // Act
     String soql = scribe.toSoql();
@@ -1425,22 +1401,17 @@ public with sharing class ScribeTest {
   @isTest
   static void testTake_WhenAddZeroTake_ThenThrowException() {
     // Arrange / Act / Assert
-    try{
-    Scribe scribe = Scribe.source(Account.getSObjectType())
-      .field('Id')
-      .take(0);
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').take(0);
     } catch (Exception e) {
-      Assert.areEqual(
-        'takeの値は1以上の整数でなければなりません。',
-        e.getMessage()
-      );
+      Assert.areEqual('takeの値は1以上の整数でなければなりません。', e.getMessage());
     }
   }
 
   @isTest
   public static void testOrderBy_WhenAddField_ThenReturnOrderByField() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()) 
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Id', '006000000000000')
       .orderBy('CloseDate');
@@ -1456,7 +1427,7 @@ public with sharing class ScribeTest {
   @isTest
   public static void testOrderBy_WhenAddFieldAndOrder_ThenReturnOrderByFieldAndOrder() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()) 
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Id', '006000000000000')
       .orderBy('CloseDate', 'DESC');
@@ -1472,7 +1443,7 @@ public with sharing class ScribeTest {
   @isTest
   public static void testOrderBy_WhenAddFieldAndOrderAndNullsOperator_ThenReturnOrderByFieldAndOrderAndNullsOperator() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()) 
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Id', '006000000000000')
       .orderBy('CloseDate', 'ASC', 'FIRST');
@@ -1488,7 +1459,7 @@ public with sharing class ScribeTest {
   @isTest
   public static void testOrderBy_WhenAddMultipleFields_ThenReturnOrderByMultipleFileds() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()) 
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Id', '006000000000000')
       .orderBy(new List<String>{ 'CloseDate', 'Name' });
@@ -1504,7 +1475,7 @@ public with sharing class ScribeTest {
   @isTest
   public static void testOrderBy_WhenAddMultipleFieldsAndOrder_ThenReturnOrderByMultipleFiledsAndOrder() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()) 
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Id', '006000000000000')
       .orderBy(new List<String>{ 'CloseDate', 'Name' }, 'DESC');
@@ -1520,7 +1491,7 @@ public with sharing class ScribeTest {
   @isTest
   public static void testOrderBy_WhenAddMultipleFieldsAndOrderAndNullsOperator_ThenReturnOrderByMultipleFiledsAndOrderAndNullsOperator() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()) 
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Id', '006000000000000')
       .orderBy(new List<String>{ 'CloseDate', 'Name' }, 'ASC', 'FIRST');

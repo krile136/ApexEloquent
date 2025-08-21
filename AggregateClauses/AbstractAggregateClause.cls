@@ -23,6 +23,14 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
     this.alias = alias;
   }
 
+  public String getAlias() {
+    return alias;
+  }
+
+  public String getFieldName() {
+    return fieldName;
+  }
+
   public abstract String build();
   public abstract IAggregateClause overrideMetaData(
     Schema.SObjectType sObjectType,

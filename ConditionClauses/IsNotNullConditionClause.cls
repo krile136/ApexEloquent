@@ -18,6 +18,10 @@ public with sharing class IsNotNullConditionClause extends AbstractConditionClau
     return new IsNotNullConditionClause(sObjectType, fieldMap, this.field);
   }
 
+  public override IConditionClause overrideField(String field) {
+    return new IsNotNullConditionClause(this.sObjectType, this.fieldMap, field);
+  }
+
   private String checkAndCast() {
     return '';
   }

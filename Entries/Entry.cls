@@ -71,10 +71,6 @@ public with sharing class Entry extends AbstractEntry {
           childRecords.add(new Entry(ChildSObject));
         }
 
-        currentTime = System.currentTimeMillis();
-        System.debug('childRecords取得にかかった時間' + (currentTime - prevTime));
-        prevTime = currentTime;
-
         return childRecords;
       }
     }

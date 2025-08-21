@@ -22,6 +22,10 @@ public with sharing class IncludesConditionClause extends AbstractConditionClaus
     return new IncludesConditionClause(sObjectType, fieldMap, this.field, this.values);
   }
 
+  public override IConditionClause overrideField(String field) {
+    return new IncludesConditionClause(this.sObjectType, this.fieldMap, field, this.values);
+  }
+
   private String checkAndCast() {
     List<String> castedValues = new List<String>();
     for (Object value : this.values) {

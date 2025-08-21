@@ -21,6 +21,11 @@ public with sharing class Scribe implements IScribe {
   private List<Scribe> children = new List<Scribe>();
   private Boolean isChild = false;
 
+  private Boolean isGroup = false;
+  private Map<String, AliasStructure> groupAliasMap = new Map<String, AliasStructure>();
+  private Boolean isHaving = false;
+  private Scribe havingScribe;
+
   private Integer limitNumber = 0;
 
   private final Integer MAX_UPPER_NESTING_DEPTH = 5;
@@ -52,7 +57,9 @@ public with sharing class Scribe implements IScribe {
   }
 
   public static Scribe asGroup() {
-    return new Scribe(null);
+    Scribe newScribe = new Scribe(null);
+    newScribe.isGroup = true;
+    return newScribe;
   }
 
   public static Scribe asParent(String parentRelationIdFieldName) {
@@ -75,9 +82,17 @@ public with sharing class Scribe implements IScribe {
     return newScribe;
   }
 
+  public static Scribe asHaving() {
+    Scribe newScribe = new Scribe(null);
+    newScribe.isHaving = true;
+    return newScribe;
+  }
+
   // ------------ select methods ------------
 
   public Scribe field(String fieldName) {
+    this.validateAddFieldClause();
+
     if (String.isBlank(fieldName)) {
       throw new QueryException('フィールド名が空です。');
     }
@@ -89,6 +104,8 @@ public with sharing class Scribe implements IScribe {
   }
 
   public Scribe fields(List<String> fieldNames) {
+    this.validateAddFieldClause();
+
     if (fieldNames == null || fieldNames.isEmpty()) {
       throw new QueryException('フィールド名のリストが空です。');
     }
@@ -100,6 +117,8 @@ public with sharing class Scribe implements IScribe {
   }
 
   public Scribe allFields() {
+    this.validateAddFieldClause();
+
     Scribe clonedScribe = this.deepClone();
     clonedScribe.isSelectAll = true;
 
@@ -107,6 +126,7 @@ public with sharing class Scribe implements IScribe {
   }
 
   // ------------ aggregate methods ------------
+
   public Scribe average(String fieldName, String alias) {
     this.validateAddAggregateClause();
     IAggregateClause averageClause = new AverageClause(this.sObjectType, null, fieldName, alias);
@@ -189,6 +209,21 @@ public with sharing class Scribe implements IScribe {
 
     Scribe clonedScribe = this.deepClone();
     clonedScribe.groupByFields.addAll(fieldNames);
+
+    return clonedScribe;
+  }
+
+  public Scribe havingCondition(Scribe havingScribe) {
+    if (this.groupByFields.isEMpty()) {
+      throw new QueryException('havingConditionメソッドは、groupByFieldと同時に使用する必要があります。');
+    }
+    if (!havingScribe.isHaving) {
+      String error = 'havingConditionメソッドの引数のScribeクラスは、Scribe.asHaving()で生成されたScribeクラスを入れてください。';
+      throw new QueryException(error);
+    }
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.havingScribe = havingScribe;
 
     return clonedScribe;
   }
@@ -522,7 +557,7 @@ public with sharing class Scribe implements IScribe {
       throw new QueryException('子のScribeがnullです。');
     }
 
-    if(!this.groupByFields.isEmpty() || !this.aggregateClauses.isEmpty()){
+    if (!this.groupByFields.isEmpty() || !this.aggregateClauses.isEmpty()) {
       throw new QueryException('集計関数はwithChildrenメソッドと同時に使用することはできません。');
     }
 
@@ -658,6 +693,8 @@ public with sharing class Scribe implements IScribe {
 
     query = this.buildGroupByFields(query, fieldMap, selectFieldsString);
 
+    query = this.buildHavingClause(query, fieldMap);
+
     if (this.orderByClause != null) {
       query += ' ' + this.orderByClause.build();
     }
@@ -715,6 +752,10 @@ public with sharing class Scribe implements IScribe {
     newScribe.isParent = this.isParent;
     newScribe.parentRelationIdFieldName = this.parentRelationIdFieldName;
     newScribe.isChild = this.isChild;
+    newScribe.isGroup = this.isGroup;
+    newScribe.groupAliasMap = this.groupAliasMap.clone();
+    newScribe.isHaving = this.isHaving;
+    newScribe.havingScribe = this.havingScribe;
 
     return newScribe;
   }
@@ -729,9 +770,7 @@ public with sharing class Scribe implements IScribe {
     String selectFieldsString = '';
 
     // add select fields
-    System.debug('selectFields count: ' + this.selectFields.size());
     if (this.isSelectAll || !this.selectFields.isEmpty()) {
-      System.debug('add select fields');
       selectFieldsString = String.join(this.getSelectedFields(fieldMap), ', ');
     }
 
@@ -741,7 +780,12 @@ public with sharing class Scribe implements IScribe {
         selectFieldsString += ', ';
       }
       aggregateClause = aggregateClause.overrideMetaData(this.sObjectType, fieldMap);
-      selectFieldsString += aggregateClause.build();
+      String aggregateClauseString = aggregateClause.build();
+      selectFieldsString += aggregateClauseString;
+      String alias = aggregateClause.getAlias();
+      String aggregateField = aggregateClause.getFieldName();
+      String aggregateTarget = aggregateClauseString.split(' ')[0];
+      this.groupAliasMap.put(alias, new AliasStructure(aggregateField, aggregateTarget));
     }
 
     // Add parent queries
@@ -795,6 +839,7 @@ public with sharing class Scribe implements IScribe {
       isFirstOperatorOr = isFirstOperatorOr == null ? conditionPart.isOr : isFirstOperatorOr;
       WhereClauseData whereClauseData = null;
       String clause = '';
+
       if (conditionPart.condition != null) {
         IConditionClause condition = conditionPart.condition.overrideMetaData(this.sObjectType, fieldMap);
         clause = condition.build();
@@ -815,6 +860,65 @@ public with sharing class Scribe implements IScribe {
         isLastOperatorOr = parentWhereClauseData.isLastOperatorOr;
         conditionPart.isOr = parentWhereClauseData.isFirstOperatorOr;
       }
+
+      if (clause != '') {
+        if (whereClauseString != '') {
+          whereClauseString += conditionPart.isOr ? ' OR ' : ' AND ';
+        }
+        whereClauseString += clause;
+      }
+    }
+
+    return new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
+  }
+
+  private WhereClauseData buildHavingClause(
+    Map<String, AliasStructure> aggregateAliasMap,
+    Map<String, Schema.SObjectField> fieldMap
+  ) {
+    String whereClauseString = '';
+
+    if (this.conditionParts.isEmpty()) {
+      return new WhereClauseData('', false, false);
+    }
+
+    Boolean isFirstOperatorOr = null;
+    Boolean isLastOperatorOr = false;
+
+    for (ConditionPart conditionPart : this.conditionParts) {
+      if (isLastOperatorOr && !conditionPart.isOr) {
+        throw new QueryException(
+          'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。'
+        );
+      }
+      isFirstOperatorOr = isFirstOperatorOr == null ? conditionPart.isOr : isFirstOperatorOr;
+      WhereClauseData whereClauseData = null;
+      // HavingではwhereEqual(alias, value) のような形でwhere系メソッドを使用することを想定しているので
+      // getFieldName()でエイリアスを取得できる
+      String alias = conditionPart.condition.getFieldName();
+
+      // エイリアスがgroupByで作成されているか確認する
+      if (!aggregateAliasMap.containsKey(alias)) {
+        String error = String.format(
+          'The alias {0} in the HAVING clause does not match any aggregate alias',
+          new List<String>{ alias }
+        );
+        throw new QueryException(error);
+      }
+      AliasStructure aliasStructure = aggregateAliasMap.get(alias);
+
+      // HAVINGの条件をビルドする
+      IConditionClause condition = conditionPart
+        .condition
+        .overrideMetaData(this.sObjectType, fieldMap)
+        .overrideField(aliasStructure.getFieldName());
+      String clauseWithAlias = condition.build();
+
+      // ビルド結果のフィールドはSObjectのフィールドになっているので、集計関数に置き換える
+      // 例: amount > 1000 -> AVG(Amount) > 1000
+      List<String> clauseParts = clauseWithAlias.split(' ');
+      clauseParts[0] = aliasStructure.getAggregateClause();
+      String clause = String.join(clauseParts, ' ');
 
       if (clause != '') {
         if (whereClauseString != '') {
@@ -861,13 +965,16 @@ public with sharing class Scribe implements IScribe {
     return this.describe;
   }
 
-  private String buildGroupByFields(String query, Map<String, Schema.SObjectField> fieldMap, String selectFieldsString) {
+  private String buildGroupByFields(
+    String query,
+    Map<String, Schema.SObjectField> fieldMap,
+    String selectFieldsString
+  ) {
     if (this.groupByFields.isEmpty()) {
       return query;
     }
 
-    List<String> groupByLowerCaseFields = new List<String>();
-    for(String groupByField : this.groupByFields) {
+    for (String groupByField : this.groupByFields) {
       if (!fieldMap.containsKey(groupByField.toLowerCase())) {
         String error = String.format(
           'The specified group by field does not exist in the object\'s fields. object name: {0}, field name: {1}',
@@ -875,19 +982,11 @@ public with sharing class Scribe implements IScribe {
         );
         throw new QueryException(error);
       }
-      groupByLowerCaseFields.add(groupByField.toLowerCase());
     }
 
-    List<String> selectFields = selectFieldsString.split(', ');
     List<String> nonGroupedFields = new List<String>();
-    // selectFieldsはrootのフィールド、集計系、親フィールドのどれかが含まれている
-    // 子フィールドはgroupByと併用できずエラーで除外されるのでここでは考慮しない
-    for (String selectField : selectFields) {
-      if(selectField.contains('(') && selectField.contains(')')) {
-        // Skip aggregate functions
-        continue;
-      }
-      if (!groupByLowerCaseFields.contains(selectField)) {
+    for (String selectField : this.selectFields) {
+      if (!this.groupByFields.contains(selectField)) {
         nonGroupedFields.add(selectField);
       }
     }
@@ -900,6 +999,21 @@ public with sharing class Scribe implements IScribe {
     }
 
     return query + ' GROUP BY ' + String.join(this.groupByFields, ', ');
+  }
+
+  private String buildHavingClause(String query, Map<String, Schema.SObjectField> fieldMap) {
+    if (this.havingScribe == null) {
+      return query;
+    }
+ 
+    this.havingScribe.sObjectType = this.sObjectType;
+    WhereClauseData havingClauseData = this.havingScribe.buildHavingClause(this.groupAliasMap, fieldmap);
+    String havingString = havingClauseData.whereClauseString;
+    if (havingString != '') {
+      query += ' HAVING ' + havingString;
+    }
+
+    return query;
   }
 
   //  ------------ validation methods ------------
@@ -931,8 +1045,20 @@ public with sharing class Scribe implements IScribe {
     if (this.isChild) {
       throw new QueryException('子のScribeでは集計関数を使用できません。');
     }
-    if(!this.children.isEmpty()) {
+    if (this.isHaving) {
+      throw new QueryException('HAVING句の中では集計関数を使用できません。');
+    }
+    if (!this.children.isEmpty()) {
       throw new QueryException('集計関数はwithChildrenメソッドと同時に使用することはできません。');
+    }
+  }
+
+  private void validateAddFieldClause() {
+    if (this.isGroup) {
+      throw new QueryException('グループ条件追加中はScribeではフィールドの追加はできません。');
+    }
+    if (this.isHaving) {
+      throw new QueryException('HAVING句の中ではフィールドの追加はできません。');
     }
   }
 
@@ -952,26 +1078,22 @@ public with sharing class Scribe implements IScribe {
   // ------------ inner classes ------------
 
   private class ConditionPart {
-    public IConditionClause condition;
-    public Scribe groupScribe;
-    public ParentScribe parentScribe;
+    public IConditionClause condition = null;
+    public Scribe groupScribe = null;
+    public ParentScribe parentScribe = null;
     public Boolean isOr = false;
 
     public ConditionPart(IConditionClause condition, Boolean isOr) {
       this.condition = condition;
-      this.groupScribe = null;
       this.isOr = isOr;
     }
 
     public ConditionPart(Scribe groupScribe, Boolean isOr) {
-      this.condition = null;
       this.groupScribe = groupScribe;
       this.isOr = isOr;
     }
 
     public ConditionPart(ParentScribe parentScribe) {
-      this.condition = null;
-      this.groupScribe = null;
       this.parentScribe = parentScribe;
       this.isOr = false;
     }
@@ -1254,6 +1376,24 @@ public with sharing class Scribe implements IScribe {
       if (String.isBlank(nullsOperator) || !this.NULLS_OPERATORS.contains(nullsOperator.toUpperCase())) {
         throw new QueryException('orderByのnullsOperatorが無効です。\'FIRST\' or \'LAST\' を入力してください。');
       }
+    }
+  }
+
+  private class AliasStructure {
+    private final String fieldName;
+    private final String aggregateClause;
+
+    public AliasStructure(String fieldName, String aggregateClause) {
+      this.fieldName = fieldName;
+      this.aggregateClause = aggregateClause;
+    }
+
+    public String getFieldName() {
+      return this.fieldName;
+    }
+
+    public String getAggregateClause() {
+      return this.aggregateClause;
     }
   }
 }

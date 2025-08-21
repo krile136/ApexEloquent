@@ -22,6 +22,10 @@ public with sharing class LessThanOrEqualConditionClause extends AbstractConditi
     return new LessThanOrEqualConditionClause(sObjectType, fieldMap, this.field, this.value);
   }
 
+  public override IConditionClause overrideField(String field) {
+    return new LessThanOrEqualConditionClause(this.sObjectType, this.fieldMap, field, this.value);
+  }
+
   private String checkAndCast() {
     if (value == null) {
       throw new QueryException('Value cannot be null for LessThanOrEqual condition. field: ' + field);

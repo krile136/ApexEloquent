@@ -6,6 +6,20 @@ public interface IAggregateClause {
   String build();
 
   /**
+    * aliasを取得する
+    *
+    * @return alias 
+    */
+  String getAlias();
+
+  /**
+   * フィールド名を取得する
+   *
+   * @return フィールド名
+   */
+  String getFieldName();
+
+  /**
    * Metadataを上書きする
    *
    * @param sObjectType 上書きするSObjectType

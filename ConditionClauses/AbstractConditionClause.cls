@@ -40,8 +40,13 @@ public with sharing abstract class AbstractConditionClause implements ICondition
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
   );
+  public abstract IConditionClause overrideField(String field);
   private abstract String checkAndCast();
   public abstract String build();
+
+  public String getFieldName() {
+    return this.field;
+  }
 
   /**
    * fieldの型を取得する

@@ -22,6 +22,10 @@ public with sharing class GreaterThanOrEqualConditionClause extends AbstractCond
     return new GreaterThanOrEqualConditionClause(sObjectType, fieldMap, this.field, this.value);
   }
 
+  public override IConditionClause overrideField(String field) {
+    return new GreaterThanOrEqualConditionClause(this.sObjectType, this.fieldMap, field, this.value);
+  }
+
   private String checkAndCast() {
     if (value == null) {
       throw new QueryException('Value cannot be null for GreaterThanOrEqual condition. field: ' + field);

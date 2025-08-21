@@ -22,6 +22,10 @@ public with sharing class NotLikeConditionClause extends AbstractConditionClause
     return new NotLikeConditionClause(sObjectType, fieldMap, this.field, this.value);
   }
 
+  public override IConditionClause overrideField(String field) {
+    return new NotLikeConditionClause(this.sObjectType, this.fieldMap, field, this.value);
+  }
+
   private String checkAndCast() {
     if (value == null) {
       throw new QueryException('Value cannot be null for NOT LIKE condition. field: ' + field);

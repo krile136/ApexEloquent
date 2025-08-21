@@ -13,4 +13,18 @@ public interface IConditionClause {
    * @return WhereClausesInterface
    */
   IConditionClause overrideMetaData(Schema.SObjectType sObjectType, Map<String, Schema.SObjectField> fieldMap);
+
+  /**
+   * フィールド名を上書きする
+   *
+   * @return フィールド名
+   */
+  IConditionClause overrideField(String field);
+
+  /**
+   * フィールド名を取得する
+   *
+   * @return フィールド名
+   */
+  String getFieldName();
 }

@@ -26,6 +26,10 @@ public with sharing class NotInConditionClause extends AbstractConditionClause {
     return new NotInConditionClause(sObjectType, fieldMap, this.field, this.values);
   }
 
+  public override IConditionClause overrideField(String field) {
+    return new NotInConditionClause(this.sObjectType, this.fieldMap, field, this.values);
+  }
+
   private String checkAndCast() {
     Schema.DisplayType fieldType = this.getFieldType(field);
     List<String> castedValues = new List<String>();

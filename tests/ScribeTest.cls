@@ -898,7 +898,7 @@ public with sharing class ScribeTest {
     try {
       Scribe scribe = Scribe.source(Opportunity.getSObjectType())
         .field('Id')
-        .parentField(Scribe.asGroup().field('Name').field('Id'))
+        .parentField(Scribe.asGroup())
         .whereEqual('Name', 'Test Opportunity');
 
       String soql = scribe.toSoql();
@@ -1820,7 +1820,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id',
+        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: Id',
         e.getMessage()
       );
     }
@@ -1860,7 +1860,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id',
+        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: Id',
         e.getMessage()
       );
     }
@@ -1895,6 +1895,99 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual('集計関数はwithChildrenメソッドと同時に使用することはできません。', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAddHavingCondition_ThenReturnHavingCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'amountAvg')
+      .groupByField('StageName')
+      .havingCondition(Scribe.asHaving().whereGreaterThan('amountAvg', 10000));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT stagename, AVG(Amount) amountAvg FROM Opportunity GROUP BY StageName HAVING AVG(Amount) > 10000';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAddMultiHavingCondition_ThenReturnHavingCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'amountAvg')
+      .groupByField('StageName')
+      .havingCondition(
+        Scribe.asHaving()
+          .whereGreaterThan('amountAvg', 10000)
+          .whereLessThan('amountAvg', 50000)
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT stagename, AVG(Amount) amountAvg FROM Opportunity GROUP BY StageName HAVING AVG(Amount) > 10000 AND AVG(Amount) < 50000';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAddMultiAggregateClauseAndMultiHavingCondition_ThenReturnHavingCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'amountAvg')
+      .max('CloseDate', 'lastCloseDate')
+      .groupByField('StageName')
+      .havingCondition(
+        Scribe.asHaving()
+          .whereGreaterThan('amountAvg', 10000)
+          .whereLessThanOrEqual('lastCloseDate', Date.newInstance(2030, 12, 31))
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT stagename, AVG(Amount) amountAvg, MAX(CloseDate) lastCloseDate FROM Opportunity GROUP BY StageName HAVING AVG(Amount) > 10000 AND MAX(CloseDate) <= 2030-12-31';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAddHavingConditionWithNonExistAlias_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByField('StageName')
+        .havingCondition(Scribe.asHaving().whereGreaterThan('nonExistAlias', 10000));
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('The alias nonExistAlias in the HAVING clause does not match any aggregate alias', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenNotUsingGroupByMethod_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .havingCondition(Scribe.asHaving().whereGreaterThan('amountAvg', 10000));
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('havingConditionメソッドは、groupByFieldと同時に使用する必要があります。', e.getMessage());
     }
   }
 }

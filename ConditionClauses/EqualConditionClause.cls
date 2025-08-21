@@ -22,6 +22,10 @@ public with sharing class EqualConditionClause extends AbstractConditionClause {
     return new EqualConditionClause(sObjectType, fieldMap, this.field, this.value);
   }
 
+  public override IConditionClause overrideField(String field) {
+    return new EqualConditionClause(this.sObjectType, this.fieldMap, field, this.value);
+  }
+
   private String checkAndCast() {
     Schema.DisplayType fieldType = this.getFieldType(field);
 

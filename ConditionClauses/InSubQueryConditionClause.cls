@@ -22,6 +22,10 @@ public with sharing class InSubQueryConditionClause extends AbstractConditionCla
     return new InSubQueryConditionClause(sObjectType, fieldMap, this.field, this.subQueryScribe);
   }
 
+  public override IConditionClause overrideField(String field) {
+    return new InSubQueryConditionClause(this.sObjectType, this.fieldMap, field, this.subQueryScribe);
+  }
+
   private String checkAndCast() {
     return '';
   }

@@ -1,4 +1,4 @@
-public with sharing class Scribe implements IScribe {
+public with sharing class Scribe {
   @TestVisible
   private Schema.SObjectType sObjectType;
   private Schema.DescribeSObjectResult describe;
@@ -790,7 +790,10 @@ public with sharing class Scribe implements IScribe {
 
     // Add parent queries
     for (ParentScribe parent : this.parents) {
-      selectFieldsString += ', ' + parent.buildSelectClause(fieldMap, null, 0);
+      if (selectFieldsString != '') {
+        selectFieldsString += ', ';
+      }
+      selectFieldsString += parent.buildSelectClause(fieldMap, null, 0);
     }
 
     // Add child queries
@@ -1005,7 +1008,7 @@ public with sharing class Scribe implements IScribe {
     if (this.havingScribe == null) {
       return query;
     }
- 
+
     this.havingScribe.sObjectType = this.sObjectType;
     WhereClauseData havingClauseData = this.havingScribe.buildHavingClause(this.groupAliasMap, fieldmap);
     String havingString = havingClauseData.whereClauseString;
@@ -1070,7 +1073,13 @@ public with sharing class Scribe implements IScribe {
     if (isSObjectTypeNull) {
       throw new QueryException('source is not set');
     }
-    if (this.selectFields.isEmpty() && !this.isSelectAll && this.aggregateClauses.isEmpty()) {
+    if (
+      this.selectFields.isEmpty() &&
+      !this.isSelectAll &&
+      this.aggregateClauses.isEmpty() &&
+      this.parents.isEmpty() &&
+      this.children.isEmpty()
+    ) {
       this.selectFields.add('Id');
     }
   }
@@ -1165,32 +1174,33 @@ public with sharing class Scribe implements IScribe {
         this.scribe.sObjectType = parentObjectData.relationSObjectType;
       }
 
+      String parentObjectRelationName = parentObjectData.relationFieldName;
+      String currentChainedParentObjectName = childObjectName == null
+        ? parentObjectRelationName
+        : childObjectName + '.' + parentObjectRelationName;
+      Map<String, Schema.SObjectField> parentFieldMap = parentObjectData
+        .relationSObjectType
+        .getDescribe()
+        .fields
+        .getMap();
       List<String> parentSelects = new List<String>();
-      for (
-        String parentFieldName : this.scribe.getSelectedFields(
-          parentObjectData.relationSObjectType.getDescribe().fields.getMap()
-        )
-      ) {
+      for (String parentFieldName : this.scribe.getSelectedFields(parentFieldMap)) {
         String parentSelect = '';
-        if (childObjectName != null) {
-          parentSelect = childObjectName + '.';
-        }
-        parentSelect += parentObjectData.relationFieldName + '.' + parentFieldName;
+        parentSelect += currentChainedParentObjectName + '.' + parentFieldName;
         parentSelects.add(parentSelect);
       }
 
+      for (IAggregateClause aggregateClause : this.scribe.aggregateClauses) {
+        aggregateClause = aggregateClause.overrideMetaData(this.scribe.sObjectType, parentFieldMap);
+        String aggregateClauseString = aggregateClause.buildWithChild(currentChainedParentObjectName);
+        parentSelects.add(aggregateClauseString);
+      }
+
       if (!this.scribe.parents.isEmpty()) {
-        if (childObjectName == null) {
-          childObjectName = parentObjectData.relationFieldName;
-        } else {
-          childObjectName += '.' + parentObjectData.relationFieldName;
-        }
         for (ParentScribe grandParentScribe : this.scribe.parents) {
-          Map<String, Schema.SObjectField> parentFieldMap = parentObjectData.relationSObjectType.getDescribe()
-            .fields.getMap();
           String grandParentSelectsAsString = grandParentScribe.buildSelectClause(
             parentFieldMap,
-            childObjectName,
+            currentChainedParentObjectName,
             currentUpperNestingDepth
           );
           parentSelects.add(grandParentSelectsAsString);

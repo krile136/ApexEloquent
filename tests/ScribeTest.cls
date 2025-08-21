@@ -1922,11 +1922,7 @@ public with sharing class ScribeTest {
       .field('StageName')
       .average('Amount', 'amountAvg')
       .groupByField('StageName')
-      .havingCondition(
-        Scribe.asHaving()
-          .whereGreaterThan('amountAvg', 10000)
-          .whereLessThan('amountAvg', 50000)
-      );
+      .havingCondition(Scribe.asHaving().whereGreaterThan('amountAvg', 10000).whereLessThan('amountAvg', 50000));
 
     // Act
     String soql = scribe.toSoql();
@@ -1971,7 +1967,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug(e.getMessage());
-      Assert.areEqual('The alias nonExistAlias in the HAVING clause does not match any aggregate alias', e.getMessage());
+      Assert.areEqual(
+        'The alias nonExistAlias in the HAVING clause does not match any aggregate alias',
+        e.getMessage()
+      );
     }
   }
 
@@ -1990,4 +1989,130 @@ public with sharing class ScribeTest {
       Assert.areEqual('havingConditionメソッドは、groupByFieldと同時に使用する必要があります。', e.getMessage());
     }
   }
+
+  @isTest
+  static void testAverageInParent_WhenAddAverageInParent_ThenReturnAverageInParent() {
+    // Arrange
+    Scribe scribe = Scribe.source(Quote.getSObjectType())
+      .parentField(Scribe.asParent('OpportunityId').average('Amount', 'avgAmount'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT AVG(Opportunity.Amount) avgAmount FROM Quote';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testAverageInParent_WhenAddTwoNestedAverageInParent_ThenReturnNestedAverageInParent() {
+    // Arrange
+    Scribe scribe = Scribe.source(Order.getSObjectType())
+      .parentField(
+        Scribe.asParent('QuoteId').parentField(Scribe.asParent('OpportunityId').average('Amount', 'avgAmount'))
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT AVG(Quote.Opportunity.Amount) avgAmount FROM Order';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  /*
+  @isTest
+  static void testHavingCondition_WhenAddHavingConditionWithParentField_ThenReturnHavingConditionWithParentField() {
+    // Arrange
+    Scribe scribe = Scribe.source(Quote.getSObjectType())
+      .field('AccountId')
+      .sum('TotalPrice', 'quoteTotalPrice')
+      .parentField(Scribe.asParent('OpportunityId').max('Amount', 'maxOppAmount'))
+      .groupByField('AccountId')
+      .groupByParent(Scribe.asParent('OpportunityId').groupByField('Id'))
+      .havingCondition(
+        Scribe.asHaving().whereGreaterThan('quoteTotalPrice', 1000).whereLessThanOrEqual('maxOppAmount', 50000)
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT AccountId, Opportunity.Id, SUM(TotalPrice) quoteTotalPrice, MAX(Opportunity.Amount) maxOppAmount FROM Quote GROUP BY AccountId, Opportunity.Id HAVING SUM(TotalPrice) > 1000 AND MAX(Opportunity.Amount) <= 50000';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testGroupByParent_WhenAddNestedParentGroup_ThenReturnNestedParentGroup() {
+    // Arrange
+    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+      .count('Id', 'itemCount')
+      .groupByParent(
+        Scribe.asParent('OrderId')
+          .groupByParent(
+            Scribe.asParent('OriginalOrderId')
+              .groupByParent(
+                Scribe.asParent('QuoteId')
+                  .groupByParent(
+                    Scribe.asParent('OpportunityId')
+                      .groupByParent(Scribe.asParent('AccountId').groupByField('Id'))
+                  )
+              )
+          )
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT COUNT(Id) itemCount FROM OrderItem GROUP BY Order.OriginalOrder.Quote.Opportunity.Account.Id';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAddNestedParentHavingCondition_ThenReturnNestedParentHavingCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+      .count('Id', 'itemcount')
+      .parentField(
+      Scribe.asParent('OrderId')
+        .parentField(
+          Scribe.asParent('OriginalOrderId')
+            .parentField(
+              Scribe.asParent('QuoteId')
+                .parentField(
+                  Scribe.asParent('OpportunityId')
+                    .field('AccountId')
+                    .average('Amount', 'avgOppAmount')
+                )
+            )
+        )
+      )
+      .groupByParent(
+        Scribe.asParent('OrderId')
+          .groupByParent(
+            Scribe.asParent('OriginalOrderId')
+              .groupByParent(
+                Scribe.asParent('QuoteId')
+                  .groupByParent(
+                    Scribe.asParent('OpportunityId')
+                      .groupByField('AccountId')
+                  )
+              )
+          )
+      )
+      .havingCondition(
+        Scribe.asHaving()
+          .whereGreaterThan('itemcount', 10)
+          .whereLessThanOrEqual('avgOppAmount', 50000)
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT COUNT(Id) itemcount, Order.OriginalOrder.Quote.Opportunity.AccountId, AVG(Order.OriginalOrder.Quote.Opportunity.Amount) avgOppAmount FROM OrderItem GROUP BY Order.OriginalOrder.Quote.Opportunity.AccountId HAVING COUNT(Id) > 10 AND AVG(Order.OriginalOrder.Quote.Opportunity.Amount) <= 50000';
+    Assert.areEqual(expectedSoql, soql);
+  }
+  */
 }

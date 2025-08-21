@@ -6,6 +6,13 @@ public interface IAggregateClause {
   String build();
 
   /**
+    * Aggregate句を組み立てる（子オブジェクトのリレーション名を指定）
+    * @param childRelationName 子オブジェクトのリレーション名
+    * @return 組み立てたAggregate句
+    */
+  String buildWithChild(String childRelationName);
+
+  /**
     * aliasを取得する
     *
     * @return alias 
@@ -27,4 +34,4 @@ public interface IAggregateClause {
    * @return IAggregateClause
    */
   IAggregateClause overrideMetaData(Schema.SObjectType sObjectType, Map<String, Schema.SObjectField> fieldMap);
-}
+  }

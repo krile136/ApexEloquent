@@ -21,7 +21,7 @@ public with sharing class AverageClause extends AbstractAggregateClause {
   ) {
     return new AverageClause(sObjectType, fieldMap, fieldName, alias);
   }
-
+  
   public override String build() {
     this.validateFieldName(fieldName);
     Schema.SObjectField field = fieldMap.get(fieldName);

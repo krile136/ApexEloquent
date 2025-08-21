@@ -37,6 +37,21 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
     Map<String, Schema.SObjectField> fieldMap
   );
 
+  public String buildWithChild(String childRelationName){
+    String buildResult = this.build();
+    System.debug('buildResult: ' + buildResult);
+    // SUM(Ammount) totalAmount  のような形式になるので、`(` で分割した二つ目の要素が
+    // フィールド名になる。これに子オブジェクトのリレーション名を付けて
+    // SUM(ChildRelationName.Ammount) totalAmount のようにする。
+    List<String> buildResultParts = buildResult.split('\\(');
+    if(childRelationName != null) {
+      buildResultParts[1] = childRelationName + '.' + buildResultParts[1];
+    }
+    System.debug('buildResultParts: ' + buildResultParts);
+    return String.join(buildResultParts, '(');
+  }
+
+
   protected void validateFieldName(String fieldName) {
     if (!fieldMap.containsKey(fieldName)) {
       String error = String.format(

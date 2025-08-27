@@ -1,6 +1,8 @@
 public with sharing class MockEloquent implements IEloquent {
   private final List<IEntry> entries;
   private Integer insertCount;
+  @TestVisible
+  private Scribe scribe;
 
   /**
    * constructor
@@ -8,6 +10,7 @@ public with sharing class MockEloquent implements IEloquent {
   public MockEloquent() {
     this.entries = new List<IEntry>();
     this.insertCount = 0;
+    this.scribe = null;
   }
 
   /**
@@ -22,6 +25,7 @@ public with sharing class MockEloquent implements IEloquent {
       this.entries = new List<IEntry>{ entry };
     }
     this.insertCount = 0;
+    this.scribe = null;
   }
 
   /**
@@ -38,6 +42,7 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> get(Scribe scribe) {
+    this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     List<IEntry> result = new List<IEntry>();
@@ -51,6 +56,7 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry first(Scribe scribe) {
+    this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     if (this.entries.isEmpty()) {
@@ -63,6 +69,7 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry firstOrFail(Scribe scribe) {
+    this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     if (this.entries.isEmpty()) {
@@ -115,6 +122,10 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public void doDelete(List<SObject> records) {
     return;
+  }
+
+  public Scribe capturedScribe() {
+    return this.scribe;
   }
 
   /**

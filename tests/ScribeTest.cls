@@ -1476,52 +1476,23 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testOrderBy_WhenAddMultipleFields_ThenReturnOrderByMultipleFileds() {
+  static void testOrderBy_WhenAddMultipleOrderBy_ThenReturnMultipleOrderBy() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
       .whereEqual('Id', '006000000000000')
-      .orderBy(new List<String>{ 'CloseDate', 'Name' });
+      .orderBy('CloseDate', 'ASC', 'FIRST')
+      .orderBy('Amount', 'DESC', 'LAST');
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE Id = \'006000000000000\' ORDER BY CloseDate, Name ASC';
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE Id = \'006000000000000\' ORDER BY CloseDate ASC NULLS FIRST, Amount DESC NULLS LAST';
     Assert.areEqual(expectedSoql, soql);
   }
 
-  @isTest
-  static void testOrderBy_WhenAddMultipleFieldsAndOrder_ThenReturnOrderByMultipleFiledsAndOrder() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereEqual('Id', '006000000000000')
-      .orderBy(new List<String>{ 'CloseDate', 'Name' }, 'DESC');
 
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE Id = \'006000000000000\' ORDER BY CloseDate, Name DESC';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testOrderBy_WhenAddMultipleFieldsAndOrderAndNullsOperator_ThenReturnOrderByMultipleFiledsAndOrderAndNullsOperator() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereEqual('Id', '006000000000000')
-      .orderBy(new List<String>{ 'CloseDate', 'Name' }, 'ASC', 'FIRST');
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE Id = \'006000000000000\' ORDER BY CloseDate, Name ASC NULLS FIRST';
-    Assert.areEqual(expectedSoql, soql);
-  }
 
   @isTest
   static void testAverage_WhenAddAverageField_ThenReturnAverageField() {
@@ -2017,6 +1988,31 @@ public with sharing class ScribeTest {
 
     // Assert
     String expectedSoql = 'SELECT AVG(Quote.Opportunity.Amount) avgAmount FROM Order';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testAggregateFunctionsInParent_WhenAddAggregateFunctionsToTwoNestedParent_ThenReturnAggregateFunctionsInParent() {
+    // Arrange
+    Scribe scribe = Scribe.source(Order.getSObjectType())
+      .parentField(
+        Scribe.asParent('QuoteId')
+          .parentField(
+            Scribe.asParent('OpportunityId')
+              .average('Amount', 'amountAvg')
+              .count('Id', 'oppCount')
+              .countDistinct('AccountId', 'accountCount')
+              .max('Amount', 'amountMax')
+              .min('Amount', 'amountMin')
+              .sum('Amount', 'amountSum')
+          )
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT AVG(Quote.Opportunity.Amount) amountAvg, COUNT(Quote.Opportunity.Id) oppCount, COUNT_DISTINCT(Quote.Opportunity.AccountId) accountCount, MAX(Quote.Opportunity.Amount) amountMax, MIN(Quote.Opportunity.Amount) amountMin, SUM(Quote.Opportunity.Amount) amountSum FROM Order';
     Assert.areEqual(expectedSoql, soql);
   }
 

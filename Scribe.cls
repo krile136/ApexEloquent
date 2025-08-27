@@ -6,23 +6,24 @@ public with sharing class Scribe {
   private Set<String> selectFields = new Set<String>();
   private List<IAggregateClause> aggregateClauses = new List<IAggregateClause>();
   private List<ConditionPart> conditionParts = new List<ConditionPart>();
-  private Scribe.OrderByClause orderByClause;
-
-  private List<String> groupByFields = new List<String>();
+  private List<Scribe.OrderByClause> orderByClauses = new List<Scribe.OrderByClause>();
 
   private Boolean isSelectAll = false;
   private Boolean isNextConditionOr = false;
   private Boolean canOnlyAddOrCondition = false;
 
-  private List<ParentScribe> parents = new List<ParentScribe>();
   private Boolean isParent = false;
+  private List<ParentScribe> parents = new List<ParentScribe>();
   String parentRelationIdFieldName;
 
-  private List<Scribe> children = new List<Scribe>();
   private Boolean isChild = false;
+  private List<Scribe> children = new List<Scribe>();
 
   private Boolean isGroup = false;
+  private List<String> groupByFields = new List<String>();
   private Map<String, AliasStructure> groupAliasMap = new Map<String, AliasStructure>();
+  private List<ParentScribe> groupByParents = new List<ParentScribe>();
+
   private Boolean isHaving = false;
   private Scribe havingScribe;
 
@@ -628,37 +629,19 @@ public with sharing class Scribe {
 
   public Scribe orderBy(String field) {
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.orderByClause = new Scribe.OrderByClause(field);
+    clonedScribe.orderByClauses.add(new Scribe.OrderByClause(field));
     return clonedScribe;
   }
 
   public Scribe orderBy(String field, String order) {
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.orderByClause = new Scribe.OrderByClause(field, order);
+    clonedScribe.orderByClauses.add(new Scribe.OrderByClause(field, order));
     return clonedScribe;
   }
 
   public Scribe orderBy(String field, String order, String nullsOperator) {
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.orderByClause = new Scribe.OrderByClause(field, order, nullsOperator);
-    return clonedScribe;
-  }
-
-  public Scribe orderBy(List<String> fields) {
-    Scribe clonedScribe = this.deepClone();
-    clonedScribe.orderByClause = new Scribe.OrderByClause(fields);
-    return clonedScribe;
-  }
-
-  public Scribe orderBy(List<String> fields, String order) {
-    Scribe clonedScribe = this.deepClone();
-    clonedScribe.orderByClause = new Scribe.OrderByClause(fields, order);
-    return clonedScribe;
-  }
-
-  public Scribe orderBy(List<String> fields, String order, String nullsOperator) {
-    Scribe clonedScribe = this.deepClone();
-    clonedScribe.orderByClause = new Scribe.OrderByClause(fields, order, nullsOperator);
+    clonedScribe.orderByClauses.add(new Scribe.OrderByClause(field, order, nullsOperator));
     return clonedScribe;
   }
 
@@ -695,8 +678,13 @@ public with sharing class Scribe {
 
     query = this.buildHavingClause(query, fieldMap);
 
-    if (this.orderByClause != null) {
-      query += ' ' + this.orderByClause.build();
+    if (!this.orderByClauses.isEmpty()) {
+      query += ' ORDER BY ';
+      List<String> orderByStrings = new List<String>();
+      for (OrderByClause orderByClause : this.orderByClauses) {
+        orderByStrings.add(orderByClause.build());
+      }
+      query += String.join(orderByStrings, ', ');
     }
 
     if (this.limitNumber > 0) {
@@ -745,6 +733,7 @@ public with sharing class Scribe {
     newScribe.children = this.children.clone();
     newScribe.parents = this.parents.clone();
     newScribe.groupByFields = this.groupByFields.clone();
+    newScribe.orderByClauses = this.orderByClauses.clone();
 
     newScribe.isSelectAll = this.isSelectAll;
     newScribe.isNextConditionOr = this.isNextConditionOr;
@@ -1301,13 +1290,13 @@ public with sharing class Scribe {
     private Set<String> ORDERS = new Set<String>{ 'ASC', 'DESC' };
     private Set<String> NULLS_OPERATORS = new Set<String>{ 'FIRST', 'LAST' };
 
-    private final List<String> fields;
+    private final String field;
     private final String order;
     private final String nullsOperator;
 
     public OrderByClause(String field) {
       this.validateField(field);
-      this.fields = new List<String>{ field };
+      this.field = field;
       this.order = 'ASC';
       this.nullsOperator = null;
     }
@@ -1315,7 +1304,7 @@ public with sharing class Scribe {
     public OrderByClause(String field, String order) {
       this.validateField(field);
       this.validateOrder(order);
-      this.fields = new List<String>{ field };
+      this.field = field;
       this.order = order;
       this.nullsOperator = null;
     }
@@ -1324,37 +1313,13 @@ public with sharing class Scribe {
       this.validateField(field);
       this.validateOrder(order);
       this.validateNullsOperator(nullsOperator);
-      this.fields = new List<String>{ field };
-      this.order = order;
-      this.nullsOperator = nullsOperator;
-    }
-
-    public OrderByClause(List<String> fields) {
-      this.validateFields(fields);
-      this.fields = fields;
-      this.order = 'ASC';
-      this.nullsOperator = null;
-    }
-
-    public OrderByClause(List<String> fields, String order) {
-      this.validateFields(fields);
-      this.validateOrder(order);
-      this.fields = fields;
-      this.order = order;
-      this.nullsOperator = null;
-    }
-
-    public OrderByClause(List<String> fields, String order, String nullsOperator) {
-      this.validateFields(fields);
-      this.validateOrder(order);
-      this.validateNullsOperator(nullsOperator);
-      this.fields = fields;
+      this.field = field;
       this.order = order;
       this.nullsOperator = nullsOperator;
     }
 
     public String build() {
-      String orderBy = 'ORDER BY ' + String.join(this.fields, ', ') + ' ' + this.order;
+      String orderBy = this.field + ' ' + this.order;
       if (this.nullsOperator != null) {
         orderBy += ' NULLS ' + this.nullsOperator;
       }

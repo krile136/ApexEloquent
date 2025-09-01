@@ -739,7 +739,9 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .field('Id')
-      .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'))
+      .withChildren(
+        Scribe.asChild(Opportunity.getSObjectType()).relationName('Opportunities').field('Id').whereNotNull('Name')
+      )
       .whereEqual('Name', 'Test Account');
 
     // Act
@@ -755,7 +757,9 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(Account.getSObjectType())
       .field('Id')
-      .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'))
+      .withChildren(
+        Scribe.asChild(Opportunity.getSObjectType()).relationName('Opportunities').field('Id').whereNotNull('Name')
+      )
       .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').whereNotNull('Email'))
       .whereEqual('Name', 'Test Account');
 
@@ -873,6 +877,72 @@ public with sharing class ScribeTest {
         'ネストの深度が最大値を超えました。最大ネスト深度: 4, オブジェクト名: OrderItem',
         e.getMessage()
       );
+    }
+  }
+
+  @isTest
+  static void testWithChildren_WhenAddRelationName_ThenAddedRelationNameUsed() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .withChildren(
+        Scribe.asChild(Opportunity.getSObjectType()).relationName('Opportunities').field('Id').whereNotNull('Name')
+      )
+      .whereEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, (SELECT id FROM Opportunities WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testWithChildren_WhenAddInvalidRelationName_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .withChildren(
+        Scribe.asChild(Opportunity.getSObjectType())
+          .relationName('Opporrunity__r')
+          .field('Id')
+          .whereNotNull('Name')
+      )
+      .whereEqual('Name', 'Test Account');
+
+    try {
+      // Act
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug(e.getMessage());
+      String expected = String.format(
+        'The specified parent relationship name is not valid. child object name: {0}, parent object name: {1}, relationship name: {2}',
+        new List<String>{ 'Opportunity', 'Account', 'Opporrunity__r' }
+      );
+      Assert.areEqual(expected, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testWithChildren_WhenMultiRelationFieldWithSameParentExist_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(User.getSObjectType())
+      .field('Id')
+      .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'));
+
+    // Act / Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug(e.getMessage());
+      String errorMessage = String.format(
+        'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
+        new List<String>{ 'Opportunity', 'User' }
+      );
+      Assert.areEqual(errorMessage, e.getMessage());
     }
   }
 
@@ -2144,8 +2214,76 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('throughメソッドの引数のScribeクラスは、Scribe.asThrough()で生成されたScribeクラスを入れてください。', e.getMessage());
+      Assert.areEqual(
+        'throughメソッドの引数のScribeクラスは、Scribe.asThrough()で生成されたScribeクラスを入れてください。',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testThrough_WhenAddRelationName_ThenAddedRelationNameUsed() {
+    Scribe scribe = Scribe.source(Order.getSObjectType())
+      .field('Id')
+      .through(
+        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
+          .relationName('OrderItems')
+          .field('Name')
+          .field('ProductCode')
+          .whereEqual('IsActive', true)
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT Id, (SELECT Product2.name, Product2.productcode FROM OrderItems WHERE Product2.IsActive = true) FROM Order ';
+  }
+
+  @isTest
+  static void testThrough_WhenAddInvalidRelationName_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Order.getSObjectType())
+      .field('Id')
+      .through(
+        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
+          .relationName('OrderItems__r') // invalid relation name
+          .field('Name')
+          .field('ProductCode')
+          .whereEqual('IsActive', true)
+      );
+
+    // Act / Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug(e.getMessage());
+      String expected = String.format(
+        'The specified parent relationship name is not valid. child object name: {0}, parent object name: {1}, relationship name: {2}',
+        new List<String>{ 'OrderItem', 'Order', 'OrderItems__r' }
+      );
+      Assert.areEqual(expected, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testThrough_WhenMultiRelationFieldWithSameParentExist_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(User.getSObjectType())
+      .field('Id')
+      .through(Scribe.asThrough(Opportunity.getSObjectType(), 'LastModifiedById').field('Name'));
+    //  Act / Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug(e.getMessage());
+      String errorMessage = String.format(
+        'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
+        new List<String>{ 'Opportunity', 'User' }
+      );
+      Assert.areEqual(errorMessage, e.getMessage());
     }
   }
 }
-

@@ -19,6 +19,8 @@ public with sharing class Scribe {
   private Boolean isChild = false;
   private List<Scribe> children = new List<Scribe>();
 
+  private String relationName = '';
+
   private Boolean isGroup = false;
   private List<String> groupByFields = new List<String>();
   private Map<String, AliasStructure> groupAliasMap = new Map<String, AliasStructure>();
@@ -564,6 +566,17 @@ public with sharing class Scribe {
 
   // ------------ add relation methods ------------
 
+  public Scribe relationName(String relationName) {
+    if (String.isEmpty(relationName)) {
+      throw new QueryException('リレーション名が空です。');
+    }
+
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.relationName = relationName;
+
+    return clonedScribe;
+  }
+
   public Scribe withChildren(Scribe childScribe) {
     this.validateOrConditionNotAllowed();
 
@@ -574,8 +587,6 @@ public with sharing class Scribe {
     if (!this.groupByFields.isEmpty() || !this.aggregateClauses.isEmpty()) {
       throw new QueryException('集計関数はwithChildrenメソッドと同時に使用することはできません。');
     }
-
-    System.debug(childScribe);
 
     if (!childScribe.isChild) {
       String error = 'withChildrenメソッドの引数のScribeクラスは、はScribe.asChild()で生成されたScribeクラスを入れてください。';
@@ -634,10 +645,14 @@ public with sharing class Scribe {
       throw new QueryException(error);
     }
     throughScribe.isParent = true;
+    Scribe childScribe = Scribe.asChild(throughScribe.junctionSObjectType)
+      .parentField(throughScribe)
+      .parentCondition(throughScribe);
+    if (!String.isEmpty(throughScribe.relationName)) {
+      childScribe = childScribe.relationName(throughScribe.relationName);
+    }
     Scribe clonedScribe = this.deepClone();
-    clonedScribe = clonedScribe.withChildren(
-      Scribe.asChild(throughScribe.junctionSObjectType).parentField(throughScribe).parentCondition(throughScribe)
-    );
+    clonedScribe = clonedScribe.withChildren(childScribe);
 
     return clonedScribe;
   }
@@ -754,6 +769,7 @@ public with sharing class Scribe {
 
   private Scribe deepClone() {
     Scribe newScribe = new Scribe(this.sObjectType);
+    newScribe.describe = this.describe;
     newScribe.selectFields = this.selectFields.clone();
     newScribe.aggregateClauses = this.aggregateClauses.clone();
     newScribe.conditionParts = this.conditionParts.clone();
@@ -777,6 +793,8 @@ public with sharing class Scribe {
     newScribe.junctionSObjectType = this.junctionSObjectType;
     newScribe.isThrough = this.isThrough;
     newScribe.throughScribes = this.throughScribes.clone();
+
+    newScribe.relationName = this.relationName;
 
     return newScribe;
   }
@@ -962,21 +980,49 @@ public with sharing class Scribe {
     String selectFieldsString = this.buildSelectFields(fieldMap, lowerNestingDepth);
 
     String fromString;
-    String objectName = this.describe.getName();
     List<Schema.ChildRelationship> childRelationships = parentSObjectType.getDescribe().getChildRelationships();
-    for (Schema.ChildRelationship childRelationship : childRelationships) {
-      if (childRelationship.getChildSObject().getDescribe().getName() == objectName) {
-        fromString = childRelationship.getRelationshipName();
-        break;
+    if (!String.isEmpty(this.relationName)) {
+      fromString = this.relationName;
+      Boolean isRelationNameValid = false;
+      for (Schema.ChildRelationship childRelationship : childRelationships) {
+        if (childRelationship.getRelationshipName() == fromString) {
+          isRelationNameValid = true;
+          break;
+        }
       }
-    }
-    if (fromString == null) {
-      String parentObjectName = parentSObjectType.getDescribe().getName();
-      String error = String.format(
-        '{0} does not have a child relationship with {1}',
-        new List<String>{ parentObjectName, objectName }
-      );
-      throw new QueryException(error);
+      if (!isRelationNameValid) {
+        String parentObjectName = parentSObjectType.getDescribe().getName();
+        String objectName = this.describe.getName();
+        String errorMessage = String.format(
+          'The specified parent relationship name is not valid. child object name: {0}, parent object name: {1}, relationship name: {2}',
+          new List<String>{ objectName, parentObjectName, fromString }
+        );
+        throw new QueryException(errorMessage);
+      }
+    } else {
+      String objectName = this.describe.getName();
+      for (Schema.ChildRelationship childRelationship : childRelationships) {
+        if (childRelationship.getChildSObject().getDescribe().getName() == objectName) {
+          if (fromString == null) {
+            fromString = childRelationship.getRelationshipName();
+          } else {
+            String parentObjectName = parentSObjectType.getDescribe().getName();
+            String errorMessage = String.format(
+              'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
+              new List<String>{ objectName, parentObjectName }
+            );
+            throw new QueryException(errorMessage);
+          }
+        }
+      }
+      if (fromString == null) {
+        String parentObjectName = parentSObjectType.getDescribe().getName();
+        String error = String.format(
+          '{0} does not have a child relationship with {1}',
+          new List<String>{ parentObjectName, objectName }
+        );
+        throw new QueryException(error);
+      }
     }
 
     String query = String.format('SELECT {0} FROM {1}', new List<String>{ selectFieldsString, fromString });

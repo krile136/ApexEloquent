@@ -9,6 +9,15 @@ public interface IEloquent {
   List<IEntry> get(Scribe scribe);
 
   /**
+  * Executes SOQL and retrieves the results as SObject.
+  * If the number of retrieved records is 0, an empty list is returned.
+  *
+  * @param Scribe scribe: Scribe instance containing the SOQL query
+  * @return Retrieved results as a list of SObjects
+  */
+  List<SObject> getAsSObject(Scribe scribe);
+
+  /**
   * Executes SOQL and returns the first record.
   * If the number of retrieved records is 0, null is returned.
   *
@@ -16,6 +25,15 @@ public interface IEloquent {
   * @return Retrieved result as an Entry object
   */
   IEntry first(Scribe scribe);
+
+  /**
+  * Executes SOQL and returns the first record as SObject.
+  * If the number of retrieved records is 0, null is returned.
+  *
+  * @param Scribe scribe: Scribe instance containing the SOQL query
+  * @return Retrieved result as an SObject
+  */
+  SObject firstAsSObject(Scribe scribe);
 
   /**
   * Executes SOQL and returns the first record.
@@ -26,6 +44,16 @@ public interface IEloquent {
   * @throws QueryException If the number of retrieved records is 0
   */
   IEntry firstOrFail(Scribe scribe);
+
+  /**
+  * Executes SOQL and returns the first record as SObject.
+  * If the number of retrieved records is 0, an exception is thrown.
+  *
+  * @param Scribe scribe: Scribe instance containing the SOQL query
+  * @return Retrieved result as an SObject
+  * @throws QueryException If the number of retrieved records is 0
+  */
+  SObject firstOrFailAsSObject(Scribe scribe) ;
 
   /**
   * Inserts a record and returns the inserted record.

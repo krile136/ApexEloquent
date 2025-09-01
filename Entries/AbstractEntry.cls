@@ -1,6 +1,7 @@
 public abstract class AbstractEntry implements IEntry {
   protected final SObject record;
   protected final FieldStructure fieldStructure;
+  protected Schema.DescribeSObjectResult describeResult;
 
   /**
    * constructor
@@ -51,6 +52,31 @@ public abstract class AbstractEntry implements IEntry {
    */
   public SObject getRecord() {
     return this.record;
+  }
+
+  public List<IEntry> getThrough(String junctionObjectName, String relatedKey) {
+    List<IEntry> junctionEntries = this.getChildren(junctionObjectName);
+    if (junctionEntries.isEmpty()) {
+      return new List<IEntry>();
+    }
+
+    List<IEntry> relatedEntries = new List<IEntry>();
+    Schema.DescribeSObjectResult junctionDescribeResult = junctionEntries[0]
+      .getRecord()
+      .getSObjectType()
+      .getDescribe();
+    for (IEntry junctionEntry : junctionEntries) {
+      junctionEntry.setDescribeResult(junctionDescribeResult);
+      relatedEntries.add(junctionEntry.getParent(relatedKey)); 
+    }
+    return relatedEntries;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public void setDescribeResult(Schema.DescribeSObjectResult describeResult) {
+    this.describeResult = describeResult;
   }
 
   // abstract methods to be implemented by subclasses

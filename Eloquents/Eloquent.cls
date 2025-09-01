@@ -16,6 +16,13 @@ public with sharing class Eloquent implements IEloquent{
   /**
    * @inheritDoc
    */
+  public List<SObject> getAsSObject(Scribe scribe) {
+    return (List<SObject>) Database.query(scribe.toSoql());
+  }
+
+  /**
+   * @inheritDoc
+   */
   public IEntry first(Scribe scribe) {
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
     if (records.isEmpty()) {
@@ -27,12 +34,34 @@ public with sharing class Eloquent implements IEloquent{
   /**
    * @inheritDoc
    */
+  public SObject firstAsSObject(Scribe scribe) {
+    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+    if (records.isEmpty()) {
+      return null;
+    }
+    return records[0];
+  }
+
+  /**
+   * @inheritDoc
+   */
   public IEntry firstOrFail(Scribe scribe) {
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
     if (records.isEmpty()) {
       throw new QueryException('No records found for query: ' + scribe.toSoql());
     }
     return new Entry(records[0]);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public SObject firstOrFailAsSObject(Scribe scribe) {
+    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+    if (records.isEmpty()) {
+      throw new QueryException('No records found for query: ' + scribe.toSoql());
+    }
+    return records[0];
   }
 
   /**

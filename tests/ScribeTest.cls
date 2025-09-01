@@ -1492,8 +1492,6 @@ public with sharing class ScribeTest {
     Assert.areEqual(expectedSoql, soql);
   }
 
-
-
   @isTest
   static void testAverage_WhenAddAverageField_ThenReturnAverageField() {
     // Arrange
@@ -2111,4 +2109,43 @@ public with sharing class ScribeTest {
     Assert.areEqual(expectedSoql, soql);
   }
   */
+
+  @isTest
+  static void testThrough_WhenAddThroughScribe_ThenReturnSoqlWithThrough() {
+    Scribe scribe = Scribe.source(Order.getSObjectType())
+      .field('Id')
+      .through(
+        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
+          .field('Name')
+          .field('ProductCode')
+          .whereEqual('IsActive', true)
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT Id, (SELECT Product2.name, Product2.productcode FROM OrderItems WHERE Product2.IsActive = true) FROM Order ';
+  }
+
+  @isTest
+  static void testThrough_WhenAddOtherScribeType_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Order.getSObjectType())
+        .field('Id')
+        .through(
+          Scribe.asChild(OrderItem.getSObjectType()) // asChildは指定できない
+            .field('Name')
+            .field('ProductCode')
+            .whereEqual('IsActive', true)
+        );
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('throughメソッドの引数のScribeクラスは、Scribe.asThrough()で生成されたScribeクラスを入れてください。', e.getMessage());
+    }
+  }
 }
+

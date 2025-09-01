@@ -29,6 +29,10 @@ public with sharing class Scribe {
 
   private Integer limitNumber = 0;
 
+  private Schema.SObjectType junctionSObjectType;
+  private Boolean isThrough = false;
+  private List<Scribe> throughScribes = new List<Scribe>();
+
   private final Integer MAX_UPPER_NESTING_DEPTH = 5;
   private final Integer MAX_LOWER_NESTING_DEPTH = 4;
 
@@ -86,6 +90,15 @@ public with sharing class Scribe {
   public static Scribe asHaving() {
     Scribe newScribe = new Scribe(null);
     newScribe.isHaving = true;
+    return newScribe;
+  }
+
+  public static Scribe asThrough(Schema.SObjectType junctionSObjectType, String relatedKey) {
+    Scribe newScribe = new Scribe(null);
+    newScribe.isThrough = true;
+    newScribe.junctionSObjectType = junctionSObjectType;
+    newScribe.parentRelationIdFieldName = relatedKey;
+
     return newScribe;
   }
 
@@ -615,6 +628,20 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  public Scribe through(Scribe throughScribe) {
+    if (!throughScribe.isThrough) {
+      String error = 'throughメソッドの引数のScribeクラスは、Scribe.asThrough()で生成されたScribeクラスを入れてください。';
+      throw new QueryException(error);
+    }
+    throughScribe.isParent = true;
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe = clonedScribe.withChildren(
+      Scribe.asChild(throughScribe.junctionSObjectType).parentField(throughScribe).parentCondition(throughScribe)
+    );
+
+    return clonedScribe;
+  }
+
   // ------------ other clauses ------------
 
   public Scribe take(Integer limitNumber) {
@@ -734,6 +761,7 @@ public with sharing class Scribe {
     newScribe.parents = this.parents.clone();
     newScribe.groupByFields = this.groupByFields.clone();
     newScribe.orderByClauses = this.orderByClauses.clone();
+    newScribe.limitNumber = this.limitNumber;
 
     newScribe.isSelectAll = this.isSelectAll;
     newScribe.isNextConditionOr = this.isNextConditionOr;
@@ -745,6 +773,10 @@ public with sharing class Scribe {
     newScribe.groupAliasMap = this.groupAliasMap.clone();
     newScribe.isHaving = this.isHaving;
     newScribe.havingScribe = this.havingScribe;
+
+    newScribe.junctionSObjectType = this.junctionSObjectType;
+    newScribe.isThrough = this.isThrough;
+    newScribe.throughScribes = this.throughScribes.clone();
 
     return newScribe;
   }

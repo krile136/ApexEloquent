@@ -3,6 +3,7 @@ public with sharing class MockEloquent implements IEloquent {
   private Integer insertCount;
   @TestVisible
   private Scribe scribe;
+  private Boolean shouldThrowException = false;
 
   /**
    * constructor
@@ -11,6 +12,7 @@ public with sharing class MockEloquent implements IEloquent {
     this.entries = new List<IEntry>();
     this.insertCount = 0;
     this.scribe = null;
+    this.shouldThrowException = false;
   }
 
   /**
@@ -26,6 +28,7 @@ public with sharing class MockEloquent implements IEloquent {
     }
     this.insertCount = 0;
     this.scribe = null;
+    this.shouldThrowException = false;
   }
 
   /**
@@ -36,12 +39,28 @@ public with sharing class MockEloquent implements IEloquent {
   public MockEloquent(List<IEntry> entries) {
     this.entries = entries;
     this.insertCount = 0;
+    this.scribe = null;
+    this.shouldThrowException = false;
+  }
+
+  /**
+   * Constructor for forcing an exception
+   * @param shouldThrow Set to true to make methods throw an exception
+   */
+  public MockEloquent(Boolean shouldThrow) {
+    this.entries = new List<IEntry>();
+    this.insertCount = 0;
+    this.scribe = null;
+    this.shouldThrowException = shouldThrow;
   }
 
   /**
    * @inheritDoc
    */
   public List<IEntry> get(Scribe scribe) {
+    if (this.shouldThrowException) {
+      throw new QueryException('Test Exception from MockEloquent.get()');
+    }
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
@@ -55,7 +74,26 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public List<SObject> getAsSObject(Scribe scribe) {
+    if (this.shouldThrowException) {
+      throw new QueryException('Test Exception from MockEloquent.getAsSObject()');
+    }
+    this.scribe = scribe;
+    String soql = scribe.toSoql(); // for showing and validate SOQL
+    List<SObject> result = new List<SObject>();
+    for (IEntry entry : this.entries) {
+      result.add(entry.getRecord());
+    }
+    return result;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public IEntry first(Scribe scribe) {
+    if (this.shouldThrowException) {
+      throw new QueryException('Test Exception from MockEloquent.first()');
+    }
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
@@ -65,10 +103,25 @@ public with sharing class MockEloquent implements IEloquent {
     return this.entries[0].setFieldStructure(fieldStructure);
   }
 
+  public SObject firstAsSObject(Scribe scribe) {
+    if (this.shouldThrowException) {
+      throw new QueryException('Test Exception from MockEloquent.firstAsSObject()');
+    }
+    this.scribe = scribe;
+    String soql = scribe.toSoql(); // for showing and validate SOQL
+    if (this.entries.isEmpty()) {
+      return null;
+    }
+    return this.entries[0].getRecord();
+  }
+
   /**
    * @inheritDoc
    */
   public IEntry firstOrFail(Scribe scribe) {
+    if (this.shouldThrowException) {
+      throw new QueryException('Test Exception from MockEloquent.firstOrFail()');
+    }
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
@@ -78,10 +131,28 @@ public with sharing class MockEloquent implements IEloquent {
     return this.entries[0].setFieldStructure(fieldStructure);
   }
 
+  public SObject firstOrFailAsSObject(Scribe scribe) {
+    if (this.shouldThrowException) {
+      throw new QueryException('Test Exception from MockEloquent.firstOrFailAsSObject()');
+    }
+    this.scribe = scribe;
+    String soql = scribe.toSoql(); // for showing and validate SOQL
+    if (this.entries.isEmpty()) {
+      throw new QueryException('No records found for query: ' + scribe.toSoql());
+    }
+    return this.entries[0].getRecord();
+  }
+
   /**
    * @inheritDoc
    */
   public SObject doInsert(SObject record) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doInsert()');
+    }
+    if (record == null) {
+      throw new DmlException('Cannot insert null record');
+    }
     record.Id = this.genereteId(record);
     return record;
   }
@@ -90,6 +161,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doInsert(List<SObject> records) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doInsert()');
+    }
+    if (records == null || records.isEmpty()) {
+      throw new DmlException('Cannot insert null or empty records');
+    }
     for (SObject record : records) {
       record.Id = this.genereteId(record);
     }
@@ -100,6 +177,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doUpdate(SObject record) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doUpdate()');
+    }
+    if (record == null) {
+      throw new DmlException('Cannot update null record');
+    }
     return record;
   }
 
@@ -107,6 +190,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doUpdate(List<SObject> records) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doUpdate()');
+    }
+    if (records == null || records.isEmpty()) {
+      throw new DmlException('Cannot update null or empty records');
+    }
     return records;
   }
 
@@ -114,6 +203,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(SObject record) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doDelete()');
+    }
+    if (record == null) {
+      throw new DmlException('Cannot delete null record');
+    }
     return;
   }
 
@@ -121,6 +216,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(List<SObject> records) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doDelete()');
+    }
+    if (records == null || records.isEmpty()) {
+      throw new DmlException('Cannot delete null or empty records');
+    }
     return;
   }
 

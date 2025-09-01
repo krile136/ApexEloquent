@@ -24,6 +24,15 @@ public Interface IEntry {
   List<IEntry> getChildren(String childObjectName);
 
   /**
+  * get related SObject list through a junction object.
+  *
+  * @param junctionObjectName junction object Name
+  * @param relatedKey related SObject key field name in the junction object
+  * @return related SObject list
+  */
+  List<IEntry> getThrough(String junctionObjectName, String relatedKey);
+
+  /**
    * get Id
    *
    * @return Id
@@ -59,4 +68,11 @@ public Interface IEntry {
    * @return EvaluatorInterface
    */
   IEntry setFieldStructure(FieldStructure fieldStructure);
+
+  /**
+   * set DescribeSObjectResult for relation query
+   *
+   * @param describeResult Schema.DescribeSObjectResult
+   */
+  void setDescribeResult(Schema.DescribeSObjectResult describeResult);
 }

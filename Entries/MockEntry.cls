@@ -25,6 +25,11 @@ public with sharing class MockEntry extends AbstractEntry {
   public override Object get(String fieldName) {
     this.validateFieldName(fieldName);
 
+    if (this.describeResult == null) {
+      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
+      this.setDescribeResult(describeResult);
+    }
+
     if (this.fieldToValue.containsKey(fieldName)) {
       return this.fieldToValue.get(fieldName);
     }
@@ -39,12 +44,17 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   public override IEntry getParent(String parentIdFieldName) {
+    if (this.describeResult == null) {
+      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
+      this.setDescribeResult(describeResult);
+    }
+
     String lowerCaseFieldName = parentIdFieldName.toLowerCase();
 
     if (!this.fieldStructure.hasRelation(lowerCaseFieldName)) {
       String error = String.format(
         'The specified parentIdFieldName is not set in Scribe. object name: {0}, parent Id field name: {1}',
-        new List<String>{ this.record.getSObjectType().getDescribe().getName(), parentIdFieldName }
+        new List<String>{ this.describeResult.getName(), parentIdFieldName }
       );
       throw new QueryException(error);
     }
@@ -62,12 +72,17 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   public override List<IEntry> getChildren(String childObjectName) {
+    if (this.describeResult == null) {
+      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
+      this.setDescribeResult(describeResult);
+    }
+
     String lowerCastChildObjectName = childObjectName.toLowerCase();
 
     if (!this.fieldStructure.hasRelation(lowerCastChildObjectName)) {
       String error = String.format(
         'The specified childObjectName is not set in Scribe. object name: {0}, child object name: {1}',
-        new List<String>{ this.record.getSObjectType().getDescribe().getName(), childObjectName }
+        new List<String>{ this.describeResult.getName(), childObjectName }
       );
       throw new QueryException(error);
     }
@@ -82,7 +97,7 @@ public with sharing class MockEntry extends AbstractEntry {
       } else {
         String error = String.format(
           'The child object needs to be a List<IEntry> or IEntry. object name: {0}, child object name: {1}',
-          new List<String>{ this.record.getSObjectType().getDescribe().getName(), childObjectName }
+          new List<String>{ this.describeResult.getName(), childObjectName }
         );
         throw new QueryException(error);
       }

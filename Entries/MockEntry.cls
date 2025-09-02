@@ -30,13 +30,10 @@ public with sharing class MockEntry extends AbstractEntry {
       this.setDescribeResult(describeResult);
     }
 
-    if (this.fieldToValue.containsKey(fieldName)) {
-      return this.fieldToValue.get(fieldName);
-    }
-
-    String lowerCaseFieldName = fieldName.toLowerCase();
-    if (this.fieldToValue.containsKey(lowerCaseFieldName)) {
-      return this.record.get(lowerCaseFieldName);
+    for (String key : this.fieldToValue.keySet()) {
+      if (key.equalsIgnoreCase(fieldName)) {
+        return this.fieldToValue.get(key);
+      }
     }
 
     Entry entry = new Entry(this.record);
@@ -76,6 +73,8 @@ public with sharing class MockEntry extends AbstractEntry {
       Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
       this.setDescribeResult(describeResult);
     }
+    // for validate the childObjectName
+    String childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
 
     String lowerCastChildObjectName = childObjectName.toLowerCase();
 
@@ -115,6 +114,54 @@ public with sharing class MockEntry extends AbstractEntry {
 
     Entry entry = new Entry(this.record);
     return entry.getChildren(childObjectName);
+  }
+
+  public override List<IEntry> getChildrenByRelationName(String childRelationName) {
+    if (this.describeResult == null) {
+      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
+      this.setDescribeResult(describeResult);
+    }
+
+    String lowerCaseRelationName = childRelationName.toLowerCase();
+
+    if (!this.fieldStructure.hasRelation(lowerCaseRelationName)) {
+      String error = String.format(
+        'The specified childRelationName is not set in Scribe. object name: {0}, child relation name: {1}',
+        new List<String>{ this.describeResult.getName(), childRelationName }
+      );
+      throw new QueryException(error);
+    }
+
+    this.validateChildRelationName(childRelationName);
+
+    if (this.fieldToValue.containsKey(childRelationName)) {
+      List<IEntry> entries;
+      Object childObject = this.fieldToValue.get(childRelationName);
+      if (childObject instanceof List<IEntry>) {
+        entries = (List<IEntry>) childObject;
+      } else if (childObject instanceof IEntry) {
+        entries = new List<IEntry>{ (IEntry) childObject };
+      } else {
+        String error = String.format(
+          'The child object needs to be a List<IEntry> or IEntry. object name: {0}, child object relation name: {1}',
+          new List<String>{ this.describeResult.getName(), childRelationName }
+        );
+        throw new QueryException(error);
+      }
+
+      List<IEntry> resultEntries = new List<IEntry>();
+      FieldStructure childFieldStructure = this.fieldStructure == null
+        ? null
+        : this.fieldStructure.getRelationFieldStructure(lowerCaseRelationName);
+      for (IEntry entry : entries) {
+        resultEntries.add(entry.setFieldStructure(childFieldStructure));
+      }
+
+      return resultEntries;
+    }
+
+    Entry entry = new Entry(this.record);
+    return entry.getChildrenByRelationName(childRelationName);
   }
 
   /**

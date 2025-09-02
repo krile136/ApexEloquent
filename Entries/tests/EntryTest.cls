@@ -167,6 +167,19 @@ public with sharing class EntryTest {
   }
 
   @isTest
+  public static void testGetChildrenByRelationName_WhenChildrenAreNull_ShouldReturnEmptyList() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act
+    List<IEntry> children = entry.getChildrenByRelationName('Contacts');
+
+    // Assert
+    Assert.isTrue(children.isEmpty(), 'The children list should be empty when no children exist.');
+  }
+
+  @isTest
   public static void testSetRecord_WhenCalled_ThenSetSObject() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');

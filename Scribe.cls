@@ -536,7 +536,9 @@ public with sharing class Scribe {
 
     if (!this.children.isEmpty()) {
       for (Scribe child : this.children) {
-        String childObjectname = child.getDescribe().getName().toLowerCase();
+        String childObjectname = String.isEmpty(child.relationName)
+          ? child.getDescribe().getName().toLowerCase()
+          : child.relationName.toLowerCase();
         FieldStructure childFieldStructure = child.buildFieldStructure();
         relationFieldStructures.put(childObjectname, childFieldStructure);
       }

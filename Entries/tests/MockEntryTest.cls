@@ -32,7 +32,8 @@ public class MockEntryTest {
   public static void testConstructor_WhenApplySObjectAndFieldStructure_ThenMockEntryCreated() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'Name', 'Industry' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'Name', 'Industry' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
 
     // Act
     MockEntry mockEntry = new MockEntry(record, fieldStructure);
@@ -45,7 +46,8 @@ public class MockEntryTest {
   public static void TestConstructor_WhenApplySObjectAndFieldStructureAndFieldToValue_ThenMockEntryCreated() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'Name', 'Industry' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'Name', 'Industry' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'Name' => 'Mock Account',
       'Industry' => 'Technology'
@@ -62,7 +64,8 @@ public class MockEntryTest {
   public static void testGet_WhenFieldExists_ThenReturnFieldValue() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -77,7 +80,8 @@ public class MockEntryTest {
   public static void testGet_WhenScriceDoesNotSelectField_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -97,7 +101,8 @@ public class MockEntryTest {
   public static void testGet_WhenFieldValueIsOverride_ThenReturnOverrideValue() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'Mock Account' };
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -112,7 +117,8 @@ public class MockEntryTest {
   public static void testGetId_WhenCalled_ThenReturnId() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -127,7 +133,8 @@ public class MockEntryTest {
   public static void testGetId_WhenIdFieldDoesNotSelected_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'name' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'name' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -147,7 +154,8 @@ public class MockEntryTest {
   public static void testGetName_WhenCalled_ThenReturnName() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -162,7 +170,8 @@ public class MockEntryTest {
   public static void testGetName_WhenNameFieldDoesNotSelected_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -182,7 +191,8 @@ public class MockEntryTest {
   public static void testSetRecord_WhenCalled_ThenReturnNewMockEntry() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -198,7 +208,8 @@ public class MockEntryTest {
   public static void testSetFieldStructure_WhenCalled_ThenReturnNewMockEntryWithFieldStructure() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>());
+    Scribe scribe = Scribe.source(Account.getSObjectType());
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -214,10 +225,10 @@ public class MockEntryTest {
   public static void testGetParent_WhenParentNotExist_ThenReturnNull() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
-    FieldStructure fieldStructure = new FieldStructure(
-      new List<String>{ 'accountid' },
-      new Map<String, FieldStructure>{ 'accountid' => new FieldStructure(new List<String>{ 'id', 'name' }) }
-    );
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('AccountId')
+      .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'id', 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
@@ -232,10 +243,11 @@ public class MockEntryTest {
   public static void testGetParent_WhenParentIsOverride_ThenReturnParentEntry() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
-    FieldStructure fieldStructure = new FieldStructure(
-      new List<String>{ 'id', 'name' },
-      new Map<String, FieldStructure>{ 'accountid' => new FieldStructure(new List<String>{ 'id', 'name' }) }
-    );
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .field('Name')
+      .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'Id', 'Name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'AccountId' => new MockEntry(new Account(Id = '001000000000001', Name = 'Test Account'))
     };
@@ -253,7 +265,8 @@ public class MockEntryTest {
   public static void testGetParent_WhenFieldStructureDoesNotHaveParentIdFiled_ThenThrowException() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
-    FieldStructure fieldStructure = new FieldStructure(new List<String>{ 'id' });
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id');
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'AccountId' => new MockEntry(new Account(Id = '001000000000001', Name = 'Test Account'))
     };
@@ -276,34 +289,29 @@ public class MockEntryTest {
   public static void testGetParent_WhenNestedParentExists_ThenReturnNestedParentEntry() {
     // Arrange
     SObject record = new OrderItem();
-    FieldStructure FieldStructure = new FieldStructure(
-      new List<String>{ 'name' },
-      new Map<String, FieldStructure>{
-        'orderid' => new FieldStructure(
-          new List<String>{ 'name' },
-          new Map<String, FieldStructure>{
-            'quoteid' => new FieldStructure(
-              new List<String>{ 'name' },
-              new Map<String, FieldStructure>{
-                'opportunityid' => new FieldStructure(
-                  new List<String>{ 'name' },
-                  new Map<String, FieldStructure>{
-                    'contractid' => new FieldStructure(
-                      new List<String>{ 'name' },
-                      new Map<String, FieldStructure>{
-                        'accountid' => new FieldStructure(new List<String>{ 'name' })
-                      }
-                    )
-                  }
-                )
-              }
-            )
-          }
-        )
-      }
-    );
+    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+      .fields(new List<String>{ 'Id' })
+      .parentField(
+        Scribe.asParent('OrderId')
+          .fields(new List<String>{ 'Name' })
+          .parentField(
+            Scribe.asParent('QuoteId')
+              .fields(new List<String>{ 'Name' })
+              .parentField(
+                Scribe.asParent('OpportunityId')
+                  .fields(new List<String>{ 'Name' })
+                  .parentField(
+                    Scribe.asParent('ContractId')
+                      .fields(new List<String>{ 'Name' })
+                      .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'Name' }))
+                  )
+              )
+          )
+      );
+    FieldStructure FieldStructure = scribe.buildFieldStructure();
+
     Map<String, Object> fieldToValue = new Map<String, Object>{
-      'Name' => 'Test Order Item',
+      'Id' => '802000000000001',
       'OrderId' => new MockEntry(
         new Order(Name = 'Test Order'),
         new Map<String, Object>{
@@ -353,41 +361,68 @@ public class MockEntryTest {
   public static void testGetChildren_WhenChildrenExist_ThenReturnChildEntries() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(
-      new List<String>{ 'id', 'name' },
-      new Map<String, FieldStructure>{ 'opportunity' => new FieldStructure(new List<String>{ 'id', 'name' }) }
-    );
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(Scribe.asChild(Contract.getSObjectType()).fields(new List<String>{ 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
-      'Opportunity' => new List<IEntry>{
-        new MockEntry(new Opportunity(Id = '006000000000001', Name = 'Test Opp 1')),
-        new MockEntry(new Opportunity(Id = '006000000000002', Name = 'Test Opp 2'))
+      'Contract' => new List<IEntry>{
+        new MockEntry(new Contract(), new Map<String, Object>{ 'Name' => 'Test Contract 1' }),
+        new MockEntry(new Contract(), new Map<String, Object>{ 'Name' => 'Test Contract 2' })
       }
     };
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
     // Act
-    List<IEntry> children = mockEntry.getChildren('Opportunity');
+    List<IEntry> children = mockEntry.getChildren('Contract');
 
     // Assert
     Assert.isNotNull(children, 'Children should not be null.');
     Assert.areEqual(2, children.size(), 'There should be two child entries.');
-    Assert.areEqual('Test Opp 1', children[0].getName(), 'First child name should match.');
-    Assert.areEqual('Test Opp 2', children[1].getName(), 'Second child name should match.');
+    Assert.areEqual('Test Contract 1', children[0].getName(), 'First child name should match.');
+    Assert.areEqual('Test Contract 2', children[1].getName(), 'Second child name should match.');
+  }
+
+  @isTest
+  static void testGetChildren_WhenChildrenObjectIsNotIEntry_ThenThrowError() {
+    // Arrange
+    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(Scribe.asChild(Contract.getSObjectType()).fields(new List<String>{ 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'Contract' => new List<Contract>{ new Contract() }
+    };
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+
+    // Act & Assert
+    try {
+      List<IEntry> children = mockEntry.getChildren('Contract');
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      String expected = String.format(
+        'The child object needs to be a List<IEntry> or IEntry. object name: {0}, child object name: {1}',
+        new List<String>{ 'Account', 'Contract' }
+      );
+      Assert.areEqual(expected, e.getMessage());
+    }
   }
 
   @isTest
   public static void testGetChildren_WhenChildObjectDoesNotExist_ThenReturnEmptyList() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(
-      new List<String>{ 'id', 'name' },
-      new Map<String, FieldStructure>{ 'opportunity' => new FieldStructure(new List<String>{ 'id', 'name' }) }
-    );
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(Scribe.asChild(Contract.getSObjectType()).fields(new List<String>{ 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
     // Act
-    List<IEntry> children = mockEntry.getChildren('Opportunity');
+    List<IEntry> children = mockEntry.getChildren('Contract');
 
     // Assert
     Assert.isNotNull(children, 'Children should not be null.');
@@ -398,28 +433,28 @@ public class MockEntryTest {
   public static void testGetChildren_WhenChildObjectFieldDoesNotSelected_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(
-      new List<String>{ 'id', 'name' },
-      new Map<String, FieldStructure>{
-        'opportunity' => new FieldStructure(new List<String>{ 'id' }) // 'name' field is not selected
-      }
-    );
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(
+        Scribe.asChild(Contract.getSObjectType()).fields(new List<String>{ 'id' }) // 'name' field is not selected
+      );
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
-      'Opportunity' => new List<IEntry>{
-        new MockEntry(new Opportunity(Id = '006000000000001', Name = 'Test Opp 1')),
-        new MockEntry(new Opportunity(Id = '006000000000002', Name = 'Test Opp 2'))
+      'Contract' => new List<IEntry>{
+        new MockEntry(new Contract(Id = '800000000000001', Name = 'Test Contract 1')),
+        new MockEntry(new Contract(Id = '800000000000002', Name = 'Test Contract 2'))
       }
     };
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
     // Act & Assert
     try {
-      List<IEntry> children = mockEntry.getChildren('Opportunity');
+      List<IEntry> children = mockEntry.getChildren('Contract');
       String childName = children[0].getName();
       Assert.fail('Expected QueryException to be thrown.');
     } catch (QueryException e) {
       Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Opportunity, field name: Name',
+        'The specified field is not selected in Scribe. object name: Contract, field name: Name',
         e.getMessage()
       );
     }
@@ -429,27 +464,24 @@ public class MockEntryTest {
   public static void testGetChildren_WhenNestedChildrenExist_ThenReturnNestedChildEntries() {
     // Arrange
     Sobject accountEnery = new Account(Name = 'Test Account');
-    FieldStructure fieldStructure = new FieldStructure(
-      new List<String>{ 'name' },
-      new Map<String, FieldStructure>{
-        'contract' => new FieldStructure(
-          new List<String>{ 'name' },
-          new Map<String, FieldStructure>{
-            'opportunity' => new FieldStructure(
-              new List<String>{ 'name' },
-              new Map<String, FieldStructure>{
-                'order' => new FieldStructure(
-                  new List<String>{ 'name' },
-                  new Map<String, FieldStructure>{
-                    'orderitem' => new FieldStructure(new List<String>{ 'description' })
-                  }
-                )
-              }
-            )
-          }
-        )
-      }
-    );
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .fields(new List<String>{ 'name' })
+      .withChildren(
+        Scribe.asChild(Contract.getSObjectType())
+          .fields(new List<String>{ 'name' })
+          .withChildren(
+            Scribe.asChild(Opportunity.getSObjectType())
+              .fields(new List<String>{ 'name' })
+              .withChildren(
+                Scribe.asChild(Order.getSObjectType())
+                  .fields(new List<String>{ 'name' })
+                  .withChildren(
+                    Scribe.asChild(OrderItem.getSObjectType()).fields(new List<String>{ 'description' })
+                  )
+              )
+          )
+      );
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'Name' => 'Test Account',
       'Contract' => new MockEntry(
@@ -493,5 +525,138 @@ public class MockEntryTest {
     Assert.areEqual(2, orderItems.size(), 'There should be two order items.');
     Assert.areEqual('Test Order Item 1', orderItems[0].get('Description'), 'First order item name should match.');
     Assert.areEqual('Test Order Item 2', orderItems[1].get('Description'), 'Second order item name should match.');
+  }
+
+  @isTest
+  static void testGetChildrenByRelationName_WhenRelationNameIsValid_ThenReturnChildEntries() {
+    // Arrange
+    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(
+        Scribe.asChild(Contract.getSObjectType()).relationName('Contracts').fields(new List<String>{ 'name' })
+      );
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'Contracts' => new List<IEntry>{
+        new MockEntry(new Contract(), new Map<String, Object>{ 'Name' => 'Test Contract 1' }),
+        new MockEntry(new Contract(), new Map<String, Object>{ 'Name' => 'Test Contract 2' })
+      }
+    };
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+
+    // Act
+    List<IEntry> children = mockEntry.getChildrenByRelationName('Contracts');
+
+    // Assert
+    Assert.isNotNull(children, 'Children should not be null.');
+    Assert.areEqual(2, children.size(), 'There should be two child entries.');
+    Assert.areEqual('Test Contract 1', children[0].getName(), 'First child name should match.');
+    Assert.areEqual('Test Contract 2', children[1].getName(), 'Second child name should match.');
+  }
+
+  @isTest
+  static void testGetChildrenByRelationName_WhenRelationNameIsInvalid_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(
+        Scribe.asChild(Contract.getSObjectType()).relationName('Contract__r').fields(new List<String>{ 'name' })
+      );
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>();
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+
+    // Act & Assert
+    try {
+      List<IEntry> children = mockEntry.getChildrenByRelationName('Contract__r');
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      String expected = String.format(
+        'The specified childRelationName does not exist in the parent object\'s children relationships. parent object name: {0}, child relation name: {1}',
+        new List<String>{ 'Account', 'Contract__r' }
+      );
+      Assert.areEqual(expected, e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGetThrough_WhenRelationIsValid_ThenReturnRelatedObject() {
+    // Arrange
+    SObject record = new Order(Id = '801000000000000', Name = 'Test Account');
+    Scribe scribe = Scribe.source(Order.getSObjectType())
+      .fields(new List<String>{ 'id', 'name' })
+      .through(
+        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id').fields(new List<String>{ 'id', 'name' })
+      );
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    System.debug('Field Structure: ' + fieldStructure);
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'OrderItem' => new List<IEntry>{
+        new MockEntry(
+          new OrderItem(),
+          new Map<String, Object>{ 'Product2Id' => new MockEntry(new Product2(Name = 'Test Product1')) }
+        ),
+        new MockEntry(
+          new OrderItem(),
+          new Map<String, Object>{ 'Product2Id' => new MockEntry(new Product2(Name = 'Test Product2')) }
+        )
+      }
+    };
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+
+    // Act
+    List<IEntry> relatedObjects = mockEntry.getThrough('OrderItem', 'Product2Id');
+
+    // Assert
+    Assert.isNotNull(relatedObjects, 'Related objects should not be null.');
+    Assert.areEqual(2, relatedObjects.size(), 'There should be two related objects.');
+    Assert.areEqual('Test Product1', relatedObjects[0].getName(), 'First related object name should match.');
+    Assert.areEqual('Test Product2', relatedObjects[1].getName(), 'Second related object name should match.');
+  }
+
+  @isTest
+  static void testGetThroughByRelationName_WhenRelationIsValid_ThenReturnRelatedObject() {
+    // Arrange
+    SObject record = new User(Id = '005000000000000');
+    Scribe scribe = Scribe.source(User.getSObjectType())
+      .field('Id')
+      .through(
+        Scribe.asThrough(Opportunity.getSObjectType(), 'LastModifiedById')
+          .relationName('CR_DeputySalesManagerBusySeason__r')
+          .field('Name')
+      );
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'CR_DeputySalesManagerBusySeason__r' => new List<IEntry>{
+        new MockEntry(
+          new Opportunity(),
+          new Map<String, Object>{
+            'LastModifiedById' => new MockEntry(new User(), new Map<String, Object>{ 'Name' => 'Last Modify 1' })
+          }
+        ),
+        new MockEntry(
+          new Opportunity(),
+          new Map<String, Object>{
+            'LastModifiedById' => new MockEntry(new User(), new Map<String, Object>{ 'Name' => 'Last Modify 2' })
+          }
+        )
+      }
+    };
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+
+    // Act
+    List<IEntry> relatedObjects = mockEntry.getThroughByRelationName(
+      'CR_DeputySalesManagerBusySeason__r',
+      'LastModifiedById'
+    );
+
+    // Assert
+    Assert.isNotNull(relatedObjects, 'Related objects should not be null.');
+    Assert.areEqual(2, relatedObjects.size(), 'There should be two related objects.');
+    Assert.areEqual('Last Modify 1', relatedObjects[0].getName(), 'First related object name should match.');
+    Assert.areEqual('Last Modify 2', relatedObjects[1].getName(), 'Second related object name should match.');
   }
 }

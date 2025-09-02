@@ -458,23 +458,23 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntryWithoutChildrenGetChildren_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.source(Order.getSObjectType())
       .field('Id')
       .field('Name')
-      .whereEqual('Id', '006000000000001');
-    MockEntry accountEntry = new MockEntry(new Account(Id = '001000000000000001', Name = 'Test Account'));
+      .whereEqual('Id', '801000000000001');
+    MockEntry accountEntry = new MockEntry(new Order(Id = '801000000000000001', Name = 'Test Account'));
     IEloquent eloquent = new MockEloquent(accountEntry);
 
     // Act & Assert
     List<IEntry> entries = eloquent.get(scribe);
     try {
       IEntry entry = entries[0];
-      entry.getChildren('Opportunity'); // This child does not exist in the mock entry
+      entry.getChildren('OrderItem'); // This child does not exist in the mock entry
       Assert.fail('Expected QueryException to be thrown for non-existing child');
     } catch (QueryException e) {
       System.debug(e.getMessage());
       Assert.areEqual(
-        'The specified childObjectName is not set in Scribe. object name: Account, child object name: Opportunity',
+        'The specified childObjectName is not set in Scribe. object name: Order, child object name: OrderItem',
         e.getMessage(),
         'Expected QueryException with specific message for non-existing child'
       );

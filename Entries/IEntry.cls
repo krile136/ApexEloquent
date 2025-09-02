@@ -24,6 +24,14 @@ public Interface IEntry {
   List<IEntry> getChildren(String childObjectName);
 
   /**
+   * get child SObject list through relation name.
+   *
+   * @param childRelationName child relation name
+   * @return child SObject list
+   */
+  List<IEntry> getChildrenByRelationName(String childRelationName);
+
+  /**
   * get related SObject list through a junction object.
   *
   * @param junctionObjectName junction object Name
@@ -31,6 +39,15 @@ public Interface IEntry {
   * @return related SObject list
   */
   List<IEntry> getThrough(String junctionObjectName, String relatedKey);
+  
+  /**
+   * get related SObject list through a junction object relation name.
+   *
+   * @param junctionRelationName junction object relation Name
+   * @param relatedKey related SObject key field name in the junction object
+   * @return related SObject list
+   */
+  List<IEntry> getThroughByRelationName(String junctionRelationName, String relatedKey);
 
   /**
    * get Id

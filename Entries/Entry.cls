@@ -62,29 +62,36 @@ public with sharing class Entry extends AbstractEntry {
   }
 
   public override List<IEntry> getChildren(String childObjectName) {
+    System.debug('getChildren called. childObjectName: ' + childObjectName);
     if (this.describeResult == null) {
       Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
       this.setDescribeResult(describeResult);
     }
     List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
 
-    for (Schema.ChildRelationship childRelationShip : childRelationShips) {
-      if (childRelationShip.getChildSObject().getDescribe().getName() == childObjectName) {
-        String childRelationName = childRelationShip.getRelationshipName();
-        List<IEntry> childRecords = new List<IEntry>();
-        for (SObject childSObject : this.record.getSObjects(childRelationName)) {
-          childRecords.add(new Entry(ChildSObject));
-        }
-
-        return childRecords;
-      }
+    String childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
+    List<IEntry> childRecords = new List<IEntry>();
+    for (SObject childSObject : this.record.getSObjects(childRelationName)) {
+      childRecords.add(new Entry(ChildSObject));
     }
 
-    String error = String.format(
-      'The specified childObjectName does not exist in the parent object\'s children relationships. parent object name: {0}, child object name: {1}',
-      new List<String>{ this.describeResult.getName(), childObjectName }
-    );
-    throw new QueryException(error);
+    return childRecords;
+  }
+
+  public override List<IEntry> getChildrenByRelationName(String childRelationName) {
+    if (this.describeResult == null) {
+      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
+      this.setDescribeResult(describeResult);
+    }
+
+    this.validateChildRelationName(childRelationName);
+
+    List<IEntry> childRecords = new List<IEntry>();
+    for (SObject childSObject : this.record.getSObjects(childRelationName)) {
+      childRecords.add(new Entry(ChildSObject));
+    }
+
+    return childRecords;
   }
 
   /**

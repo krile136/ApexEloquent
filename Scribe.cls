@@ -230,7 +230,7 @@ public with sharing class Scribe {
   }
 
   public Scribe havingCondition(Scribe havingScribe) {
-    if (this.groupByFields.isEMpty()) {
+    if (this.groupByFields.isEmpty()) {
       throw new QueryException('havingConditionメソッドは、groupByFieldと同時に使用する必要があります。');
     }
     if (!havingScribe.isHaving) {
@@ -536,7 +536,7 @@ public with sharing class Scribe {
 
     if (!this.children.isEmpty()) {
       for (Scribe child : this.children) {
-        String childObjectname = String.isEmpty(child.relationName)
+        String childObjectname = String.isBlank(child.relationName)
           ? child.getDescribe().getName().toLowerCase()
           : child.relationName.toLowerCase();
         FieldStructure childFieldStructure = child.buildFieldStructure();
@@ -569,7 +569,7 @@ public with sharing class Scribe {
   // ------------ add relation methods ------------
 
   public Scribe relationName(String relationName) {
-    if (String.isEmpty(relationName)) {
+    if (String.isBlank(relationName)) {
       throw new QueryException('リレーション名が空です。');
     }
 
@@ -650,7 +650,7 @@ public with sharing class Scribe {
     Scribe childScribe = Scribe.asChild(throughScribe.junctionSObjectType)
       .parentField(throughScribe)
       .parentCondition(throughScribe);
-    if (!String.isEmpty(throughScribe.relationName)) {
+    if (String.isNotBlank(throughScribe.relationName)) {
       childScribe = childScribe.relationName(throughScribe.relationName);
     }
     Scribe clonedScribe = this.deepClone();
@@ -714,7 +714,7 @@ public with sharing class Scribe {
   ) {
     WhereClauseData whereClauseData = this.buildWhereClause(fieldMap, null);
     String whereString = whereClauseData.whereClauseString;
-    if (whereString != '') {
+    if (String.isNotBlank(whereString)) {
       query += ' WHERE ' + whereString;
     }
 
@@ -817,7 +817,7 @@ public with sharing class Scribe {
 
     // add aggregate clauses
     for (IAggregateClause aggregateClause : this.aggregateClauses) {
-      if (selectFieldsString != '') {
+      if (String.isNotBlank(selectFieldsString)) {
         selectFieldsString += ', ';
       }
       aggregateClause = aggregateClause.overrideMetaData(this.sObjectType, fieldMap);
@@ -831,7 +831,7 @@ public with sharing class Scribe {
 
     // Add parent queries
     for (ParentScribe parent : this.parents) {
-      if (selectFieldsString != '') {
+      if (String.isNotBlank(selectFieldsString)) {
         selectFieldsString += ', ';
       }
       selectFieldsString += parent.buildSelectClause(fieldMap, null, 0);
@@ -887,7 +887,10 @@ public with sharing class Scribe {
       if (conditionPart.condition != null) {
         IConditionClause condition = conditionPart.condition.overrideMetaData(this.sObjectType, fieldMap);
         clause = condition.build();
-        if (childObjectName != null) {
+        if (String.isBlank(clause)) {
+          continue;
+        }
+        if (String.isNotBlank(childObjectName)) {
           clause = childObjectName + '.' + clause;
         }
         isLastOperatorOr = conditionPart.isOr;
@@ -895,6 +898,9 @@ public with sharing class Scribe {
         Scribe groupScribe = conditionPart.groupScribe;
         groupScribe.sObjectType = this.sObjectType;
         WhereClauseData groupWhereClauseData = groupScribe.buildWhereClause(fieldMap, null);
+        if (String.isBlank(groupWhereClauseData.whereClauseString)) {
+          continue;
+        }
         clause = String.format('({0})', new List<String>{ groupWhereClauseData.whereClauseString });
         isLastOperatorOr = conditionPart.isOr;
       } else if (conditionPart.parentScribe != null) {
@@ -905,8 +911,8 @@ public with sharing class Scribe {
         conditionPart.isOr = parentWhereClauseData.isFirstOperatorOr;
       }
 
-      if (clause != '') {
-        if (whereClauseString != '') {
+      if (String.isNotBlank(clause)) {
+        if (String.isNotBlank(whereClauseString)) {
           whereClauseString += conditionPart.isOr ? ' OR ' : ' AND ';
         }
         whereClauseString += clause;
@@ -964,8 +970,8 @@ public with sharing class Scribe {
       clauseParts[0] = aliasStructure.getAggregateClause();
       String clause = String.join(clauseParts, ' ');
 
-      if (clause != '') {
-        if (whereClauseString != '') {
+      if (String.isNotBlank(clause)) {
+        if (String.isNotBlank(whereClauseString)) {
           whereClauseString += conditionPart.isOr ? ' OR ' : ' AND ';
         }
         whereClauseString += clause;
@@ -983,7 +989,7 @@ public with sharing class Scribe {
 
     String fromString;
     List<Schema.ChildRelationship> childRelationships = parentSObjectType.getDescribe().getChildRelationships();
-    if (!String.isEmpty(this.relationName)) {
+    if (String.isNotBlank(this.relationName)) {
       fromString = this.relationName;
       Boolean isRelationNameValid = false;
       for (Schema.ChildRelationship childRelationship : childRelationships) {
@@ -1081,7 +1087,7 @@ public with sharing class Scribe {
     this.havingScribe.sObjectType = this.sObjectType;
     WhereClauseData havingClauseData = this.havingScribe.buildHavingClause(this.groupAliasMap, fieldmap);
     String havingString = havingClauseData.whereClauseString;
-    if (havingString != '') {
+    if (String.isNotBlank(havingString)) {
       query += ' HAVING ' + havingString;
     }
 

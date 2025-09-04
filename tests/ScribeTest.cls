@@ -377,6 +377,20 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testIn_WhenValueIsEmptyList_ThenAddConditionThatAlwaysFalse() {
+    // Arrange
+    List<String> values = new List<String>();
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereIn('Name', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Id = null';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
   static void testNotIn_WhenValueIsList_ThenAddNotInCondition() {
     // Arrange
     List<String> values = new List<String>{ 'Test Account 1', 'Test Account 2' };
@@ -415,6 +429,23 @@ public with sharing class ScribeTest {
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name NOT IN (\'Test Account 1\', NULL)';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testNotIn_WhenValueIsEmptyList_ThenIgnoreNotInCondition() {
+    // Arrange
+    List<String> values = new List<String>();
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .whereNotIn('Name', values)
+      .whereEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -557,7 +588,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWhereGroupGroup_WhenAddOrGroup_ThenAddOrGroupCondition() {
+  static void testWhereGroup_WhenAddOrGroup_ThenAddOrGroupCondition() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
@@ -656,6 +687,24 @@ public with sharing class ScribeTest {
         e.getMessage()
       );
     }
+  }
+
+  @isTest
+  static void testWhereGroup_WhenGroupConditionIsEmpty_ThenIgnoreGroupCondition() {
+    // Arrange
+    List<Id> Ids = new List<Id>();
+    List<String> stages = new List<String>();
+    Scribe scribe = Scribe.source(Account.getSObjectType())
+      .field('Id')
+      .whereGroup(Scribe.asGroup().whereNotIn('Id', Ids).whereNotIn('StageName', stages)) // Empty group condition
+      .whereEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\''; 
+    Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
@@ -1271,6 +1320,46 @@ public with sharing class ScribeTest {
         e.getMessage()
       );
     }
+  }
+
+  @isTest
+  static void testWithParent_WhenAddIgnoreParentCondition_ThenInogreParentCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Quote.getSObjectType())
+      .field('Id')
+      .whereEqual('Name', 'Test Quote')
+      .parentCondition(
+        Scribe.asParent('OpportunityId')
+          .whereNotIn('Id', new List<Id>())
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Quote WHERE Name = \'Test Quote\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testWithParent_WhenAddIgnoreParentCondition_ThenInogreParentCondition_2() {
+    // Arrange
+    Scribe scribe = Scribe.source(Quote.getSObjectType())
+      .field('Id')
+      .whereEqual('Name', 'Test Quote')
+      .parentCondition(
+        Scribe.asParent('OpportunityId')
+          .whereNotIn('Id', new List<Id>())
+          .whereNotIn('StageName', new List<String>())
+          .WhereLike('Name', 'Test%')
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Quote WHERE Name = \'Test Quote\' AND Opportunity.Name LIKE \'Test%\'';
+    Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest

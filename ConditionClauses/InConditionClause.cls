@@ -16,6 +16,9 @@ public with sharing class InConditionClause extends AbstractConditionClause {
   }
 
   public override String build() {
+    if(this.values.isEmpty()) {
+      return 'Id = null';
+    }
     return String.format('{0} IN ({1})', new List<String>{ this.field, this.checkAndCast() });
   }
 

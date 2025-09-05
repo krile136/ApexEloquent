@@ -43,6 +43,62 @@ public with sharing class FieldStructure {
     return this.fields.contains(fieldName);
   }
 
+  public void removeField(String fieldName) {
+    List<String> filteredFields = new List<String>();
+    for (String field : this.fields) {
+      if (field != fieldName) {
+        filteredFields.add(field);
+      }
+    }
+    this.fields = filteredFields;
+  }
+
+  public Boolean isEmpty() {
+    Boolean isFieldsEmpty = this.fields.isEmpty();
+    Boolean isRelationEmpty;
+    if (this.relations.isEmpty()) {
+      isRelationEmpty = true;
+    } else {
+      isRelationEmpty = true;
+      for (FieldStructure relationFieldStructure : this.relations.values()) {
+        if (!relationFieldStructure.isEmpty()) {
+          isRelationEmpty = false;
+          break;
+        }
+      }
+    }
+    return isFieldsEmpty && isRelationEmpty;
+  }
+
+  public List<String> getAllFieldsAsFlatten() {
+    List<String> allFields = new List<String>();
+    allFields.addAll(this.fields);
+    for (FieldStructure fieldStructure : this.relations.values()) {
+      allFields.addAll(fieldStructure.getAllFieldsAsFlatten());
+    }
+
+    return allFields;
+  }
+
+  public List<String> getFieldsAsFlattenWithRelationName(String relationName) {
+    List<String> allFields = new List<String>();
+    if (relationName != null) {
+      for (String field : this.fields) {
+        allFields.add(relationName + '.' + field);
+      }
+    } else {
+      allFields.addAll(this.fields);
+    }
+    for (String relation : this.relations.keySet()) {
+      String chainedRelationName = relationName != null ? relationName + '.' + relation : relation;
+      FieldStructure relationFieldStructure = this.relations.get(relation);
+      List<String> relationFields = relationFieldStructure.getFieldsAsFlattenWithRelationName(chainedRelationName);
+      allFields.addAll(relationFields);
+    }
+
+    return allFields;
+  }
+
   /**
    * Retrieves the number of fields in the current FieldStructure.
    * @return Integer - The count of fields.

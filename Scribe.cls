@@ -22,9 +22,8 @@ public with sharing class Scribe {
   private String relationName = '';
 
   private Boolean isGroup = false;
-  private List<String> groupByFields = new List<String>();
-  private Map<String, AliasStructure> groupAliasMap = new Map<String, AliasStructure>();
-  private List<ParentScribe> groupByParents = new List<ParentScribe>();
+  private Map<String, AliasStructure> aggregateAliasMap = new Map<String, AliasStructure>();
+  private List<GroupByClause> groupByClauses = new List<GroupByClause>();
 
   private Boolean isHaving = false;
   private Scribe havingScribe;
@@ -211,7 +210,8 @@ public with sharing class Scribe {
     }
 
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.groupByFields.add(fieldName);
+    GroupByClause groupByClause = new GroupByClause(fieldName);
+    clonedScribe.groupByClauses.add(groupByClause);
 
     return clonedScribe;
   }
@@ -224,14 +224,37 @@ public with sharing class Scribe {
     }
 
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.groupByFields.addAll(fieldNames);
+    for (String fieldName : fieldNames) {
+      GroupByClause groupByClause = new GroupByClause(fieldName);
+      clonedScribe.groupByClauses.add(groupByClause);
+    }
+
+    return clonedScribe;
+  }
+
+  public Scribe groupByParent(Scribe parentScribe) {
+    this.validateAddAggregateClause();
+
+    if (parentScribe == null) {
+      throw new QueryException('親のScribeがnullです。');
+    }
+    if (!parentScribe.isParent) {
+      String error = 'groupByParentメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
+      throw new QueryException(error);
+    }
+
+    Scribe clonedScribe = this.deepClone();
+    GroupByClause groupByClause = new GroupByClause(
+      new ParentScribe(parentScribe.parentRelationIdFieldName, parentScribe)
+    );
+    clonedScribe.groupByClauses.add(groupByClause);
 
     return clonedScribe;
   }
 
   public Scribe havingCondition(Scribe havingScribe) {
-    if (this.groupByFields.isEmpty()) {
-      throw new QueryException('havingConditionメソッドは、groupByFieldと同時に使用する必要があります。');
+    if (this.groupByClauses.isEmpty()) {
+      throw new QueryException('havingConditionメソッドは、groupBy系メソッドと同時に使用する必要があります。');
     }
     if (!havingScribe.isHaving) {
       String error = 'havingConditionメソッドの引数のScribeクラスは、Scribe.asHaving()で生成されたScribeクラスを入れてください。';
@@ -586,7 +609,7 @@ public with sharing class Scribe {
       throw new QueryException('子のScribeがnullです。');
     }
 
-    if (!this.groupByFields.isEmpty() || !this.aggregateClauses.isEmpty()) {
+    if (!this.groupByClauses.isEmpty() || !this.aggregateClauses.isEmpty()) {
       throw new QueryException('集計関数はwithChildrenメソッドと同時に使用することはできません。');
     }
 
@@ -718,9 +741,10 @@ public with sharing class Scribe {
       query += ' WHERE ' + whereString;
     }
 
-    query = this.buildGroupByFields(query, fieldMap, selectFieldsString);
+    FieldStructure fieldStructure = this.buildFieldStructure();
+    query = this.buildGroupByClause(query, fieldMap, fieldStructure, new List<String>(), new List<String>());
 
-    query = this.buildHavingClause(query, fieldMap);
+    query = this.buildHavingClause(query);
 
     if (!this.orderByClauses.isEmpty()) {
       query += ' ORDER BY ';
@@ -777,7 +801,6 @@ public with sharing class Scribe {
     newScribe.conditionParts = this.conditionParts.clone();
     newScribe.children = this.children.clone();
     newScribe.parents = this.parents.clone();
-    newScribe.groupByFields = this.groupByFields.clone();
     newScribe.orderByClauses = this.orderByClauses.clone();
     newScribe.limitNumber = this.limitNumber;
 
@@ -787,8 +810,10 @@ public with sharing class Scribe {
     newScribe.isParent = this.isParent;
     newScribe.parentRelationIdFieldName = this.parentRelationIdFieldName;
     newScribe.isChild = this.isChild;
+
+    newScribe.groupByClauses = this.groupByClauses.clone();
     newScribe.isGroup = this.isGroup;
-    newScribe.groupAliasMap = this.groupAliasMap.clone();
+    newScribe.aggregateAliasMap = this.aggregateAliasMap.clone();
     newScribe.isHaving = this.isHaving;
     newScribe.havingScribe = this.havingScribe;
 
@@ -799,6 +824,10 @@ public with sharing class Scribe {
     newScribe.relationName = this.relationName;
 
     return newScribe;
+  }
+
+  private Map<String, AliasStructure> getAggregateAliasMap() {
+    return this.aggregateAliasMap;
   }
 
   /**
@@ -826,7 +855,7 @@ public with sharing class Scribe {
       String alias = aggregateClause.getAlias();
       String aggregateField = aggregateClause.getFieldName();
       String aggregateTarget = aggregateClauseString.split(' ')[0];
-      this.groupAliasMap.put(alias, new AliasStructure(aggregateField, aggregateTarget));
+      this.aggregateAliasMap.put(alias, new AliasStructure(aggregateField, aggregateTarget, fieldMap));
     }
 
     // Add parent queries
@@ -835,6 +864,17 @@ public with sharing class Scribe {
         selectFieldsString += ', ';
       }
       selectFieldsString += parent.buildSelectClause(fieldMap, null, 0);
+      Map<String, AliasStructure> parentAggregateAliasMap = parent.getAggregateAliasMap();
+      for (String alias : parentAggregateAliasMap.keySet()) {
+        if (this.aggregateAliasMap.containsKey(alias)) {
+          String error = String.format(
+            'The alias {0} in the parent query conflicts with an existing alias in the current query',
+            new List<String>{ alias }
+          );
+          throw new QueryException(error);
+        }
+        this.aggregateAliasMap.put(alias, parentAggregateAliasMap.get(alias));
+      }
     }
 
     // Add child queries
@@ -922,10 +962,7 @@ public with sharing class Scribe {
     return new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
   }
 
-  private WhereClauseData buildHavingClause(
-    Map<String, AliasStructure> aggregateAliasMap,
-    Map<String, Schema.SObjectField> fieldMap
-  ) {
+  private WhereClauseData buildHavingClause(Map<String, AliasStructure> aggregateAliasMap) {
     String whereClauseString = '';
 
     if (this.conditionParts.isEmpty()) {
@@ -960,7 +997,7 @@ public with sharing class Scribe {
       // HAVINGの条件をビルドする
       IConditionClause condition = conditionPart
         .condition
-        .overrideMetaData(this.sObjectType, fieldMap)
+        .overrideMetaData(this.sObjectType, aliasStructure.getFieldMap())
         .overrideField(aliasStructure.getFieldName());
       String clauseWithAlias = condition.build();
 
@@ -968,8 +1005,24 @@ public with sharing class Scribe {
       // 例: amount > 1000 -> AVG(Amount) > 1000
       List<String> clauseParts = clauseWithAlias.split(' ');
       clauseParts[0] = aliasStructure.getAggregateClause();
-      String clause = String.join(clauseParts, ' ');
 
+      // ビルド結果のvalueはフィールドの型に応じてキャストされているが、集計関数の種類によっては
+      // キャストが不要な場合があるので、value部分を再度置き換える
+      // MAXとMIN はキャストした状態で、それ以外はキャスト不要 とする
+      Boolean needsCast = clauseParts[0].startsWith('MAX') || clauseParts[0].startsWith('MIN');
+      if (!needsCast) {
+        // valuePartは、clausePartsのindexで2番目以降を結合したもの
+        // 前後のシングルクォーテーションを取り除く
+        List<String> valueList = new List<String>();
+        for (Integer i = 2; i < clauseParts.size(); i++) {
+          valueList.add(clauseParts[i]);
+        }
+        String valueString = String.join(valueList, ' ');
+        valueString = valueString.replaceAll('^\'|\'$', '');
+        clauseParts = new List<String>{ clauseParts[0], clauseParts[1], valueString };
+      }
+
+      String clause = String.join(clauseParts, ' ');
       if (String.isNotBlank(clause)) {
         if (String.isNotBlank(whereClauseString)) {
           whereClauseString += conditionPart.isOr ? ' OR ' : ' AND ';
@@ -1043,49 +1096,51 @@ public with sharing class Scribe {
     return this.describe;
   }
 
-  private String buildGroupByFields(
+  private String buildGroupByClause(
     String query,
     Map<String, Schema.SObjectField> fieldMap,
-    String selectFieldsString
+    FieldStructure fieldStructure,
+    List<String> childObjectNames,
+    List<String> parentIdFieldNames
   ) {
-    if (this.groupByFields.isEmpty()) {
+    if (this.groupByClauses.isEmpty()) {
       return query;
     }
 
-    for (String groupByField : this.groupByFields) {
-      if (!fieldMap.containsKey(groupByField.toLowerCase())) {
-        String error = String.format(
-          'The specified group by field does not exist in the object\'s fields. object name: {0}, field name: {1}',
-          new List<String>{ this.describe.getName(), groupByField }
-        );
-        throw new QueryException(error);
-      }
-    }
+    List<String> groupByStrings = this.buildGroupByFields(fieldMap, fieldStructure, childObjectNames);
 
-    List<String> nonGroupedFields = new List<String>();
-    for (String selectField : this.selectFields) {
-      if (!this.groupByFields.contains(selectField)) {
-        nonGroupedFields.add(selectField);
-      }
-    }
-    if (!nonGroupedFields.isEmpty()) {
+    if (!fieldStructure.isEmpty()) {
       String error = String.format(
         'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: {0}',
-        new List<String>{ String.join(nonGroupedFields, ', ') }
+        new List<String>{ String.join(fieldStructure.getFieldsAsFlattenWithRelationName(null), ', ') }
       );
       throw new QueryException(error);
     }
-
-    return query + ' GROUP BY ' + String.join(this.groupByFields, ', ');
+    return query + ' GROUP BY ' + String.join(groupByStrings, ', ');
   }
 
-  private String buildHavingClause(String query, Map<String, Schema.SObjectField> fieldMap) {
+  private List<String> buildGroupByFields(
+    Map<String, Schema.SObjectField> fieldMap,
+    FieldStructure fieldStructure,
+    List<String> childObjectNames
+  ) {
+    List<String> groupByStrings = new List<String>();
+    for (GroupByClause groupByClause : this.groupByClauses) {
+      groupByStrings.addAll(
+        groupByClause.buildGroupField(this.describe, fieldStructure, fieldMap, childObjectNames)
+      );
+    }
+
+    return groupByStrings;
+  }
+
+  private String buildHavingClause(String query) {
     if (this.havingScribe == null) {
       return query;
     }
 
     this.havingScribe.sObjectType = this.sObjectType;
-    WhereClauseData havingClauseData = this.havingScribe.buildHavingClause(this.groupAliasMap, fieldmap);
+    WhereClauseData havingClauseData = this.havingScribe.buildHavingClause(this.aggregateAliasMap);
     String havingString = havingClauseData.whereClauseString;
     if (String.isNotBlank(havingString)) {
       query += ' HAVING ' + havingString;
@@ -1226,6 +1281,10 @@ public with sharing class Scribe {
       return this.relationFieldName;
     }
 
+    public Map<String, AliasStructure> getAggregateAliasMap() {
+      return this.scribe.getAggregateAliasMap();
+    }
+
     public String buildSelectClause(
       Map<String, Schema.SObjectField> childFieldMap,
       String childObjectName,
@@ -1267,8 +1326,17 @@ public with sharing class Scribe {
 
       for (IAggregateClause aggregateClause : this.scribe.aggregateClauses) {
         aggregateClause = aggregateClause.overrideMetaData(this.scribe.sObjectType, parentFieldMap);
+
         String aggregateClauseString = aggregateClause.buildWithChild(currentChainedParentObjectName);
         parentSelects.add(aggregateClauseString);
+
+        String alias = aggregateClause.getAlias();
+        String aggregateField = aggregateClause.getFieldName();
+        String aggregateTarget = aggregateClauseString.split(' ')[0];
+        this.scribe.aggregateAliasMap.put(
+          alias,
+          new AliasStructure(aggregateField, aggregateTarget, parentFieldMap)
+        );
       }
 
       if (!this.scribe.parents.isEmpty()) {
@@ -1279,6 +1347,17 @@ public with sharing class Scribe {
             currentUpperNestingDepth
           );
           parentSelects.add(grandParentSelectsAsString);
+          Map<String, AliasStructure> grandParentAggregateAliasMap = grandParentScribe.getAggregateAliasMap();
+          for (String alias : grandParentAggregateAliasMap.keySet()) {
+            if (this.scribe.aggregateAliasMap.containsKey(alias)) {
+              String error = String.format(
+                'The alias {0} in the parent query conflicts with an existing alias in the current query',
+                new List<String>{ alias }
+              );
+              throw new QueryException(error);
+            }
+            this.scribe.aggregateAliasMap.put(alias, grandParentAggregateAliasMap.get(alias));
+          }
         }
       }
       if (parentSelects.isEmpty()) {
@@ -1306,6 +1385,34 @@ public with sharing class Scribe {
       Map<String, Schema.SObjectField> parentFieldMap = parentSObjectType.getDescribe().fields.getMap();
 
       return this.scribe.buildWhereClause(parentFieldMap, newChildObjectName);
+    }
+
+    public List<String> buildGroupByClause(
+      Map<String, Schema.SObjectField> childFieldMap,
+      FieldStructure parentFieldStructure,
+      List<String> childObjectNames
+    ) {
+      ParentObjectData parentObjectData = this.validate(childFieldMap);
+
+      if (this.scribe.sObjectType == null) {
+        this.scribe.sObjectType = parentObjectData.relationSObjectType;
+      }
+
+      String lowerParentObjectIdFieldName = this.scribe.parentRelationIdFieldName.toLowerCase();
+
+      FieldStructure parentFieldStruture = parentFieldStructure.getRelationFieldStructure(
+        lowerParentObjectIdFieldName
+      );
+
+      childObjectNames.add(parentObjectData.relationFieldName);
+
+      Map<String, Schema.SObjectField> parentFieldMap = parentObjectData
+        .relationSObjectType
+        .getDescribe()
+        .fields
+        .getMap();
+
+      return this.scribe.buildGroupByFields(parentFieldMap, parentFieldStruture, childObjectNames);
     }
 
     private ParentObjectData validate(Map<String, Schema.SObjectField> fieldMap) {
@@ -1440,13 +1547,67 @@ public with sharing class Scribe {
     }
   }
 
+  private class GroupByClause {
+    private final String fieldName;
+    private final ParentScribe parentScribe;
+    private Boolean isGroupByField = false;
+    private Boolean isGroupByParent = false;
+
+    public GroupByClause(String fieldName) {
+      if (String.isBlank(fieldName)) {
+        throw new QueryException('groupByのフィールド名が空です。');
+      }
+      this.fieldName = fieldName;
+      this.parentScribe = null;
+      this.isGroupByField = true;
+    }
+
+    public GroupByClause(ParentScribe parentScribe) {
+      if (parentScribe == null) {
+        throw new QueryException('groupByのparentScribeがnullです。');
+      }
+      this.fieldName = null;
+      this.parentScribe = parentScribe;
+      this.isGroupByParent = true;
+    }
+
+    public List<String> buildGroupField(
+      Schema.DescribeSObjectResult describe,
+      FieldStructure fieldStructure,
+      Map<String, Schema.SObjectField> fieldMap,
+      List<String> childObjectNames
+    ) {
+      if (this.isGroupByField) {
+        String lowerFieldName = this.fieldName.toLowerCase();
+        if (!fieldMap.containsKey(lowerFieldName)) {
+          String error = String.format(
+            'The specified group by field does not exist in the object\'s fields. object name: {0}, field name: {1}',
+            new List<String>{ describe.getName(), this.fieldName }
+          );
+          throw new QueryException(error);
+        }
+
+        fieldStructure.removeField(lowerFieldName);
+
+        String groupField = childObjectNames.isEmpty()
+          ? this.fieldName
+          : String.join(childObjectNames, '.') + '.' + this.fieldName;
+        return new List<String>{ groupField };
+      }
+
+      return this.parentScribe.buildGroupByClause(fieldMap, fieldStructure, childObjectNames);
+    }
+  }
+
   private class AliasStructure {
     private final String fieldName;
     private final String aggregateClause;
+    private final Map<String, Schema.SObjectField> fieldMap;
 
-    public AliasStructure(String fieldName, String aggregateClause) {
+    public AliasStructure(String fieldName, String aggregateClause, Map<String, Schema.SObjectField> fieldMap) {
       this.fieldName = fieldName;
       this.aggregateClause = aggregateClause;
+      this.fieldMap = fieldMap;
     }
 
     public String getFieldName() {
@@ -1455,6 +1616,10 @@ public with sharing class Scribe {
 
     public String getAggregateClause() {
       return this.aggregateClause;
+    }
+
+    public Map<String, Schema.SObjectField> getFieldMap() {
+      return this.fieldMap;
     }
   }
 }

@@ -39,7 +39,6 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
 
   public String buildWithChild(String childRelationName){
     String buildResult = this.build();
-    System.debug('buildResult: ' + buildResult);
     // SUM(Ammount) totalAmount  のような形式になるので、`(` で分割した二つ目の要素が
     // フィールド名になる。これに子オブジェクトのリレーション名を付けて
     // SUM(ChildRelationName.Ammount) totalAmount のようにする。
@@ -47,7 +46,6 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
     if(childRelationName != null) {
       buildResultParts[1] = childRelationName + '.' + buildResultParts[1];
     }
-    System.debug('buildResultParts: ' + buildResultParts);
     return String.join(buildResultParts, '(');
   }
 

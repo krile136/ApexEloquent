@@ -16,6 +16,12 @@ public with sharing class MockEntry extends AbstractEntry {
     this.fieldToValue = new Map<String, Object>();
   }
 
+  public MockEntry(Map<String, Object> fieldToValue) {
+    super(null);
+    this.fieldToValue = fieldToValue;
+    this.hasAggregateResult = true;
+  }
+
   @TestVisible
   private MockEntry(SObject record, FieldStructure fieldStructure, Map<String, Object> fieldToValue) {
     super(record, fieldStructure);
@@ -23,6 +29,29 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   public override Object get(String fieldName) {
+    if (this.hasAggregateResult) {
+      if (!this.fieldStructure.hasField(fieldName.toLowerCase())) {
+        String error = String.format(
+          'The specified field or alias is not exist in Scribe. field or alias name: {0}',
+          new List<String>{ fieldName }
+        );
+        throw new QueryException(error);
+      }
+
+      for (String key : this.fieldToValue.keySet()) {
+        if (key.equalsIgnoreCase(fieldName)) {
+          return this.fieldToValue.get(key);
+        }
+      }
+
+      // AggregateReultはオブジェクトを生成できないため、fieldToValueに存在しない場合はエラーとする
+      String error = String.format(
+        'The specified field or alias is not found in the mock data. field or alias name: {0}',
+        new List<String>{ fieldName }
+      );
+      throw new QueryException(error);
+    }
+
     this.validateFieldName(fieldName);
 
     if (this.describeResult == null) {

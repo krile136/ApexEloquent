@@ -9,6 +9,14 @@ public interface IEloquent {
   List<IEntry> get(Scribe scribe);
 
   /**
+  * Executes SOQL and retrieves the aggregate results.
+  * If the number of retrieved records is 0, an empty list is returned.
+  * @param Scribe scribe: Scribe instance containing the SOQL query
+  * @return Retrieved aggregate results as a list of Entry objects
+  */
+  List<IEntry> getAggregate(Scribe scribe);
+
+  /**
   * Executes SOQL and retrieves the results as SObject.
   * If the number of retrieved records is 0, an empty list is returned.
   *

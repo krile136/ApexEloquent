@@ -1,7 +1,10 @@
 public abstract class AbstractEntry implements IEntry {
   protected final SObject record;
+  protected final AggregateResult aggregateResult;
   protected final FieldStructure fieldStructure;
   protected Schema.DescribeSObjectResult describeResult;
+  @TestVisible
+  protected Boolean hasAggregateResult = false;
 
   /**
    * constructor
@@ -10,7 +13,21 @@ public abstract class AbstractEntry implements IEntry {
    */
   protected AbstractEntry(SObject record) {
     this.record = record;
+    this.aggregateResult = null;
     this.fieldStructure = null;
+    this.hasAggregateResult = this.record == null;
+  }
+
+  /**
+   * constructor for AggregateResult
+   *
+   * @param aggregateResult AggregateResult
+   */
+  protected AbstractEntry(AggregateResult aggregateResult, FieldStructure fieldStructure) {
+    this.record = null;
+    this.aggregateResult = aggregateResult;
+    this.fieldStructure = fieldStructure;
+    this.hasAggregateResult = this.record == null;
   }
 
   /**
@@ -22,6 +39,7 @@ public abstract class AbstractEntry implements IEntry {
   protected AbstractEntry(SObject record, FieldStructure fieldStructure) {
     this.record = record;
     this.fieldStructure = fieldStructure;
+    this.hasAggregateResult = this.record == null;
   }
 
   /**

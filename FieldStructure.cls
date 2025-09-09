@@ -40,7 +40,14 @@ public with sharing class FieldStructure {
    * @return Boolean - True if the field exists, false otherwise.
    */
   public Boolean hasField(String fieldName) {
+    System.debug('this fields: ' + this.fields);
     return this.fields.contains(fieldName);
+  }
+
+  public void addField(String fieldName) {
+    if (!this.fields.contains(fieldName)) {
+      this.fields.add(fieldName);
+    }
   }
 
   public void removeField(String fieldName) {

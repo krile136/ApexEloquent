@@ -13,6 +13,19 @@ public with sharing class Eloquent implements IEloquent{
     return entries;
   }
 
+  public List<IEntry> getAggregate(Scribe scribe) {
+    if(!scribe.isAggregate()) {
+      throw new QueryException('The provided Scribe instance does not represent an aggregate query: ' + scribe.toSoql());
+    }
+    FieldStructure fieldStructure = null;
+    List<IEntry> entries = new List<IEntry>();
+    for(AggregateResult aggregateResult : (List<AggregateResult>) Database.query(scribe.toSoql())){
+      fieldStructure = fieldStructure == null ? scribe.buildAggregateFieldStructure() : fieldStructure; // 一度toSoqlを実行してからフィールド情報を取得するとalias情報が得られる
+      entries.add(new Entry(aggregateResult, fieldStructure));  
+    }
+    return entries;
+  }
+
   /**
    * @inheritDoc
    */

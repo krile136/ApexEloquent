@@ -1,7 +1,7 @@
 @isTest
 public with sharing class EntryTest {
   @isTest
-  public static void testGet_WhenFieldExists_ShouldReturnFieldValue() {
+  static void testGet_WhenFieldExists_ShouldReturnFieldValue() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -14,7 +14,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGet_WhenFieldDoesNotExist_ThenThrowException() {
+  static void testGet_WhenFieldDoesNotExist_ThenThrowException() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -32,7 +32,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGetId_WhenCalled_ShouldReturnId() {
+  static void testGetId_WhenCalled_ShouldReturnId() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -45,7 +45,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGetName_WhenCalled_ShouldReturnName() {
+  static void testGetName_WhenCalled_ShouldReturnName() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -58,7 +58,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGetRecord_WhenCalled_ShouldReturnSObject() {
+  static void testGetRecord_WhenCalled_ShouldReturnSObject() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -71,7 +71,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGetParent_WhenParentExists_ShouldReturnParentEntry() {
+  static void testGetParent_WhenParentExists_ShouldReturnParentEntry() {
     // Arrange
     SObject record = new Opportunity(Name = 'Test Opportunity', Id = '006000000000001');
     Account parentAccount = new Account(Name = 'Parent Account', Id = '001000000000001');
@@ -82,12 +82,16 @@ public with sharing class EntryTest {
     IEntry parentEntry = entry.getParent('AccountId');
 
     // Assert
-    Assert.isNotNull(parentEntry, 'The parent entry should not be null when a parent exists.'); 
-    Assert.areEqual(parentAccount.Id, parentEntry.getId(), 'The parent entry Id should match the expected parent Id.');
+    Assert.isNotNull(parentEntry, 'The parent entry should not be null when a parent exists.');
+    Assert.areEqual(
+      parentAccount.Id,
+      parentEntry.getId(),
+      'The parent entry Id should match the expected parent Id.'
+    );
   }
 
   @isTest
-  public static void testGetParent_WhenParentIsNull_ThenReturnNull() {
+  static void testGetParent_WhenParentIsNull_ThenReturnNull() {
     // Arrange
     SObject record = new Opportunity(Name = 'Test Opportunity');
     Entry entry = new Entry(record);
@@ -100,7 +104,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGetParent_WhenParentIdFieldDoesNotExist_ThenThrowException() {
+  static void testGetParent_WhenParentIdFieldDoesNotExist_ThenThrowException() {
     // Arrange
     SObject record = new Opportunity(Name = 'Test Opportunity');
     Entry entry = new Entry(record);
@@ -118,7 +122,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGetParent_WhenParentIdFieldIsExistButNotReferenceType_ThenThrowException() {
+  static void testGetParent_WhenParentIdFieldIsExistButNotReferenceType_ThenThrowException() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -136,7 +140,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGetChildren_WhenChildrenAreNull_ShouldReturnEmptyList() {
+  static void testGetChildren_WhenChildrenAreNull_ShouldReturnEmptyList() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -149,7 +153,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGetChildren_WhenChildObjectNameDoesNotExist_ThenThrowException() {
+  static void testGetChildren_WhenChildObjectNameDoesNotExist_ThenThrowException() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -167,7 +171,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testGetChildrenByRelationName_WhenChildrenAreNull_ShouldReturnEmptyList() {
+  static void testGetChildrenByRelationName_WhenChildrenAreNull_ShouldReturnEmptyList() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -180,7 +184,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testSetRecord_WhenCalled_ThenSetSObject() {
+  static void testSetRecord_WhenCalled_ThenSetSObject() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -195,7 +199,7 @@ public with sharing class EntryTest {
   }
 
   @isTest
-  public static void testSetFieldStructure_WhenCalled_ThenThrowException() {
+  static void testSetFieldStructure_WhenCalled_ThenThrowException() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Entry entry = new Entry(record);

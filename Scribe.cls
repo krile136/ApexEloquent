@@ -103,6 +103,18 @@ public with sharing class Scribe {
     return newScribe;
   }
 
+  public Boolean isAggregate() {
+    return !this.aggregateClauses.isEmpty() || !this.groupByClauses.isEmpty();
+  }
+
+  public FieldStructure buildAggregateFieldStructure() {
+    List<String> flattenedFieldStructure = this.buildFieldStructure().getAllFieldsAsFlatten();
+    for(String alias : this.aggregateAliasMap.keySet()) {
+      flattenedFieldStructure.add(alias.toLowerCase());
+    }
+    return new FieldStructure(flattenedFieldStructure);
+  }
+
   // ------------ select methods ------------
 
   public Scribe field(String fieldName) {

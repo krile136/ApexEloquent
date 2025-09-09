@@ -1,7 +1,7 @@
 @isTest
 public class MockEntryTest {
   @isTest
-  public static void testConstructor_WhenApplySObject_ThenMockEntryCreated() {
+  static void testConstructor_WhenApplySObject_ThenMockEntryCreated() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
 
@@ -13,7 +13,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testConstructor_WhenApplySObjectAndFieldToValue_ThenMockEntryCreated() {
+  static void testConstructor_WhenApplySObjectAndFieldToValue_ThenMockEntryCreated() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Map<String, Object> fieldToValue = new Map<String, Object>{
@@ -29,7 +29,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testConstructor_WhenApplySObjectAndFieldStructure_ThenMockEntryCreated() {
+  static void testConstructor_WhenApplySObjectAndFieldStructure_ThenMockEntryCreated() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'Name', 'Industry' });
@@ -43,7 +43,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void TestConstructor_WhenApplySObjectAndFieldStructureAndFieldToValue_ThenMockEntryCreated() {
+  static void TestConstructor_WhenApplySObjectAndFieldStructureAndFieldToValue_ThenMockEntryCreated() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'Name', 'Industry' });
@@ -61,7 +61,20 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGet_WhenFieldExists_ThenReturnFieldValue() {
+  static void testConstructor_WhenApplyOnlyFieldToValue_ThenMockEntryCreated() {
+    // Arrange
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'Mock Account', 'maxAmount' => 100 };
+
+    // Act
+    MockEntry mockEntry = new MockEntry(fieldToValue);
+
+    // Assert
+    Assert.isNotNull(mockEntry, 'MockEntry should be created successfully with only fieldToValue');
+    Assert.isTrue(mockEntry.hasAggregateResult, 'MockEntry should be marked as having an AggregateResult');
+  }
+
+  @isTest
+  static void testGet_WhenFieldExists_ThenReturnFieldValue() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
@@ -77,7 +90,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGet_WhenScriceDoesNotSelectField_ThenThrowException() {
+  static void testGet_WhenScriceDoesNotSelectField_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id' });
@@ -98,7 +111,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGet_WhenFieldValueIsOverride_ThenReturnOverrideValue() {
+  static void testGet_WhenFieldValueIsOverride_ThenReturnOverrideValue() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
@@ -114,7 +127,123 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetId_WhenCalled_ThenReturnId() {
+  static void testGet_WhenGetNotExistFieldInAggregateScribe_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    String soql = scribe.toSoql(); // for generate aggregate field structure
+    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 };
+    MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
+
+    // Act & Assert
+    try {
+      Object fieldValue = mockEntry.get('Id'); // 'Id' field is not exist in aggregate field structure
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'The specified field or alias is not exist in Scribe. field or alias name: Id',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testGet_WhenGetNotExistAliasInAggregateScribe_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    String soql = scribe.toSoql(); // for generate aggregate field structure
+    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 };
+    MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
+
+    // Act & Assert
+    try {
+      Object fieldValue = mockEntry.get('maxAmount'); // 'maxAmount' field is not exist in aggregate field structure
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'The specified field or alias is not exist in Scribe. field or alias name: maxAmount',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testGet_WhenGetNotExistFieldInFieldToValue_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    String soql = scribe.toSoql(); // for generate aggregate field structure
+    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 }; // StageName is not exist
+    MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
+
+    // Act & Assert
+    try {
+      Object fieldValue = mockEntry.get('StageName'); // 'StageName' field is not exist in fieldToValue
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'The specified field or alias is not found in the mock data. field or alias name: StageName',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testGet_WhenGetNotExistAliasInFieldToValue_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    String soql = scribe.toSoql(); // for generate aggregate field structure
+    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'StageName' => 'Test StageName' }; // alias 'avgAmount' is not exist
+    MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
+
+    // Act & Assert
+    try {
+      Object fieldValue = mockEntry.get('avgAmount'); // 'avgAmount' field is not exist in fieldToValue
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'The specified field or alias is not found in the mock data. field or alias name: avgAmount',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testGet_WhenGetExistFieldAndAliasInFieldToValue_ThenReturnValue() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    String soql = scribe.toSoql(); // for generate aggregate field structure
+    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'StageName' => 'Test StageName',
+      'avgAmount' => 1500
+    };
+    MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
+
+    // Act & Assert
+    Assert.areEqual('Test StageName', mockEntry.get('StageName'));
+    Assert.areEqual(1500, mockEntry.get('avgAmount'));
+  }
+
+  @isTest
+  static void testGetId_WhenCalled_ThenReturnId() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
@@ -130,7 +259,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetId_WhenIdFieldDoesNotSelected_ThenThrowException() {
+  static void testGetId_WhenIdFieldDoesNotSelected_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'name' });
@@ -151,7 +280,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetName_WhenCalled_ThenReturnName() {
+  static void testGetName_WhenCalled_ThenReturnName() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
@@ -167,7 +296,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetName_WhenNameFieldDoesNotSelected_ThenThrowException() {
+  static void testGetName_WhenNameFieldDoesNotSelected_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id' });
@@ -188,7 +317,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testSetRecord_WhenCalled_ThenReturnNewMockEntry() {
+  static void testSetRecord_WhenCalled_ThenReturnNewMockEntry() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
@@ -205,7 +334,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testSetFieldStructure_WhenCalled_ThenReturnNewMockEntryWithFieldStructure() {
+  static void testSetFieldStructure_WhenCalled_ThenReturnNewMockEntryWithFieldStructure() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType());
@@ -222,7 +351,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetParent_WhenParentNotExist_ThenReturnNull() {
+  static void testGetParent_WhenParentNotExist_ThenReturnNull() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
@@ -240,7 +369,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetParent_WhenParentIsOverride_ThenReturnParentEntry() {
+  static void testGetParent_WhenParentIsOverride_ThenReturnParentEntry() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
@@ -262,7 +391,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetParent_WhenFieldStructureDoesNotHaveParentIdFiled_ThenThrowException() {
+  static void testGetParent_WhenFieldStructureDoesNotHaveParentIdFiled_ThenThrowException() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
     Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id');
@@ -286,7 +415,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetParent_WhenNestedParentExists_ThenReturnNestedParentEntry() {
+  static void testGetParent_WhenNestedParentExists_ThenReturnNestedParentEntry() {
     // Arrange
     SObject record = new OrderItem();
     Scribe scribe = Scribe.source(OrderItem.getSObjectType())
@@ -358,7 +487,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetChildren_WhenChildrenExist_ThenReturnChildEntries() {
+  static void testGetChildren_WhenChildrenExist_ThenReturnChildEntries() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType())
@@ -411,7 +540,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetChildren_WhenChildObjectDoesNotExist_ThenReturnEmptyList() {
+  static void testGetChildren_WhenChildObjectDoesNotExist_ThenReturnEmptyList() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType())
@@ -430,7 +559,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetChildren_WhenChildObjectFieldDoesNotSelected_ThenThrowException() {
+  static void testGetChildren_WhenChildObjectFieldDoesNotSelected_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType())
@@ -461,7 +590,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  public static void testGetChildren_WhenNestedChildrenExist_ThenReturnNestedChildEntries() {
+  static void testGetChildren_WhenNestedChildrenExist_ThenReturnNestedChildEntries() {
     // Arrange
     Sobject accountEnery = new Account(Name = 'Test Account');
     Scribe scribe = Scribe.source(Account.getSObjectType())

@@ -71,6 +71,20 @@ public with sharing class MockEloquent implements IEloquent {
     return result;
   }
 
+  public List<IEntry> getAggregate(Scribe scribe) {
+    if (this.shouldThrowException) {
+      throw new QueryException('Test Exception from MockEloquent.getAggregate()');
+    }
+    this.scribe = scribe;
+    String soql = scribe.toSoql(); // for showing and validate SOQL
+    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    List<IEntry> result = new List<IEntry>();
+    for (IEntry entry : this.entries) {
+      result.add(entry.setFieldStructure(fieldStructure));
+    }
+    return result;
+  }
+
   /**
    * @inheritDoc
    */

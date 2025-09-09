@@ -8,7 +8,22 @@ public with sharing class Entry extends AbstractEntry {
     super(record);
   }
 
+  public Entry(AggregateResult aggregateResult, FieldStructure fieldStructure) {
+    super(aggregateResult, fieldStructure);
+  }
+
   public override Object get(String fieldName) {
+    if(this.hasAggregateResult) {
+      if(!this.fieldStructure.hasField(fieldName.toLowerCase())) {
+        String error = String.format(
+          'The specified field or alias is not exist in Scribe. field or alias name: {0}',
+          new List<String>{ fieldName }
+        );
+        throw new QueryException(error);
+      }
+      return this.aggregateResult.get(fieldName);
+    }
+
     if (this.describeResult == null) {
       Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
       this.setDescribeResult(describeResult);

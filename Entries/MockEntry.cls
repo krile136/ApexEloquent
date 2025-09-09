@@ -105,10 +105,8 @@ public with sharing class MockEntry extends AbstractEntry {
     // for validate the childObjectName
     String childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
 
-    String lowerCastChildObjectName = childObjectName.toLowerCase();
-
     String errorTemplate = 'The specified childObjectName is not set in Scribe. object name: {0}, child object name: {1}';
-    this.validateChildRelationInFieldStructure(lowerCastChildObjectName, errorTemplate);
+    this.validateChildRelationInFieldStructure(childObjectname, errorTemplate);
 
     for (String key : this.fieldToValue.keySet()) {
       if (key.equalsIgnoreCase(childObjectName)) {
@@ -127,10 +125,8 @@ public with sharing class MockEntry extends AbstractEntry {
       this.setDescribeResult(describeResult);
     }
 
-    String lowerCaseRelationName = childRelationName.toLowerCase();
-
     String errorTemplate = 'The specified childRelationName is not set in Scribe. object name: {0}, child relation name: {1}';
-    this.validateChildRelationInFieldStructure(lowerCaseRelationName, errorTemplate);
+    this.validateChildRelationInFieldStructure(childRelationname, errorTemplate);
 
     this.validateChildRelationName(childRelationName);
 
@@ -199,7 +195,7 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   private void validateChildRelationInFieldStructure(String relation, String errorTemplate) {
-    if (!this.fieldStructure.hasRelation(relation)) {
+    if (!this.fieldStructure.hasRelation(relation.toLowerCase())) {
       String error = String.format(errorTemplate, new List<String>{ this.describeResult.getName(), relation });
       throw new QueryException(error);
     }

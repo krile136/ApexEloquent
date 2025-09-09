@@ -75,6 +75,11 @@ public with sharing class MockEloquent implements IEloquent {
     if (this.shouldThrowException) {
       throw new QueryException('Test Exception from MockEloquent.getAggregate()');
     }
+
+    if(!scribe.isAggregate()) {
+      throw new QueryException('The provided Scribe instance does not represent an aggregate query: ' + scribe.toSoql());
+    }
+
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();

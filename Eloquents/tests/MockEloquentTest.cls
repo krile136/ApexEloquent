@@ -89,7 +89,9 @@ public with sharing class MockEloquentTest {
                 Scribe.asParent('QuoteId')
                   .fields(fields)
                   .parentField(
-                    Scribe.asParent('OpportunityId').fields(fields).parentField(Scribe.asParent('ContractId').fields(fields))
+                    Scribe.asParent('OpportunityId')
+                      .fields(fields)
+                      .parentField(Scribe.asParent('ContractId').fields(fields))
                   )
               )
           )
@@ -732,7 +734,7 @@ public with sharing class MockEloquentTest {
     // Assert
     Assert.isTrue(insertedRecords.size() == 2, 'Expected two records to be inserted');
     for (Integer i = 0; i < insertedRecords.size(); i++) {
-      Opportunity record = insertedRecords[i]; 
+      Opportunity record = insertedRecords[i];
       Assert.isNotNull(record.Id, 'Expected each record to have an Id after insertion');
       String generatedId = '00600000000000' + String.valueOf(i);
       Assert.areEqual(generatedId, record.Id, 'Expected each record Id to be generated');
@@ -796,5 +798,162 @@ public with sharing class MockEloquentTest {
 
     // Assert
     // No exception should be thrown, indicating successful deletion
+  }
+
+  @isTest
+  static void testGetAggregate_WhenApplyNonAggregateScribe_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000001');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    try {
+      eloquent.getAggregate(scribe);
+      Assert.fail('Expected QueryException to be thrown for non-aggregate Scribe');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.isTrue(
+        e.getMessage().startsWith('The provided Scribe instance does not represent an aggregate query: ')
+      );
+    }
+  }
+
+  @isTest
+  static void testGetAggregate_WhenAggregateEntryExist_ThenReturnEntries() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    IEloquent eloquent = new MockEloquent(
+      new List<IEntry>{
+        new MockEntry(new Map<String, Object>{ 'StageName' => 'Prospecting', 'avgAmount' => 5000 }),
+        new MockEntry(new Map<String, Object>{ 'StageName' => 'Closed Won', 'avgAmount' => 15000 })
+      }
+    );
+
+    // Act
+    List<IEntry> entries = eloquent.getAggregate(scribe);
+
+    // Assert
+    Assert.isTrue(entries.size() == 2, 'Expected two aggregate entries to be returned');
+    Assert.areEqual('Prospecting', entries[0].get('StageName'), 'Expected first entry StageName to match');
+    Assert.areEqual(5000, entries[0].get('avgAmount'), 'Expected first entry avgAmount to match');
+    Assert.areEqual('Closed Won', entries[1].get('StageName'), 'Expected second entry StageName to match');
+    Assert.areEqual(15000, entries[1].get('avgAmount'), 'Expected second entry avgAmount to match');
+  }
+
+  @isTest
+  static void testGetAggregate_WhenAccessNonSelectedField_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    IEloquent eloquent = new MockEloquent(
+      new List<IEntry>{
+        new MockEntry(new Map<String, Object>{ 'StageName' => 'Prospecting', 'avgAmount' => 5000 })
+      }
+    );
+
+    // Act & Assert
+    try {
+      List<IEntry> entries = eloquent.getAggregate(scribe);
+      IEntry entry = entries[0];
+      entry.get('CloseDate'); // This field is not selected in the Scribe query
+      Assert.fail('Expected QueryException to be thrown for non-selected field');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      String expected = String.format(
+        'The specified field or alias is not exist in Scribe. field or alias name: {0}',
+        new List<String>{ 'CloseDate' }
+      );
+      Assert.areEqual(
+        expected,
+        e.getMessage(),
+        'Expected QueryException with specific message for non-selected field'
+      );
+    }
+  }
+
+  @isTest
+  static void testGetAggregate_WhenAccessNonExistAlias_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    IEloquent eloquent = new MockEloquent(
+      new List<IEntry>{
+        new MockEntry(new Map<String, Object>{ 'StageName' => 'Prospecting', 'avgAmount' => 5000 })
+      }
+    );
+
+    // Act & Assert
+    try {
+      List<IEntry> entries = eloquent.getAggregate(scribe);
+      IEntry entry = entries[0];
+      entry.get('totalAmount'); // This alias does not exist in the Scribe query
+      Assert.fail('Expected QueryException to be thrown for non-existing alias');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      String expected = String.format(
+        'The specified field or alias is not exist in Scribe. field or alias name: {0}',
+        new List<String>{ 'totalAmount' }
+      );
+      Assert.areEqual(
+        expected,
+        e.getMessage(),
+        'Expected QueryException with specific message for non-existing alias'
+      );
+    }
+  }
+
+  @isTest
+  static void testGetAggregate_WhenAddNestedAggregate_ThenCanAccessFieldAndAliasAsFlatField() {
+    // Arrange
+    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+      .count('Id', 'itemCount')
+      .parentField(
+        Scribe.asParent('OrderId')
+          .parentField(
+            Scribe.asParent('OriginalOrderId')
+              .parentField(
+                Scribe.asParent('QuoteId')
+                  .parentField(
+                    Scribe.asParent('OpportunityId')
+                      .parentField(Scribe.asParent('AccountId').field('Type').count('Name', 'accountCount'))
+                  )
+              )
+          )
+      )
+      .groupByParent(
+        Scribe.asParent('OrderId')
+          .groupByParent(
+            Scribe.asParent('OriginalOrderId')
+              .groupByParent(
+                Scribe.asParent('QuoteId')
+                  .groupByParent(
+                    Scribe.asParent('OpportunityId').groupByParent(Scribe.asParent('AccountId').groupByField('Type'))
+                  )
+              )
+          )
+      );
+    IEloquent eloquent = new MockEloquent(
+      new MockEntry(
+        new Map<String, Object>{ 'itemCount' => 10, 'accountCount' => 5, 'Type' => 'TestType1' }
+      )
+    );
+
+    // Act
+    List<IEntry> entries = eloquent.getAggregate(scribe);
+
+
+    // Assert
+    Assert.isTrue(entries.size() == 1, 'Expected one aggregate entry to be returned');
+    IEntry entry = entries[0];
+    Assert.areEqual(10, entry.get('itemCount'), 'Expected itemCount to match');
+    Assert.areEqual(5, entry.get('accountCount'), 'Expected accountCount to match');
+    Assert.areEqual('TestType1', entry.get('Type'), 'Expected Type to match');
   }
 }

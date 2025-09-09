@@ -13,6 +13,38 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testGet_WhenScribeIsNotAggregate_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+
+    // Act & Assert
+    try {
+      List<IEntry> oppEntries = (new Eloquent()).getAggregate(scribe);
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.isTrue(
+        e.getMessage().startsWith('The provided Scribe instance does not represent an aggregate query: ')
+      );
+    }
+  }
+
+  @isTest
+  static void testGetAggregate_WhenScriveIsAggregate() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'AvgAmount')
+      .groupByField('StageName');
+
+    // Act
+    List<IEntry> oppEntries = (new Eloquent()).getAggregate(scribe);
+
+    // Assert
+    Assert.isTrue(oppEntries.isEmpty(), 'Expected no records to be returned');
+  }
+
+  @isTest
   static void testFirst() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');

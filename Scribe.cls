@@ -1,76 +1,114 @@
+/**
+ * A fluent, immutable, and type-safe query builder for SOQL.
+ * Scribe allows developers to construct complex SOQL queries programmatically
+ * without string concatenation, reducing errors and improving readability.
+ * It is the core of the ApexEloquent ORM's query building capabilities.
+ *
+ * @author Hiroyuki Matsuoka
+ * @version 1.0.0
+ */
 public with sharing class Scribe {
+  // =================================================================================================================
+  // Properties
+  // =================================================================================================================
+
   @TestVisible
   private Schema.SObjectType sObjectType;
   private Schema.DescribeSObjectResult describe;
+
+  // SELECT clause properties
   @TestVisible
   private Set<String> selectFields = new Set<String>();
   private List<IAggregateClause> aggregateClauses = new List<IAggregateClause>();
-  private List<ConditionPart> conditionParts = new List<ConditionPart>();
-  private List<Scribe.OrderByClause> orderByClauses = new List<Scribe.OrderByClause>();
-
   private Boolean isSelectAll = false;
+
+  // WHERE clause properties
+  private List<ConditionPart> conditionParts = new List<ConditionPart>();
   private Boolean isNextConditionOr = false;
   private Boolean canOnlyAddOrCondition = false;
 
-  private Boolean isParent = false;
+  // Relationship properties
   private List<ParentScribe> parents = new List<ParentScribe>();
-  String parentRelationIdFieldName;
-
-  private Boolean isChild = false;
   private List<Scribe> children = new List<Scribe>();
-
+  private List<Scribe> throughScribes = new List<Scribe>();
+  private Schema.SObjectType junctionSObjectType;
+  private String parentRelationIdFieldName;
   private String relationName = '';
 
-  private Boolean isGroup = false;
-  private Map<String, AliasStructure> aggregateAliasMap = new Map<String, AliasStructure>();
+  // Aggregate clause properties
   private List<GroupByClause> groupByClauses = new List<GroupByClause>();
-
-  private Boolean isHaving = false;
+  private Map<String, AliasStructure> aggregateAliasMap = new Map<String, AliasStructure>();
   private Scribe havingScribe;
 
+  // ORDER BY clause properties
+  private List<Scribe.OrderByClause> orderByClauses = new List<Scribe.OrderByClause>();
+
+  // LIMIT clause properties
   private Integer limitNumber = 0;
 
-  private Schema.SObjectType junctionSObjectType;
+  // Other properties
+  private Boolean isParent = false;
+  private Boolean isChild = false;
+  private Boolean isGroup = false;
   private Boolean isThrough = false;
-  private List<Scribe> throughScribes = new List<Scribe>();
+  private Boolean isHaving = false;
 
+  // Constants
   private final Integer MAX_UPPER_NESTING_DEPTH = 5;
   private final Integer MAX_LOWER_NESTING_DEPTH = 4;
 
+  // =================================================================================================================
+  // Constructor
+  // =================================================================================================================
+
   /**
-   * constructor
+   * Static constructor to initialize a Scribe instance.
+   * Use the static `source()` method to start building a query.
    *
-   * @param sObjectType 対象のSObjectType
-   * @throws QueryException SObjectTypeがnullの場合
-   */
-  public Scribe(Schema.SObjectType sObjectType) {
+   * @param sObjectType The SObject type for the query.
+   */ public Scribe(Schema.SObjectType sObjectType) {
     this.sObjectType = sObjectType;
     this.describe = sObjectType != null ? sObjectType.getDescribe() : null;
   }
 
-  // ------------ static methods ------------
+  // =================================================================================================================
+  // Static Factory Methods
+  // =================================================================================================================
+
   /**
-   * Scribeのsource(FROM) をセットします。
-   * 次のように使用します。
-   * .source(Opportunity.getSObjectType())
+   * Creates a new Scribe instance, setting the source SObject (the FROM clause).
+   * This is the entry point for building a new query.
+   * Example: `Scribe.source(Account.getSObjectType())`
    *
-   * @param sObjectType 対象のsObjectType
-   * @return Scribe インスタンス
-   */
-  public static Scribe source(Schema.SObjectType sObjectType) {
+   * @param sObjectType The SObject type to query from.
+   * @return A new Scribe instance.
+   */ public static Scribe source(Schema.SObjectType sObjectType) {
     Scribe newScribe = new Scribe(sObjectType);
     return newScribe;
   }
 
+  /**
+   * Creates a Scribe instance for grouping WHERE conditions with parentheses.
+   * Example: `.whereGroup(Scribe.asGroup().whereEqual(...).whereIn())`
+   *
+   * @return A new Scribe instance configured for grouping.
+   */
   public static Scribe asGroup() {
     Scribe newScribe = new Scribe(null);
     newScribe.isGroup = true;
     return newScribe;
   }
-
+  /**
+   * Creates a Scribe instance representing a parent relationship for field selection or conditions.
+   * Example: `.parentField(Scribe.asParent('AccountId').fields(...).whereEqual(...))`
+   *
+   * @param parentRelationIdFieldName The API name of the lookup or master-detail field (e.g., 'AccountId').
+   * @return A new Scribe instance configured for a parent relationship.
+   * @throws QueryException if the field name is blank.
+   */
   public static Scribe asParent(String parentRelationIdFieldName) {
     if (String.isBlank(parentRelationIdFieldName)) {
-      throw new QueryException('親のリレーションIDフィールド名が空です。');
+      throw new QueryException('The relationship field name for asParent() must be specified.');
     }
     Scribe newScribe = new Scribe(null);
     newScribe.isParent = true;
@@ -78,9 +116,17 @@ public with sharing class Scribe {
     return newScribe;
   }
 
+  /**
+   * Creates a Scribe instance representing a child subquery.
+   * Example: `.withChildren(Scribe.asChild(Contact.getSObjectType()).fields(...).whereEqual(...))`
+   *
+   * @param childSObjectType The SObjectType of the child records.
+   * @return A new Scribe instance configured for a child relationship.
+   * @throws QueryException if the SObjectType is null.
+   */
   public static Scribe asChild(Schema.SObjectType childSObjectType) {
     if (childSObjectType == null) {
-      throw new QueryException('childSObjectTypeがnullです。');
+      throw new QueryException('The SObjectType provided to asChild() must not be null.');
     }
     Scribe newScribe = new Scribe(childSObjectType);
     newScribe.isChild = true;
@@ -88,12 +134,26 @@ public with sharing class Scribe {
     return newScribe;
   }
 
+  /**
+   * Creates a Scribe instance for a HAVING clause.
+   * Example: `.havingCondition(Scribe.asHaving().whereGreaterThan(...))`
+   *
+   * @return A new Scribe instance configured for a HAVING clause.
+   */
   public static Scribe asHaving() {
     Scribe newScribe = new Scribe(null);
     newScribe.isHaving = true;
     return newScribe;
   }
 
+  /**
+   * Creates a Scribe instance for a many-to-many relationship traversal.
+   * Example: `.through(Scribe.asThrough(JunctionObject.getSObjectType(), 'TargetObject__c'))`
+   *
+   * @param junctionSObjectType The SObjectType of the junction object.
+   * @param relatedKey The API name of the lookup/master-detail field on the junction object that points to the final target object.
+   * @return A new Scribe instance configured for a many-to-many relationship.
+   */
   public static Scribe asThrough(Schema.SObjectType junctionSObjectType, String relatedKey) {
     Scribe newScribe = new Scribe(null);
     newScribe.isThrough = true;
@@ -103,25 +163,48 @@ public with sharing class Scribe {
     return newScribe;
   }
 
+  // =================================================================================================================
+  // Public Helper Methods
+  // =================================================================================================================
+
+  /**
+   * Checks if the current Scribe instance is configured for an aggregate query.
+   *
+   * @return True if aggregate or group-by clauses have been added, false otherwise.
+   */
   public Boolean isAggregate() {
     return !this.aggregateClauses.isEmpty() || !this.groupByClauses.isEmpty();
   }
 
+  /**
+   * Builds a FieldStructure object representing the fields and aliases of an aggregate query result.
+   *
+   * This is used by MockEntry to validate mocked aggregate data.
+   * @return A FieldStructure instance for the aggregate query.
+   */
   public FieldStructure buildAggregateFieldStructure() {
     List<String> flattenedFieldStructure = this.buildFieldStructure().getAllFieldsAsFlatten();
-    for(String alias : this.aggregateAliasMap.keySet()) {
+    for (String alias : this.aggregateAliasMap.keySet()) {
       flattenedFieldStructure.add(alias.toLowerCase());
     }
     return new FieldStructure(flattenedFieldStructure);
   }
 
-  // ------------ select methods ------------
+  // =================================================================================================================
+  // SELECT Clause Methods
+  // =================================================================================================================
 
+  /**
+   * Adds a single field to the SELECT clause.
+   *
+   * @param fieldName The API name of the field to select.
+   * @return A new, immutable Scribe instance with the added field.
+   */
   public Scribe field(String fieldName) {
     this.validateAddFieldClause();
 
     if (String.isBlank(fieldName)) {
-      throw new QueryException('フィールド名が空です。');
+      throw new QueryException('A field name must be provided.');
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -130,11 +213,17 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds multiple fields to the SELECT clause from a list.
+   *
+   * @param fieldNames A list of field API names to select.
+   * @return A new, immutable Scribe instance with the added fields.
+   */
   public Scribe fields(List<String> fieldNames) {
     this.validateAddFieldClause();
 
     if (fieldNames == null || fieldNames.isEmpty()) {
-      throw new QueryException('フィールド名のリストが空です。');
+      throw new QueryException('The list of field names cannot be empty.');
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -143,6 +232,12 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Selects all fields of the source SObject.
+   * Note: This is generally discouraged as a best practice, but provided for convenience.
+   *
+   * @return A new, immutable Scribe instance configured to select all fields.
+   */
   public Scribe allFields() {
     this.validateAddFieldClause();
 
@@ -152,8 +247,17 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
-  // ------------ aggregate methods ------------
+  // =================================================================================================================
+  // Aggregate Methods
+  // =================================================================================================================
 
+  /**
+   * Adds an AVG() aggregate function to the query.
+   *
+   * @param fieldName The numeric field to average.
+   * @param alias The alias for the result.
+   * @return A new, immutable Scribe instance with the aggregate function.
+   */
   public Scribe average(String fieldName, String alias) {
     this.validateAddAggregateClause();
     IAggregateClause averageClause = new AverageClause(this.sObjectType, null, fieldName, alias);
@@ -164,6 +268,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a COUNT() aggregate function to the query.
+   *
+   * @param fieldName The field to count.
+   * @param alias The alias for the result.
+   * @return A new, immutable Scribe instance with the aggregate function.
+   */
   public Scribe count(String fieldName, String alias) {
     this.validateAddAggregateClause();
     IAggregateClause countClause = new CountClause(this.sObjectType, null, fieldName, alias);
@@ -174,6 +285,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a COUNT_DISTINCT() aggregate function to the query.
+   *
+   * @param fieldName The field to count distinct values of.
+   * @param alias The alias for the result.
+   * @return A new, immutable Scribe instance with the aggregate function.
+   */
   public Scribe countDistinct(String fieldName, String alias) {
     this.validateAddAggregateClause();
     IAggregateClause countDistinctClause = new CountDistinctClause(this.sObjectType, null, fieldName, alias);
@@ -184,6 +302,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a MIN() aggregate function to the query.
+   *
+   * @param fieldName The field to find the minimum value of.
+   * @param alias The alias for the result.
+   * @return A new, immutable Scribe instance with the aggregate function.
+   */
   public Scribe min(String fieldName, String alias) {
     this.validateAddAggregateClause();
     IAggregateClause minClause = new MinClause(this.sObjectType, null, fieldName, alias);
@@ -194,6 +319,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a MAX() aggregate function to the query.
+   *
+   * @param fieldName The field to find the maximum value of.
+   * @param alias The alias for the result.
+   * @return A new, immutable Scribe instance with the aggregate function.
+   */
   public Scribe max(String fieldName, String alias) {
     this.validateAddAggregateClause();
     IAggregateClause maxClause = new MaxClause(this.sObjectType, null, fieldName, alias);
@@ -204,6 +336,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a SUM() aggregate function to the query.
+   *
+   * @param fieldName The numeric field to sum.
+   * @param alias The alias for the result.
+   * @return A new, immutable Scribe instance with the aggregate function.
+   */
   public Scribe sum(String fieldName, String alias) {
     this.validateAddAggregateClause();
     IAggregateClause sumClause = new SumClause(this.sObjectType, null, fieldName, alias);
@@ -214,11 +353,17 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a single field to the GROUP BY clause.
+   *
+   * @param fieldName The API name of the field to group by.
+   * @return A new, immutable Scribe instance with the GROUP BY field.
+   */
   public Scribe groupByField(string fieldName) {
     this.validateAddAggregateClause();
 
     if (String.isBlank(fieldName)) {
-      throw new QueryException('グループ化するフィールド名が空です。');
+      throw new QueryException('The field name for groupByField() cannot be blank.');
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -228,11 +373,17 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds multiple fields to the GROUP BY clause from a list.
+   *
+   * @param fieldNames A list of field API names to group by.
+   * @return A new, immutable Scribe instance with the GROUP BY fields.
+   */
   public Scribe groupByFields(List<String> fieldNames) {
     this.validateAddAggregateClause();
 
     if (fieldNames == null || fieldNames.isEmpty()) {
-      throw new QueryException('グループ化するフィールド名のリストが空です。');
+      throw new QueryException('The list of field names for groupByFields() cannot be empty.');
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -244,14 +395,21 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a parent relationship field to the GROUP BY clause.
+   * Example: `.groupByParent(Scribe.asParent('parentIdField').groupByField('Id'));`
+   *
+   * @param parentScribe A Scribe instance created with `Scribe.asParent()` and configured with `groupByField()`.
+   * @return A new, immutable Scribe instance with the parent GROUP BY field.
+   */
   public Scribe groupByParent(Scribe parentScribe) {
     this.validateAddAggregateClause();
 
     if (parentScribe == null) {
-      throw new QueryException('親のScribeがnullです。');
+      throw new QueryException('The Scribe instance for the groupByParent() method cannot be null.');
     }
     if (!parentScribe.isParent) {
-      String error = 'groupByParentメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
+      String error = 'The Scribe instance for the groupByParent() method must be created with Scribe.asParent().';
       throw new QueryException(error);
     }
 
@@ -264,12 +422,18 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a HAVING clause to the aggregate query. Must be used with a GROUP BY clause.
+   *
+   * @param havingScribe A Scribe instance created with `Scribe.asHaving()` and configured with WHERE conditions on aggregate aliases.
+   * @return A new, immutable Scribe instance with the HAVING clause.
+   */
   public Scribe havingCondition(Scribe havingScribe) {
     if (this.groupByClauses.isEmpty()) {
-      throw new QueryException('havingConditionメソッドは、groupBy系メソッドと同時に使用する必要があります。');
+      throw new QueryException('The havingCondition() method must be used in conjunction with a groupBy method.');
     }
     if (!havingScribe.isHaving) {
-      String error = 'havingConditionメソッドの引数のScribeクラスは、Scribe.asHaving()で生成されたScribeクラスを入れてください。';
+      String error = 'The Scribe instance for the havingCondition() method must be created with Scribe.asHaving().';
       throw new QueryException(error);
     }
 
@@ -279,7 +443,16 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
-  // ------------ add OR methods ------------
+  // =================================================================================================================
+  // OR Condition Methods
+  // =================================================================================================================
+
+  /**
+   * Specifies that the next WHERE condition should be joined with an OR operator.
+   *
+   * Cannot be the first condition. Subsequent conditions must also be OR unless grouped.
+   * @return A new, immutable Scribe instance configured for an OR condition.
+   */
   public Scribe orCondition() {
     this.validateOrConditionNotAllowed();
 
@@ -287,7 +460,7 @@ public with sharing class Scribe {
 
     if (clonedScribe.conditionParts.isEmpty() && !clonedScribe.isParent) {
       throw new QueryException(
-        'OR条件を最初に設定することはできません。where系メソッドを使用してAND条件を追加してください。parentCondition内でエラーが起きている場合は引数のScribeクラスをScribe.asParent()から始めてください。'
+        'The orCondition() method cannot be called first. Please add a condition with a where...() method before adding an OR condition.'
       );
     }
     clonedScribe.isNextConditionOr = true;
@@ -296,8 +469,17 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
-  // ------------ where methods ------------
+  // =================================================================================================================
+  // WHERE Clause Methods
+  // =================================================================================================================
 
+  /**
+   * Adds an equality (=) or IS NULL condition to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param value The value to compare against. If null, becomes an IS NULL clause.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereEqual(String fieldName, Object value) {
     this.validateConditionClause(fieldName);
 
@@ -315,6 +497,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds an inequality (!=) or IS NOT NULL condition to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param value The value to compare against. If null, becomes an IS NOT NULL clause.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereNotEqual(String fieldName, Object value) {
     this.validateConditionClause(fieldName);
 
@@ -332,6 +521,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a greater than (>) condition to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param value The value to compare against.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereGreaterThan(String fieldName, Object value) {
     this.validateConditionClause(fieldName);
 
@@ -349,6 +545,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a greater than or equal (>=) condition to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param value The value to compare against.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereGreaterThanOrEqual(String fieldName, Object value) {
     this.validateConditionClause(fieldName);
 
@@ -366,6 +569,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a less than (<) condition to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param value The value to compare against.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereLessThan(String fieldName, Object value) {
     this.validateConditionClause(fieldName);
 
@@ -383,6 +593,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a less than or equal (<=) condition to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param value The value to compare against.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereLessThanOrEqual(String fieldName, Object value) {
     this.validateConditionClause(fieldName);
 
@@ -400,6 +617,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a LIKE condition to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param value The string value to compare against, including wildcards (%).
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereLike(String fieldName, String value) {
     this.validateConditionClause(fieldName);
 
@@ -412,6 +636,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a NOT LIKE condition to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param value The string value to compare against, including wildcards (%).
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereNotLike(String fieldName, String value) {
     this.validateConditionClause(fieldName);
 
@@ -429,6 +660,14 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds an IN condition to the WHERE clause.
+   *
+   * Handles empty lists gracefully by creating a logically impossible condition.
+   * @param fieldName The field to filter on.
+   * @param values A List or Set of values to include.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereIn(String fieldName, Object values) {
     this.validateConditionClause(fieldName);
 
@@ -441,14 +680,19 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds an IN condition with a subquery to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param subQuery A Scribe instance representing the subquery.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereIn(String fieldName, Scribe subQuery) {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
     if (clonedScribe.isNextConditionOr) {
-      throw new QueryException(
-        'OR条件の後にINサブクエリを追加することはできません。クエリの分割や見直しを検討してください。'
-      );
+      throw new QueryException('The whereIn() method with a subquery is not supported after orCondition().');
     }
 
     IConditionClause conditionClause = new InSubQueryConditionClause(
@@ -464,6 +708,14 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a NOT IN condition to the WHERE clause.
+   *
+   * Handles empty lists gracefully by ignoring the condition.
+   * @param fieldName The field to filter on.
+   * @param values A List or Set of values to exclude.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereNotIn(String fieldName, Object values) {
     this.validateConditionClause(fieldName);
 
@@ -476,14 +728,19 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a NOT IN condition with a subquery to the WHERE clause.
+   *
+   * @param fieldName The field to filter on.
+   * @param subQuery A Scribe instance representing the subquery.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereNotIn(String fieldName, Scribe subQuery) {
     this.validateConditionClause(fieldName);
 
     Scribe clonedScribe = this.deepClone();
     if (clonedScribe.isNextConditionOr) {
-      throw new QueryException(
-        'OR条件の後にNOT INサブクエリを追加することはできません。クエリの分割や見直しを検討してください。'
-      );
+      throw new QueryException('The whereNotIn() method with a subquery is not supported after orCondition().');
     }
 
     IConditionClause conditionClause = new NotInSubQueryConditionClause(
@@ -499,6 +756,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds an INCLUDES condition to the WHERE clause for multi-select picklists.
+   *
+   * @param fieldName The multi-select picklist field to filter on.
+   * @param values A list of values to include.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereIncludes(String fieldName, List<String> values) {
     this.validateConditionClause(fieldName);
 
@@ -516,6 +780,13 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds an EXCLUDES condition to the WHERE clause for multi-select picklists.
+   *
+   * @param fieldName The multi-select picklist field to filter on.
+   * @param values A list of values to exclude.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereExcludes(String fieldName, List<String> values) {
     this.validateConditionClause(fieldName);
 
@@ -533,6 +804,12 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds an IS NULL condition to the WHERE clause.
+   *
+   * @param fieldName The field to check for null.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereNull(String fieldName) {
     this.validateConditionClause(fieldName);
 
@@ -545,6 +822,12 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds an IS NOT NULL condition to the WHERE clause.
+   *
+   * @param fieldName The field to check for non-null.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
   public Scribe whereNotNull(String fieldName) {
     this.validateConditionClause(fieldName);
 
@@ -557,6 +840,11 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Builds a FieldStructure object representing the fields selected in this Scribe instance.
+   * This is used by MockEntry to validate mocked data.
+   * @return A FieldStructure instance representing the query shape.
+   */
   public FieldStructure buildFieldStructure() {
     Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
 
@@ -583,13 +871,21 @@ public with sharing class Scribe {
     return new FieldStructure(selectedFields, relationFieldStructures);
   }
 
-  // ------------ group methods ------------
+  // =================================================================================================================
+  // Grouping Methods
+  // =================================================================================================================
 
+  /**
+   * Groups multiple WHERE conditions using parentheses.
+   *
+   * @param groupScribe A Scribe instance created with `Scribe.asGroup()` and configured with WHERE conditions.
+   * @return A new, immutable Scribe instance with the grouped condition.
+   */
   public Scribe whereGroup(Scribe groupScribe) {
     this.validateConditionOperator();
 
     if (groupScribe == null) {
-      throw new QueryException('グループ化するScribeがnullです。');
+      throw new QueryException('The Scribe instance provided to whereGroup() cannot be null.');
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -601,11 +897,21 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
-  // ------------ add relation methods ------------
+  // =================================================================================================================
+  // Relationship Methods
+  // =================================================================================================================
 
+  /**
+   * Explicitly sets the child relationship name for a child subquery.
+   * This is required when there are multiple relationships between the parent and child objects.
+   * Example: `.withChildren(Scribe.asChild(Opportunity.getSObjectType()).relationName('Opportunities').field('Id'))`
+   *
+   * @param relationName The exact child relationship name (e.g., 'Opportunities').
+   * @return A new, immutable Scribe instance with the relationship name set.
+   */
   public Scribe relationName(String relationName) {
     if (String.isBlank(relationName)) {
-      throw new QueryException('リレーション名が空です。');
+      throw new QueryException('A relationship name must be provided.');
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -614,19 +920,27 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a child subquery.
+   *
+   * @param childScribe A Scribe instance created with `Scribe.asChild()`.
+   * @return A new, immutable Scribe instance with the child subquery.
+   */
   public Scribe withChildren(Scribe childScribe) {
     this.validateOrConditionNotAllowed();
 
     if (childScribe == null) {
-      throw new QueryException('子のScribeがnullです。');
+      throw new QueryException('The child Scribe instance cannot be null.');
     }
 
     if (!this.groupByClauses.isEmpty() || !this.aggregateClauses.isEmpty()) {
-      throw new QueryException('集計関数はwithChildrenメソッドと同時に使用することはできません。');
+      throw new QueryException(
+        'Aggregate functions cannot be used in conjunction with the withChildren() method.'
+      );
     }
 
     if (!childScribe.isChild) {
-      String error = 'withChildrenメソッドの引数のScribeクラスは、はScribe.asChild()で生成されたScribeクラスを入れてください。';
+      String error = 'The Scribe instance for the withChildren() method must be created with Scribe.asChild().';
       throw new QueryException(error);
     }
 
@@ -636,15 +950,21 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds a condition on a parent relationship field.
+   *
+   * @param parentScribe A Scribe instance created with `Scribe.asParent()` and configured with WHERE conditions.
+   * @return A new, immutable Scribe instance with the parent condition.
+   */
   public Scribe parentCondition(Scribe parentScribe) {
     this.validateOrConditionNotAllowed();
 
     if (parentScribe == null) {
-      throw new QueryException('親のScribeがnullです。');
+      throw new QueryException('The parent Scribe instance cannot be null.');
     }
 
     if (!parentScribe.isParent) {
-      String error = 'parentConditionメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
+      String error = 'The Scribe instance for the parentCondition() method must be created with Scribe.asParent().';
       throw new QueryException(error);
     }
 
@@ -658,15 +978,21 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Selects fields from a parent relationship.
+   *
+   * @param parentScribe A Scribe instance created with `Scribe.asParent()` and configured with fields to select.
+   * @return A new, immutable Scribe instance with the parent fields in the SELECT clause.
+   */
   public Scribe parentField(Scribe parentScribe) {
     this.validateOrConditionNotAllowed();
 
     if (parentScribe == null) {
-      throw new QueryException('親のScribeがnullです。');
+      throw new QueryException('The parent Scribe instance cannot be null.');
     }
 
     if (!parentScribe.isParent) {
-      String error = 'parentFieldメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。';
+      String error = 'The Scribe instance for the parentField() method must be created with Scribe.asParent().';
       throw new QueryException(error);
     }
 
@@ -676,9 +1002,17 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Eager loads a many-to-many relationship by traversing through a junction object.
+   * This is an abstraction over a `withChildren` subquery on a junction object that includes `parentField` and `parentCondition`.
+   * Example: `.through(Scribe.asThrough(JunctionSObjectType, 'relationIdField').field(...).whereEqual(...))`
+   *
+   * @param throughScribe The Scribe instance defining the junction object and the final target, created via `Scribe.asThrough()`.
+   * @return The Scribe instance for method chaining.
+   */
   public Scribe through(Scribe throughScribe) {
     if (!throughScribe.isThrough) {
-      String error = 'throughメソッドの引数のScribeクラスは、Scribe.asThrough()で生成されたScribeクラスを入れてください。';
+      String error = 'The Scribe instance for the through() method must be created with Scribe.asThrough().';
       throw new QueryException(error);
     }
     throughScribe.isParent = true;
@@ -694,11 +1028,19 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
-  // ------------ other clauses ------------
+  // =================================================================================================================
+  // Other Clause Methods
+  // =================================================================================================================
 
+  /**
+   * Adds a LIMIT clause to the query.
+   *
+   * @param limitNumber The maximum number of records to return.
+   * @return A new, immutable Scribe instance with the LIMIT clause.
+   */
   public Scribe take(Integer limitNumber) {
     if (limitNumber == null || limitNumber <= 0) {
-      throw new QueryException('takeの値は1以上の整数でなければなりません。');
+      throw new QueryException('The limit number must be greater than zero.');
     }
     Scribe clonedScribe = this.deepClone();
     clonedScribe.limitNumber = limitNumber;
@@ -706,26 +1048,54 @@ public with sharing class Scribe {
     return clonedScribe;
   }
 
+  /**
+   * Adds an ORDER BY clause to the query (defaults to ASC).
+   *
+   * @param field The field to order by.
+   * @return A new, immutable Scribe instance with the ORDER BY clause.
+   */
   public Scribe orderBy(String field) {
     Scribe clonedScribe = this.deepClone();
     clonedScribe.orderByClauses.add(new Scribe.OrderByClause(field));
     return clonedScribe;
   }
 
+  /**
+   * Adds an ORDER BY clause to the query.
+   *
+   * @param field The field to order by.
+   * @param order The direction ('ASC' or 'DESC').
+   * @return A new, immutable Scribe instance with the ORDER BY clause.
+   */
   public Scribe orderBy(String field, String order) {
     Scribe clonedScribe = this.deepClone();
     clonedScribe.orderByClauses.add(new Scribe.OrderByClause(field, order));
     return clonedScribe;
   }
 
+  /**
+   * Adds an ORDER BY clause with nulls ordering to the query.
+   *
+   * @param field The field to order by.
+   * @param order The direction ('ASC' or 'DESC').
+   * @param nullsOperator The nulls ordering ('FIRST' or 'LAST').
+   * @return A new, immutable Scribe instance with the ORDER BY clause.
+   */
   public Scribe orderBy(String field, String order, String nullsOperator) {
     Scribe clonedScribe = this.deepClone();
     clonedScribe.orderByClauses.add(new Scribe.OrderByClause(field, order, nullsOperator));
     return clonedScribe;
   }
 
-  // ------------ build methods ------------
+  // =================================================================================================================
+  // Build Methods
+  // =================================================================================================================
 
+  /**
+   * Builds the final SOQL query string.
+   *
+   * @return The complete, executable SOQL query string.
+   */
   public String toSoql() {
     this.validateAndInitialize();
 
@@ -742,6 +1112,14 @@ public with sharing class Scribe {
     return query;
   }
 
+  /**
+   * Builds the clauses that follow the FROM clause.
+   *
+   * @param query The query string up to the FROM clause.
+   * @param fieldMap A map of the source object's fields.
+   * @param selectFieldsString The already built SELECT clause string.
+   * @return The complete query string.
+   */
   private String buildQueryTrail(
     String query,
     Map<String, Schema.SObjectField> fieldMap,
@@ -775,10 +1153,10 @@ public with sharing class Scribe {
   }
 
   /**
-   * get selected Fields.
+   * Gets the list of fields to be included in the SELECT clause, validating their existence.
    *
-   * @param parentSObjectType: The parent SObject type
-   * @return selected fields list
+   * @param fieldMap A map of the source object's fields.
+   * @return A list of validated field names.
    */
   public List<String> getSelectedFields(Map<String, Schema.SObjectField> fieldMap) {
     List<String> selectFields = new List<String>();
@@ -803,50 +1181,66 @@ public with sharing class Scribe {
     return selectFields;
   }
 
-  // ------------ private methods ------------
+  // =================================================================================================================
+  // Private Helper Methods
+  // =================================================================================================================
 
+  /**
+   * Creates a deep clone of the current Scribe instance to maintain immutability.
+   *
+   * @return A new Scribe instance with the same state.
+   */
   private Scribe deepClone() {
     Scribe newScribe = new Scribe(this.sObjectType);
     newScribe.describe = this.describe;
+
     newScribe.selectFields = this.selectFields.clone();
     newScribe.aggregateClauses = this.aggregateClauses.clone();
-    newScribe.conditionParts = this.conditionParts.clone();
-    newScribe.children = this.children.clone();
-    newScribe.parents = this.parents.clone();
-    newScribe.orderByClauses = this.orderByClauses.clone();
-    newScribe.limitNumber = this.limitNumber;
-
     newScribe.isSelectAll = this.isSelectAll;
+
+    newScribe.conditionParts = this.conditionParts.clone();
     newScribe.isNextConditionOr = this.isNextConditionOr;
     newScribe.canOnlyAddOrCondition = this.canOnlyAddOrCondition;
-    newScribe.isParent = this.isParent;
+
+    newScribe.parents = this.parents.clone();
+    newScribe.children = this.children.clone();
+    newScribe.throughScribes = this.throughScribes.clone();
+    newScribe.junctionSObjectType = this.junctionSObjectType;
     newScribe.parentRelationIdFieldName = this.parentRelationIdFieldName;
-    newScribe.isChild = this.isChild;
+    newScribe.relationName = this.relationName;
 
     newScribe.groupByClauses = this.groupByClauses.clone();
-    newScribe.isGroup = this.isGroup;
     newScribe.aggregateAliasMap = this.aggregateAliasMap.clone();
-    newScribe.isHaving = this.isHaving;
     newScribe.havingScribe = this.havingScribe;
 
-    newScribe.junctionSObjectType = this.junctionSObjectType;
-    newScribe.isThrough = this.isThrough;
-    newScribe.throughScribes = this.throughScribes.clone();
+    newScribe.orderByClauses = this.orderByClauses.clone();
 
-    newScribe.relationName = this.relationName;
+    newScribe.limitNumber = this.limitNumber;
+
+    newScribe.isParent = this.isParent;
+    newScribe.isChild = this.isChild;
+    newScribe.isGroup = this.isGroup;
+    newScribe.isThrough = this.isThrough;
+    newScribe.isHaving = this.isHaving;
 
     return newScribe;
   }
 
+  /**
+   * Gets the map of aggregate aliases..
+   *
+   * @return The map of aliases to their structures.
+   */
   private Map<String, AliasStructure> getAggregateAliasMap() {
     return this.aggregateAliasMap;
   }
 
   /**
-   * A method to construct the SELECT clause of a SOQL query based on the specified field map.
+   * Constructs the complete SELECT clause, including fields, aggregates, and subqueries.
    *
-   * @param fieldMap A mapping of field names to Schema.SObjectField
-   * @return The constructed SELECT clause as a string
+   * @param fieldMap A map of the source object's fields.
+   * @param lowerNestingDepth The current nesting depth for child subqueries.
+   * @return The formatted SELECT clause string.
    */
   private String buildSelectFields(Map<String, Schema.SObjectField> fieldMap, Integer lowerNestingDepth) {
     String selectFieldsString = '';
@@ -865,6 +1259,13 @@ public with sharing class Scribe {
       String aggregateClauseString = aggregateClause.build();
       selectFieldsString += aggregateClauseString;
       String alias = aggregateClause.getAlias();
+      if(this.aggregateAliasMap.containsKey(alias)) {
+        String error = String.format(
+          'The alias {0} in the aggregate clause conflicts with an existing alias.',
+          new List<String>{ alias }
+        );
+        throw new QueryException(error);
+      }
       String aggregateField = aggregateClause.getFieldName();
       String aggregateTarget = aggregateClauseString.split(' ')[0];
       this.aggregateAliasMap.put(alias, new AliasStructure(aggregateField, aggregateTarget, fieldMap));
@@ -880,7 +1281,7 @@ public with sharing class Scribe {
       for (String alias : parentAggregateAliasMap.keySet()) {
         if (this.aggregateAliasMap.containsKey(alias)) {
           String error = String.format(
-            'The alias {0} in the parent query conflicts with an existing alias in the current query',
+            'The alias {0} in the parent query conflicts with an existing alias.',
             new List<String>{ alias }
           );
           throw new QueryException(error);
@@ -898,7 +1299,7 @@ public with sharing class Scribe {
           overNestedChildrenNames.add(child.getDescribe().getName());
         }
         String error = String.format(
-          'ネストの深度が最大値を超えました。最大ネスト深度: {0}, オブジェクト名: {1}',
+          'Maximum nesting depth for child queries reached. Max depth: {0}, Object name: {1}',
           new List<String>{
             String.valueOf(this.MAX_LOWER_NESTING_DEPTH),
             String.join(overNestedChildrenNames, ', ')
@@ -917,6 +1318,13 @@ public with sharing class Scribe {
     return selectFieldsString;
   }
 
+  /**
+   * Constructs the complete WHERE clause string from all condition parts.
+   *
+   * @param fieldMap A map of the source object's fields.
+   * @param childObjectName The relationship name, if this is part of a parent condition.
+   * @return A WhereClauseData object containing the WHERE string and operator info.
+   */
   private WhereClauseData buildWhereClause(Map<String, Schema.SObjectField> fieldMap, String childObjectName) {
     String whereClauseString = '';
 
@@ -929,7 +1337,7 @@ public with sharing class Scribe {
     for (ConditionPart conditionPart : this.conditionParts) {
       if (isLastOperatorOr && !conditionPart.isOr) {
         throw new QueryException(
-          'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。'
+          'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.'
         );
       }
       isFirstOperatorOr = isFirstOperatorOr == null ? conditionPart.isOr : isFirstOperatorOr;
@@ -974,6 +1382,12 @@ public with sharing class Scribe {
     return new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
   }
 
+  /**
+   * Constructs the complete HAVING clause string.
+   *
+   * @param aggregateAliasMap A map of all defined aggregate aliases.
+   * @return A WhereClauseData object containing the HAVING string.
+   */
   private WhereClauseData buildHavingClause(Map<String, AliasStructure> aggregateAliasMap) {
     String whereClauseString = '';
 
@@ -987,54 +1401,66 @@ public with sharing class Scribe {
     for (ConditionPart conditionPart : this.conditionParts) {
       if (isLastOperatorOr && !conditionPart.isOr) {
         throw new QueryException(
-          'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。'
+          'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.'
         );
       }
-      isFirstOperatorOr = isFirstOperatorOr == null ? conditionPart.isOr : isFirstOperatorOr;
       WhereClauseData whereClauseData = null;
-      // HavingではwhereEqual(alias, value) のような形でwhere系メソッドを使用することを想定しているので
-      // getFieldName()でエイリアスを取得できる
-      String alias = conditionPart.condition.getFieldName();
+      String clause = '';
 
-      // エイリアスがgroupByで作成されているか確認する
-      if (!aggregateAliasMap.containsKey(alias)) {
-        String error = String.format(
-          'The alias {0} in the HAVING clause does not match any aggregate alias',
-          new List<String>{ alias }
-        );
-        throw new QueryException(error);
-      }
-      AliasStructure aliasStructure = aggregateAliasMap.get(alias);
+      if (conditionPart.condition != null) {
+        // We assume that in a HAVING clause, a where...() method is used with an alias instead of a field name.
+        // Thus, getFieldName() retrieves the alias.
+        String alias = conditionPart.condition.getFieldName();
 
-      // HAVINGの条件をビルドする
-      IConditionClause condition = conditionPart
-        .condition
-        .overrideMetaData(this.sObjectType, aliasStructure.getFieldMap())
-        .overrideField(aliasStructure.getFieldName());
-      String clauseWithAlias = condition.build();
-
-      // ビルド結果のフィールドはSObjectのフィールドになっているので、集計関数に置き換える
-      // 例: amount > 1000 -> AVG(Amount) > 1000
-      List<String> clauseParts = clauseWithAlias.split(' ');
-      clauseParts[0] = aliasStructure.getAggregateClause();
-
-      // ビルド結果のvalueはフィールドの型に応じてキャストされているが、集計関数の種類によっては
-      // キャストが不要な場合があるので、value部分を再度置き換える
-      // MAXとMIN はキャストした状態で、それ以外はキャスト不要 とする
-      Boolean needsCast = clauseParts[0].startsWith('MAX') || clauseParts[0].startsWith('MIN');
-      if (!needsCast) {
-        // valuePartは、clausePartsのindexで2番目以降を結合したもの
-        // 前後のシングルクォーテーションを取り除く
-        List<String> valueList = new List<String>();
-        for (Integer i = 2; i < clauseParts.size(); i++) {
-          valueList.add(clauseParts[i]);
+        if (!aggregateAliasMap.containsKey(alias)) {
+          String error = String.format(
+            'The alias {0} in the HAVING clause does not match any aggregate alias',
+            new List<String>{ alias }
+          );
+          throw new QueryException(error);
         }
-        String valueString = String.join(valueList, ' ');
-        valueString = valueString.replaceAll('^\'|\'$', '');
-        clauseParts = new List<String>{ clauseParts[0], clauseParts[1], valueString };
+        AliasStructure aliasStructure = aggregateAliasMap.get(alias);
+
+        IConditionClause condition = conditionPart
+          .condition
+          .overrideMetaData(this.sObjectType, aliasStructure.getFieldMap())
+          .overrideField(aliasStructure.getFieldName());
+        String clauseWithAlias = condition.build();
+
+        // The initial build() result uses the SObject field name, so we need to replace it with the full aggregate function.
+        // e.g., 'Amount > 1000' becomes 'AVG(Amount) > 1000'
+        List<String> clauseParts = clauseWithAlias.split(' ');
+        clauseParts[0] = aliasStructure.getAggregateClause();
+
+        // The initial build() formats the value based on the original field's data type.
+        // However, for some aggregate functions (like COUNT, SUM, AVG), the result is numeric and should not be quoted.
+        // We only preserve the original casting for MIN and MAX, as their return type matches the original field's type.
+        Boolean needsCast = clauseParts[0].startsWith('MAX') || clauseParts[0].startsWith('MIN');
+        if (!needsCast) {
+          // valuePartは、clausePartsのindexで2番目以降を結合したもの
+          // The value part is everything from the 3rd element (index 2) onwards.
+          List<String> valueList = new List<String>();
+          for (Integer i = 2; i < clauseParts.size(); i++) {
+            valueList.add(clauseParts[i]);
+          }
+          String valueString = String.join(valueList, ' ');
+          // Remove the surrounding single quotes.
+          valueString = valueString.replaceAll('^\'|\'$', '');
+          clauseParts = new List<String>{ clauseParts[0], clauseParts[1], valueString };
+        }
+        clause = String.join(clauseParts, ' ');
+        isLastOperatorOr = conditionPart.isOr;
+      } else if (conditionPart.groupScribe != null) {
+        Scribe groupScribe = conditionPart.groupScribe;
+        groupScribe.sObjectType = this.sObjectType;
+        WhereClauseData groupWhereClauseData = groupScribe.buildHavingClause(aggregateAliasMap);
+        if (String.isBlank(groupWhereClauseData.whereClauseString)) {
+          continue;
+        }
+        clause = String.format('({0})', new List<String>{ groupWhereClauseData.whereClauseString });
+        isLastOperatorOr = conditionPart.isOr;
       }
 
-      String clause = String.join(clauseParts, ' ');
       if (String.isNotBlank(clause)) {
         if (String.isNotBlank(whereClauseString)) {
           whereClauseString += conditionPart.isOr ? ' OR ' : ' AND ';
@@ -1046,6 +1472,13 @@ public with sharing class Scribe {
     return new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
   }
 
+  /**
+   * Constructs the child subquery string.
+   *
+   * @param parentSObjectType The SObjectType of the parent query.
+   * @param lowerNestingdepth The current nesting depth.
+   * @return The complete child subquery string.
+   */
   private String buildChildSoql(Schema.SObjectType parentSObjectType, Integer lowerNestingdepth) {
     this.validateAndInitialize();
 
@@ -1104,10 +1537,25 @@ public with sharing class Scribe {
     return query;
   }
 
+  /**
+   * Gets the describe result for the source SObject.
+   *
+   * @return The describe result.
+   */
   private Schema.DescribeSObjectResult getDescribe() {
     return this.describe;
   }
 
+  /**
+   * Constructs the GROUP BY clause and validates selected fields against it.
+   *
+   * @param query The current query string.
+   * @param fieldMap A map of the source object's fields.
+   * @param fieldStructure The field structure representing all selected fields.
+   * @param childObjectNames The list of child relationship names for context.
+   * @param parentIdFieldNames The list of parent relationship ID fields for context.
+   * @return The query string with the GROUP BY clause appended.
+   */
   private String buildGroupByClause(
     String query,
     Map<String, Schema.SObjectField> fieldMap,
@@ -1131,6 +1579,14 @@ public with sharing class Scribe {
     return query + ' GROUP BY ' + String.join(groupByStrings, ', ');
   }
 
+  /**
+   * Helper method to build the list of GROUP BY field strings.
+   *
+   * @param fieldMap A map of the source object's fields.
+   * @param fieldStructure The field structure for validation.
+   * @param childObjectNames The list of child relationship names for context.
+   * @return A list of formatted GROUP BY field strings.
+   */
   private List<String> buildGroupByFields(
     Map<String, Schema.SObjectField> fieldMap,
     FieldStructure fieldStructure,
@@ -1146,6 +1602,12 @@ public with sharing class Scribe {
     return groupByStrings;
   }
 
+  /**
+   * Constructs the complete HAVING clause string.
+   *
+   * @param query The current query string.
+   * @return The query string with the HAVING clause appended.
+   */
   private String buildHavingClause(String query) {
     if (this.havingScribe == null) {
       return query;
@@ -1161,54 +1623,71 @@ public with sharing class Scribe {
     return query;
   }
 
-  //  ------------ validation methods ------------
+  // =================================================================================================================
+  // Validation Methods
+  // =================================================================================================================
 
+  /**
+   * Validates that a field name is provided and that the operator logic is valid.
+   *
+   * @param fieldName The field name being added to a condition.
+   */
   private void validateConditionClause(String fieldName) {
     if (String.isBlank(fieldName)) {
-      throw new QueryException('フィールド名が空です。');
+      throw new QueryException('Field name must be provided.');
     }
     this.validateConditionOperator();
   }
 
+  /**
+   * Validates the OR/AND operator chaining logic.
+   */
   private void validateConditionOperator() {
     if (this.canOnlyAddOrCondition && !this.isNextConditionOr) {
       throw new QueryException(
-        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。'
+        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method. '
       );
-    }
-  }
-
-  private void validateOrConditionNotAllowed() {
-    if (this.isNextConditionOr) {
-      throw new QueryException(
-        'orConditionメソッドに続くメソッドはWhere系もしくはgroupメソッドでなければなりません。'
-      );
-    }
-  }
-
-  private void validateAddAggregateClause() {
-    if (this.isChild) {
-      throw new QueryException('子のScribeでは集計関数を使用できません。');
-    }
-    if (this.isHaving) {
-      throw new QueryException('HAVING句の中では集計関数を使用できません。');
-    }
-    if (!this.children.isEmpty()) {
-      throw new QueryException('集計関数はwithChildrenメソッドと同時に使用することはできません。');
-    }
-  }
-
-  private void validateAddFieldClause() {
-    if (this.isGroup) {
-      throw new QueryException('グループ条件追加中はScribeではフィールドの追加はできません。');
-    }
-    if (this.isHaving) {
-      throw new QueryException('HAVING句の中ではフィールドの追加はできません。');
     }
   }
 
   /**
-   * Validates the parameters.
+   * Validates that OR is not followed by a non-WHERE clause method.
+   */
+  private void validateOrConditionNotAllowed() {
+    if (this.isNextConditionOr) {
+      throw new QueryException(
+        'The method following orCondition() must be a where...() method or the whereGroup() method.'
+      );
+    }
+  }
+
+  /**
+   * Validates that aggregate functions are not used in unsupported contexts.
+   */
+  private void validateAddAggregateClause() {
+    if (this.isChild) {
+      throw new QueryException('Aggregate functions cannot be used in a child Scribe.');
+    }
+    if (this.isHaving) {
+      throw new QueryException('Aggregate functions cannot be used within a HAVING clause.');
+    }
+  }
+
+  /**
+   * Validates that fields are not added in unsupported contexts.
+   */
+  private void validateAddFieldClause() {
+    if (this.isGroup) {
+      throw new QueryException('Fields cannot be added while defining a group condition (inside whereGroup()).');
+    }
+    if (this.isHaving) {
+      throw new QueryException('Fields cannot be added while defining a having condition(inside havingCondition().');
+    }
+  }
+
+  /**
+   * Validates essential parameters and initializes defaults if necessary.
+   * For example, adds 'Id' to the select fields if no other fields are specified.
    */
   private void validateAndInitialize() {
     Boolean isSObjectTypeNull = this.sObjectType == null;
@@ -1226,8 +1705,14 @@ public with sharing class Scribe {
     }
   }
 
-  // ------------ inner classes ------------
+  // =================================================================================================================
+  // Inner Classes
+  // =================================================================================================================
 
+  /**
+   * Private inner class to hold a part of a WHERE clause.
+   * It can represent a single condition, a grouped condition, or a parent condition.
+   */
   private class ConditionPart {
     public IConditionClause condition = null;
     public Scribe groupScribe = null;
@@ -1250,6 +1735,9 @@ public with sharing class Scribe {
     }
   }
 
+  /**
+   * Private inner class to hold describe information for a parent object relationship.
+   */
   private class ParentObjectData {
     public Schema.DescribeFieldResult relationFieldDescribe;
     public String relationFieldName;
@@ -1266,6 +1754,9 @@ public with sharing class Scribe {
     }
   }
 
+  /**
+   * Private inner class to hold the result of building a WHERE clause string.
+   */
   private class WhereClauseData {
     public String whereClauseString;
     public boolean isFirstOperatorOr;
@@ -1278,6 +1769,10 @@ public with sharing class Scribe {
     }
   }
 
+  /**
+   * Private inner class to represent a parent relationship query component.
+   * It holds the relationship field name and the Scribe instance for the parent.
+   */
   private class ParentScribe implements IScribe {
     public String relationFieldName;
     public Scribe scribe;
@@ -1307,7 +1802,7 @@ public with sharing class Scribe {
       Integer currentUpperNestingDepth = upperNestingDepth + 1;
       if (currentUpperNestingDepth > this.MAX_UPPER_NESTING_DEPTH) {
         String error = String.format(
-          '親方向のネスト深度が最大値を超えました。最大ネスト深度: {0}, オブジェクト名: {1}',
+          'Maximum nesting depth for parent queries reached. Max depth: {0}, Object name: {1}',
           new List<String>{
             String.valueOf(this.MAX_UPPER_NESTING_DEPTH),
             parentObjectData.relationSObjectType.getDescribe().getName()
@@ -1363,7 +1858,7 @@ public with sharing class Scribe {
           for (String alias : grandParentAggregateAliasMap.keySet()) {
             if (this.scribe.aggregateAliasMap.containsKey(alias)) {
               String error = String.format(
-                'The alias {0} in the parent query conflicts with an existing alias in the current query',
+                'The alias {0} in the parent query conflicts with an existing alias.',
                 new List<String>{ alias }
               );
               throw new QueryException(error);
@@ -1491,6 +1986,9 @@ public with sharing class Scribe {
     }
   }
 
+  /**
+   * Private inner class to represent an ORDER BY clause component.
+   */
   private class OrderByClause {
     private Set<String> ORDERS = new Set<String>{ 'ASC', 'DESC' };
     private Set<String> NULLS_OPERATORS = new Set<String>{ 'FIRST', 'LAST' };
@@ -1523,6 +2021,7 @@ public with sharing class Scribe {
       this.nullsOperator = nullsOperator;
     }
 
+
     public String build() {
       String orderBy = this.field + ' ' + this.order;
       if (this.nullsOperator != null) {
@@ -1533,13 +2032,13 @@ public with sharing class Scribe {
 
     private void validateField(String field) {
       if (String.isBlank(field)) {
-        throw new QueryException('orderByのフィールド名が空です。');
+        throw new QueryException('The field name for orderBy() cannot be blank.');
       }
     }
 
     private void validateFields(List<String> fields) {
       if (fields == null || fields.isEmpty()) {
-        throw new QueryException('orderByのフィールド名のリストが空です。');
+        throw new QueryException('The list of field names for orderBy() cannot be null or empty.');
       }
       for (String field : fields) {
         this.validateField(field);
@@ -1548,17 +2047,20 @@ public with sharing class Scribe {
 
     private void validateOrder(String order) {
       if (String.isBlank(order) || !this.ORDERS.contains(order.toUpperCase())) {
-        throw new QueryException('orderByのorderが無効です。\'ASC\' or \'DESC\' を入力してください。');
+        throw new QueryException('Invalid order direction for orderBy(). Please use \'ASC\' or \'DESC\'.');
       }
     }
 
     private void validateNullsOperator(String nullsOperator) {
       if (String.isBlank(nullsOperator) || !this.NULLS_OPERATORS.contains(nullsOperator.toUpperCase())) {
-        throw new QueryException('orderByのnullsOperatorが無効です。\'FIRST\' or \'LAST\' を入力してください。');
+        throw new QueryException('Invalid nulls operator for orderBy(). Please use \'FIRST\' or \'LAST\'.');
       }
     }
   }
 
+  /**
+   * Private inner class to represent a GROUP BY clause component.
+   */
   private class GroupByClause {
     private final String fieldName;
     private final ParentScribe parentScribe;
@@ -1567,7 +2069,7 @@ public with sharing class Scribe {
 
     public GroupByClause(String fieldName) {
       if (String.isBlank(fieldName)) {
-        throw new QueryException('groupByのフィールド名が空です。');
+        throw new QueryException('The field name for grouping cannot be blank.');
       }
       this.fieldName = fieldName;
       this.parentScribe = null;
@@ -1576,7 +2078,7 @@ public with sharing class Scribe {
 
     public GroupByClause(ParentScribe parentScribe) {
       if (parentScribe == null) {
-        throw new QueryException('groupByのparentScribeがnullです。');
+        throw new QueryException('The parent Scribe for grouping cannot be null.');
       }
       this.fieldName = null;
       this.parentScribe = parentScribe;
@@ -1611,6 +2113,9 @@ public with sharing class Scribe {
     }
   }
 
+  /**
+   * Private inner class to store metadata about an aggregate function alias.
+   */
   private class AliasStructure {
     private final String fieldName;
     private final String aggregateClause;

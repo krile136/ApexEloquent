@@ -520,7 +520,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'OR条件を最初に設定することはできません。where系メソッドを使用してAND条件を追加してください。parentCondition内でエラーが起きている場合は引数のScribeクラスをScribe.asParent()から始めてください。',
+        'The orCondition() method cannot be called first. Please add a condition with a where...() method before adding an OR condition.',
         e.getMessage()
       );
     }
@@ -541,7 +541,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method. ',
         e.getMessage()
       );
     }
@@ -655,7 +655,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method. ',
         e.getMessage()
       );
     }
@@ -683,7 +683,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method. ',
         e.getMessage()
       );
     }
@@ -705,6 +705,28 @@ public with sharing class ScribeTest {
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
     Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testWhereGroup_WhenAddFieldInGroup_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .whereGroup(
+          Scribe.asGroup()
+            .field('Name') // This should throw an exception
+            .whereEqual('Name', 'Test Account')
+        );
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'Fields cannot be added while defining a group condition (inside whereGroup()).',
+        e.getMessage()
+      );
+    }
   }
 
   @isTest
@@ -739,7 +761,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'OR条件の後にINサブクエリを追加することはできません。クエリの分割や見直しを検討してください。',
+        'The whereIn() method with a subquery is not supported after orCondition().',
         e.getMessage()
       );
     }
@@ -777,7 +799,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'OR条件の後にNOT INサブクエリを追加することはできません。クエリの分割や見直しを検討してください。',
+        'The whereNotIn() method with a subquery is not supported after orCondition().',
         e.getMessage()
       );
     }
@@ -855,7 +877,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'orConditionメソッドに続くメソッドはWhere系もしくはgroupメソッドでなければなりません。',
+        'The method following orCondition() must be a where...() method or the whereGroup() method.',
         e.getMessage()
       );
     }
@@ -891,7 +913,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'ネストの深度が最大値を超えました。最大ネスト深度: 4, オブジェクト名: OrderItem',
+        'Maximum nesting depth for child queries reached. Max depth: 4, Object name: OrderItem',
         e.getMessage()
       );
     }
@@ -923,7 +945,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'ネストの深度が最大値を超えました。最大ネスト深度: 4, オブジェクト名: OrderItem',
+        'Maximum nesting depth for child queries reached. Max depth: 4, Object name: OrderItem',
         e.getMessage()
       );
     }
@@ -996,6 +1018,22 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testWithChildren_WhenAggregateInChild_ThenThrowException() {
+    // Arrange/ Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .withChildren(Scribe.asChild(Opportunity.getSObjectType()).average('Amount', 'AvgAmount'));
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug(e.getMessage());
+      String expectedMessage = 'Aggregate functions cannot be used in a child Scribe.';
+      Assert.areEqual(expectedMessage, e.getMessage());
+    }
+  }
+
+  @isTest
   static void testWithParent_WhenAddOnlyParentField_ThenAddOnlyParentField() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
@@ -1012,6 +1050,23 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testWithParent_WhenAddVoidString_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('Id')
+        .parentField(Scribe.asParent(''))
+        .whereEqual('Name', 'Test Opportunity');
+
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('The relationship field name for asParent() must be specified.', e.getMessage());
+    }
+  }
+
+  @isTest
   static void testWithParent_WhenAddOnlyParentFieldUsingAsGroup_ThenErrorThrown() {
     // Arrange / Act / Assert
     try {
@@ -1025,7 +1080,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'parentFieldメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。',
+        'The Scribe instance for the parentField() method must be created with Scribe.asParent().',
         e.getMessage()
       );
     }
@@ -1059,7 +1114,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'parentConditionメソッドの引数のScribeクラスは、Scribe.asParent()で生成されたScribeクラスを入れてください。',
+        'The Scribe instance for the parentCondition() method must be created with Scribe.asParent().',
         e.getMessage()
       );
     }
@@ -1162,7 +1217,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'orConditionメソッドに続くメソッドはWhere系もしくはgroupメソッドでなければなりません。',
+        'The method following orCondition() must be a where...() method or the whereGroup() method.',
         e.getMessage()
       );
     }
@@ -1285,7 +1340,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.',
         e.getMessage()
       );
     }
@@ -1316,7 +1371,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'ORに続く条件はORでなければなりません。複雑な条件を作成する場合はgroupメソッドで条件をグルーピングしてください。',
+        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.',
         e.getMessage()
       );
     }
@@ -1393,7 +1448,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        '親方向のネスト深度が最大値を超えました。最大ネスト深度: 5, オブジェクト名: Account',
+        'Maximum nesting depth for parent queries reached. Max depth: 5, Object name: Account',
         e.getMessage()
       );
     }
@@ -1579,7 +1634,7 @@ public with sharing class ScribeTest {
     try {
       Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').take(0);
     } catch (Exception e) {
-      Assert.areEqual('takeの値は1以上の整数でなければなりません。', e.getMessage());
+      Assert.areEqual('The limit number must be greater than zero.', e.getMessage());
     }
   }
 
@@ -1632,11 +1687,11 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testOrderBy_WhenAddMultipleOrderBy_ThenReturnMultipleOrderBy() {
+  static void testOrderBy_WhenAddMultipleOrderBy_ThenReturnMultipleOrderBy_1() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
       .field('Id')
-      .whereEqual('Id', '006000000000000')
+      .whereEqual('StageName', 'prospecting')
       .orderBy('CloseDate', 'ASC', 'FIRST')
       .orderBy('Amount', 'DESC', 'LAST');
 
@@ -1644,8 +1699,72 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE Id = \'006000000000000\' ORDER BY CloseDate ASC NULLS FIRST, Amount DESC NULLS LAST';
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE StageName = \'prospecting\' ORDER BY CloseDate ASC NULLS FIRST, Amount DESC NULLS LAST';
     Assert.areEqual(expectedSoql, soql);
+  }
+  @isTest
+  static void testOrderBy_WhenAddMultipleOrderBy_ThenReturnMultipleOrderBy_2() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereEqual('StageName', 'prospecting')
+      .orderBy('CloseDate')
+      .orderBy('Amount');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE StageName = \'prospecting\' ORDER BY CloseDate ASC, Amount ASC';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testOrderBy_WhenAddBlankField_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('Id')
+        .whereEqual('Id', '006000000000000')
+        .orderBy('');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('The field name for orderBy() cannot be blank.', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testOrderBy_WhenaddInvalidOrder_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('Id')
+        .whereEqual('Id', '006000000000000')
+        .orderBy('CloseDate', 'INVALID');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('Invalid order direction for orderBy(). Please use \'ASC\' or \'DESC\'.', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testOrderBy_WhenaddInvalidNullsOperator_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('Id')
+        .whereEqual('Id', '006000000000000')
+        .orderBy('CloseDate', 'ASC', 'INVALID');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('Invalid nulls operator for orderBy(). Please use \'FIRST\' or \'LAST\'.', e.getMessage());
+    }
   }
 
   @isTest
@@ -1915,6 +2034,24 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testAggregateFunctions_WhenAddSameAlias_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .average('Amount', 'amountAlias')
+        .count('Id', 'amountAlias'); // Duplicate alias
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'The alias amountAlias in the aggregate clause conflicts with an existing alias.',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
   static void testGroupByField_WhenAddGroupByField_ThenReturnGroupByField() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())
@@ -1992,6 +2129,22 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void tesetGroupByFields_WhenAddEmptyList_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByFields(new List<String>());
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('The list of field names for groupByFields() cannot be empty.', e.getMessage());
+    }
+  }
+
+  @isTest
   static void testGroupByField_WhenUsingAfterWithChildrenMethod_ThenThrownException() {
     // Arrange & Act & Assert
     try {
@@ -2003,7 +2156,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('集計関数はwithChildrenメソッドと同時に使用することはできません。', e.getMessage());
+      Assert.areEqual(
+        'Aggregate functions cannot be used in conjunction with the withChildren() method.',
+        e.getMessage()
+      );
     }
   }
 
@@ -2019,7 +2175,26 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('集計関数はwithChildrenメソッドと同時に使用することはできません。', e.getMessage());
+      Assert.areEqual(
+        'Aggregate functions cannot be used in conjunction with the withChildren() method.',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testGroupByField_WhenAddVoidField_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByField('');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('The field name for groupByField() cannot be blank.', e.getMessage());
     }
   }
 
@@ -2085,9 +2260,7 @@ public with sharing class ScribeTest {
       .count('Name', 'nameCount')
       .groupByField('StageName')
       .havingCondition(
-        Scribe.asHaving()
-          .whereGreaterThan('maxName', 'lastOppName')
-          .whereGreaterThan('nameCount', 10)
+        Scribe.asHaving().whereGreaterThan('maxName', 'lastOppName').whereGreaterThan('nameCount', 10)
       );
 
     // Act
@@ -2173,10 +2346,34 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug(e.getMessage());
       Assert.areEqual(
-        'havingConditionメソッドは、groupBy系メソッドと同時に使用する必要があります。',
+        'The havingCondition() method must be used in conjunction with a groupBy method.',
         e.getMessage()
       );
     }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenWithGroupCondition_ThenReturnGroupedHavingCondition() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .count('Id', 'countId')
+      .max('TotalOpportunityQuantity', 'maxQuantity')
+      .groupByField('StageName')
+      .havingCondition(
+        Scribe.asHaving()
+          .whereGreaterThan('avgAmount', 100)
+          .orCondition()
+          .whereGroup(Scribe.asGroup().whereGreaterThan('countId', 10).whereGreaterThan('maxQuantity', 100))
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT stagename, AVG(Amount) avgAmount, COUNT(Id) countId, MAX(TotalOpportunityQuantity) maxQuantity FROM Opportunity GROUP BY StageName HAVING AVG(Amount) > 100 OR (COUNT(Id) > 10 AND MAX(TotalOpportunityQuantity) > 100)';
+    Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
@@ -2232,6 +2429,29 @@ public with sharing class ScribeTest {
     // Assert
     String expectedSoql = 'SELECT AVG(Quote.Opportunity.Amount) amountAvg, COUNT(Quote.Opportunity.Id) oppCount, COUNT_DISTINCT(Quote.Opportunity.AccountId) accountCount, MAX(Quote.Opportunity.Amount) amountMax, MIN(Quote.Opportunity.Amount) amountMin, SUM(Quote.Opportunity.Amount) amountSum FROM Order';
     Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testAggregateFunctionsInParent_WhenAddDuplicateAliasBetWeenParentAndCurrent_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Order.getSObjectType())
+        .count('Id', 'countIdAlias')
+        .parentField(
+          Scribe.asParent('QuoteId')
+            .parentField(
+              Scribe.asParent('OpportunityId').count('Id', 'countIdAlias') // Duplicate alias
+            )
+        );
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'The alias countIdAlias in the parent query conflicts with an existing alias.',
+        e.getMessage()
+      );
+    }
   }
 
   @isTest
@@ -2348,6 +2568,45 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testGroupByParent_WhenAddNull_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Quote.getSObjectType())
+        .field('AccountId')
+        .sum('TotalPrice', 'quoteTotalPrice')
+        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
+        .groupByField('AccountId')
+        .groupByParent(null); // null is not allowed
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('The Scribe instance for the groupByParent() method cannot be null.', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGroupByParent_WhenAddNonParentScribe_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Quote.getSObjectType())
+        .field('AccountId')
+        .sum('TotalPrice', 'quoteTotalPrice')
+        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
+        .groupByField('AccountId')
+        .groupByParent(Scribe.source(Opportunity.getSObjectType()).field('Id')); // must use asParent()
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'The Scribe instance for the groupByParent() method must be created with Scribe.asParent().',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
   static void testHavingCondition_WhenAddHavingConditionWithParentField_ThenReturnHavingConditionWithParentField() {
     // Arrange
     Scribe scribe = Scribe.source(Quote.getSObjectType())
@@ -2408,6 +2667,41 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testHavingCondition_WhenAddAggregateFunctionInHavingCondition_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByField('StageName')
+        .havingCondition(Scribe.asHaving().count('Id', 'oppCount'));
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('Aggregate functions cannot be used within a HAVING clause.', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAddFieldInHavingCondition_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByField('StageName')
+        .havingCondition(Scribe.asHaving().whereEqual('StageName', 'Closed Won').field('Id'));
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual(
+        'Fields cannot be added while defining a having condition(inside havingCondition().',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
   static void testThrough_WhenAddThroughScribe_ThenReturnSoqlWithThrough() {
     Scribe scribe = Scribe.source(Order.getSObjectType())
       .field('Id')
@@ -2443,7 +2737,7 @@ public with sharing class ScribeTest {
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual(
-        'throughメソッドの引数のScribeクラスは、Scribe.asThrough()で生成されたScribeクラスを入れてください。',
+        'The Scribe instance for the through() method must be created with Scribe.asThrough().',
         e.getMessage()
       );
     }

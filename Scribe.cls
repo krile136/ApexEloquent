@@ -66,7 +66,8 @@ public with sharing class Scribe {
    * Use the static `source()` method to start building a query.
    *
    * @param sObjectType The SObject type for the query.
-   */ public Scribe(Schema.SObjectType sObjectType) {
+   */
+   public Scribe(Schema.SObjectType sObjectType) {
     this.sObjectType = sObjectType;
     this.describe = sObjectType != null ? sObjectType.getDescribe() : null;
   }
@@ -1437,7 +1438,6 @@ public with sharing class Scribe {
         // We only preserve the original casting for MIN and MAX, as their return type matches the original field's type.
         Boolean needsCast = clauseParts[0].startsWith('MAX') || clauseParts[0].startsWith('MIN');
         if (!needsCast) {
-          // valuePartは、clausePartsのindexで2番目以降を結合したもの
           // The value part is everything from the 3rd element (index 2) onwards.
           List<String> valueList = new List<String>();
           for (Integer i = 2; i < clauseParts.size(); i++) {

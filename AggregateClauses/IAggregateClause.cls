@@ -1,37 +1,42 @@
+/**
+ * An interface for classes that build a single aggregate function clause in a SOQL query.
+ */
 public interface IAggregateClause {
   /**
-   * Aggregate句を組み立てる
-   * @return 組み立てたAggregate句
+   * Builds the aggregate clause string.
+   *
+   * @return The constructed aggregate clause.
    */
   String build();
 
   /**
-    * Aggregate句を組み立てる（子オブジェクトのリレーション名を指定）
-    * @param childRelationName 子オブジェクトのリレーション名
-    * @return 組み立てたAggregate句
-    */
-  String buildWithChild(String childRelationName);
+   * Builds the aggregate clause with a relationship name prefix for parent relationship queries.
+   *
+   * @param parentRelationName The relationship name of the parent object.
+   * @return The constructed aggregate clause with the relationship prefix.
+   */
+  String buildWithChild(String parentRelationName);
 
   /**
-    * aliasを取得する
-    *
-    * @return alias 
-    */
+   * Gets the alias defined for this aggregate clause.
+   *
+   * @return The alias.
+   */
   String getAlias();
 
   /**
-   * フィールド名を取得する
+   * Gets the API name of the field being aggregated.
    *
-   * @return フィールド名
+   * @return The field's API name.
    */
   String getFieldName();
 
   /**
-   * Metadataを上書きする
+   * Overrides the internal metadata for the clause.
    *
-   * @param sObjectType 上書きするSObjectType
-   * @param fieldMap フィールドマップ
-   * @return IAggregateClause
+   * @param sObjectType The SObjectType to use for context.
+   * @param fieldMap The field map of the relevant SObject.
+   * @return A new IAggregateClause instance with the updated metadata.
    */
   IAggregateClause overrideMetaData(Schema.SObjectType sObjectType, Map<String, Schema.SObjectField> fieldMap);
-  }
+}

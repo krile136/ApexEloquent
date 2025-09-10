@@ -1,6 +1,14 @@
 public with sharing class NotInConditionClause extends AbstractConditionClause {
   private final List<Object> values;
 
+  /**
+   * Constructor for NotInConditionClause.
+   *
+   * @param sObjectType The SObject type for the condition.
+   * @param fieldMap A map of field names to SObjectField tokens.
+   * @param field The field name to apply the NotIN condition on.
+   * @param values A list or set of values for the NotIN condition.
+   */
   public NotInConditionClause(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap,
@@ -15,13 +23,19 @@ public with sharing class NotInConditionClause extends AbstractConditionClause {
     }
   }
 
+  /**
+   * @inheritdoc
+   */
   public override String build() {
-    if(this.values.isEmpty()) {
+    if (this.values.isEmpty()) {
       return '';
     }
     return String.format('{0} NOT IN ({1})', new List<String>{ this.field, this.checkAndCast() });
   }
 
+  /**
+   * @inheritdoc
+   */
   public override IConditionClause overrideMetaData(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
@@ -29,10 +43,18 @@ public with sharing class NotInConditionClause extends AbstractConditionClause {
     return new NotInConditionClause(sObjectType, fieldMap, this.field, this.values);
   }
 
+  /**
+   * @inheritdoc
+   */
   public override IConditionClause overrideField(String field) {
     return new NotInConditionClause(this.sObjectType, this.fieldMap, field, this.values);
   }
 
+  /**
+   * check the value type and cast it to string for SOQL
+   *
+   * @return The value formatted as a SOQL-compatible string.
+   */
   private String checkAndCast() {
     Schema.DisplayType fieldType = this.getFieldType(field);
     List<String> castedValues = new List<String>();

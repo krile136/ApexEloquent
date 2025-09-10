@@ -4,7 +4,14 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
   protected final String fieldName;
   protected final String alias;
 
-
+  /**
+   * Constructor for AbstractAggregateClause.
+   *
+   * @param sObjectType The SObjectType to use for context.
+   * @param fieldMap The field map of the relevant SObject.
+   * @param fieldName The API name of the field being aggregated.
+   * @param alias The alias for the aggregate result.
+   */
   public AbstractAggregateClause(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap,
@@ -23,33 +30,56 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
     this.alias = alias;
   }
 
+  /**
+  * @inheritDoc
+  */
   public String getAlias() {
     return alias;
   }
 
+  /**
+  * @inheritDoc
+  */
   public String getFieldName() {
     return fieldName;
   }
 
-  public abstract String build();
+  /**
+  * @inheritDoc
+  */
   public abstract IAggregateClause overrideMetaData(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
   );
 
-  public String buildWithChild(String childRelationName){
+  /**
+  * @inheritDoc
+  */
+  public String buildWithChild(String childRelationName) {
     String buildResult = this.build();
-    // SUM(Ammount) totalAmount  のような形式になるので、`(` で分割した二つ目の要素が
-    // フィールド名になる。これに子オブジェクトのリレーション名を付けて
-    // SUM(ChildRelationName.Ammount) totalAmount のようにする。
+    // The initial `build()` result is in the format "FUNCTION(FieldName) alias", e.g., "SUM(Amount) totalAmount".
+    // To create a clause for a parent relationship query, we need to prepend the relationship name to the field name.
+    // e.g., "SUM(ParentRelationName.Amount) totalAmount".
+    // We achieve this by splitting the string at the opening parenthesis '(',
+    // prepending the relationship name to the second part, and then rejoining.
     List<String> buildResultParts = buildResult.split('\\(');
-    if(childRelationName != null) {
+    if (childRelationName != null) {
       buildResultParts[1] = childRelationName + '.' + buildResultParts[1];
     }
     return String.join(buildResultParts, '(');
   }
 
+  /**
+  * @inheritDoc
+  */
+  public abstract String build();
 
+  /**
+   * Validates that the specified field name exists in the field map.
+   *
+   * @param fieldName The field name to validate.
+   * @throws QueryException if the field does not exist in the field map.
+   */
   protected void validateFieldName(String fieldName) {
     if (!fieldMap.containsKey(fieldName)) {
       String error = String.format(
@@ -59,4 +89,5 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
       throw new QueryException(error);
     }
   }
+
 }

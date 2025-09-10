@@ -8,13 +8,22 @@ public with sharing class Entry extends AbstractEntry {
     super(record);
   }
 
+  /**
+   * constructor for AggregateResult
+   *
+   * @param aggregateResult AggregateResult
+   * @param fieldStructure FieldStructure
+   */
   public Entry(AggregateResult aggregateResult, FieldStructure fieldStructure) {
     super(aggregateResult, fieldStructure);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override Object get(String fieldName) {
-    if(this.hasAggregateResult) {
-      if(!this.fieldStructure.hasField(fieldName.toLowerCase())) {
+    if (this.hasAggregateResult) {
+      if (!this.fieldStructure.hasField(fieldName.toLowerCase())) {
         String error = String.format(
           'The specified field or alias is not exist in Scribe. field or alias name: {0}',
           new List<String>{ fieldName }
@@ -42,6 +51,9 @@ public with sharing class Entry extends AbstractEntry {
     return this.record.get(fieldName);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override IEntry getParent(String parentIdFieldName) {
     if (this.describeResult == null) {
       Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
@@ -76,6 +88,9 @@ public with sharing class Entry extends AbstractEntry {
     return new Entry(parentSObject);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override List<IEntry> getChildren(String childObjectName) {
     System.debug('getChildren called. childObjectName: ' + childObjectName);
     if (this.describeResult == null) {
@@ -93,6 +108,9 @@ public with sharing class Entry extends AbstractEntry {
     return childRecords;
   }
 
+  /**
+   * @inheritDoc
+   */
   public override List<IEntry> getChildrenByRelationName(String childRelationName) {
     if (this.describeResult == null) {
       Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
@@ -123,10 +141,16 @@ public with sharing class Entry extends AbstractEntry {
     return (String) this.record.get('Name');
   }
 
+  /**
+   * @inheritDoc
+   */
   public override IEntry setRecord(SObject record) {
     return new Entry(record);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override IEntry setFieldStructure(FieldStructure fieldStructure) {
     throw new QueryException(
       'Field structure is not supported in Entry class. Use MockEntry for testing purposes.'

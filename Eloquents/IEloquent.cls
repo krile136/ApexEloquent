@@ -11,6 +11,7 @@ public interface IEloquent {
   /**
   * Executes SOQL and retrieves the aggregate results.
   * If the number of retrieved records is 0, an empty list is returned.
+  *
   * @param Scribe scribe: Scribe instance containing the SOQL query
   * @return Retrieved aggregate results as a list of Entry objects
   */

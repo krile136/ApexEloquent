@@ -1,9 +1,10 @@
 public with sharing class MockEloquent implements IEloquent {
   private final List<IEntry> entries;
   private Integer insertCount;
+  private Boolean shouldThrowException = false;
+
   @TestVisible
   private Scribe scribe;
-  private Boolean shouldThrowException = false;
 
   /**
    * constructor
@@ -45,6 +46,7 @@ public with sharing class MockEloquent implements IEloquent {
 
   /**
    * Constructor for forcing an exception
+   *
    * @param shouldThrow Set to true to make methods throw an exception
    */
   public MockEloquent(Boolean shouldThrow) {
@@ -71,13 +73,18 @@ public with sharing class MockEloquent implements IEloquent {
     return result;
   }
 
+  /**
+   * @inheritDoc
+   */
   public List<IEntry> getAggregate(Scribe scribe) {
     if (this.shouldThrowException) {
       throw new QueryException('Test Exception from MockEloquent.getAggregate()');
     }
 
-    if(!scribe.isAggregate()) {
-      throw new QueryException('The provided Scribe instance does not represent an aggregate query: ' + scribe.toSoql());
+    if (!scribe.isAggregate()) {
+      throw new QueryException(
+        'The provided Scribe instance does not represent an aggregate query: ' + scribe.toSoql()
+      );
     }
 
     this.scribe = scribe;
@@ -122,6 +129,9 @@ public with sharing class MockEloquent implements IEloquent {
     return this.entries[0].setFieldStructure(fieldStructure);
   }
 
+  /**
+   * @inheritDoc
+   */
   public SObject firstAsSObject(Scribe scribe) {
     if (this.shouldThrowException) {
       throw new QueryException('Test Exception from MockEloquent.firstAsSObject()');
@@ -150,6 +160,9 @@ public with sharing class MockEloquent implements IEloquent {
     return this.entries[0].setFieldStructure(fieldStructure);
   }
 
+  /**
+   * @inheritDoc
+   */
   public SObject firstOrFailAsSObject(Scribe scribe) {
     if (this.shouldThrowException) {
       throw new QueryException('Test Exception from MockEloquent.firstOrFailAsSObject()');
@@ -242,10 +255,6 @@ public with sharing class MockEloquent implements IEloquent {
       throw new DmlException('Cannot delete null or empty records');
     }
     return;
-  }
-
-  public Scribe capturedScribe() {
-    return this.scribe;
   }
 
   /**

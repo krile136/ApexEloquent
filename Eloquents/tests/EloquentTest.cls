@@ -45,6 +45,19 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testGetAsSObject() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+
+    // Act
+    List<SObject> oppSObjects = (new Eloquent()).getAsSObject(scribe);
+
+    // Assert
+    Assert.isTrue(oppSObjects.isEmpty(), 'Expected no records to be returned');
+  }
+
+
+  @isTest
   static void testFirst() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
@@ -57,6 +70,19 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testFirstAsSObject() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+
+    // Act
+    SObject oppSObject = (new Eloquent()).firstAsSObject(scribe);
+
+    // Assert
+    Assert.isNull(oppSObject, 'Expected no record to be returned');
+  }
+
+
+  @isTest
   static void testFirstOrFail() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
@@ -64,6 +90,23 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       IEntry oppEntry = (new Eloquent()).firstOrFail(scribe);
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.isTrue(
+        e.getMessage().contains('No records found for query'),
+        'Expected QueryException with specific message'
+      );
+    }
+  }
+
+  @isTest
+  static void testFirstOrFailAsSObject() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    // Act & Assert
+    try {
+      SObject oppSObject = (new Eloquent()).firstOrFailAsSObject(scribe);
       Assert.fail('Expected QueryException to be thrown');
     } catch (QueryException e) {
       System.debug(e.getMessage());
@@ -125,7 +168,7 @@ public with sharing class EloquentTest {
 
     // Act & Assert
     try {
-      opps = (List<Opportunity>) (new Repository()).doUpdate(opps);
+      opps = (List<Opportunity>) (new Eloquent()).doUpdate(opps);
     } catch (DmlException e) {
       System.debug(e.getMessage());
     }
@@ -138,7 +181,7 @@ public with sharing class EloquentTest {
 
     // Act & Assert
     try {
-      (new Repository()).doDelete(opp);
+      (new Eloquent()).doDelete(opp);
     } catch (DmlException e) {
       System.debug(e.getMessage());
     }
@@ -153,7 +196,7 @@ public with sharing class EloquentTest {
 
     // Act & Assert
     try {
-      (new Repository()).doDelete(opps);
+      (new Eloquent()).doDelete(opps);
     } catch (DmlException e) {
       System.debug(e.getMessage());
     }

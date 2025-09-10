@@ -178,6 +178,23 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testGreaterThan_WhenTypeOfValueIsDatetime_ThenAddGreaterThanCondition() {
+    // Arrange
+    Datetime dt = Datetime.newInstance(2023, 1, 1, 0, 0, 0);
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('Id')
+      .whereGreaterThan('LastModifiedDate', dt);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedDatetime = dt.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\'');
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE LastModifiedDate > ' + expectedDatetime;
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
   static void testGreaterThanOrEqual_WhenValueIsNotNull_ThenAddGreaterThanCondition() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType())

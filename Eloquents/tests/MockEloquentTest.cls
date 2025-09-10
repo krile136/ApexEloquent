@@ -707,6 +707,22 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testFirstOrFailAsSObject_WhenEntryExists_ThenReturnFirstEntry() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    Opportunity opp = (Opportunity) eloquent.firstOrFailAsSObject(scribe);
+
+    // Assert
+    Assert.isNotNull(opp, 'Expected first entry to be returned');
+    Assert.areEqual('006000000000000001', opp.Id, 'Expected entry ID to match');
+    Assert.areEqual('Test Opportunity', opp.Name, 'Expected entry Name to match');
+  }
+
+  @isTest
   static void testDoInsert_WhenRecordIsInserted_ThenReturnRecordWithId() {
     // Arrange
     Opportunity record = new Opportunity(Name = 'Test Opportunity');
@@ -934,20 +950,18 @@ public with sharing class MockEloquentTest {
               .groupByParent(
                 Scribe.asParent('QuoteId')
                   .groupByParent(
-                    Scribe.asParent('OpportunityId').groupByParent(Scribe.asParent('AccountId').groupByField('Type'))
+                    Scribe.asParent('OpportunityId')
+                      .groupByParent(Scribe.asParent('AccountId').groupByField('Type'))
                   )
               )
           )
       );
     IEloquent eloquent = new MockEloquent(
-      new MockEntry(
-        new Map<String, Object>{ 'itemCount' => 10, 'accountCount' => 5, 'Type' => 'TestType1' }
-      )
+      new MockEntry(new Map<String, Object>{ 'itemCount' => 10, 'accountCount' => 5, 'Type' => 'TestType1' })
     );
 
     // Act
     List<IEntry> entries = eloquent.getAggregate(scribe);
-
 
     // Assert
     Assert.isTrue(entries.size() == 1, 'Expected one aggregate entry to be returned');
@@ -955,5 +969,245 @@ public with sharing class MockEloquentTest {
     Assert.areEqual(10, entry.get('itemCount'), 'Expected itemCount to match');
     Assert.areEqual(5, entry.get('accountCount'), 'Expected accountCount to match');
     Assert.areEqual('TestType1', entry.get('Type'), 'Expected Type to match');
+  }
+
+  @isTest
+  static void testGet_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+
+    // Act & Assert
+    try {
+      eloquent.get(scribe);
+      Assert.fail('Expected QueryException to be thrown for get method');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.get()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGetAsSObject_WhenEntriesExist_ThenReturnSObjects() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000001');
+    List<MockEntry> mockEntries = new List<MockEntry>{
+      new MockEntry(new Opportunity(Id = '006000000000001', Name = 'Test Opportunity')),
+      new MockEntry(new Opportunity(Id = '006000000000002', Name = 'Another Opportunity'))
+    };
+    IEloquent eloquent = new MockEloquent(mockEntries);
+
+    // Act
+    List<SObject> records = eloquent.getAsSObject(scribe);
+
+    // Assert
+    Assert.areEqual(2, records.size(), 'Expected two SObject records to be returned');
+    Opportunity record = (Opportunity) records[0];
+    Assert.areEqual('006000000000001', record.Id, 'Expected record ID to match');
+    Assert.areEqual('Test Opportunity', record.Name, 'Expected record Name to match');
+    Opportunity record2 = (Opportunity) records[1];
+    Assert.areEqual('006000000000002', record2.Id, 'Expected second record ID to match');
+    Assert.areEqual('Another Opportunity', record2.Name, 'Expected second record Name to match');
+  }
+
+  @isTest
+  static void testGetAggregate_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+
+    // Act & Assert
+    try {
+      eloquent.getAggregate(scribe);
+      Assert.fail('Expected QueryException to be thrown for getAggregate method');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.getAggregate()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGetAsSObject_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+
+    // Act & Assert
+    try {
+      eloquent.getAsSObject(scribe);
+      Assert.fail('Expected QueryException to be thrown for getAsSObject method');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.getAsSObject()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFirst_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+
+    // Act & Assert
+    try {
+      eloquent.first(scribe);
+      Assert.fail('Expected QueryException to be thrown for first method');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.first()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFirstAsSObject_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+
+    // Act & Assert
+    try {
+      eloquent.firstAsSObject(scribe);
+      Assert.fail('Expected QueryException to be thrown for firstAsSObject method');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.firstAsSObject()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+
+    // Act & Assert
+    try {
+      eloquent.firstOrFail(scribe);
+      Assert.fail('Expected QueryException to be thrown for firstOrFail method');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.firstOrFail()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFirstOrFailAsSObject_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+
+    // Act & Assert
+    try {
+      eloquent.firstOrFailAsSObject(scribe);
+      Assert.fail('Expected QueryException to be thrown for firstOrFailAsSObject method');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.firstOrFailAsSObject()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Opportunity record = new Opportunity(Name = 'Test Opportunity');
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(record);
+      Assert.fail('Expected QueryException to be thrown for doInsert method');
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.doInsert()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenShouldThrowIsTrueWithInsertMultipleRecord_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Name = 'Test Opportunity 1'),
+      new Opportunity(Name = 'Test Opportunity 2')
+    };
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(records);
+      Assert.fail('Expected QueryException to be thrown for doInsert method with multiple records');
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.doInsert()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    // Act & Assert
+    try {
+      eloquent.doUpdate(record);
+      Assert.fail('Expected QueryException to be thrown for doUpdate method');
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.doUpdate()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenShouldThrowIsTrueWithUpdateMultipleRecord_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity 1'),
+      new Opportunity(Id = '006000000000002', Name = 'Updated Opportunity 2')
+    };
+    // Act & Assert
+    try {
+      eloquent.doUpdate(records);
+      Assert.fail('Expected QueryException to be thrown for doUpdate method with multiple records');
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.doUpdate()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenShouldThrowIsTrue_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Test Opportunity');
+
+    // Act & Assert
+    try {
+      eloquent.doDelete(record);
+      Assert.fail('Expected QueryException to be thrown for doDelete method');
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.doDelete()', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenShouldThrowIsTrueWithDeleteMultipleRecord_ThenThrowException() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent(true);
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Id = '006000000000001', Name = 'Test Opportunity 1'),
+      new Opportunity(Id = '006000000000002', Name = 'Test Opportunity 2')
+    };
+    // Act & Assert
+    try {
+      eloquent.doDelete(records);
+      Assert.fail('Expected QueryException to be thrown for doDelete method with multiple records');
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Test Exception from MockEloquent.doDelete()', e.getMessage());
+    }
   }
 }

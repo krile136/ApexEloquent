@@ -1,30 +1,35 @@
+/**
+ * An interface for classes that build a single condition part of a SOQL WHERE or HAVING clause.
+ */
 public interface IConditionClause {
   /**
-   * Where句を組み立てる
-   * @return 組み立てたWhere句
+   * Builds the condition clause string.
+   *
+   * @return The constructed condition clause part.
    */
   String build();
 
   /**
-   * Metadataを上書きする
+   * Overrides the internal metadata for the clause.
    *
-   * @param sObjectType 上書きするSObjectType
-   * @param fieldMap フィールドマップ
-   * @return WhereClausesInterface
+   * @param sObjectType The SObjectType to use for context.
+   * @param fieldMap The field map of the relevant SObject for schema validation.
+   * @return A new IConditionClause instance with the updated metadata.
    */
   IConditionClause overrideMetaData(Schema.SObjectType sObjectType, Map<String, Schema.SObjectField> fieldMap);
 
   /**
-   * フィールド名を上書きする
+   * Overrides the field name for this condition.
    *
-   * @return フィールド名
+   * @param field The new field name to use.
+   * @return A new IConditionClause instance with the updated field name.
    */
   IConditionClause overrideField(String field);
 
   /**
-   * フィールド名を取得する
+   * Gets the field name or alias used in this condition.
    *
-   * @return フィールド名
+   * @return The field name or alias.
    */
   String getFieldName();
 }

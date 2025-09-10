@@ -1,33 +1,65 @@
 public with sharing class MockEntry extends AbstractEntry {
   private final Map<String, Object> fieldToValue;
 
+  /**
+   * constructor
+   *
+   * @param record SObject
+   */
   public MockEntry(SObject record) {
     super(record);
     this.fieldToValue = new Map<String, Object>();
   }
 
+  /**
+   * constructor
+   *
+   * @param record SObject
+   * @param fieldToValue field to value map
+   */
   public MockEntry(SObject record, Map<String, Object> fieldToValue) {
     super(record);
     this.fieldToValue = fieldToValue;
   }
 
+  /**
+   * constructor
+   *
+   * @param record SObject
+   * @param fieldStructure FieldStructure
+   */
   public MockEntry(SObject record, FieldStructure fieldStructure) {
     super(record, fieldStructure);
     this.fieldToValue = new Map<String, Object>();
   }
 
+  /**
+   * constructor for AggregateResult
+   *
+   * @param fieldToValue field to value map
+   */
   public MockEntry(Map<String, Object> fieldToValue) {
     super(null);
     this.fieldToValue = fieldToValue;
     this.hasAggregateResult = true;
   }
 
+  /**
+   * constructor for testing
+   *
+   * @param record SObject
+   * @param fieldStructure FieldStructure
+   * @param fieldToValue field to value map
+   */
   @TestVisible
   private MockEntry(SObject record, FieldStructure fieldStructure, Map<String, Object> fieldToValue) {
     super(record, fieldStructure);
     this.fieldToValue = fieldToValue;
   }
 
+  /**
+   * @inheritDoc
+   */
   public override Object get(String fieldName) {
     if (this.hasAggregateResult) {
       if (!this.fieldStructure.hasField(fieldName.toLowerCase())) {
@@ -44,7 +76,7 @@ public with sharing class MockEntry extends AbstractEntry {
         }
       }
 
-      // AggregateReultはオブジェクトを生成できないため、fieldToValueに存在しない場合はエラーとする
+      // Since an AggregateResult cannot be instantiated like an SObject, we must throw an error if the requested field/alias is not found in the fieldToValue map.
       String error = String.format(
         'The specified field or alias is not found in the mock data. field or alias name: {0}',
         new List<String>{ fieldName }
@@ -69,6 +101,9 @@ public with sharing class MockEntry extends AbstractEntry {
     return entry.get(fieldName);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override IEntry getParent(String parentIdFieldName) {
     if (this.describeResult == null) {
       Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
@@ -97,6 +132,9 @@ public with sharing class MockEntry extends AbstractEntry {
     return entry.getParent(parentIdFieldName);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override List<IEntry> getChildren(String childObjectName) {
     if (this.describeResult == null) {
       Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
@@ -119,6 +157,9 @@ public with sharing class MockEntry extends AbstractEntry {
     return entry.getChildren(childObjectName);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override List<IEntry> getChildrenByRelationName(String childRelationName) {
     if (this.describeResult == null) {
       Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
@@ -167,10 +208,16 @@ public with sharing class MockEntry extends AbstractEntry {
     return (String) this.record.get('Name');
   }
 
+  /**
+   * @inheritDoc
+   */
   public override IEntry setRecord(SObject record) {
     return new MockEntry(record, this.fieldStructure, this.fieldToValue);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override IEntry setFieldStructure(FieldStructure fieldStructure) {
     return new MockEntry(this.record, fieldStructure, this.fieldToValue);
   }
@@ -194,6 +241,12 @@ public with sharing class MockEntry extends AbstractEntry {
     throw new QueryException(error);
   }
 
+  /**
+   * validate the child relation name.
+   *
+   * @param childRelationName child relation name to be validated
+   * @throws QueryException if the child relation name is not valid
+   */
   private void validateChildRelationInFieldStructure(String relation, String errorTemplate) {
     if (!this.fieldStructure.hasRelation(relation.toLowerCase())) {
       String error = String.format(errorTemplate, new List<String>{ this.describeResult.getName(), relation });
@@ -201,6 +254,12 @@ public with sharing class MockEntry extends AbstractEntry {
     }
   }
 
+  /**
+   * validate the child relation name.
+   *
+   * @param childRelationName child relation name to be validated
+   * @throws QueryException if the child relation name is not valid
+   */
   private List<IEntry> getChildEntriesFromFieldToValue(String key, String errorTemplate) {
     List<IEntry> entries = new List<IEntry>();
     Object childObjects = this.fieldToValue.get(key);

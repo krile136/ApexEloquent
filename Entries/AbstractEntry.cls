@@ -118,6 +118,15 @@ public abstract class AbstractEntry implements IEntry {
     this.describeResult = describeResult;
   }
 
+  /**
+    * get child relation name from child object name.
+    * If there are multiple relationships with the same child object name, an exception is thrown.
+    *
+    * @param childObjectName child object name
+    * @return child relation name
+    * @throws QueryException if the child object name is not exist in the parent object's children relationships
+    *                        or if there are multiple relationships with the same child object name
+    */
   protected String getChildrenRelationNameFromChildObjectName(String childObjectName) {
     List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
 
@@ -147,6 +156,12 @@ public abstract class AbstractEntry implements IEntry {
     return childRelationName;
   }
 
+  /**
+   * validate the child relation name.
+   *
+   * @param childRelationName child relation name to be validated
+   * @throws QueryException if the child relation name is not exist in the parent object's children relationships
+   */
   protected void validateChildRelationName(String childRelationName) {
     List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
 

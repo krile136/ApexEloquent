@@ -1,6 +1,14 @@
 public with sharing class InConditionClause extends AbstractConditionClause {
   private final List<Object> values;
 
+  /**
+   * Constructor for InConditionClause.
+   *
+   * @param sObjectType The SObject type for the condition.
+   * @param fieldMap A map of field names to SObjectField tokens.
+   * @param field The field name to apply the IN condition on.
+   * @param values A list or set of values for the IN condition.
+   */
   public InConditionClause(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap,
@@ -15,13 +23,19 @@ public with sharing class InConditionClause extends AbstractConditionClause {
     }
   }
 
+  /**
+   * @inheritDoc
+   */
   public override String build() {
-    if(this.values.isEmpty()) {
+    if (this.values.isEmpty()) {
       return 'Id = null';
     }
     return String.format('{0} IN ({1})', new List<String>{ this.field, this.checkAndCast() });
   }
 
+  /**
+   * @inheritDoc
+   */
   public override IConditionClause overrideMetaData(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
@@ -29,10 +43,18 @@ public with sharing class InConditionClause extends AbstractConditionClause {
     return new InConditionClause(sObjectType, fieldMap, this.field, this.values);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override IConditionClause overrideField(String field) {
     return new InConditionClause(this.sObjectType, this.fieldMap, field, this.values);
   }
 
+  /**
+   * check the value type and cast it to string for SOQL
+   *
+   * @return The value formatted as a SOQL-compatible string.
+   */
   private String checkAndCast() {
     Schema.DisplayType fieldType = this.getFieldType(field);
     List<String> castedValues = new List<String>();

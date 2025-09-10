@@ -18,6 +18,14 @@ public with sharing class CountClause extends AbstractAggregateClause {
     DisplayType.URL
   };
 
+  /**
+   * Constructor
+   *
+   * @param sObjectType The Schema.SObjectType of the object being queried.
+   * @param fieldMap A map of field names to Schema.SObjectField objects for the sObjectType.
+   * @param fieldName The name of the field to apply the AVERAGE function on.
+   * @param alias An optional alias for the resulting average value.
+   */
   public CountClause(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap,
@@ -27,6 +35,9 @@ public with sharing class CountClause extends AbstractAggregateClause {
     super(sObjectType, fieldMap, fieldName, alias);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override IAggregateClause overrideMetaData(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
@@ -34,6 +45,9 @@ public with sharing class CountClause extends AbstractAggregateClause {
     return new CountClause(sObjectType, fieldMap, fieldName, alias);
   }
 
+  /**
+   * @inheritDoc
+   */
   public override String build() {
     this.validateFieldName(fieldName);
     Schema.SObjectField field = fieldMap.get(fieldName);

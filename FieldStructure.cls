@@ -2,16 +2,30 @@ public with sharing class FieldStructure {
   private List<String> fields;
   private Map<String, FieldStructure> relations;
 
+  /**
+   * Default constructor initializing empty fields and relations.
+   */
   public FieldStructure() {
     this.fields = new List<String>();
     this.relations = new Map<String, FieldStructure>();
   }
 
+  /**
+   * Constructor initializing with a list of fields and empty relations.
+   *
+   * @param fields List of field names.
+   */
   public FieldStructure(List<String> fields) {
     this.fields = fields;
     this.relations = new Map<String, FieldStructure>();
   }
 
+  /**
+   * Constructor initializing with a list of fields and a map of relations.
+   *
+   * @param fields List of field names.
+   * @param relations Map of relation names to their corresponding FieldStructure.
+   */
   public FieldStructure(List<String> fields, Map<String, FieldStructure> relations) {
     this.fields = fields;
     this.relations = relations;
@@ -44,12 +58,24 @@ public with sharing class FieldStructure {
     return this.fields.contains(fieldName);
   }
 
+  /**
+   * Adds a field to the current FieldStructure.
+   *
+   * @param relationName The name of the relation to add.
+   * @param fieldStructure The FieldStructure of the relation.
+   */
   public void addField(String fieldName) {
     if (!this.fields.contains(fieldName)) {
       this.fields.add(fieldName);
     }
   }
 
+  /**
+   * Removes a field from the current FieldStructure.
+   *
+   * @param relationName The name of the relation to add.
+   * @param fieldStructure The FieldStructure of the relation.
+   */
   public void removeField(String fieldName) {
     List<String> filteredFields = new List<String>();
     for (String field : this.fields) {
@@ -60,6 +86,11 @@ public with sharing class FieldStructure {
     this.fields = filteredFields;
   }
 
+  /**
+   * Checks if the current FieldStructure is empty (no fields and relations have no fields).
+   *
+   * @return Boolean - True if empty, false otherwise.
+   */
   public Boolean isEmpty() {
     Boolean isFieldsEmpty = this.fields.isEmpty();
     Boolean isRelationEmpty;
@@ -77,6 +108,11 @@ public with sharing class FieldStructure {
     return isFieldsEmpty && isRelationEmpty;
   }
 
+  /**
+   * Gets the list of fields in the current FieldStructure as flatten.
+   *
+   * @return List<String> - List of field names.
+   */
   public List<String> getAllFieldsAsFlatten() {
     List<String> allFields = new List<String>();
     allFields.addAll(this.fields);
@@ -87,6 +123,12 @@ public with sharing class FieldStructure {
     return allFields;
   }
 
+  /**
+   * Gets the list of fields in the current FieldStructure as flatten with relation names prefixed.
+   *
+   * @param relationName The prefix for relation names.
+   * @return List<String> - List of field names with relation prefixes.
+   */
   public List<String> getFieldsAsFlattenWithRelationName(String relationName) {
     List<String> allFields = new List<String>();
     if (relationName != null) {

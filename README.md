@@ -8,7 +8,6 @@ Verbose SOQL strings, the complexity of relationship queries, and slow, brittle,
 
 `ApexEloquent` was born to solve these challenges. Inspired by Laravel Eloquent, this framework aims to make data access in Apex safer, more intuitive, and above all, **testable**.
 
----
 ## ✨ Core Features
 
 * **Intuitive & Safe Query Construction:**

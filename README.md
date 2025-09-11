@@ -108,6 +108,37 @@ if (account != null) {
     }
 }
 ```
+
+### Fetching Many-to-Many Relationships (through)
+```Apex
+// 1. Arrange (Build the many-to-many query with Scribe)
+// Get the Name and ProductCode of active Products related to a specific Order
+// through the OrderItem junction object.
+Scribe scribe = Scribe.source(Order.getSObjectType())
+    .field('Id')
+    .through(
+        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
+            .fields(new List<String>{'Name', 'ProductCode'})
+            .whereEqual('IsActive', true)
+    )
+    .whereEqual('Id', someOrderId);
+
+// 2. Act (Execute the query with Eloquent)
+IEntry order = (new Eloquent()).first(scribe);
+
+// 3. Utilize (Access the related list with getThrough)
+if (order != null) {
+    // The first argument of getThrough is the junction object name,
+    // and the second is the related key field name.
+    List<IEntry> products = order.getThrough('OrderItem', 'Product2Id');
+    for (IEntry product : products) {
+        String name = product.getName();
+        String code = (String)product.get('ProductCode');
+        System.debug('Related Product: ' + name + ', Code: ' + code);
+    }
+}
+```
+
 ### Aggregate Queries
 ```Apex
 // 1. Arrange: Calculate the average Amount per Stage, filtered for averages over 50,000

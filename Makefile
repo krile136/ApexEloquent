@@ -1,42 +1,82 @@
-DEPLOY_CLASSES = \
-  WhereClauseInterface \
-  AbstractWhereClause \
-  ObjectWhereClause \
-  ObjectWhereClause_T \
-  ListWhereClause \
-  ListWhereClause_T \
-  SubQueryWhereClause \
-  SubQueryWhereClause_T \
-  WhereClauseFactory \
-  WhereClauseFactory_T \
-	ParentClause \
-	ParentClause_T \
-	OrderByClause \
-	OrderByClause_T \
-  Query \
-	Query_T \
-  RepositoryInterface \
-  MockRepository \
-	MockRepository_T \
-  Repository \
-	Repository_T \
-	EvaluatorInterface \
-	Evaluator \
-	Evaluator_T \
-	MockEvaluator \
-	MockEvaluator_T \
-  FieldStructure \
-  FieldStructure_T \
-  AbstractEvaluator
+# List of all Apex classes in the project for the uninstall command.
+# Alphabetized for readability.
+CLASSES = \
+    AbstractAggregateClause \
+    AbstractConditionClause \
+    AbstractEntry \
+    AverageClause \
+    CountClause \
+    CountDistinctClause \
+    Eloquent \
+    EloquentTest \
+    Entry \
+    EntryTest \
+    EqualConditionClause \
+    EqualConditionClauseTest \
+    ExcludeConditionClause \
+    ExcludeConditionClauseTest \
+    FieldStructure \
+    FieldStructureTest \
+    GreaterThanConditionClause \
+    GreaterThanConditionClauseTest \
+    GreaterThanOrEqualConditionClause \
+    GreaterThanOrEqualConditionClauseTest \
+    GroupByClause \
+    IAggregateClause \
+    IConditionClause \
+    IEloquent \
+    IEntry \
+    InConditionClause \
+    InConditionClauseTest \
+    InSubQueryConditionClause \
+    InSubQueryConditionClauseTest \
+    IncludesConditionClause \
+    IncludesConditionClauseTest \
+    IsNotNullConditionClause \
+    IsNotNullConditionClauseTest \
+    IsNullConditionClause \
+    IsNullConditionClauseTest \
+    LessThanConditionClause \
+    LessThanConditionClauseTest \
+    LessThanOrEqualConditionClause \
+    LessThanOrEqualConditionClauseTest \
+    LikeConditionClause \
+    LikeConditionClauseTest \
+    MaxClause \
+    MinClause \
+    MockEloquent \
+    MockEloquentTest \
+    MockEntry \
+    MockEntryTest \
+    NotEqualConditionClause \
+    NotEqualConditionClauseTest \
+    NotInConditionClause \
+    NotInConditionClauseTest \
+    NotInSubQueryConditionClause \
+    NotInSubQueryConditionClauseTest \
+    NotLikeConditionClause \
+    NotLikeConditionClauseTest \
+    Scribe \
+    ScribeTest \
+    SumClause
 
-.PHONY: deploy clean redeploy
+# Filter the CLASSES variable to get only the test classes (those ending with "Test").
+TEST_CLASSES = $(filter %Test,$(CLASSES))
+
+# Helper variable to convert spaces to commas.
+comma := ,
+empty :=
+space := $(empty) $(empty)
+TEST_CLASSES_COMMA_SEPARATED = $(subst $(space),$(comma),$(TEST_CLASSES))
+
+.PHONY: deploy clean redeploy test
 
 # 1. delete classes
 # bulk delete can not continue when error occured.
 # so, we need to delete classes one by one.
 uninstall:
 	@echo "Cleaning classes from org..."
-	@for class in $(DEPLOY_CLASSES); do \
+	@for class in $(CLASSES); do \
 		echo "Deleting ApexClass:$$class"; \
 		sf project delete source --metadata ApexClass:$$class || echo "Skip: $$class not deleted"; \
 		done
@@ -53,5 +93,11 @@ install:
 	@echo "Deploying all Apex classes from ApexEloquent directory..."
 	@sf project deploy start --source-dir . --wait 10 || exit 1
 
-# 4. redeploy（clean → restore → deploy）
+# 4. test classes
+# Runs all tests defined in the TEST_CLASSES variable.
+test: install
+	@echo "Running ApexEloquent tests..."
+	@sf apex run test --class-names "$(TEST_CLASSES_COMMA_SEPARATED)" --result-format human --code-coverage --wait 10
+
+# 5. redeploy（clean → restore → deploy）
 redeploy: uninstall restore install

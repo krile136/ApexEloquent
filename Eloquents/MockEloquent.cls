@@ -1,3 +1,35 @@
+/**
+ * Copyright 2025 Hiroyuki Matsuoka
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+ /**
+ * @description The mock implementation of the `IEloquent` interface, designed to enable fast,
+ * reliable, and database-independent unit testing of service classes.
+ *
+ * Instead of interacting with the Salesforce database, `MockEloquent` operates on an
+ * in-memory list of `IEntry` objects (typically `MockEntry` instances) that are
+ * provided during its construction. This allows a developer to precisely control the
+ * data that a query will "return" in a test scenario.
+ *
+ * DML operations like `doInsert` are simulated (e.g., by assigning a mock Id) without
+ * performing any actual DML. The class also includes a constructor to force exceptions,
+ * enabling robust testing of error-handling logic.
+ * @see IEloquent
+ * @see Eloquent
+ * @see MockEntry
+ */
 public with sharing class MockEloquent implements IEloquent {
   private final List<IEntry> entries;
   private Integer insertCount;

@@ -1,3 +1,37 @@
+/**
+ * Copyright 2025 Hiroyuki Matsuoka
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @description The mock implementation of the `IEntry` interface, designed to facilitate
+ * fast, reliable, and database-independent unit tests.
+ *
+ * A `MockEntry` wraps a base `SObject` instance but allows any field or relationship value
+ * to be overridden via a `Map<String, Object>`. This enables the simulation of complex
+ * data scenarios, including non-writable fields and relationships, without DML.
+ *
+ * It can also represent a virtual `AggregateResult` by being instantiated directly
+ * with a map of values.
+ *
+ * Crucially, `MockEntry` is a high-fidelity mock. When provided with a `FieldStructure`,
+ * it simulates the framework's "select-forgotten" validation, throwing an exception
+ * if a test attempts to access data that was not part of the original query definition.
+ * @see IEntry
+ * @see AbstractEntry
+ * @see Entry
+ */
 public with sharing class MockEntry extends AbstractEntry {
   private final Map<String, Object> fieldToValue;
 

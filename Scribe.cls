@@ -1,11 +1,24 @@
 /**
- * A fluent, immutable, and type-safe query builder for SOQL.
+ * Copyright 2025 Hiroyuki Matsuoka
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @description A fluent, immutable, and type-safe query builder for SOQL, inspired by Laravel Eloquent.
  * Scribe allows developers to construct complex SOQL queries programmatically
  * without string concatenation, reducing errors and improving readability.
  * It is the core of the ApexEloquent ORM's query building capabilities.
- *
- * @author Hiroyuki Matsuoka
- * @version 1.0.0
  */
 public with sharing class Scribe {
   // =================================================================================================================
@@ -62,12 +75,11 @@ public with sharing class Scribe {
   // =================================================================================================================
 
   /**
-   * Static constructor to initialize a Scribe instance.
+   * Constructor to initialize a Scribe instance.
    * Use the static `source()` method to start building a query.
-   *
    * @param sObjectType The SObject type for the query.
    */
-   public Scribe(Schema.SObjectType sObjectType) {
+  public Scribe(Schema.SObjectType sObjectType) {
     this.sObjectType = sObjectType;
     this.describe = sObjectType != null ? sObjectType.getDescribe() : null;
   }
@@ -1260,7 +1272,7 @@ public with sharing class Scribe {
       String aggregateClauseString = aggregateClause.build();
       selectFieldsString += aggregateClauseString;
       String alias = aggregateClause.getAlias();
-      if(this.aggregateAliasMap.containsKey(alias)) {
+      if (this.aggregateAliasMap.containsKey(alias)) {
         String error = String.format(
           'The alias {0} in the aggregate clause conflicts with an existing alias.',
           new List<String>{ alias }
@@ -1681,7 +1693,9 @@ public with sharing class Scribe {
       throw new QueryException('Fields cannot be added while defining a group condition (inside whereGroup()).');
     }
     if (this.isHaving) {
-      throw new QueryException('Fields cannot be added while defining a having condition(inside havingCondition().');
+      throw new QueryException(
+        'Fields cannot be added while defining a having condition(inside havingCondition().'
+      );
     }
   }
 
@@ -2020,7 +2034,6 @@ public with sharing class Scribe {
       this.order = order;
       this.nullsOperator = nullsOperator;
     }
-
 
     public String build() {
       String orderBy = this.field + ' ' + this.order;

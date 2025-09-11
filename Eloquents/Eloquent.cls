@@ -1,3 +1,31 @@
+/**
+ * Copyright 2025 Hiroyuki Matsuoka
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+ /**
+ * @description The concrete production implementation of the `IEloquent` interface.
+ *
+ * This class is responsible for interacting with the live Salesforce database. It takes a
+ * `Scribe` instance, converts it into an executable SOQL string, and performs the
+ * query or DML operation using the standard `Database` methods. Query results are wrapped
+ * in `Entry` instances to provide a consistent data access experience.
+ * @see IEloquent
+ * @see Scribe
+ * @see Entry
+ * @see MockEloquent
+ */
 public with sharing class Eloquent implements IEloquent {
   private final Integer MAX_DML_CHUNKING = 10;
 

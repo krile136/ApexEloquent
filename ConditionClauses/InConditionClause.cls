@@ -1,3 +1,33 @@
+/**
+ * Copyright 2025 Hiroyuki Matsuoka
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @description A concrete implementation of `AbstractConditionClause` that builds a
+ * SOQL `IN` condition.
+ *
+ * This class handles both `List` and `Set<Id>` collections, formatting each value
+ * into a comma-separated list suitable for the `IN` clause. It correctly handles
+ * null values within the collection by converting them to the `NULL` literal.
+ *
+ * A key feature is its graceful handling of empty lists: instead of causing a SOQL
+ * error, it generates a logically impossible condition (`Id = null`) to ensure the
+ * query correctly returns zero results.
+ * @see IConditionClause
+ * @see AbstractConditionClause
+ */
 public with sharing class InConditionClause extends AbstractConditionClause {
   private final List<Object> values;
 

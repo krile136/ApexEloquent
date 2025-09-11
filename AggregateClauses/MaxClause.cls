@@ -1,3 +1,29 @@
+/**
+ * Copyright 2025 Hiroyuki Matsuoka
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @description A concrete implementation of `AbstractAggregateClause` that builds a
+ * SOQL `MAX()` aggregate function.
+ *
+ * This class validates that the specified field is of a data type that supports
+ * ordering (e.g., String, Number, Date), preventing runtime query errors for
+ * unsupported types like Boolean.
+ * @see IAggregateClause
+ * @see AbstractAggregateClause
+ */
 public with sharing class MaxClause extends AbstractAggregateClause {
   private List<DisplayType> supportedTypes = new List<DisplayType>{
     DisplayType.DATE,
@@ -19,7 +45,7 @@ public with sharing class MaxClause extends AbstractAggregateClause {
   };
 
   /**
-   * Constructor
+   * Constructor for MaxClause.
    *
    * @param sObjectType The Schema.SObjectType of the object being queried.
    * @param fieldMap A map of field names to Schema.SObjectField objects for the sObjectType.

@@ -1,3 +1,30 @@
+/**
+ * Copyright 2025 Hiroyuki Matsuoka
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+ /**
+ * @description Defines the contract for a unified record wrapper, which represents a single result from an `ApexEloquent` query.
+ *
+ * This interface is the cornerstone of the framework's testability. It abstracts the
+ * underlying data source, allowing developers to interact seamlessly with either a real `SObject`
+ * record returned from the database (via the `Entry` class) or a mocked in-memory record
+ * (via the `MockEntry` class).
+ *
+ * It provides methods to access field values and to navigate eager-loaded parent, child,
+ * and many-to-many (`through`) relationships.
+ */
 public Interface IEntry {
   /**
    * get SObject field value.

@@ -1800,6 +1800,155 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testOffset_WhenAddOffset_ThenReturnOffsetSoql() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').offset(10);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account OFFSET 10';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testOffset_WhenAddNegativeOffset_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').offset(-1);
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+    System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('The offset number must be greater than zero.', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testOffset_WhenAddOffsetOver2000_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').offset(2001);
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('The offset number cannot exceed 2000.', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testForUpdate_WhenAddForUpdate_ThenReturnForUpdateSoql() {
+    // Arrange
+    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').forUpdate();
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account FOR UPDATE';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testSoqlClauseOrder_WhenAddVariousClauses_ThenReturnCorrectClauseOrder_1() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .forUpdate()
+      .take(10)
+      .field('Id')
+      .whereEqual('StageName', 'prospecting');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE StageName = \'prospecting\' LIMIT 10 FOR UPDATE';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testSoqlClauseOrder_WhenAddVariousClauses_ThenReturnCorrectClauseOrder_2() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .offset(5)
+      .take(10)
+      .field('Id')
+      .orderBy('CloseDate', 'ASC', 'FIRST')
+      .whereEqual('StageName', 'prospecting');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE StageName = \'prospecting\' ORDER BY CloseDate ASC NULLS FIRST LIMIT 10 OFFSET 5';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testForUpdate_WhenWithOrderByClause_ThenThrowException_1() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .orderBy('Name')
+        .forUpdate();
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('ORDER BY cannot be used with FOR UPDATE clause.', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testForUpdate_WhenWithOrderByClause_ThenThrowException_2() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .forUpdate()
+        .orderBy('Name');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('ORDER BY cannot be used with FOR UPDATE clause.', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testForUpdate_WhenWithOffsetClause_ThenThrowException_1() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .offset(10)
+        .forUpdate();
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('OFFSET cannot be used with FOR UPDATE clause.', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testForUpdate_WhenWithOffsetClause_ThenThrowException_2() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.source(Account.getSObjectType())
+        .field('Id')
+        .forUpdate()
+        .offset(10);
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      System.debug('Expected exception: ' + e.getMessage());
+      Assert.areEqual('OFFSET cannot be used with FOR UPDATE clause.', e.getMessage());
+    }
+  }
+
+  @isTest
   static void testAverage_WhenAddAverageField_ThenReturnAverageField() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType()).average('Amount', 'amountAvg');

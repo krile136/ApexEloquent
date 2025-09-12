@@ -59,12 +59,16 @@ public with sharing class Scribe {
   // LIMIT clause properties
   private Integer limitNumber = 0;
 
+  // OFFSET clause properties
+  private Integer offsetNumber = 0;
+
   // Other properties
   private Boolean isParent = false;
   private Boolean isChild = false;
   private Boolean isGroup = false;
   private Boolean isThrough = false;
   private Boolean isHaving = false;
+  private Boolean isForUpdate = false;
 
   // Constants
   private final Integer MAX_UPPER_NESTING_DEPTH = 5;
@@ -1062,6 +1066,37 @@ public with sharing class Scribe {
   }
 
   /**
+   * Adds an OFFSET clause to the query.
+   *
+   * @param offsetNumber The number of records to skip.
+   * @return A new, immutable Scribe instance with the OFFSET clause.
+   */
+  public Scribe offset(Integer offsetNumber) {
+    if (offsetNumber == null || offsetNumber < 0) {
+      throw new QueryException('The offset number must be greater than zero.');
+    }
+
+    if (offsetNumber > 2000) {
+      throw new QueryException('The offset number cannot exceed 2000.');
+    }
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.offsetNumber = offsetNumber;
+
+    return clonedScribe;
+  }
+
+  /**
+   * Adds a FOR UPDATE clause to the query.
+   *
+   * @return A new, immutable Scribe instance with the FOR UPDATE clause.
+   */
+  public Scribe forUpdate() {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.isForUpdate = true;
+    return clonedScribe;
+  }
+
+  /**
    * Adds an ORDER BY clause to the query (defaults to ASC).
    *
    * @param field The field to order by.
@@ -1149,18 +1184,13 @@ public with sharing class Scribe {
 
     query = this.buildHavingClause(query);
 
-    if (!this.orderByClauses.isEmpty()) {
-      query += ' ORDER BY ';
-      List<String> orderByStrings = new List<String>();
-      for (OrderByClause orderByClause : this.orderByClauses) {
-        orderByStrings.add(orderByClause.build());
-      }
-      query += String.join(orderByStrings, ', ');
-    }
+    query = this.buildOrderByClause(query);
 
-    if (this.limitNumber > 0) {
-      query += ' LIMIT ' + String.valueOf(this.limitNumber);
-    }
+    query = this.buildLimitClause(query);
+
+    query = this.buildOffsetClause(query);
+
+    query = this.buildForUpdateClause(query);
 
     return query;
   }
@@ -1230,11 +1260,14 @@ public with sharing class Scribe {
 
     newScribe.limitNumber = this.limitNumber;
 
+    newScribe.offsetNumber = this.offsetNumber;
+
     newScribe.isParent = this.isParent;
     newScribe.isChild = this.isChild;
     newScribe.isGroup = this.isGroup;
     newScribe.isThrough = this.isThrough;
     newScribe.isHaving = this.isHaving;
+    newScribe.isForUpdate = this.isForUpdate;
 
     return newScribe;
   }
@@ -1482,6 +1515,75 @@ public with sharing class Scribe {
     }
 
     return new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
+  }
+
+  /**
+   * Constructs the ORDER BY clause string.
+   *
+   * @param query The current query string.
+   * @return The query string with the ORDER BY clause appended.
+   */
+  private String buildOrderByClause(String query) {
+    if (this.orderByClauses.isEmpty()) {
+      return query;
+    }
+    if(this.isForUpdate) {
+      throw new QueryException('ORDER BY cannot be used with FOR UPDATE clause.');
+    }
+
+    query += ' ORDER BY ';
+    List<String> orderByStrings = new List<String>();
+    for (OrderByClause orderByClause : this.orderByClauses) {
+      orderByStrings.add(orderByClause.build());
+    }
+    query += String.join(orderByStrings, ', ');
+
+    return query;
+  }
+
+  /**
+   * Constructs the LIMIT clause string.
+   *
+   * @param query The current query string.
+   * @return The query string with the LIMIT clause appended.
+   */
+  private String buildLimitClause(String query) {
+    if (this.limitNumber == 0) {
+      return query;
+    }
+
+    return query += ' LIMIT ' + String.valueOf(this.limitNumber);
+  }
+
+  /**
+   * Constructs the OFFSET clause string.
+   *
+   * @param query The current query string.
+   * @return The query string with the OFFSET clause appended.
+   */
+  private String buildOffsetClause(String query) {
+    if (this.offsetNumber == 0) {
+      return query;
+    }
+    if(this.isForUpdate){
+      throw new QueryException('OFFSET cannot be used with FOR UPDATE clause.');
+    }
+
+    return query += ' OFFSET ' + String.valueOf(this.offsetNumber);
+  }
+
+  /**
+  * Constructs the FOR UPDATE clause string.
+  *
+  * @param query The current query string.
+  * @return The query string with the FOR UPDATE clause appended.
+  */
+  private String buildForUpdateClause(String query) {
+    if(!this.isForUpdate){
+      return query;
+    }
+
+    return query += ' FOR UPDATE';
   }
 
   /**

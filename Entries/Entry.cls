@@ -122,7 +122,6 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override List<IEntry> getChildren(String childObjectName) {
-    System.debug('getChildren called. childObjectName: ' + childObjectName);
     if (this.describeResult == null) {
       Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
       this.setDescribeResult(describeResult);

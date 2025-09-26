@@ -106,6 +106,14 @@ public with sharing class MockEntry extends AbstractEntry {
 
       for (String key : this.fieldToValue.keySet()) {
         if (key.equalsIgnoreCase(fieldName)) {
+          Object value = this.fieldToValue.get(key);
+          if (value instanceof IEntry) {
+            IEntry entry = (IEntry) value;
+            FieldStructure relationFieldStructure = this.fieldStructure == null
+              ? new FieldStructure(new List<String>())
+              : this.fieldStructure.getRelationFieldStructure(fieldname.toLowerCase());
+            return entry.setFieldStructure(relationFieldStructure).getId();
+          }
           return this.fieldToValue.get(key);
         }
       }
@@ -127,6 +135,14 @@ public with sharing class MockEntry extends AbstractEntry {
 
     for (String key : this.fieldToValue.keySet()) {
       if (key.equalsIgnoreCase(fieldName)) {
+        Object value = this.fieldToValue.get(key);
+        if (value instanceof IEntry) {
+          IEntry entry = (IEntry) value;
+          FieldStructure relationFieldStructure = this.fieldStructure == null
+            ? new FieldStructure(new List<String>())
+            : this.fieldStructure.getRelationFieldStructure(fieldname.toLowerCase());
+          return entry.setFieldStructure(relationFieldStructure).getId();
+        }
         return this.fieldToValue.get(key);
       }
     }
@@ -311,7 +327,6 @@ public with sharing class MockEntry extends AbstractEntry {
       ? new FieldStructure()
       : this.fieldStructure.getRelationFieldStructure(key.toLowerCase());
     for (IEntry entry : entries) {
-      System.debug('childFieldStructure: ' + childFieldStructure);
       resultEntries.add(entry.setFieldStructure(childFieldStructure));
     }
     return resultEntries;

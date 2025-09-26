@@ -1889,7 +1889,7 @@ public with sharing class Scribe {
    * Private inner class to represent a parent relationship query component.
    * It holds the relationship field name and the Scribe instance for the parent.
    */
-  private class ParentScribe implements IScribe {
+  private class ParentScribe {
     public String relationFieldName;
     public Scribe scribe;
 

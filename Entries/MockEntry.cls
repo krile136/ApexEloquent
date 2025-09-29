@@ -36,6 +36,235 @@ public with sharing class MockEntry extends AbstractEntry {
   private final Map<String, Object> fieldToValue;
 
   /**
+   * Creates a new instance of MockEntry for a given SObjectType.
+   *
+   * @param sObjectType The SObject type of the record to create (e.g., Account.getSObjectType()).
+   * @return A new MockEntry instance.
+   */
+  public static MockEntry of(Schema.SObjectType sObjectType) {
+    SObject record = sObjectType.newSObject();
+    return new MockEntry(record);
+  }
+
+  /**
+   * Sets a value for a specified field.
+   * This method is immutable and returns a new MockEntry instance.
+   *
+   * @param fieldName The API name of the field to set.
+   * @param value The value to set for the field.
+   * @return A new MockEntry instance with the updated field value.
+   */
+  public MockEntry add(String fieldName, Object value) {
+    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
+    newFieldToValue.put(fieldName, value);
+    return new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+  }
+
+  /**
+   * Sets a list of child relationship records.
+   *
+   * @param childObjectNameOrRelationName The child object name or the relationship name (e.g., 'Contacts').
+   * @param children A list of MockEntry instances for the child records.
+   * @return A new MockEntry instance with the child records added.
+   */
+  public MockEntry addChildren(String childObjectNameOrRelationName, List<MockEntry> children) {
+    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
+    newFieldToValue.put(childObjectNameOrRelationName, children);
+    return new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+  }
+
+  /**
+   * Sets a parent relationship record.
+   *
+   * @param parentIdFieldName The name of the parent ID field (e.g., 'AccountId').
+   * @param parent The MockEntry for the parent record.
+   * @return A new MockEntry instance with the parent record added.
+   */
+  public MockEntry addParent(String parentIdFieldName, MockEntry parent) {
+    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
+    newFieldToValue.put(parentIdFieldName, parent);
+    return new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+  }
+
+  /**
+   * Automatically generates an 18-character ID from the SObject's prefix and a specified suffix,
+   * and sets it on the Id field.
+   *
+   * @param suffix The string to be used at the end of the ID.
+   * @return A new MockEntry instance with the Id field set.
+   */
+  public MockEntry autoId(String suffix) {
+    String id = this.generate18CharId(suffix);
+    return this.add('Id', id);
+  }
+
+  /**
+   * Automatically generates an 18-character ID from the SObject's prefix and a specified suffix,
+   * and sets it on the Id field.
+   *
+   * @param suffix The number (non-negative) to be used at the end of the ID.
+   * @return A new MockEntry instance with the Id field set.
+   * @throws IllegalArgumentException if the suffix is a negative number.
+   */
+  public MockEntry autoId(Integer suffix) {
+    if (suffix < 0) {
+      throw new IllegalArgumentException('suffix must be greater than or equal to 0');
+    }
+    return this.autoId(String.valueOf(suffix));
+  }
+
+  /**
+   * Generates a list of records using the current MockEntry as a template.
+   * The sequence starts at 1 and increments by 1.
+   *
+   * @param count The number of records to generate.
+   * @return A list of generated MockEntry instances.
+   */
+  public List<MockENtry> times(Integer count) {
+    return this.times(count, 1, 1);
+  }
+
+  /**
+   * Generates a list of records using the current MockEntry as a template.
+   * The sequence starts at the specified number and increments by 1.
+   *
+   * @param count The number of records to generate.
+   * @param startAt The starting number for the sequence.
+   * @return A list of generated MockEntry instances.
+   */
+  public List<MockEntry> times(Integer count, Integer startAt) {
+    return this.times(count, startAt, 1);
+  }
+
+  /**
+   * Generates a list of records using the current MockEntry as a template.
+   * Field values can contain '{#}', '{A}', and '{a}' placeholders to embed sequential values.
+   *
+   * @param count The number of records to generate.
+   * @param startAt The starting number for the sequence.
+   * @param interval The step or interval between each number in the sequence.
+   * @return A list of generated MockEntry instances.
+   * @throws IllegalArgumentException if count is 0 or less, or if an alphabetic sequence is used and startAt is less than 1.
+   * @example
+   * // Generates 3 records with Names 'Test Account 10', 'Test Account 20', 'Test Account 30'
+   * .add('Name', 'Test Account {#}').times(3, 10, 10);
+   */
+  public List<MockEntry> times(Integer count, Integer startAt, Integer interval) {
+    if (count <= 0) {
+      throw new IllegalArgumentException('count must be greater than 0');
+    }
+
+    Boolean hasAlphabeticPlaceholder = false;
+    for (Object value : this.fieldToValue.values()) {
+      if (value instanceof String) {
+        String strValue = (String) value;
+        if (strValue.contains('{A}') || strValue.contains('{a}')) {
+          hasAlphabeticPlaceholder = true;
+          break;
+        }
+      }
+    }
+
+    if (hasAlphabeticPlaceholder && startAt < 1) {
+      throw new IllegalArgumentException(
+        'Alphabetic sequences {A} or {a} require \'startAt\' to be 1 or greater.'
+      );
+    }
+
+    List<MockEntry> entries = new List<MockEntry>();
+    for (Integer i = 0; i < count; i++) {
+      Integer currentSequence = startAt + (i * interval);
+      Map<String, Object> newFieldToValue = new Map<String, Object>();
+
+      for (String key : this.fieldToValue.keySet()) {
+        Object templateValue = this.fieldToValue.get(key);
+        Object resolvedValue = this.resolveValue(templateValue, currentSequence);
+
+        // ID項目であれば、解決後の値をsuffixとして18桁IDを生成
+        if (key.startsWith('id') || key.startsWith('Id') || key.endsWith('Id')) {
+          newFieldToValue.put(key, this.generate18CharId(String.valueOf(resolvedValue)));
+        } else {
+          newFieldToValue.put(key, resolvedValue);
+        }
+      }
+      entries.add(new MockEntry(this.record, this.fieldStructure, newFieldToValue));
+    }
+
+    return entries;
+  }
+
+  /**
+  * Resolves a template value by replacing placeholders with the current sequence number.
+  * Supported placeholders:
+  * - '{#}': Replaced with the current sequence number.
+  * - '{A}': Replaced with the current sequence number converted to an uppercase alphabetic representation.
+  * - '{a}': Replaced with the current sequence number converted to a lowercase alphabetic representation.
+  * If the template value is not a string, it is returned as-is.
+  *
+  * @param templateValue The template value containing placeholders.
+  * @param sequence The current sequence number to replace placeholders.
+  * @return The resolved value with placeholders replaced.
+  */
+  private Object resolveValue(Object templateValue, Integer sequence) {
+    if (!(templateValue instanceof String)) {
+      return templateValue;
+    }
+
+    String value = (String) templateValue;
+
+    if (value == '{#}') {
+      return sequence;
+    }
+
+    String resolvedString = value.replace('{#}', String.valueOf(sequence))
+      .replace('{A}', this.convertNumberToAlphabet(sequence, true))
+      .replace('{a}', this.convertNumberToAlphabet(sequence, false));
+
+    return resolvedString;
+  }
+
+  /**
+   * Generates an 18-character Salesforce ID using the SObject's key prefix and a specified suffix.
+   * The suffix is left-padded with zeros to ensure the total length is 18 characters.
+   *
+   * @param suffix The string to be used at the end of the ID.
+   * @return An 18-character Salesforce ID.
+   */
+  private String generate18CharId(String suffix) {
+    String prefix = this.record.getSObjectType().getDescribe().getKeyPrefix();
+    return prefix + String.valueOf(suffix).leftPad(18 - prefix.length(), '0');
+  }
+
+  /**
+   * Converts a positive integer to its corresponding alphabetic representation.
+   * For example, 1 -> 'A', 26 -> 'Z', 27 -> 'AA', 52 -> 'AZ', 53 -> 'BA', etc.
+   *
+   * @param num The positive integer to convert.
+   * @param isUpperCase If true, returns uppercase letters; if false, returns lowercase letters.
+   * @return The alphabetic representation of the number.
+   */
+  private String convertNumberToAlphabet(Integer num, Boolean isUpperCase) {
+    if (num == null || num <= 0) {
+      return '';
+    }
+
+    final Integer BASE_CHAR_CODE = isUpperCase ? 65 : 97;
+    final Integer BASE = 26;
+    String result = '';
+
+    Integer current = num;
+    while (current > 0) {
+      Integer remainder = Math.mod(current - 1, BASE);
+
+      Integer charCode = BASE_CHAR_CODE + remainder;
+      result = String.fromCharArray(new List<Integer>{ charCode }) + result;
+
+      current = (current - remainder) / BASE;
+    }
+    return result;
+  }
+
+  /**
    * constructor
    *
    * @param record SObject

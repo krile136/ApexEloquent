@@ -89,6 +89,380 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testOf_WhenAddSobjectType_ThenReturnMockEntry() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+
+    // Act & Assert
+    Assert.isNotNull(mockEntry, 'MockEntry should be created successfully using of() method.');
+  }
+
+  @isTest
+  static void testAdd_WhenAddFieldAndValue_ThenGetFieldValue() {
+    // Arrange
+    FieldStructure fieldStructure = scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    mockEntry = mockEntry.add('Name', 'Mock Account');
+
+    // Assert
+    String accountName = mockEntry.getName();
+    Assert.areEqual('Mock Account', accountName, 'The Name should match the added value.');
+  }
+
+  @isTest
+  static void testAddChildren_WhenAddChildren_ThenGetChildren() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType())
+      .withChildren(Scribe.asChild(Contract.getSObjectType()).field('Name'))
+      .buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.getSObjectType())
+      .addChildren(
+        'Contract',
+        new List<MockEntry>{
+          MockEntry.of(Contract.getSObjectType()).add('Name', 'Mock Contract 1'),
+          MockEntry.of(Contract.getSObjectType()).add('Name', 'Mock Contract 2')
+        }
+      );
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<IEntry> children = mockEntry.getChildren('Contract');
+
+    // Assert
+    Assert.isNotNull(children, 'Children should not be null.');
+    Assert.areEqual(2, children.size(), 'There should be two child entries.');
+    Assert.areEqual('Mock Contract 1', children[0].getName(), 'First child name should match.');
+    Assert.areEqual('Mock Contract 2', children[1].getName(), 'Second child name should match.');
+  }
+
+  @isTest
+  static void testAddParent_WhenAddParent_ThenGetParent() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Opportunity.getSObjectType())
+      .parentField(Scribe.asParent('AccountId').field('Name'))
+      .buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Opportunity.getSObjectType())
+      .addParent('AccountId', MockEntry.of(Account.getSObjectType()).add('Name', 'Mock Account'));
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    IEntry parent = mockEntry.getParent('AccountId');
+
+    // Assert
+    Assert.isNotNull(parent, 'Parent should not be null.');
+    Assert.areEqual('Mock Account', parent.getName(), 'Parent name should match.');
+  }
+
+  @isTest
+  static void testAutoId_WhenUsingAutoId_ThenGenerateId() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    mockEntry = mockEntry.autoId('AAA');
+
+    // Assert
+    String accountId = mockEntry.getId();
+    Assert.areEqual('001000000000000AAA', accountId, 'The Id should match the auto-generated value.');
+  }
+
+  @isTest
+  static void testAutoId_WhenUsingAutoIdWithInteger_ThenGenerateId() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    mockEntry = mockEntry.autoId(123);
+
+    // Assert
+    String accountId = mockEntry.getId();
+    Assert.areEqual('001000000000000123', accountId, 'The Id should match the auto-generated value.');
+  }
+
+  @isTest
+  static void testAutoId_WhenUsingAutoIdWithMinusInteger_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry = mockEntry.autoId(-1);
+      Assert.fail('Expected IllegalArgumentException to be thrown.');
+    } catch (IllegalArgumentException e) {
+      Assert.areEqual('suffix must be greater than or equal to 0', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenAddNameTimes_ThenReturnMockEntriesWithNameTimes() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Name', 'Name-{#}')
+      .times(3);
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('Name-1', mockEntries[0].getName(), 'First entry name should match.');
+    Assert.areEqual('Name-2', mockEntries[1].getName(), 'Second entry name should match.');
+    Assert.areEqual('Name-3', mockEntries[2].getName(), 'Third entry name should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenAddNameTimesWithStartAt_ThenReturnMockEntriesWithNameTimes() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Name', 'Name-{#}')
+      .times(3, 5);
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('Name-5', mockEntries[0].getName(), 'First entry name should match.');
+    Assert.areEqual('Name-6', mockEntries[1].getName(), 'Second entry name should match.');
+    Assert.areEqual('Name-7', mockEntries[2].getName(), 'Third entry name should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenAddAmountTimesWithStartAt_ThenReturnMOckEntriesWithAmountTimes() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(OrderItem.getSObjectType()).field('Quantity').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(OrderItem.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Quantity', '{#}')
+      .times(3, 50000, 10000);
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual(50000, mockEntries[0].get('Quantity'), 'First entry Quantity should match.');
+    Assert.areEqual(60000, mockEntries[1].get('Quantity'), 'Second entry Quantity should match.');
+    Assert.areEqual(70000, mockEntries[2].get('Quantity'), 'Third entry Quantity should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenAddIdTimes_ThenReturnMockEntriesWithIdTimes() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Id', '{#}')
+      .times(3, 1);
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('001000000000000001', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('001000000000000002', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('001000000000000003', mockEntries[2].getId(), 'Third entry Id should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenAddIdTimesWithStartAt_ThenReturnMockEntriesWithIdTimes() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Id', '{#}')
+      .times(3, 101);
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('001000000000000101', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('001000000000000102', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('001000000000000103', mockEntries[2].getId(), 'Third entry Id should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenUsingUppercaseLetter_ThenReturnConsecutiveUppercaseLetters() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Name', 'Name-{A}')
+      .times(3);
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('Name-A', mockEntries[0].getName(), 'First entry name should match.');
+    Assert.areEqual('Name-B', mockEntries[1].getName(), 'Second entry name should match.');
+    Assert.areEqual('Name-C', mockEntries[2].getName(), 'Third entry name should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenUsingUppercaseLetterWithStartAt_ThenReturnConsecutiveUppercaseLetters() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Name', 'Name-{A}')
+      .times(3, 26); // Start at 'Z'
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('Name-Z', mockEntries[0].getName(), 'First entry name should match.');
+    Assert.areEqual('Name-AA', mockEntries[1].getName(), 'Second entry name should match.');
+    Assert.areEqual('Name-AB', mockEntries[2].getName(), 'Third entry name should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenUsingUppercaseLetterAtId_ThenReturnConsectiveUppercaseLetterIds() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Id', '{A}')
+      .times(3);
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('00100000000000000A', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('00100000000000000B', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('00100000000000000C', mockEntries[2].getId(), 'Third entry Id should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenUsingUppercaseLetterAtIdWithStartAt_ThenReturnConsectiveUppercaseLetterIds() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Id', '{A}')
+      .times(3, 26); // Start at 'Z'
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('00100000000000000Z', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('0010000000000000AA', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('0010000000000000AB', mockEntries[2].getId(), 'Third entry Id should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenUsingLowercaseLetter_ThenReturnConsecutiveLowercaseLetters() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Name', 'Name-{a}')
+      .times(3);
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('Name-a', mockEntries[0].getName(), 'First entry name should match.');
+    Assert.areEqual('Name-b', mockEntries[1].getName(), 'Second entry name should match.');
+    Assert.areEqual('Name-c', mockEntries[2].getName(), 'Third entry name should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenUsingLowercaseLetterWithStartAt_ThenReturnConsecutiveLowercaseLetters() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Name', 'Name-{a}')
+      .times(3, 26); // Start at 'z'
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('Name-z', mockEntries[0].getName(), 'First entry name should match.');
+    Assert.areEqual('Name-aa', mockEntries[1].getName(), 'Second entry name should match.');
+    Assert.areEqual('Name-ab', mockEntries[2].getName(), 'Third entry name should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenUsingLowercaseLetterAtId_ThenReturnConsectiveLowercaseLetterIds() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Id', '{a}')
+      .times(3);
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('00100000000000000a', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('00100000000000000b', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('00100000000000000c', mockEntries[2].getId(), 'Third entry Id should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenUsingLowercaseLetterAtIdWithStartAt_ThenReturnConsectiveLowercaseLetterIds() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<MockEntry> mockEntries = templateEntry 
+      .add('Id', '{a}')
+      .times(3, 26); // Start at 'z'
+
+    // Assert 
+    Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
+    Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
+    Assert.areEqual('00100000000000000z', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('0010000000000000aa', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('0010000000000000ab', mockEntries[2].getId(), 'Third entry Id should match.');
+  }
+
+  @isTest
   static void testGet_WhenFieldExists_ThenReturnFieldValue() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');

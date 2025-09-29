@@ -31,6 +31,23 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testGet_WhenEntryExitAndUsingMockEntryGenerator_ThenReturnEntries() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '00600000000000');
+    MockEntry mockEntry = MockENtry.of(Opportunity.getSObjectType())
+      .autoId(1)
+      .add('Name', 'Test Opportunity');
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    List<IEntry> entries = eloquent.get(scribe);
+
+    // Assert
+    Assert.isTrue(!entries.isEmpty(), 'Expected entries to be returned');
+    Assert.areEqual('006000000000000001', entries[0].getId(), 'Expected entry ID to match');
+  }
+
+  @isTest
   static void testGet_WhenNoEntries_ThenReturnEmptyList() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000001');
@@ -68,12 +85,11 @@ public with sharing class MockEloquentTest {
       .field('Name')
       .parentField(Scribe.asParent('AccountId').field('Id').field('Name'))
       .whereEqual('Id', '006000000000001');
-    MockEntry oppEntry = new MockEntry(
-      new Opportunity(Id = '006000000000001', Name = 'Test Opportunity'),
-      new Map<String, Object>{
-        'AccountId' => new MockEntry(new Account(Id = '001000000000001', Name = 'Test Account'))
-      }
-    );
+    MockENtry oppEntry = MockEntry.of(Opportunity.getSObjectType())
+      .autoId(1)
+      .add('Name', 'Test Opportunity')
+      .addParent('AccountId', MockEntry.of(Account.getSObjectType()).autoId(1).add('Name', 'Test Account'));
+
     IEloquent eloquent = new MockEloquent(oppEntry);
 
     // Act
@@ -81,10 +97,10 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.isTrue(entries.size() == 1, 'Expected one nested entry to be returned');
-    Assert.areEqual('006000000000001', entries[0].getId(), 'Expected nested entry ID to match');
+    Assert.areEqual('006000000000000001', entries[0].getId(), 'Expected nested entry ID to match');
     Assert.areEqual('Test Opportunity', entries[0].getName(), 'Expected nested entry Name to match');
     IEntry accountEntry = entries[0].getParent('AccountId');
-    Assert.areEqual('001000000000001', accountEntry.getId(), 'Expected nested child entry ID to match');
+    Assert.areEqual('001000000000000001', accountEntry.getId(), 'Expected nested child entry ID to match');
     Assert.areEqual('Test Account', accountEntry.getName(), 'Expected nested child entry Name to match');
   }
 
@@ -111,32 +127,32 @@ public with sharing class MockEloquentTest {
               )
           )
       );
-    MockEntry orderItemEntry = new MockEntry(
-      new OrderItem(ListPrice = 100),
-      new Map<String, Object>{
-        'OrderId' => new MockEntry(
-          new Order(Name = 'Test Order'),
-          new Map<String, Object>{
-            'OriginalOrderId' => new MockEntry(
-              new Order(Name = 'Original Test Order'),
-              new Map<String, Object>{
-                'QuoteId' => new MockEntry(
-                  new Quote(Name = 'Test Quote'),
-                  new Map<String, Object>{
-                    'OpportunityId' => new MockEntry(
-                      new Opportunity(Name = 'Test Opportunity'),
-                      new Map<String, Object>{
-                        'ContractId' => new MockEntry(new Contract(Name = 'Test Contract'))
-                      }
-                    )
-                  }
-                )
-              }
-            )
-          }
-        )
-      }
-    );
+    MockEntry orderItemEntry = MockEntry.of(OrderItem.getSObjectType())
+      .add('ListPrice', 100)
+      .addParent(
+        'OrderId',
+        MockEntry.of(Order.getSObjectType())
+          .add('Name', 'Test Order')
+          .addParent(
+            'OriginalOrderId',
+            MockEntry.of(Order.getSObjectType())
+              .add('Name', 'Original Test Order')
+              .addParent(
+                'QuoteId',
+                MockEntry.of(Quote.getSObjectType())
+                  .add('Name', 'Test Quote')
+                  .addParent(
+                    'OpportunityId',
+                    MockEntry.of(Opportunity.getSObjectType())
+                      .add('Name', 'Test Opportunity')
+                      .addParent(
+                        'ContractId',
+                        MockEntry.of(Contract.getSObjectType()).add('Name', 'Test Contract')
+                      )
+                  )
+              )
+          )
+      );
     IEloquent eloquent = new MockEloquent(orderItemEntry);
 
     // Act
@@ -177,18 +193,14 @@ public with sharing class MockEloquentTest {
       .field('Name')
       .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').field('Name'))
       .whereEqual('Id', '001000000000001');
-    MockEntry accountEntry = new MockEntry(
-      new Account(Id = '001000000000001', Name = 'Test Account'),
-      new Map<String, Object>{
-        'Contact' => new List<IEntry>{
-          new MockEntry(
-            new Contact(Id = '003000000000001'),
-            new Map<String, Object>{ 'Name' => 'Test Contact 1' }
-          ),
-          new MockEntry(new Contact(Id = '003000000000002'), new Map<String, Object>{ 'Name' => 'Test Contact 2' })
-        }
-      }
-    );
+    MockEntry accountEntry = MockEntry.of(Account.getSObjectType())
+      .autoId(1)
+      .add('Name', 'Test Account')
+      .addChildren(
+        'Contact',
+        MockEntry.of(Contact.getSObjectType()).autoId('{#}').add('Name', 'Test Contact {#}').times(2)
+      );
+
     IEloquent eloquent = new MockEloquent(accountEntry);
 
     // Act
@@ -196,13 +208,13 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.isTrue(entries.size() == 1, 'Expected one entry to be returned');
-    Assert.areEqual('001000000000001', entries[0].getId(), 'Expected entry ID to match');
+    Assert.areEqual('001000000000000001', entries[0].getId(), 'Expected entry ID to match');
     Assert.areEqual('Test Account', entries[0].getName(), 'Expected entry Name to match');
     List<IEntry> contacts = entries[0].getChildren('Contact');
     Assert.isTrue(contacts.size() == 2, 'Expected two child entries to be returned');
-    Assert.areEqual('003000000000001', contacts[0].getId(), 'Expected first child entry ID to match');
+    Assert.areEqual('003000000000000001', contacts[0].getId(), 'Expected first child entry ID to match');
     Assert.areEqual('Test Contact 1', contacts[0].getName(), 'Expected first child entry Name to match');
-    Assert.areEqual('003000000000002', contacts[1].getId(), 'Expected second child entry ID to match');
+    Assert.areEqual('003000000000000002', contacts[1].getId(), 'Expected second child entry ID to match');
     Assert.areEqual('Test Contact 2', contacts[1].getName(), 'Expected second child entry Name to match');
   }
 
@@ -226,55 +238,53 @@ public with sharing class MockEloquentTest {
           )
       );
 
-    MockEntry accountEntry = new MockEntry(
-      new Account(Name = 'Test Account'),
-      new Map<String, Object>{
-        'Contact' => new List<IEntry>{
-          new MockEntry(
-            new Contact(),
-            new Map<String, Object>{
-              'Name' => 'Test Contact 1',
-              'Opportunity' => new List<IEntry>{
-                new MockEntry(
-                  new Opportunity(Name = 'Test Opportunity 1'),
-                  new Map<String, Object>{
-                    'Quote' => new List<IEntry>{
-                      new MockEntry(
-                        new Quote(Name = 'Test Quote 1'),
-                        new Map<String, Object>{
-                          'Order' => new List<IEntry>{ new MockEntry(new Order(Name = 'Test Order 1')) }
-                        }
-                      )
+    MockEntry accountEntry = MockEntry.of(Account.getSObjectType())
+      .add('Name', 'Test Account')
+      .addChildren(
+        'Contact',
+        new List<MockEntry>{
+          MockEntry.of(Contact.getSObjectType())
+            .add('Name', 'Test Contact 1')
+            .addChildren(
+              'Opportunity',
+              new List<MockEntry>{
+                MockEntry.of(Opportunity.getSObjectType())
+                  .add('Name', 'Test Opportunity 1')
+                  .addChildren(
+                    'Quote',
+                    new List<MockEntry>{
+                      MockEntry.of(Quote.getSObjectType())
+                        .add('Name', 'Test Quote 1')
+                        .addChildren(
+                          'Order',
+                          new List<MockEntry>{ MockEntry.of(Order.getSObjectType()).add('Name', 'Test Order 1') }
+                        )
                     }
-                  }
-                )
+                  )
               }
-            }
-          ),
-          new MockEntry(
-            new Contact(),
-            new Map<String, Object>{
-              'Name' => 'Test Contact 2',
-              'Opportunity' => new List<IEntry>{
-                new MockEntry(
-                  new Opportunity(Name = 'Test Opportunity 2'),
-                  new Map<String, Object>{
-                    'Quote' => new List<IEntry>{
-                      new MockEntry(
-                        new Quote(Name = 'Test Quote 2'),
-                        new Map<String, Object>{
-                          'Order' => new List<IEntry>{ new MockEntry(new Order(Name = 'Test Order 2')) }
-                        }
-                      )
+            ),
+          MockEntry.of(Contact.getSObjectType())
+            .add('Name', 'Test Contact 2')
+            .addChildren(
+              'Opportunity',
+              new List<MockEntry>{
+                MockEntry.of(Opportunity.getSObjectType())
+                  .add('Name', 'Test Opportunity 2')
+                  .addChildren(
+                    'Quote',
+                    new List<MockEntry>{
+                      MockEntry.of(Quote.getSObjectType())
+                        .add('Name', 'Test Quote 2')
+                        .addChildren(
+                          'Order',
+                          new List<MockEntry>{ MockEntry.of(Order.getSObjectType()).add('Name', 'Test Order 2') }
+                        )
                     }
-                  }
-                )
+                  )
               }
-            }
-          )
+            )
         }
-      }
-    );
+      );
     IEloquent eloquent = new MockEloquent(accountEntry);
 
     // Act

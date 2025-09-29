@@ -168,7 +168,7 @@ public class MockEntryTest {
 
     // Assert
     String accountId = mockEntry.getId();
-    Assert.areEqual('001000000000000AAA', accountId, 'The Id should match the auto-generated value.');
+    Assert.areEqual('001000000000AAAAA2', accountId, 'The Id should match the auto-generated value.');
   }
 
   @isTest
@@ -183,7 +183,7 @@ public class MockEntryTest {
 
     // Assert
     String accountId = mockEntry.getId();
-    Assert.areEqual('001000000000000123', accountId, 'The Id should match the auto-generated value.');
+    Assert.areEqual('001000000000123AAA', accountId, 'The Id should match the auto-generated value.');
   }
 
   @isTest
@@ -277,9 +277,9 @@ public class MockEntryTest {
     // Assert 
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
-    Assert.areEqual('001000000000000001', mockEntries[0].getId(), 'First entry Id should match.');
-    Assert.areEqual('001000000000000002', mockEntries[1].getId(), 'Second entry Id should match.');
-    Assert.areEqual('001000000000000003', mockEntries[2].getId(), 'Third entry Id should match.');
+    Assert.areEqual('001000000000001AAA', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('001000000000002AAA', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('001000000000003AAA', mockEntries[2].getId(), 'Third entry Id should match.');
   }
 
   @isTest
@@ -297,9 +297,9 @@ public class MockEntryTest {
     // Assert 
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
-    Assert.areEqual('001000000000000101', mockEntries[0].getId(), 'First entry Id should match.');
-    Assert.areEqual('001000000000000102', mockEntries[1].getId(), 'Second entry Id should match.');
-    Assert.areEqual('001000000000000103', mockEntries[2].getId(), 'Third entry Id should match.');
+    Assert.areEqual('001000000000101AAA', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('001000000000102AAA', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('001000000000103AAA', mockEntries[2].getId(), 'Third entry Id should match.');
   }
 
   @isTest
@@ -357,9 +357,9 @@ public class MockEntryTest {
     // Assert 
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
-    Assert.areEqual('00100000000000000A', mockEntries[0].getId(), 'First entry Id should match.');
-    Assert.areEqual('00100000000000000B', mockEntries[1].getId(), 'Second entry Id should match.');
-    Assert.areEqual('00100000000000000C', mockEntries[2].getId(), 'Third entry Id should match.');
+    Assert.areEqual('00100000000000AAAQ', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('00100000000000BAAQ', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('00100000000000CAAQ', mockEntries[2].getId(), 'Third entry Id should match.');
   }
 
   @isTest
@@ -377,9 +377,9 @@ public class MockEntryTest {
     // Assert 
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
-    Assert.areEqual('00100000000000000Z', mockEntries[0].getId(), 'First entry Id should match.');
-    Assert.areEqual('0010000000000000AA', mockEntries[1].getId(), 'Second entry Id should match.');
-    Assert.areEqual('0010000000000000AB', mockEntries[2].getId(), 'Third entry Id should match.');
+    Assert.areEqual('00100000000000ZAAQ', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('0010000000000AAAAY', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('0010000000000ABAAY', mockEntries[2].getId(), 'Third entry Id should match.');
   }
 
   @isTest
@@ -437,9 +437,9 @@ public class MockEntryTest {
     // Assert 
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
-    Assert.areEqual('00100000000000000a', mockEntries[0].getId(), 'First entry Id should match.');
-    Assert.areEqual('00100000000000000b', mockEntries[1].getId(), 'Second entry Id should match.');
-    Assert.areEqual('00100000000000000c', mockEntries[2].getId(), 'Third entry Id should match.');
+    Assert.areEqual('00100000000000aAAA', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('00100000000000bAAA', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('00100000000000cAAA', mockEntries[2].getId(), 'Third entry Id should match.');
   }
 
   @isTest
@@ -457,9 +457,9 @@ public class MockEntryTest {
     // Assert 
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
-    Assert.areEqual('00100000000000000z', mockEntries[0].getId(), 'First entry Id should match.');
-    Assert.areEqual('0010000000000000aa', mockEntries[1].getId(), 'Second entry Id should match.');
-    Assert.areEqual('0010000000000000ab', mockEntries[2].getId(), 'Third entry Id should match.');
+    Assert.areEqual('00100000000000zAAA', mockEntries[0].getId(), 'First entry Id should match.');
+    Assert.areEqual('0010000000000aaAAA', mockEntries[1].getId(), 'Second entry Id should match.');
+    Assert.areEqual('0010000000000abAAA', mockEntries[2].getId(), 'Third entry Id should match.');
   }
 
   @isTest

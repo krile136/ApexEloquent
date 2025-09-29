@@ -94,6 +94,9 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A new MockEntry instance with the Id field set.
    */
   public MockEntry autoId(String suffix) {
+    if (suffix == '{#}' || suffix == '{A}' || suffix == '{a}') {
+      return this.add('Id', suffix);
+    }
     String id = this.generate18CharId(suffix);
     return this.add('Id', id);
   }
@@ -194,17 +197,17 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
-  * Resolves a template value by replacing placeholders with the current sequence number.
-  * Supported placeholders:
-  * - '{#}': Replaced with the current sequence number.
-  * - '{A}': Replaced with the current sequence number converted to an uppercase alphabetic representation.
-  * - '{a}': Replaced with the current sequence number converted to a lowercase alphabetic representation.
-  * If the template value is not a string, it is returned as-is.
-  *
-  * @param templateValue The template value containing placeholders.
-  * @param sequence The current sequence number to replace placeholders.
-  * @return The resolved value with placeholders replaced.
-  */
+   * Resolves a template value by replacing placeholders with the current sequence number.
+   * Supported placeholders:
+   * - '{#}': Replaced with the current sequence number.
+   * - '{A}': Replaced with the current sequence number converted to an uppercase alphabetic representation.
+   * - '{a}': Replaced with the current sequence number converted to a lowercase alphabetic representation.
+   * If the template value is not a string, it is returned as-is.
+   *
+   * @param templateValue The template value containing placeholders.
+   * @param sequence The current sequence number to replace placeholders.
+   * @return The resolved value with placeholders replaced.
+   */
   private Object resolveValue(Object templateValue, Integer sequence) {
     if (!(templateValue instanceof String)) {
       return templateValue;
@@ -232,7 +235,36 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   private String generate18CharId(String suffix) {
     String prefix = this.record.getSObjectType().getDescribe().getKeyPrefix();
-    return prefix + String.valueOf(suffix).leftPad(18 - prefix.length(), '0');
+    return this.convert15To18(prefix + String.valueOf(suffix).leftPad(15 - prefix.length(), '0'));
+  }
+
+  /**
+   * Converts a 15-character Salesforce ID to its 18-character equivalent by calculating the checksum.
+   *
+   * @param id15 The 15-character Salesforce ID.
+   * @return The corresponding 18-character Salesforce ID, or null if the input is invalid.
+   */
+  private String convert15To18(String id15) {
+    if (id15 == null || id15.length() != 15) {
+      return null;
+    }
+
+    final String CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
+    String checksum = '';
+
+    for (Integer i = 0; i < 3; i++) {
+      Integer flags = 0;
+      for (Integer j = 0; j < 5; j++) {
+        String c = id15.substring(i * 5 + j, i * 5 + j + 1);
+
+        Integer charCode = c.charAt(0);
+        if (charCode >= 65 && charCode <= 90) {
+          flags += 1 << j;
+        }
+      }
+      checksum += CHARS.substring(flags, flags + 1);
+    }
+    return id15 + checksum;
   }
 
   /**

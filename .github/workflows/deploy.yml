@@ -31,27 +31,9 @@ jobs:
             --set-default-dev-hub \
             --alias devHub
 
-      - name: Create Scratch Org
-        run: |
-          sf org create scratch \
-            --definition-file config/project-scratch-def.json \
-            --set-default \
-            --alias apexEloquentScratch
+      - name: Reinstall project in scratch org
+        run: make reinstall
 
-      - name: Install and Deploy to Scratch Org
-        run: |
-          echo "Running 'make install' to deploy the project to the scratch org..."
-          make install
+      - name: Run all Apex tests
+        run: make test
 
-      - name: Run All Apex Tests
-        run: |
-          sf apex run test \
-            --test-level RunLocalTests \
-            --wait 20 \
-            --code-coverage \
-            --result-format human
-
-      - name: Delete Scratch Org
-        if: always()
-        run: |
-          sf org delete scratch --no-prompt --target-org apexEloquentScratch

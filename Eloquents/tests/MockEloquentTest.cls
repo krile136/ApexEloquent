@@ -44,7 +44,7 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.isTrue(!entries.isEmpty(), 'Expected entries to be returned');
-    Assert.areEqual('006000000000000001', entries[0].getId(), 'Expected entry ID to match');
+    Assert.areEqual('006000000000001AAA', entries[0].getId(), 'Expected entry ID to match');
   }
 
   @isTest
@@ -97,10 +97,10 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.isTrue(entries.size() == 1, 'Expected one nested entry to be returned');
-    Assert.areEqual('006000000000000001', entries[0].getId(), 'Expected nested entry ID to match');
+    Assert.areEqual('006000000000001AAA', entries[0].getId(), 'Expected nested entry ID to match');
     Assert.areEqual('Test Opportunity', entries[0].getName(), 'Expected nested entry Name to match');
     IEntry accountEntry = entries[0].getParent('AccountId');
-    Assert.areEqual('001000000000000001', accountEntry.getId(), 'Expected nested child entry ID to match');
+    Assert.areEqual('001000000000001AAA', accountEntry.getId(), 'Expected nested child entry ID to match');
     Assert.areEqual('Test Account', accountEntry.getName(), 'Expected nested child entry Name to match');
   }
 
@@ -208,13 +208,13 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.isTrue(entries.size() == 1, 'Expected one entry to be returned');
-    Assert.areEqual('001000000000000001', entries[0].getId(), 'Expected entry ID to match');
+    Assert.areEqual('001000000000001AAA', entries[0].getId(), 'Expected entry ID to match');
     Assert.areEqual('Test Account', entries[0].getName(), 'Expected entry Name to match');
     List<IEntry> contacts = entries[0].getChildren('Contact');
     Assert.isTrue(contacts.size() == 2, 'Expected two child entries to be returned');
-    Assert.areEqual('003000000000000001', contacts[0].getId(), 'Expected first child entry ID to match');
+    Assert.areEqual('003000000000001AAA', contacts[0].getId(), 'Expected first child entry ID to match');
     Assert.areEqual('Test Contact 1', contacts[0].getName(), 'Expected first child entry Name to match');
-    Assert.areEqual('003000000000000002', contacts[1].getId(), 'Expected second child entry ID to match');
+    Assert.areEqual('003000000000002AAA', contacts[1].getId(), 'Expected second child entry ID to match');
     Assert.areEqual('Test Contact 2', contacts[1].getName(), 'Expected second child entry Name to match');
   }
 

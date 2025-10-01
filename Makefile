@@ -1,103 +1,29 @@
-# List of all Apex classes in the project for the uninstall command.
-# Alphabetized for readability.
-CLASSES = \
-    AbstractAggregateClause \
-    AbstractConditionClause \
-    AbstractEntry \
-    AverageClause \
-    CountClause \
-    CountDistinctClause \
-    Eloquent \
-    EloquentTest \
-    Entry \
-    EntryTest \
-    EqualConditionClause \
-    EqualConditionClauseTest \
-    ExcludeConditionClause \
-    ExcludeConditionClauseTest \
-    FieldStructure \
-    FieldStructureTest \
-    GreaterThanConditionClause \
-    GreaterThanConditionClauseTest \
-    GreaterThanOrEqualConditionClause \
-    GreaterThanOrEqualConditionClauseTest \
-    GroupByClause \
-    IAggregateClause \
-    IConditionClause \
-    IEloquent \
-    IEntry \
-    InConditionClause \
-    InConditionClauseTest \
-    InSubQueryConditionClause \
-    InSubQueryConditionClauseTest \
-    IncludesConditionClause \
-    IncludesConditionClauseTest \
-    IsNotNullConditionClause \
-    IsNotNullConditionClauseTest \
-    IsNullConditionClause \
-    IsNullConditionClauseTest \
-    LessThanConditionClause \
-    LessThanConditionClauseTest \
-    LessThanOrEqualConditionClause \
-    LessThanOrEqualConditionClauseTest \
-    LikeConditionClause \
-    LikeConditionClauseTest \
-    MaxClause \
-    MinClause \
-    MockEloquent \
-    MockEloquentTest \
-    MockEntry \
-    MockEntryTest \
-    NotEqualConditionClause \
-    NotEqualConditionClauseTest \
-    NotInConditionClause \
-    NotInConditionClauseTest \
-    NotInSubQueryConditionClause \
-    NotInSubQueryConditionClauseTest \
-    NotLikeConditionClause \
-    NotLikeConditionClauseTest \
-    Scribe \
-    ScribeTest \
-    SumClause
+# Define a path to a dummy package.xml needed for destructive deploys.
+# This file is used when only deleting components.
+# You need to create this file yourself. It can be just:
+# <?xml version="1.0" encoding="UTF-8"?><Package xmlns="http://soap.sforce.com/2006/04/metadata"><version>61.0</version></Package>
+EMPTY_PACKAGE_XML = manifest/empty.xml
 
-# Filter the CLASSES variable to get only the test classes (those ending with "Test").
-TEST_CLASSES = $(filter %Test,$(CLASSES))
+.PHONY: install uninstall reinstall test
 
-# Helper variable to convert spaces to commas.
-comma := ,
-empty :=
-space := $(empty) $(empty)
-TEST_CLASSES_COMMA_SEPARATED = $(subst $(space),$(comma),$(TEST_CLASSES))
-
-.PHONY: deploy clean redeploy test
-
-# 1. delete classes
-# bulk delete can not continue when error occured.
-# so, we need to delete classes one by one.
-uninstall:
-	@echo "Cleaning classes from org..."
-	@for class in $(CLASSES); do \
-		echo "Deleting ApexClass:$$class"; \
-		sf project delete source --metadata ApexClass:$$class || echo "Skip: $$class not deleted"; \
-		done
-
-# 2. restore classes
-# deleting classes make local classes disappear.
-# so, we need to restore classes from git.
-restore:
-	@echo "Restoring deleted classes from git..."
-	git checkout .
-
-# 3. deploy classes
+# 1. install: Deploys all source code from the current directory.
 install:
 	@echo "Deploying all Apex classes from ApexEloquent directory..."
 	@sf project deploy start --source-dir . --wait 10 || exit 1
 
-# 4. test classes
-# Runs all tests defined in the TEST_CLASSES variable.
-test: install
-	@echo "Running ApexEloquent tests..."
-	@sf apex run test --class-names "$(TEST_CLASSES_COMMA_SEPARATED)" --result-format human --code-coverage --wait 10
+# 2. uninstall: Deletes all classes from the org using a static 'uninstall.xml' manifest.
+uninstall:
+	@echo "Cleaning classes from org using static manifest..."
+	@echo "Using destructive manifest: uninstall.xml"
+	@sf project deploy start \
+		--manifest $(EMPTY_PACKAGE_XML) \
+		--post-destructive-changes manifest/uninstall.xml \
+		--wait 10 || echo "Destructive deployment finished (some errors may be ignored)."
 
-# 5. redeploy（clean → restore → deploy）
-redeploy: uninstall restore install
+# 3. reinstall: A convenient target to first uninstall and then install the project.
+reinstall: uninstall install
+
+# 4. test: Runs ALL local Apex tests in the org.
+test: install
+	@echo "Running all local Apex tests..."
+	@sf apex run test --test-level RunLocalTests --result-format human --code-coverage --wait 10

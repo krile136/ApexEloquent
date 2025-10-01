@@ -1139,36 +1139,32 @@ public class MockEntryTest {
   static void testGetThroughByRelationName_WhenRelationIsValid_ThenReturnRelatedObject() {
     // Arrange
     SObject record = new User(Id = '005000000000000');
-    Scribe scribe = Scribe.source(User.getSObjectType())
+    Scribe scribe = Scribe.source(Order.getSObjectType())
       .field('Id')
       .through(
-        Scribe.asThrough(Opportunity.getSObjectType(), 'LastModifiedById')
-          .relationName('CR_DeputySalesManagerBusySeason__r')
+        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
+          .relationName('OrderItems')
           .field('Name')
       );
     FieldStructure fieldStructure = scribe.buildFieldStructure();
-    Map<String, Object> fieldToValue = new Map<String, Object>{
-      'CR_DeputySalesManagerBusySeason__r' => new List<IEntry>{
-        new MockEntry(
-          new Opportunity(),
-          new Map<String, Object>{
-            'LastModifiedById' => new MockEntry(new User(), new Map<String, Object>{ 'Name' => 'Last Modify 1' })
-          }
-        ),
-        new MockEntry(
-          new Opportunity(),
-          new Map<String, Object>{
-            'LastModifiedById' => new MockEntry(new User(), new Map<String, Object>{ 'Name' => 'Last Modify 2' })
-          }
-        )
-      }
-    };
-    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+    MockEntry mockEntry = MockEntry.of(Order.getSObjectType())
+      .addChildren(
+        'OrderItems',
+        new List<MockEntry>{
+          MockEntry.of(OrderItem.getSObjectType())
+            .addParent('Product2Id', MockEntry.of(Product2.getSObjectType()).add('Name', 'Last Modify 1')
+          ),
+          MockEntry.of(OrderItem.getSObjectType())
+            .addParent('Product2Id', MockEntry.of(Product2.getSObjectType()).add('Name', 'Last Modify 2')
+          )
+        }
+      );
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
     List<IEntry> relatedObjects = mockEntry.getThroughByRelationName(
-      'CR_DeputySalesManagerBusySeason__r',
-      'LastModifiedById'
+      'OrderItems',
+      'Product2Id'
     );
 
     // Assert

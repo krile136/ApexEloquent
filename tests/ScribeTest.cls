@@ -1033,7 +1033,7 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(User.getSObjectType())
       .field('Id')
-      .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'));
+      .withChildren(Scribe.asChild(Contract.getSObjectType()).field('Id').whereNotNull('Name'));
 
     // Act / Assert
     try {
@@ -1043,7 +1043,7 @@ public with sharing class ScribeTest {
       System.debug(e.getMessage());
       String errorMessage = String.format(
         'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
-        new List<String>{ 'Opportunity', 'User' }
+        new List<String>{ 'Contract', 'User' }
       );
       Assert.areEqual(errorMessage, e.getMessage());
     }
@@ -2976,7 +2976,7 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.source(User.getSObjectType())
       .field('Id')
-      .through(Scribe.asThrough(Opportunity.getSObjectType(), 'LastModifiedById').field('Name'));
+      .through(Scribe.asThrough(Contract.getSObjectType(), 'LastModifiedById').field('Name'));
     //  Act / Assert
     try {
       String soql = scribe.toSoql();
@@ -2985,7 +2985,7 @@ public with sharing class ScribeTest {
       System.debug(e.getMessage());
       String errorMessage = String.format(
         'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
-        new List<String>{ 'Opportunity', 'User' }
+        new List<String>{ 'Contract', 'User' }
       );
       Assert.areEqual(errorMessage, e.getMessage());
     }

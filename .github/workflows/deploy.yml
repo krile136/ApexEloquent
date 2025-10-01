@@ -1,0 +1,57 @@
+name: Validate ApexEloquent on Pull Request
+
+on:
+  pull_request:
+    branches:
+      - ci_target
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Create JWT key file
+        run: |
+          mkdir -p ./assets
+          echo "${{ secrets.SF_JWT_KEY }}" > ./assets/server.key
+
+      - name: Authenticate to Dev Hub
+        run: |
+          sf org login jwt \
+            --username ${{ secrets.SF_USERNAME_DEVHUB }} \
+            --client-id ${{ secrets.SF_CLIENT_ID }} \
+            --jwt-key-file assets/server.key \
+            --set-default-dev-hub \
+            --alias devHub
+
+      - name: Create Scratch Org
+        run: |
+          sf org create scratch \
+            --definition-file config/project-scratch-def.json \
+            --set-default \
+            --alias apexEloquentScratch
+
+      - name: Install and Deploy to Scratch Org
+        run: |
+          echo "Running 'make install' to deploy the project to the scratch org..."
+          make install
+
+      - name: Run All Apex Tests
+        run: |
+          sf apex run test \
+            --test-level RunLocalTests \
+            --wait 20 \
+            --code-coverage \
+            --result-format human
+
+      - name: Delete Scratch Org
+        if: always()
+        run: |
+          sf org delete scratch --no-prompt --target-org apexEloquentScratch

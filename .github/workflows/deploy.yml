@@ -25,7 +25,7 @@ jobs:
       - name: Authenticate to Dev Hub
         run: |
           sf org login jwt \
-            --username ${{ secrets.SF_USERNAME_DEVHUB }} \
+            --username ${{ secrets.SF_USERNAME }} \
             --client-id ${{ secrets.SF_CLIENT_ID }} \
             --jwt-key-file assets/server.key \
             --set-default-dev-hub \

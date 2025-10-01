@@ -1,0 +1,13 @@
+{
+  "orgName": "DevOrg",
+  "edition": "Developer",
+  "features": [],
+  "settings": {
+    "quoteSettings": {
+      "enableQuote": true
+    },
+    "lightningExperienceSettings": {
+      "enableS1DesktopEnabled": true
+    }
+  }
+}

@@ -17,19 +17,31 @@ jobs:
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
 
+      - name: Create a temporary consumer SFDX project
+        run: |
+          sf project generate --name consumer-project
+
+      - name: "Install" ApexEloquent into the consumer project
+        run: |
+          mkdir -p consumer-project/force-app/main/default/classes
+          rsync -av --include='*.cls' --include='*.cls-meta.xml' --exclude='*' --prune-empty-dirs . consumer-project/force-app/main/default/classes/
+
       - name: Create JWT key file
         run: |
           mkdir -p ./assets
           echo "${{ secrets.SF_JWT_KEY }}" > ./assets/server.key
 
-      - name: Authenticate to Dev Hub
+      - name: Authenticate to develop org
         run: |
           sf org login jwt \
             --username ${{ secrets.SF_USERNAME }} \
             --client-id ${{ secrets.SF_CLIENT_ID }} \
             --jwt-key-file assets/server.key \
             --set-default \
-            --alias developer 
+            --alias developOrg
+
+      - name: move to classes directory
+        run: cd consumer-project/force-app/main/default/classes
 
       - name: Reinstall project in scratch org
         run: make reinstall

@@ -2,7 +2,7 @@
 # This file is used when only deleting components.
 # You need to create this file yourself. It can be just:
 # <?xml version="1.0" encoding="UTF-8"?><Package xmlns="http://soap.sforce.com/2006/04/metadata"><version>61.0</version></Package>
-EMPTY_PACKAGE_XML = manifest/empty.xml
+EMPTY_PACKAGE_XML = manifest/package-empty.xml
 
 .PHONY: install uninstall reinstall test
 

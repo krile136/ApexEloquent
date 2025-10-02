@@ -1,4 +1,3 @@
-
 name: Validate ApexEloquent on Pull Request
 
 on:
@@ -26,10 +25,11 @@ jobs:
           mkdir -p temporaryProject/force-app/main/default/classes
           # Copy all source files into the temporary project
           rsync -av --include='*.cls' --include='*.cls-meta.xml' --exclude='*' --prune-empty-dirs . temporaryProject/force-app/main/default/classes/
-          # Copy the Makefile into the temporary project to run it in the correct context
+          # Copy the Makefile and manifests into the temporary project to run it in the correct context
           cp Makefile temporaryProject/
-          cp uninstall.xml temporaryProject/manifest/
-          cp manifest/empty.xml temporaryProject/manifest/
+          cp uninstall.xml temporaryProject/
+          mkdir -p temporaryProject/manifest
+          cp manifest/package-empty.xml temporaryProject/manifest/
 
       - name: Create JWT key file
         run: |

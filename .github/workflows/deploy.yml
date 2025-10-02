@@ -1,0 +1,53 @@
+name: Validate ApexEloquent on Pull Request
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+        
+      - name: Create a temporary SFDX project
+        run: sf project generate --name temporaryProject
+
+      - name: Install ApexEloquent into the temporary project
+        run: |
+          mkdir -p temporaryProject/force-app/main/default/classes
+          # Copy all source files into the temporary project
+          rsync -av --include='*/' --include='*.cls' --include='*.cls-meta.xml' --exclude='*' . temporaryProject/force-app/main/default/classes/
+          # Copy the Makefile and manifests into the temporary project to run it in the correct context
+          cp Makefile temporaryProject/
+          mkdir -p temporaryProject/manifest
+          cp manifest/uninstall.xml temporaryProject/manifest/
+          mkdir -p temporaryProject/manifest
+          cp manifest/package-empty.xml temporaryProject/manifest/
+
+      - name: Create JWT key file
+        run: |
+          mkdir -p ./assets
+          echo "${{ secrets.SF_JWT_KEY }}" > ./assets/server.key
+
+      - name: Authenticate to develop org
+        run: |
+          sf org login jwt \
+            --username ${{ secrets.SF_USERNAME }} \
+            --client-id ${{ secrets.SF_CLIENT_ID }} \
+            --jwt-key-file assets/server.key \
+            --set-default \
+            --alias developOrg
+
+      - name: Run all Apex tests
+        working-directory: ./temporaryProject
+        run: make test
+
+

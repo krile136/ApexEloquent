@@ -16,8 +16,11 @@ jobs:
 
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
+        
+      - name: Create a temporary SFDX project
+        run: sf project generate --name temporaryProject
 
-      - name: "Install" ApexEloquent into the temporary project
+      - name: Install ApexEloquent into the temporary project
         run: |
           mkdir -p temporaryProject/force-app/main/default/classes
           # Copy all source files into the temporary project

@@ -2897,7 +2897,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id, (SELECT Product2.name, Product2.productcode FROM OrderItems WHERE Product2.IsActive = true) FROM Order';
+    String expectedSoql = 'SELECT id, (SELECT product2id, Product2.name, Product2.productcode FROM OrderItems WHERE Product2.IsActive = true) FROM Order';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -2940,7 +2940,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id, (SELECT Product2.name, Product2.productcode FROM OrderItems WHERE Product2.IsActive = true) FROM Order';
+    String expectedSoql = 'SELECT id, (SELECT product2id, Product2.name, Product2.productcode FROM OrderItems WHERE Product2.IsActive = true) FROM Order';
     Assert.areEqual(expectedSoql, soql);
   }
 

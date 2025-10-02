@@ -24,9 +24,10 @@ jobs:
         run: |
           mkdir -p temporaryProject/force-app/main/default/classes
           # Copy all source files into the temporary project
-          rsync -av --include='*.cls' --include='*.cls-meta.xml' --exclude='*' --prune-empty-dirs . temporaryProject/force-app/main/default/classes/
+          rsync -av --include='*/' --include='*.cls' --include='*.cls-meta.xml' --exclude='*' . temporaryProject/force-app/main/default/classes/
           # Copy the Makefile and manifests into the temporary project to run it in the correct context
           cp Makefile temporaryProject/
+          mkdir -p temporaryProject/manifest
           cp manifest/uninstall.xml temporaryProject/manifest/
           mkdir -p temporaryProject/manifest
           cp manifest/package-empty.xml temporaryProject/manifest/

@@ -388,11 +388,7 @@ public with sharing class MockEntry extends AbstractEntry {
     }
 
     this.validateFieldName(fieldName);
-
-    if (this.describeResult == null) {
-      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
-      this.setDescribeResult(describeResult);
-    }
+    this.ensureDescribeResultIfNeeded();
 
     for (String key : this.fieldToValue.keySet()) {
       if (key.equalsIgnoreCase(fieldName)) {
@@ -408,6 +404,7 @@ public with sharing class MockEntry extends AbstractEntry {
       }
     }
 
+    System.debug('MockEntry.get: Falling back to base record for field: ' + fieldName);
     Entry entry = new Entry(this.record);
     return entry.get(fieldName);
   }
@@ -415,12 +412,31 @@ public with sharing class MockEntry extends AbstractEntry {
   /**
    * @inheritDoc
    */
-  public override IEntry getParent(String parentIdFieldName) {
-    if (this.describeResult == null) {
-      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
-      this.setDescribeResult(describeResult);
+  public override void put(String fieldName, Object value) {
+    if (this.hasAggregateResult) {
+      String error = 'Cannot call put() on an AggregateResult record.';
+      throw new QueryException(error);
     }
 
+    try {
+      this.record.put(fieldName, value);
+      this.fieldToValue.put(fieldName, value);
+      this.fieldStructure.addField(fieldName.toLowerCase());
+    } catch (Exception e) {
+      System.debug(e.getStackTraceString());
+      String error = String.format(
+        'Failed to put value to the SObject. field name: {0}, value: {1}, Error: {2}',
+        new List<String>{ fieldName, (String) value, e.getMessage() }
+      );
+      throw new QueryException(error);
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public override IEntry getParent(String parentIdFieldName) {
+    this.ensureDescribeResultIfNeeded();
     String lowerCaseFieldName = parentIdFieldName.toLowerCase();
 
     if (!this.fieldStructure.hasRelation(lowerCaseFieldName)) {
@@ -447,10 +463,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * @inheritDoc
    */
   public override List<IEntry> getChildren(String childObjectName) {
-    if (this.describeResult == null) {
-      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
-      this.setDescribeResult(describeResult);
-    }
+    this.ensureDescribeResultIfNeeded();
     // for validate the childObjectName
     String childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
 
@@ -472,11 +485,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * @inheritDoc
    */
   public override List<IEntry> getChildrenByRelationName(String childRelationName) {
-    if (this.describeResult == null) {
-      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
-      this.setDescribeResult(describeResult);
-    }
-
+    this.ensureDescribeResultIfNeeded();
     String errorTemplate = 'The specified childRelationName is not set in Scribe. object name: {0}, child relation name: {1}';
     this.validateChildRelationInFieldStructure(childRelationname, errorTemplate);
 
@@ -522,6 +531,21 @@ public with sharing class MockEntry extends AbstractEntry {
   /**
    * @inheritDoc
    */
+  public override SObject getRecord() {
+    SObject returnRecord = this.record;
+    for (String fieldName : this.fieldToValue.keySet()) {
+      try{
+        returnRecord.put(fieldName, this.get(fieldName));
+      } catch (Exception e) {
+        System.debug('MockEntry.getRecord: Skipped putting value into a field due to a constraint. Field: ' + fieldName);
+      }
+    }
+    return returnRecord;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public override IEntry setRecord(SObject record) {
     return new MockEntry(record, this.fieldStructure, this.fieldToValue);
   }
@@ -560,6 +584,7 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   private void validateChildRelationInFieldStructure(String relation, String errorTemplate) {
     if (!this.fieldStructure.hasRelation(relation.toLowerCase())) {
+      this.ensureDescribeResultIfNeeded();
       String error = String.format(errorTemplate, new List<String>{ this.describeResult.getName(), relation });
       throw new QueryException(error);
     }
@@ -579,6 +604,7 @@ public with sharing class MockEntry extends AbstractEntry {
     } else if (childObjects instanceof IEntry) {
       entries = new List<IEntry>{ (IEntry) childObjects };
     } else {
+      this.ensureDescribeResultIfNeeded();
       String error = String.format(errorTemplate, new List<String>{ this.describeResult.getName(), key });
       throw new QueryException(error);
     }

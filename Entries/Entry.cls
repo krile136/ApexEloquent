@@ -63,32 +63,28 @@ public with sharing class Entry extends AbstractEntry {
       return this.aggregateResult.get(fieldName);
     }
 
-    if (this.describeResult == null) {
-      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
-      this.setDescribeResult(describeResult);
-    }
-
-    // validate the fieldName
-    Map<String, Schema.SObjectField> fieldMap = this.describeResult.fields.getMap();
-    if (!fieldMap.containsKey(fieldName)) {
-      String error = String.format(
-        'The specified field does not exist in the object\'s fields. object name: {0}, field name: {1}',
-        new List<String>{ this.describeResult.getName(), fieldName }
-      );
-      throw new QueryException(error);
-    }
-
+    this.validateFieldName(fieldName);
     return this.record.get(fieldName);
   }
 
   /**
    * @inheritDoc
    */
-  public override IEntry getParent(String parentIdFieldName) {
-    if (this.describeResult == null) {
-      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
-      this.setDescribeResult(describeResult);
+  public override void put(String fieldName, Object value) {
+    if (this.hasAggregateResult) {
+      String error = 'Cannot call put() on an AggregateResult record.';
+      throw new QueryException(error);
     }
+
+    this.validateFieldName(fieldName);
+    this.record.put(fieldName, value);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public override IEntry getParent(String parentIdFieldName) {
+    this.ensureDescribeResultIfNeeded();
     Map<String, Schema.SObjectField> fieldMap = this.describeResult.fields.getMap();
 
     Schema.SObjectField field = fieldMap.get(parentIdFieldName);
@@ -122,10 +118,7 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override List<IEntry> getChildren(String childObjectName) {
-    if (this.describeResult == null) {
-      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
-      this.setDescribeResult(describeResult);
-    }
+    this.ensureDescribeResultIfNeeded();
     List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
 
     String childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
@@ -141,11 +134,7 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override List<IEntry> getChildrenByRelationName(String childRelationName) {
-    if (this.describeResult == null) {
-      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
-      this.setDescribeResult(describeResult);
-    }
-
+    this.ensureDescribeResultIfNeeded();
     this.validateChildRelationName(childRelationName);
 
     List<IEntry> childRecords = new List<IEntry>();
@@ -173,6 +162,13 @@ public with sharing class Entry extends AbstractEntry {
   /**
    * @inheritDoc
    */
+  public override SObject getRecord() {
+    return this.record;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public override IEntry setRecord(SObject record) {
     return new Entry(record);
   }
@@ -184,5 +180,23 @@ public with sharing class Entry extends AbstractEntry {
     throw new QueryException(
       'Field structure is not supported in Entry class. Use MockEntry for testing purposes.'
     );
+  }
+
+  /**
+  * validate field name
+  *
+  * @param fieldName field name to be validated
+  * @throws QueryException if the field is not exist in the SObject
+  */
+  private void validateFieldName(String fieldName) {
+    this.ensureDescribeResultIfNeeded();
+    Map<String, Schema.SObjectField> fieldMap = this.describeResult.fields.getMap();
+    if (!fieldMap.containsKey(fieldName)) {
+      String error = String.format(
+        'The specified field does not exist in the object\'s fields. object name: {0}, field name: {1}',
+        new List<String>{ this.describeResult.getName(), fieldName }
+      );
+      throw new QueryException(error);
+    }
   }
 }

@@ -47,6 +47,100 @@ public with sharing class EntryTest {
   }
 
   @isTest
+  static void testGet_WhenGetUserCount_ThenReutnCountResult() {
+    // Arrange
+    Scribe scribe = Scribe.source(User.getSObjectType())
+      .field('IsActive')
+      .count('Id', 'UserCount')
+      .groupByField('IsActive');
+    List<IEntry> entries = (new Eloquent()).getAggregate(scribe);
+
+    // Act
+    Entry entry = (Entry) entries[0];
+    Integer count = (Integer) entry.get('UserCount');
+
+    // Assert
+    Assert.isTrue(count >= 0, 'The count should be non-negative.');
+  }
+
+  @isTest
+  static void testGet_WhenGetNonExistAlias_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(User.getSObjectType())
+      .field('IsActive')
+      .count('Id', 'UserCount')
+      .groupByField('IsActive');
+    List<IEntry> entries = (new Eloquent()).getAggregate(scribe);
+    Entry entry = (Entry) entries[0];
+
+    // Act & Assert
+    try {
+      entry.get('NonExistAlias');
+      Assert.fail('Expected Exception to be thrown.');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'The specified field or alias is not exist in Scribe. field or alias name: NonExistAlias',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testPut_WhenFieldExists_ShouldUpdateFieldValue() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+    String newName = 'Updated Account';
+
+    // Act
+    entry.put('Name', newName);
+    String updatedName = (String) entry.get('Name');
+
+    // Assert
+    Assert.areEqual(newName, updatedName, 'The field value should be updated to the new value.');
+  }
+
+  @isTest
+  static void testPut_WhenFieldDoesNotExist_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+    String newValue = 'Some Value';
+
+    // Act & Assert
+    try {
+      entry.put('NonExistentField', newValue);
+      Assert.fail('Expected Exception to be thrown.');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'The specified field does not exist in the object\'s fields. object name: Account, field name: NonExistentField',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testPut_WhenCalledOnAggregateResult_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(User.getSObjectType())
+      .field('IsActive')
+      .count('Id', 'UserCount')
+      .groupByField('IsActive');
+    List<IEntry> entries = (new Eloquent()).getAggregate(scribe);
+    Entry entry = (Entry) entries[0];
+    String newValue = 'Some Value';
+
+    // Act & Assert
+    try {
+      entry.put('IsActive', newValue);
+      Assert.fail('Expected Exception to be thrown.');
+    } catch (QueryException e) {
+      Assert.areEqual('Cannot call put() on an AggregateResult record.', e.getMessage());
+    }
+  }
+
+
+  @isTest
   static void testGetId_WhenCalled_ShouldReturnId() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
@@ -196,6 +290,19 @@ public with sharing class EntryTest {
 
     // Assert
     Assert.isTrue(children.isEmpty(), 'The children list should be empty when no children exist.');
+  }
+
+  @isTest
+  static void testGetRecord_WhenCalled_ThenReturnSObject() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act
+    SObject returnedRecord = entry.getRecord();
+
+    // Assert
+    Assert.areEqual(record, returnedRecord, 'The returned SObject should match the original record.');
   }
 
   @isTest

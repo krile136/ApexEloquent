@@ -797,6 +797,28 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testDoUpdate_WhenApplyEntry_ThenReturnEntry() {
+    // Arrange
+    FieldStructure fieldStructure= Scribe.source(Opportunity.getSObjectType())
+      .fields(new List<String>{ 'Id', 'Name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.getSObjectType())
+      .autoId(1)
+      .add('Name', 'Opportunity 1')
+      .setFieldStructure(fieldStructure);
+
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    mockEntry.put('Name', 'Updated Opportunity 1');
+    IEntry updatedEntry = eloquent.doUpdate(mockEntry);
+
+    // Assert
+    Assert.isNotNull(updatedEntry.getId(), 'Expected entry to have an Id after update');
+    Assert.areEqual('Updated Opportunity 1', updatedEntry.get('Name'), 'Expected entry Name to match after update');
+  }
+
+  @isTest
   static void testDoUpdate_WhenMultipleRecordsAreUpdated_ThenReturnRecords() {
     // Arrange
     List<Opportunity> records = new List<Opportunity>{
@@ -813,6 +835,37 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testDoUpdate_WhenMultipleEntriesAreUpdated_ThenReturnEntries() {
+    // Arrange
+    FieldStructure fieldStructure= Scribe.source(Opportunity.getSObjectType())
+      .fields(new List<String>{ 'Id', 'Name' })
+      .buildFieldStructure();
+    List<MockEntry> mockEntries = MockEntry.of(Opportunity.getSObjectType())
+      .autoId('{#}')
+      .add('Name', 'Opportunity {#}')
+      .times(2);
+    List<MockEntry> updateEntries = new List<MockEntry>();
+    for (MockEntry entry : mockEntries) {
+      updateEntries.add((MockEntry) entry.setFieldStructure(fieldStructure));
+    }
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    for (MockEntry entry : updateEntries) {
+      entry.put('Name', 'Updated ' + entry.get('Name'));
+    }
+    List<IEntry> resultEntries = eloquent.doUpdate(updateEntries);
+
+    // Assert
+    Assert.areEqual(2, resultEntries.size(), 'Expected two entries to be updated');
+    for (Integer i = 0; i < resultEntries.size(); i++) {
+      IEntry entry = resultEntries[i];
+      Assert.isNotNull(entry.getId(), 'Expected each entry to have an Id after update');
+      Assert.areEqual('Updated Opportunity ' + (i + 1), entry.get('Name'), 'Expected each entry Name to match after update');
+    }
+  }
+
+  @isTest
   static void testDoDelete_WhenRecordIsDeleted_ThenNoExceptionThrown() {
     // Arrange
     Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Test Opportunity');
@@ -826,6 +879,22 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testDoDelete_WhenEntryIsDeleted_ThenNoExceptionThrown() {
+    // Arrange
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.getSObjectType())
+      .autoId(1)
+      .add('Name', 'Opportunity 1');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    eloquent.doDelete(mockEntry);
+
+    // Assert
+    // No exception should be thrown, indicating successful deletion
+  }
+
+
+  @isTest
   static void testDoDelete_WhenMultipleRecordsAreDeleted_ThenNoExceptionThrown() {
     // Arrange
     List<Opportunity> records = new List<Opportunity>{
@@ -836,6 +905,19 @@ public with sharing class MockEloquentTest {
 
     // Act
     eloquent.doDelete(records);
+
+    // Assert
+    // No exception should be thrown, indicating successful deletion
+  }
+
+  @isTest
+  static void testDoDelete_WhenMultipleEntriesAreDeleted_ThenNoExceptionThrown() {
+    // Arrange
+    List<MockEntry> mockEntries = MockEntry.of(Opportunity.getSObjectType()).autoId('{#}').add('Name', 'Opportunity {#}').times(2);
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    eloquent.doDelete(mockEntries);
 
     // Assert
     // No exception should be thrown, indicating successful deletion

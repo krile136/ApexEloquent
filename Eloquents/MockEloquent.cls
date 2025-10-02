@@ -303,6 +303,9 @@ public with sharing class MockEloquent implements IEloquent {
     return;
   }
 
+  /**
+   * @inheritDoc
+   */
   public void doDelete(IEntry entry) {
     if (this.shouldThrowException) {
       throw new DmlException('Test Exception from MockEloquent.doDelete()');
@@ -323,6 +326,9 @@ public with sharing class MockEloquent implements IEloquent {
     return;
   }
 
+  /**
+   * @inheritDoc
+   */
   public void doDelete(List<IEntry> entries) {
     if (this.shouldThrowException) {
       throw new DmlException('Test Exception from MockEloquent.doDelete()');

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
- /**
+/**
  * @description An abstract base class that implements the `IEntry` interface.
  * It provides a common foundation and shared logic for concrete implementations
  * like `Entry` (for real SObjects) and `MockEntry` (for test data).
@@ -91,13 +91,6 @@ public abstract class AbstractEntry implements IEntry {
   /**
    * @inheritDoc
    */
-  public SObject getRecord() {
-    return this.record;
-  }
-
-  /**
-   * @inheritDoc
-   */
   public List<IEntry> getThrough(String junctionObjectName, String relatedKey) {
     List<IEntry> junctionEntries = this.getChildren(junctionObjectName);
     if (junctionEntries.isEmpty()) {
@@ -111,7 +104,7 @@ public abstract class AbstractEntry implements IEntry {
       .getDescribe();
     for (IEntry junctionEntry : junctionEntries) {
       junctionEntry.setDescribeResult(junctionDescribeResult);
-      relatedEntries.add(junctionEntry.getParent(relatedKey)); 
+      relatedEntries.add(junctionEntry.getParent(relatedKey));
     }
     return relatedEntries;
   }
@@ -129,9 +122,19 @@ public abstract class AbstractEntry implements IEntry {
       .getDescribe();
     for (IEntry junctionEntry : junctionEntries) {
       junctionEntry.setDescribeResult(junctionDescribeResult);
-      relatedEntries.add(junctionEntry.getParent(relatedKey)); 
+      relatedEntries.add(junctionEntry.getParent(relatedKey));
     }
     return relatedEntries;
+  }
+
+  /**
+   * Ensure that describeResult is set.
+   */
+  protected void ensureDescribeResultIfNeeded() {
+    if (this.describeResult == null) {
+      Schema.DescribeSObjectResult describeResult = this.record.getSObjectType().getDescribe();
+      this.setDescribeResult(describeResult);
+    }
   }
 
   /**
@@ -142,14 +145,14 @@ public abstract class AbstractEntry implements IEntry {
   }
 
   /**
-    * get child relation name from child object name.
-    * If there are multiple relationships with the same child object name, an exception is thrown.
-    *
-    * @param childObjectName child object name
-    * @return child relation name
-    * @throws QueryException if the child object name is not exist in the parent object's children relationships
-    *                        or if there are multiple relationships with the same child object name
-    */
+   * get child relation name from child object name.
+   * If there are multiple relationships with the same child object name, an exception is thrown.
+   *
+   * @param childObjectName child object name
+   * @return child relation name
+   * @throws QueryException if the child object name is not exist in the parent object's children relationships
+   *                        or if there are multiple relationships with the same child object name
+   */
   protected String getChildrenRelationNameFromChildObjectName(String childObjectName) {
     List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
 
@@ -206,9 +209,11 @@ public abstract class AbstractEntry implements IEntry {
 
   // abstract methods to be implemented by subclasses
   public abstract Object get(String fieldName);
+  public abstract void put(String fieldName, Object value);
   public abstract IEntry getParent(String parentFieldName);
   public abstract List<IEntry> getChildren(String childObjectName);
   public abstract List<IEntry> getChildrenByRelationName(String childRelationName);
+  public abstract SObject getRecord();
   public abstract IEntry setRecord(SObject record);
   public abstract Id getId();
   public abstract String getName();

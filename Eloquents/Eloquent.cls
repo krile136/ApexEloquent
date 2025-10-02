@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
- /**
+/**
  * @description The concrete production implementation of the `IEloquent` interface.
  *
  * This class is responsible for interacting with the live Salesforce database. It takes a
@@ -135,6 +135,12 @@ public with sharing class Eloquent implements IEloquent {
     return record;
   }
 
+  public IEntry doUpdate(IEntry entry) {
+    SObject record = entry.getRecord();
+    update record;
+    return new Entry(record);
+  }
+
   /**
    * @inheritDoc
    */
@@ -147,6 +153,27 @@ public with sharing class Eloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public List<IEntry> doUpdate(List<IEntry> entries) {
+    if (entries.isEmpty()) {
+      System.debug('No entries to update.');
+      return new List<IEntry>();
+    }
+    List<SObject> records = new List<SObject>();
+    for (IEntry entry : entries) {
+      records.add(entry.getRecord());
+    }
+    sortToPreventChunkingErrors(records);
+    update records;
+    List<IEntry> updatedEntries = new List<IEntry>();
+    for (SObject record : records) {
+      updatedEntries.add(new Entry(record));
+    }
+    return updatedEntries;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public void doDelete(SObject record) {
     delete record;
   }
@@ -154,7 +181,29 @@ public with sharing class Eloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public void doDelete(IEntry entry) {
+    delete entry.getRecord();
+  }
+
+  /**
+   * @inheritDoc
+   */
   public void doDelete(List<SObject> records) {
+    delete records;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public void doDelete(List<IEntry> entries) {
+    if (entries.isEmpty()) {
+      System.debug('No entries to delete.');
+      return;
+    }
+    List<SObject> records = new List<SObject>();
+    for (IEntry entry : entries) {
+      records.add(entry.getRecord());
+    }
     delete records;
   }
 

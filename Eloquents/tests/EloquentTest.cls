@@ -175,6 +175,20 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testUpdateSingleEntry() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
+    IEntry entry = new Entry(opp);
+
+    // Act & Assert
+    try {
+      entry = (new Eloquent()).doUpdate(entry);
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+    }
+  }
+
+  @isTest
   static void testUpdateMultipleRecords() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
@@ -190,6 +204,32 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testUpdateMultipleEntries() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+    // Act & Assert
+    try {
+      entries = (List<IEntry>) (new Eloquent()).doUpdate(entries);
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testUpdateEmptyEntries() {
+    // Arrange
+    List<IEntry> entries = new List<IEntry>();
+
+    // Act
+    List<IEntry> updatedEntries = (new Eloquent()).doUpdate(entries);
+
+    // Assert
+    Assert.isTrue(updatedEntries.isEmpty(), 'Expected no entries to be updated');
+  }
+
+  @isTest
   static void testDeleteSingleRecord() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000');
@@ -197,6 +237,20 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(opp);
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDeleteSingleEntry() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000');
+    IEntry entry = new Entry(opp);
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(entry);
     } catch (DmlException e) {
       System.debug(e.getMessage());
     }
@@ -216,4 +270,33 @@ public with sharing class EloquentTest {
       System.debug(e.getMessage());
     }
   }
+
+  @isTest
+  static void testDeleteMultipleEntries() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(entries);
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDeleteEmptyEntries() {
+    // Arrange
+    List<IEntry> entries = new List<IEntry>();
+
+    // Act
+    (new Eloquent()).doDelete(entries);
+
+    // Assert
+    // No exception should be thrown
+  }
+
+
 }

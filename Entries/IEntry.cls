@@ -35,6 +35,14 @@ public Interface IEntry {
   Object get(String fieldName);
 
   /**
+   * set SObject field value.
+   *
+   * @param fieldName field name
+   * @param value field value
+   */
+  void put(String fieldName, Object value); 
+
+  /**
    * get parent SObject as Evaluator.
    *
    * @param parentFieldName parent relationId field name

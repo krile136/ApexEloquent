@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
- /**
+/**
  * @description The mock implementation of the `IEloquent` interface, designed to enable fast,
  * reliable, and database-independent unit testing of service classes.
  *
@@ -253,6 +253,19 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public IEntry doUpdate(IEntry entry) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doUpdate()');
+    }
+    if (entry == null) {
+      throw new DmlException('Cannot update null entry or record');
+    }
+    return entry;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public List<SObject> doUpdate(List<SObject> records) {
     if (this.shouldThrowException) {
       throw new DmlException('Test Exception from MockEloquent.doUpdate()');
@@ -261,6 +274,20 @@ public with sharing class MockEloquent implements IEloquent {
       throw new DmlException('Cannot update null or empty records');
     }
     return records;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<IEntry> doUpdate(List<IEntry> entries) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doUpdate()');
+    }
+    if (entries == null || entries.isEmpty()) {
+      return new List<IEntry>();
+    }
+
+    return entries;
   }
 
   /**
@@ -279,12 +306,32 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public void doDelete(IEntry entry) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doDelete()');
+    }
+    return;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public void doDelete(List<SObject> records) {
     if (this.shouldThrowException) {
       throw new DmlException('Test Exception from MockEloquent.doDelete()');
     }
     if (records == null || records.isEmpty()) {
       throw new DmlException('Cannot delete null or empty records');
+    }
+    return;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public void doDelete(List<IEntry> entries) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doDelete()');
     }
     return;
   }

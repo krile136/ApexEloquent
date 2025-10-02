@@ -210,11 +210,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Name', 'Name-{#}')
-      .times(3);
+    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{#}').times(3);
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('Name-1', mockEntries[0].getName(), 'First entry name should match.');
@@ -230,11 +228,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Name', 'Name-{#}')
-      .times(3, 5);
+    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{#}').times(3, 5);
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('Name-5', mockEntries[0].getName(), 'First entry name should match.');
@@ -245,16 +241,16 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenAddAmountTimesWithStartAt_ThenReturnMOckEntriesWithAmountTimes() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(OrderItem.getSObjectType()).field('Quantity').buildFieldStructure();
+    FieldStructure fieldStructure = Scribe.source(OrderItem.getSObjectType())
+      .field('Quantity')
+      .buildFieldStructure();
     MockEntry templateEntry = MockEntry.of(OrderItem.getSObjectType());
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Quantity', '{#}')
-      .times(3, 50000, 10000);
+    List<MockEntry> mockEntries = templateEntry.add('Quantity', '{#}').times(3, 50000, 10000);
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual(50000, mockEntries[0].get('Quantity'), 'First entry Quantity should match.');
@@ -270,11 +266,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Id', '{#}')
-      .times(3, 1);
+    List<MockEntry> mockEntries = templateEntry.add('Id', '{#}').times(3, 1);
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('001000000000001AAA', mockEntries[0].getId(), 'First entry Id should match.');
@@ -290,11 +284,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Id', '{#}')
-      .times(3, 101);
+    List<MockEntry> mockEntries = templateEntry.add('Id', '{#}').times(3, 101);
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('001000000000101AAA', mockEntries[0].getId(), 'First entry Id should match.');
@@ -310,11 +302,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Name', 'Name-{A}')
-      .times(3);
+    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{A}').times(3);
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('Name-A', mockEntries[0].getName(), 'First entry name should match.');
@@ -330,11 +320,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Name', 'Name-{A}')
-      .times(3, 26); // Start at 'Z'
+    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{A}').times(3, 26); // Start at 'Z'
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('Name-Z', mockEntries[0].getName(), 'First entry name should match.');
@@ -350,11 +338,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Id', '{A}')
-      .times(3);
+    List<MockEntry> mockEntries = templateEntry.add('Id', '{A}').times(3);
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('00100000000000AAAQ', mockEntries[0].getId(), 'First entry Id should match.');
@@ -370,11 +356,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Id', '{A}')
-      .times(3, 26); // Start at 'Z'
+    List<MockEntry> mockEntries = templateEntry.add('Id', '{A}').times(3, 26); // Start at 'Z'
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('00100000000000ZAAQ', mockEntries[0].getId(), 'First entry Id should match.');
@@ -390,11 +374,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Name', 'Name-{a}')
-      .times(3);
+    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{a}').times(3);
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('Name-a', mockEntries[0].getName(), 'First entry name should match.');
@@ -410,11 +392,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Name', 'Name-{a}')
-      .times(3, 26); // Start at 'z'
+    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{a}').times(3, 26); // Start at 'z'
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('Name-z', mockEntries[0].getName(), 'First entry name should match.');
@@ -430,11 +410,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Id', '{a}')
-      .times(3);
+    List<MockEntry> mockEntries = templateEntry.add('Id', '{a}').times(3);
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('00100000000000aAAA', mockEntries[0].getId(), 'First entry Id should match.');
@@ -450,11 +428,9 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry 
-      .add('Id', '{a}')
-      .times(3, 26); // Start at 'z'
+    List<MockEntry> mockEntries = templateEntry.add('Id', '{a}').times(3, 26); // Start at 'z'
 
-    // Assert 
+    // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
     Assert.areEqual(3, mockEntries.size(), 'There should be three mock entries.');
     Assert.areEqual('00100000000000zAAA', mockEntries[0].getId(), 'First entry Id should match.');
@@ -632,6 +608,102 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testPut_WhenPutFieldValue_ThenGetFieldValue() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType())
+      .fields(new List<String>{ 'id', 'name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+      .autoId(1)
+      .add('Name', 'Test Account')
+      .setFieldStructure(fieldStructure);
+
+    // Act
+    mockEntry.put('Name', 'Updated Account Name');
+    Object fieldValue = mockEntry.get('Name');
+
+    // Assert
+    Assert.areEqual('Updated Account Name', fieldValue, 'The field value should match the updated value.');
+  }
+
+  @isTest
+  static void testPut_WhenPutNonSelectedField_ThenCanGetFieldValue() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+      .autoId(1)
+      .setFieldStructure(fieldStructure);
+
+    // Act
+    mockEntry.put('Industry', 'Technology'); // 'Industry' is not selected in Scribe
+    Object fieldValue = mockEntry.get('Industry');
+
+    // Assert
+    Assert.areEqual('Technology', fieldValue, 'The field value should match the put value.');
+  }
+
+  @isTest
+  static void testPut_WhenPutNonExistField_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+      .autoId(1)
+      .setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.put('NonExistField', 'Some Value'); // 'NonExistField' does not exist in Account
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      Assert.isTrue(
+        e.getMessage().contains('Failed to put value to the SObject. field name: NonExistField, value: Some Value')
+      );
+    }
+  }
+
+  @isTest
+  static void testPut_WhenPutNonEditableField_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+      .autoId(1)
+      .setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.put('LastModifiedById', '005000000000AAA');
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      System.debug(e.getMessage());
+      Assert.isTrue(
+        e.getMessage()
+          .contains('Failed to put value to the SObject. field name: LastModifiedById, value: 005000000000AAA')
+      );
+    }
+  }
+
+  @isTest
+  static void testPut_WhenPutAggregateResult_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    String soql = scribe.toSoql(); // for generate aggregate field structure
+    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 };
+    MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
+
+    // Act & Assert
+    try {
+      mockEntry.put('avgAmount', 2000); // Cannot put value to aggregate result
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      Assert.areEqual('Cannot call put() on an AggregateResult record.', e.getMessage());
+    }
+  }
+
+  @isTest
   static void testGetId_WhenCalled_ThenReturnId() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
@@ -703,6 +775,43 @@ public class MockEntryTest {
         e.getMessage()
       );
     }
+  }
+
+  @isTest
+  static void testGetRecord_WhenCalled_ThenReturnRecord() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' }).buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+      .autoId(1)
+      .add('Name', 'Test Account')
+      .setFieldStructure(fieldStructure);
+
+    // Act
+    Account acc = (Account) mockEntry.getRecord();
+
+    // Assert
+    Assert.areEqual('001000000000001AAA', acc.Id, 'The Id should match the expected value.');
+    Assert.areEqual('Test Account', acc.Name, 'The Name should match the expected value');
+  }
+
+  @isTest
+  static void testGetRecord_WhenAddNonExistFieldValue_ThenIgnoreNonExistField() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' }).buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+      .autoId(1)
+      .add('Name', 'Test Account')
+      .add('NonExistField', 'Some Value') // 'NonExistField' does not exist in Account
+      .setFieldStructure(fieldStructure);
+
+    // Act
+    Account acc = (Account) mockEntry.getRecord();
+
+    // Assert
+    Assert.areEqual('001000000000001AAA', acc.Id, 'The Id should match the expected value.');
+    Assert.areEqual('Test Account', acc.Name, 'The Name should match the expected value');
+    // NonExistField is ignored
   }
 
   @isTest
@@ -1144,6 +1253,7 @@ public class MockEntryTest {
       .through(
         Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
           .relationName('OrderItems')
+          .field('Id')
           .field('Name')
       );
     FieldStructure fieldStructure = scribe.buildFieldStructure();
@@ -1152,20 +1262,21 @@ public class MockEntryTest {
         'OrderItems',
         new List<MockEntry>{
           MockEntry.of(OrderItem.getSObjectType())
-            .addParent('Product2Id', MockEntry.of(Product2.getSObjectType()).add('Name', 'Last Modify 1')
-          ),
+            .addParent(
+              'Product2Id',
+              MockEntry.of(Product2.getSObjectType()).autoId(1).add('Name', 'Last Modify 1')
+            ),
           MockEntry.of(OrderItem.getSObjectType())
-            .addParent('Product2Id', MockEntry.of(Product2.getSObjectType()).add('Name', 'Last Modify 2')
-          )
+            .addParent(
+              'Product2Id',
+              MockEntry.of(Product2.getSObjectType()).autoId(2).add('Name', 'Last Modify 2')
+            )
         }
       );
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<IEntry> relatedObjects = mockEntry.getThroughByRelationName(
-      'OrderItems',
-      'Product2Id'
-    );
+    List<IEntry> relatedObjects = mockEntry.getThroughByRelationName('OrderItems', 'Product2Id');
 
     // Assert
     Assert.isNotNull(relatedObjects, 'Related objects should not be null.');

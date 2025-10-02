@@ -116,12 +116,28 @@ public interface IEloquent {
   SObject doUpdate(SObject record);
 
   /**
+  * Updates a record wrapped in an Entry and returns the updated Entry.
+  *
+  * @param entry Entry containing the SObject to be updated
+  * @return Updated Entry
+  */
+  IEntry doUpdate(IEntry entry);
+
+  /**
   * Updates a list of records and returns the updated records.
   *
   * @param records List of SObjects to be updated
   * @return List of updated SObjects
   */
   List<SObject> doUpdate(List<SObject> records);
+
+  /**
+  * Updates a list of Entries and returns the updated Entries.
+  *
+  * @param entries List of Entries containing the SObjects to be updated
+  * @return List of updated Entries
+  */
+  List<IEntry> doUpdate(List<IEntry> entries);
 
   /**
   * Deletes a record.
@@ -131,9 +147,23 @@ public interface IEloquent {
   void doDelete(SObject record);
 
   /**
+  * Deletes a record wrapped in an Entry.
+  *
+  * @param entry Entry containing the SObject to be deleted
+  */
+  void doDelete(IEntry entry);
+
+  /**
   * Deletes a list of records.
   *
   * @param records List of SObjects to be deleted
   */
   void doDelete(List<SObject> records);
+
+  /**
+  * Deletes a list of Entries.
+  *
+  * @param entries List of Entries containing the SObjects to be deleted
+  */
+  void doDelete(List<IEntry> entries);
 }

@@ -1034,6 +1034,7 @@ public with sharing class Scribe {
     }
     throughScribe.isParent = true;
     Scribe childScribe = Scribe.asChild(throughScribe.junctionSObjectType)
+      .field(throughScribe.parentRelationIdFieldName)
       .parentField(throughScribe)
       .parentCondition(throughScribe);
     if (String.isNotBlank(throughScribe.relationName)) {

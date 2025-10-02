@@ -46,10 +46,6 @@ jobs:
             --set-default \
             --alias developOrg
 
-      - name: Reinstall project in scratch org
-        working-directory: ./temporaryProject
-        run: make reinstall
-
       - name: Run all Apex tests
         working-directory: ./temporaryProject
         run: make test

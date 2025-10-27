@@ -98,7 +98,9 @@ public with sharing class MockEntry extends AbstractEntry {
       return this.add('Id', suffix);
     }
     String id = this.generate18CharId(suffix);
-    return this.add('Id', id);
+    FieldStructure clonedfieldStructure = this.fieldStructure.clone();
+    clonedfieldStructure.addField('id');
+    return new MockEntry(this.record, clonedfieldStructure, this.fieldToValue).add('Id', id);
   }
 
   /**

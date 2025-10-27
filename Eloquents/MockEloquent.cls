@@ -38,6 +38,9 @@ public with sharing class MockEloquent implements IEloquent {
   @TestVisible
   private Scribe scribe;
 
+  @TestVisible
+  private List<SObject> upsertedRecords = new List<SObject>();
+
   /**
    * constructor
    */
@@ -217,7 +220,8 @@ public with sharing class MockEloquent implements IEloquent {
     if (record == null) {
       throw new DmlException('Cannot insert null record');
     }
-    record.Id = this.genereteId(record);
+    record.Id = this.generateId(record);
+    this.upsertedRecords.add(record);
     return record;
   }
 
@@ -232,8 +236,9 @@ public with sharing class MockEloquent implements IEloquent {
       throw new DmlException('Cannot insert null or empty records');
     }
     for (SObject record : records) {
-      record.Id = this.genereteId(record);
+      record.Id = this.generateId(record);
     }
+    this.upsertedRecords.addAll(records); 
     return records;
   }
 
@@ -247,6 +252,7 @@ public with sharing class MockEloquent implements IEloquent {
     if (record == null) {
       throw new DmlException('Cannot update null record');
     }
+    this.upsertedRecords.add(record);
     return record;
   }
 
@@ -258,8 +264,9 @@ public with sharing class MockEloquent implements IEloquent {
       throw new DmlException('Test Exception from MockEloquent.doUpdate()');
     }
     if (entry == null) {
-      throw new DmlException('Cannot update null entry or record');
+      throw new DmlException('Cannot update null entry');
     }
+    this.upsertedRecords.add(entry.getRecord());
     return entry;
   }
 
@@ -273,6 +280,7 @@ public with sharing class MockEloquent implements IEloquent {
     if (records == null || records.isEmpty()) {
       throw new DmlException('Cannot update null or empty records');
     }
+    this.upsertedRecords.addAll(records);
     return records;
   }
 
@@ -286,7 +294,88 @@ public with sharing class MockEloquent implements IEloquent {
     if (entries == null || entries.isEmpty()) {
       return new List<IEntry>();
     }
+    
+    for (IEntry entry : entries) {
+      this.upsertedRecords.add(entry.getRecord());
+    }
 
+    return entries;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public SObject doUpsert(SObject record) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doUpsert()');
+    }
+    if (record == null) {
+      throw new DmlException('Cannot upsert null record');
+    }
+    if (record.Id == null) {
+      record.Id = this.generateId(record);
+    }
+    this.upsertedRecords.add(record);
+    return record;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public IEntry doUpsert(IEntry entry) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doUpsert()');
+    }
+    if (entry == null || entry.getRecord() == null) {
+      throw new DmlException('Cannot upsert null entry');
+    }
+    SObject record = entry.getRecord();
+    if (record.Id == null) {
+      entry.put('Id', this.generateId(record));
+    }
+    this.upsertedRecords.add(record);
+    return entry;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<SObject> doUpsert(List<SObject> records) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doUpsert()');
+    }
+    if (records == null || records.isEmpty()) {
+      throw new DmlException('Cannot upsert null or empty records');
+    }
+    for (SObject record : records) {
+      if (record.Id == null) {
+        record.Id = this.generateId(record);
+      }
+      this.upsertedRecords.add(record);
+    }
+    return records;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<IEntry> doUpsert(List<IEntry> entries) {
+    if (this.shouldThrowException) {
+      throw new DmlException('Test Exception from MockEloquent.doUpsert()');
+    }
+    if (entries == null || entries.isEmpty()) {
+      throw new DmlException('Cannot upsert null or empty entries');
+    }
+    for (IEntry entry : entries) {
+      if (entry == null || entry.getRecord() == null) {
+        throw new DmlException('Cannot upsert null entry or record');
+      }
+      SObject record = entry.getRecord();
+      if (record.Id == null) {
+        entry.put('Id', this.generateId(record));
+      }
+      this.upsertedRecords.add(record);
+    }
     return entries;
   }
 
@@ -342,7 +431,7 @@ public with sharing class MockEloquent implements IEloquent {
    * @param record SObject to be inserted
    * @return generated Id
    */
-  private String genereteId(SObject record) {
+  private String generateId(SObject record) {
     String prefix = record.getSObjectType().getDescribe().getKeyPrefix();
     String generatedId = prefix + String.valueOf(this.insertCount).leftPad(12, '0');
     this.insertCount++;

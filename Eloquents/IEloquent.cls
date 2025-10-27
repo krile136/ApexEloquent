@@ -140,6 +140,38 @@ public interface IEloquent {
   List<IEntry> doUpdate(List<IEntry> entries);
 
   /**
+  * Inserts or updates a record and returns the upserted record.
+  *
+  * @param record SObject to be upserted
+  * @return Upserted SObject
+  */
+  SObject doUpsert(SObject record);
+
+  /**
+  * Inserts or updates a record and returns the upserted record.
+  *
+  * @param record SObject to be upserted
+  * @return Upserted SObject
+  */
+  IEntry doUpsert(IEntry entry);
+
+  /**
+  * Inserts or updates a list of records and returns the upserted records.
+  *
+  * @param records List of SObjects to be upserted
+  * @return List of upserted SObjects
+  */
+  List<SObject> doUpsert(List<SObject> records);
+
+  /**
+  * Inserts or updates a list of Entries and returns the upserted Entries.
+  *
+  * @param entries List of Entries containing the SObjects to be upserted
+  * @return List of upserted Entries
+  */
+  List<IEntry> doUpsert(List<IEntry> entries);
+
+  /**
   * Deletes a record.
   *
   * @param record SObject to be deleted

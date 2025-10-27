@@ -34,9 +34,7 @@ public with sharing class MockEloquentTest {
   static void testGet_WhenEntryExitAndUsingMockEntryGenerator_ThenReturnEntries() {
     // Arrange
     Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '00600000000000');
-    MockEntry mockEntry = MockENtry.of(Opportunity.getSObjectType())
-      .autoId(1)
-      .add('Name', 'Test Opportunity');
+    MockEntry mockEntry = MockENtry.of(Opportunity.getSObjectType()).autoId(1).add('Name', 'Test Opportunity');
     IEloquent eloquent = new MockEloquent(mockEntry);
 
     // Act
@@ -799,7 +797,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testDoUpdate_WhenApplyEntry_ThenReturnEntry() {
     // Arrange
-    FieldStructure fieldStructure= Scribe.source(Opportunity.getSObjectType())
+    FieldStructure fieldStructure = Scribe.source(Opportunity.getSObjectType())
       .fields(new List<String>{ 'Id', 'Name' })
       .buildFieldStructure();
     MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.getSObjectType())
@@ -815,7 +813,11 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.isNotNull(updatedEntry.getId(), 'Expected entry to have an Id after update');
-    Assert.areEqual('Updated Opportunity 1', updatedEntry.get('Name'), 'Expected entry Name to match after update');
+    Assert.areEqual(
+      'Updated Opportunity 1',
+      updatedEntry.get('Name'),
+      'Expected entry Name to match after update'
+    );
   }
 
   @isTest
@@ -837,7 +839,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testDoUpdate_WhenMultipleEntriesAreUpdated_ThenReturnEntries() {
     // Arrange
-    FieldStructure fieldStructure= Scribe.source(Opportunity.getSObjectType())
+    FieldStructure fieldStructure = Scribe.source(Opportunity.getSObjectType())
       .fields(new List<String>{ 'Id', 'Name' })
       .buildFieldStructure();
     List<MockEntry> mockEntries = MockEntry.of(Opportunity.getSObjectType())
@@ -861,7 +863,11 @@ public with sharing class MockEloquentTest {
     for (Integer i = 0; i < resultEntries.size(); i++) {
       IEntry entry = resultEntries[i];
       Assert.isNotNull(entry.getId(), 'Expected each entry to have an Id after update');
-      Assert.areEqual('Updated Opportunity ' + (i + 1), entry.get('Name'), 'Expected each entry Name to match after update');
+      Assert.areEqual(
+        'Updated Opportunity ' + (i + 1),
+        entry.get('Name'),
+        'Expected each entry Name to match after update'
+      );
     }
   }
 
@@ -893,7 +899,6 @@ public with sharing class MockEloquentTest {
     // No exception should be thrown, indicating successful deletion
   }
 
-
   @isTest
   static void testDoDelete_WhenMultipleRecordsAreDeleted_ThenNoExceptionThrown() {
     // Arrange
@@ -913,7 +918,10 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testDoDelete_WhenMultipleEntriesAreDeleted_ThenNoExceptionThrown() {
     // Arrange
-    List<MockEntry> mockEntries = MockEntry.of(Opportunity.getSObjectType()).autoId('{#}').add('Name', 'Opportunity {#}').times(2);
+    List<MockEntry> mockEntries = MockEntry.of(Opportunity.getSObjectType())
+      .autoId('{#}')
+      .add('Name', 'Opportunity {#}')
+      .times(2);
     IEloquent eloquent = new MockEloquent();
 
     // Act
@@ -1283,6 +1291,106 @@ public with sharing class MockEloquentTest {
       Assert.areEqual('Test Exception from MockEloquent.doUpdate()', e.getMessage());
     }
   }
+
+  @isTest
+  static void testDoUpsert_WhenAddNullRecord_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    try {
+      SObject record = null;
+      eloquent.doUpsert(record);
+      Assert.fail('Expected IllegalArgumentException to be thrown for null record');
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Cannot upsert null record', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAddSObject_ThenReturnUpsertedRecord() {
+    // Arrange
+    Opportunity record = new Opportunity(Name = 'Upserted Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Opportunity upsertedRecord = (Opportunity) eloquent.doUpsert(record);
+
+    // Assert
+    Assert.isNotNull(upsertedRecord.Id, 'Expected record to have an Id after upsert');
+    Assert.areEqual('Upserted Opportunity', upsertedRecord.Name, 'Expected record Name to match after upsert');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAddNullEntry_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    try {
+      IEntry entry = null;
+      eloquent.doUpsert(entry);
+      Assert.fail('Expected IllegalArgumentException to be thrown for null entry');
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+      Assert.areEqual('Cannot upsert null entry', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAddEntry_ThenReturnUpsertedEntry() {
+    // Arrange
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.getSObjectType());
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    IEntry upsertedEntry = eloquent.doUpsert(mockEntry);
+
+    // Assert
+    Assert.isNotNull(upsertedEntry.getId(), 'Expected entry to have an Id after upsert');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAddMultiRecords_ThenReturnUpsertedRecords() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Name = 'Upserted Opportunity 1'),
+      new Opportunity(Name = 'Upserted Opportunity 2')
+    };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Opportunity> upsertedRecords = (List<Opportunity>) eloquent.doUpsert(records);
+
+    // Assert
+    Assert.isTrue(upsertedRecords.size() == 2, 'Expected two records to be upserted');
+    for (Integer i = 0; i < upsertedRecords.size(); i++) {
+      Opportunity record = upsertedRecords[i];
+      Assert.isNotNull(record.Id, 'Expected each record to have an Id after upsert');
+      String expectedName = 'Upserted Opportunity ' + (i + 1);
+      Assert.areEqual(expectedName, record.Name, 'Expected each record Name to match after upsert');
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAddMultiEntries_ThenReturnUpsertedEntries() {
+    // Arrange
+    List<MockEntry> mockEntries = new List<MockEntry>{
+      MockEntry.of(Opportunity.getSObjectType()),
+      MockEntry.of(Opportunity.getSObjectType()).autoId(1)
+    };
+    IEloquent eloquent = new MockEloquent();
+    // Act
+    List<IEntry> upsertedEntries = eloquent.doUpsert(mockEntries);
+    // Assert
+    Assert.areEqual(2, upsertedEntries.size(), 'Expected two entries to be upserted');
+    for (Integer i = 0; i < upsertedEntries.size(); i++) {
+      IEntry entry = upsertedEntries[i];
+      Assert.isNotNull(entry.getId(), 'Expected each entry to have an Id after upsert');
+    }
+  }
+
 
   @isTest
   static void testDoDelete_WhenShouldThrowIsTrue_ThenThrowException() {

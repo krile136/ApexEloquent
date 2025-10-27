@@ -37,7 +37,7 @@ public abstract class AbstractEntry implements IEntry {
   protected AbstractEntry(SObject record) {
     this.record = record;
     this.aggregateResult = null;
-    this.fieldStructure = null;
+    this.fieldStructure = new FieldStructure();
     this.hasAggregateResult = this.record == null;
   }
 

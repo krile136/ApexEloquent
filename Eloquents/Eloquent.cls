@@ -135,6 +135,9 @@ public with sharing class Eloquent implements IEloquent {
     return record;
   }
 
+  /**
+   * @inheritDoc
+   */
   public IEntry doUpdate(IEntry entry) {
     SObject record = entry.getRecord();
     update record;
@@ -155,7 +158,6 @@ public with sharing class Eloquent implements IEloquent {
    */
   public List<IEntry> doUpdate(List<IEntry> entries) {
     if (entries.isEmpty()) {
-      System.debug('No entries to update.');
       return new List<IEntry>();
     }
     List<SObject> records = new List<SObject>();
@@ -169,6 +171,52 @@ public with sharing class Eloquent implements IEloquent {
       updatedEntries.add(new Entry(record));
     }
     return updatedEntries;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public SObject doUpsert(SObject record) {
+    upsert record;
+    return record;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public IEntry doUpsert(IEntry entry) {
+    SObject record = entry.getRecord();
+    upsert record;
+    return new Entry(record);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<SObject> doUpsert(List<SObject> records) {
+    sortToPreventChunkingErrors(records);
+    upsert records;
+    return records;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<IEntry> doUpsert(List<IEntry> entries) {
+    if (entries.isEmpty()) {
+      return new List<IEntry>();
+    }
+    List<SObject> records = new List<SObject>();
+    for (IEntry entry : entries) {
+      records.add(entry.getRecord());
+    }
+    sortToPreventChunkingErrors(records);
+    upsert records;
+    List<IEntry> upsertedEntries = new List<IEntry>();
+    for (SObject record : records) {
+      upsertedEntries.add(new Entry(record));
+    }
+    return upsertedEntries;
   }
 
   /**

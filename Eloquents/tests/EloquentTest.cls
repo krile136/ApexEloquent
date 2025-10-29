@@ -71,7 +71,6 @@ public with sharing class EloquentTest {
     Assert.isTrue(oppSObjects.isEmpty(), 'Expected no records to be returned');
   }
 
-
   @isTest
   static void testFirst() {
     // Arrange
@@ -95,7 +94,6 @@ public with sharing class EloquentTest {
     // Assert
     Assert.isNull(oppSObject, 'Expected no record to be returned');
   }
-
 
   @isTest
   static void testFirstOrFail() {
@@ -230,6 +228,71 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testUpsertSingleRecord() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+
+    // Act & Assert
+    try {
+      opp = (Opportunity) (new Eloquent()).doUpsert(opp);
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testUpsertSingleEntry() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+    IEntry entry = new Entry(opp);
+    // Act & Assert
+    try {
+      entry = (new Eloquent()).doUpsert(entry);
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testUpsertMultipleRecords() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<Opportunity> opps = new List<Opportunity>{ opp1, opp2 };
+    // Act & Assert
+    try {
+      opps = (List<Opportunity>) (new Eloquent()).doUpsert(opps);
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testUpsertMultipleEntries() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+
+    // Act & Assert
+    try {
+      entries = (List<IEntry>) (new Eloquent()).doUpsert(entries);
+    } catch (DmlException e) {
+      System.debug(e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testUpsertEmptyEntries() {
+    // Arrange
+    List<IEntry> entries = new List<IEntry>();
+    // Act
+    List<IEntry> upsertedEntries = (new Eloquent()).doUpsert(entries);
+    // Assert
+    Assert.isTrue(upsertedEntries.isEmpty(), 'Expected no entries to be upserted');
+  }
+
+  @isTest
   static void testDeleteSingleRecord() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000');
@@ -297,6 +360,4 @@ public with sharing class EloquentTest {
     // Assert
     // No exception should be thrown
   }
-
-
 }

@@ -66,29 +66,6 @@ public abstract class AbstractEntry implements IEntry {
   }
 
   /**
-   * validate the relation name.
-   *
-   * @param relationName relation name to be validated
-   * @throws QueryException if the relation is not exist in Scribe
-   */
-  protected void validateRelationName(String relationName) {
-    if (this.fieldStructure == null) {
-      return;
-    }
-
-    if (fieldStructure.hasRelation(relationName)) {
-      return;
-    }
-
-    String error = String.format(
-      'The specified relation is not exist in Scribe. object name: {0}, relation name: {1}',
-      new List<String>{ this.record.getSObjectType().getDescribe().getName(), relationName }
-    );
-
-    throw new QueryException(error);
-  }
-
-  /**
    * @inheritDoc
    */
   public List<IEntry> getThrough(String junctionObjectName, String relatedKey) {

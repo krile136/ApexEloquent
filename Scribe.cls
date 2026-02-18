@@ -171,7 +171,7 @@ public with sharing class Scribe {
 
   /**
    * @deprecated
-   * This method is deprecated in favor of {@link #of(System.Type)} to align with
+   * This method is deprecated in favor asChild {@link #asChild(System.Type)} to align with
    * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
    * a more intuitive developer experience (DX).
    * * * This method is maintained for backward compatibility but may be removed
@@ -235,7 +235,7 @@ public with sharing class Scribe {
 
   /**
    * @deprecated
-   * This method is deprecated in favor of {@link #of(System.Type)} to align with
+   * This method is deprecated in favor asThrough {@link #asThrough(System.Type)} to align with
    * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
    * a more intuitive developer experience (DX).
    * * * This method is maintained for backward compatibility but may be removed

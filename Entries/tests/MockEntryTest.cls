@@ -58,24 +58,6 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void TestConstructor_WhenApplySObjectAndFieldStructureAndFieldToValue_ThenMockEntryCreated() {
-    // Arrange
-    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'Name', 'Industry' });
-    FieldStructure fieldStructure = scribe.buildFieldStructure();
-    Map<String, Object> fieldToValue = new Map<String, Object>{
-      'Name' => 'Mock Account',
-      'Industry' => 'Technology'
-    };
-
-    // Act
-    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
-
-    // Assert
-    Assert.isNotNull(mockEntry, 'MockEntry should be created successfully with fieldStructure and fieldToValue');
-  }
-
-  @isTest
   static void testConstructor_WhenApplyOnlyFieldToValue_ThenMockEntryCreated() {
     // Arrange
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'Mock Account', 'maxAmount' => 100 };
@@ -103,7 +85,10 @@ public class MockEntryTest {
     MockEntry mockEntry = MockEntry.of(Account.class);
 
     // Act & Assert
-    Assert.isNotNull(mockEntry, 'MockEntry should be created successfully using of() method with valid SObjectType.');
+    Assert.isNotNull(
+      mockEntry,
+      'MockEntry should be created successfully using of() method with valid SObjectType.'
+    );
   }
 
   @isTest
@@ -114,19 +99,22 @@ public class MockEntryTest {
       Assert.fail('Expected IllegalArgumentException to be thrown when using String type.');
     } catch (IllegalArgumentException e) {
       String expect = '[MockEntry.of] Invalid type: \'String\' is not an SObject.';
-      Assert.isTrue(e.getMessage().contains(expect), 'Expected IllegalArgumentException with specific message when using String type.');
+      Assert.isTrue(
+        e.getMessage().contains(expect),
+        'Expected IllegalArgumentException with specific message when using String type.'
+      );
     }
   }
 
   @isTest
-  static void testAdd_WhenAddFieldAndValue_ThenGetFieldValue() {
+  static void testSet_WhenAddFieldAndValue_ThenGetFieldValue() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
     MockEntry mockEntry = MockEntry.of(Account.class);
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
-    mockEntry = mockEntry.add('Name', 'Mock Account');
+    mockEntry = mockEntry.set('Name', 'Mock Account');
 
     // Assert
     String accountName = mockEntry.getName();
@@ -134,17 +122,17 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void testAddChildren_WhenAddChildren_ThenGetChildren() {
+  static void testSetChildren_WhenAddChildren_ThenGetChildren() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class)
       .withChildren(Scribe.asChild(Contract.class).field('Name'))
       .buildFieldStructure();
     MockEntry mockEntry = MockEntry.of(Account.class)
-      .addChildren(
+      .setChildren(
         'Contract',
         new List<MockEntry>{
-          MockEntry.of(Contract.class).add('Name', 'Mock Contract 1'),
-          MockEntry.of(Contract.class).add('Name', 'Mock Contract 2')
+          MockEntry.of(Contract.class).set('Name', 'Mock Contract 1'),
+          MockEntry.of(Contract.class).set('Name', 'Mock Contract 2')
         }
       );
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
@@ -160,13 +148,13 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void testAddParent_WhenAddParent_ThenGetParent() {
+  static void testSetParent_WhenAddParent_ThenGetParent() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Opportunity.class)
       .parentField(Scribe.asParent('AccountId').field('Name'))
       .buildFieldStructure();
     MockEntry mockEntry = MockEntry.of(Opportunity.class)
-      .addParent('AccountId', MockEntry.of(Account.class).add('Name', 'Mock Account'));
+      .setParent('AccountId', MockEntry.of(Account.class).set('Name', 'Mock Account'));
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -199,14 +187,9 @@ public class MockEntryTest {
     FieldStructure fieldStructure = Scribe.of(Account.class)
       .withChildren(Scribe.asChild(Contract.class).field('Name'))
       .buildFieldStructure();
-    Map<String, Object> template = new Map<String, Object>{
-      'Name' => 'Mock Contract {#}'
-    };
+    Map<String, Object> template = new Map<String, Object>{ 'Name' => 'Mock Contract {#}' };
     MockEntry mockEntry = MockEntry.of(Account.class)
-      .addChildren(
-        'Contract',
-        MockEntry.of(Contract.class).template(template).times(2)
-      );
+      .setChildren('Contract', MockEntry.of(Contract.class).template(template).times(2));
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -227,7 +210,7 @@ public class MockEntryTest {
       .buildFieldStructure();
     Map<String, Object> template = new Map<String, Object>{ 'Name' => 'Mock Account' };
     MockEntry mockEntry = MockEntry.of(Opportunity.class)
-      .addParent('AccountId', MockEntry.of(Account.class).template(template));
+      .setParent('AccountId', MockEntry.of(Account.class).template(template));
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -292,7 +275,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{#}').times(3);
+    List<MockEntry> mockEntries = templateEntry.set('Name', 'Name-{#}').times(3);
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -310,7 +293,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{#}').times(3, 5);
+    List<MockEntry> mockEntries = templateEntry.set('Name', 'Name-{#}').times(3, 5);
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -323,14 +306,12 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenAddAmountTimesWithStartAt_ThenReturnMOckEntriesWithAmountTimes() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.of(OrderItem.class)
-      .field('Quantity')
-      .buildFieldStructure();
+    FieldStructure fieldStructure = Scribe.of(OrderItem.class).field('Quantity').buildFieldStructure();
     MockEntry templateEntry = MockEntry.of(OrderItem.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Quantity', '{#}').times(3, 50000, 10000);
+    List<MockEntry> mockEntries = templateEntry.set('Quantity', '{#}').times(3, 50000, 10000);
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -348,7 +329,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Id', '{#}').times(3, 1);
+    List<MockEntry> mockEntries = templateEntry.set('Id', '{#}').times(3, 1);
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -366,7 +347,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Id', '{#}').times(3, 101);
+    List<MockEntry> mockEntries = templateEntry.set('Id', '{#}').times(3, 101);
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -384,7 +365,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{A}').times(3);
+    List<MockEntry> mockEntries = templateEntry.set('Name', 'Name-{A}').times(3);
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -402,7 +383,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{A}').times(3, 26); // Start at 'Z'
+    List<MockEntry> mockEntries = templateEntry.set('Name', 'Name-{A}').times(3, 26); // Start at 'Z'
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -420,7 +401,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Id', '{A}').times(3);
+    List<MockEntry> mockEntries = templateEntry.set('Id', '{A}').times(3);
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -438,7 +419,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Id', '{A}').times(3, 26); // Start at 'Z'
+    List<MockEntry> mockEntries = templateEntry.set('Id', '{A}').times(3, 26); // Start at 'Z'
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -456,7 +437,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{a}').times(3);
+    List<MockEntry> mockEntries = templateEntry.set('Name', 'Name-{a}').times(3);
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -474,7 +455,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Name', 'Name-{a}').times(3, 26); // Start at 'z'
+    List<MockEntry> mockEntries = templateEntry.set('Name', 'Name-{a}').times(3, 26); // Start at 'z'
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -492,7 +473,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Id', '{a}').times(3);
+    List<MockEntry> mockEntries = templateEntry.set('Id', '{a}').times(3);
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -510,7 +491,7 @@ public class MockEntryTest {
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
-    List<MockEntry> mockEntries = templateEntry.add('Id', '{a}').times(3, 26); // Start at 'z'
+    List<MockEntry> mockEntries = templateEntry.set('Id', '{a}').times(3, 26); // Start at 'z'
 
     // Assert
     Assert.isNotNull(mockEntries, 'MockEntries should not be null.');
@@ -524,10 +505,11 @@ public class MockEntryTest {
   static void testGet_WhenFieldExists_ThenReturnFieldValue() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id', 'name' });
-    FieldStructure fieldStructure = scribe.buildFieldStructure();
-    Map<String, Object> fieldToValue = new Map<String, Object>();
-    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class).autoId(1).set('Name', 'Test Account');
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
     Object fieldValue = mockEntry.get('Name');
@@ -539,11 +521,9 @@ public class MockEntryTest {
   @isTest
   static void testGet_WhenScriceDoesNotSelectField_ThenThrowException() {
     // Arrange
-    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id' });
-    FieldStructure fieldStructure = scribe.buildFieldStructure();
-    Map<String, Object> fieldToValue = new Map<String, Object>();
-    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+    FieldStructure fieldStructure = Scribe.of(Account.class).fields(new List<String>{ 'id' }).buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class).autoId(1).set('Name', 'Test Account');
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act & Assert
     try {
@@ -742,7 +722,7 @@ public class MockEntryTest {
       .buildFieldStructure();
     MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .autoId(1)
-      .add('Name', 'Test Account')
+      .set('Name', 'Test Account')
       .setFieldStructure(fieldStructure);
 
     // Act
@@ -757,9 +737,7 @@ public class MockEntryTest {
   static void testPut_WhenPutNonSelectedField_ThenCanGetFieldValue() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
-      .autoId(1)
-      .setFieldStructure(fieldStructure);
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class).autoId(1).setFieldStructure(fieldStructure);
 
     // Act
     mockEntry.put('Industry', 'Technology'); // 'Industry' is not selected in Scribe
@@ -773,9 +751,7 @@ public class MockEntryTest {
   static void testPut_WhenPutNonExistField_ThenThrowException() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
-      .autoId(1)
-      .setFieldStructure(fieldStructure);
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class).autoId(1).setFieldStructure(fieldStructure);
 
     // Act & Assert
     try {
@@ -792,9 +768,7 @@ public class MockEntryTest {
   static void testPut_WhenPutNonEditableField_ThenThrowException() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
-      .autoId(1)
-      .setFieldStructure(fieldStructure);
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class).autoId(1).setFieldStructure(fieldStructure);
 
     // Act & Assert
     try {
@@ -955,7 +929,7 @@ public class MockEntryTest {
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .autoId(1)
-      .add('Name', 'Test Account')
+      .set('Name', 'Test Account')
       .setFieldStructure(fieldStructure);
 
     // Act
@@ -974,8 +948,8 @@ public class MockEntryTest {
       .buildFieldStructure();
     MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .autoId(1)
-      .add('Name', 'Test Account')
-      .add('NonExistField', 'Some Value') // 'NonExistField' does not exist in Account
+      .set('Name', 'Test Account')
+      .set('NonExistField', 'Some Value') // 'NonExistField' does not exist in Account
       .setFieldStructure(fieldStructure);
 
     // Act
@@ -1361,8 +1335,16 @@ public class MockEntryTest {
     String childName2 = children[1].getName();
 
     // Assert
-    Assert.areEqual('Test Contract 1', childName1, 'First child name should match even when field validation is disabled.');
-    Assert.areEqual('Test Contract 2', childName2, 'Second child name should match even when field validation is disabled.');
+    Assert.areEqual(
+      'Test Contract 1',
+      childName1,
+      'First child name should match even when field validation is disabled.'
+    );
+    Assert.areEqual(
+      'Test Contract 2',
+      childName2,
+      'Second child name should match even when field validation is disabled.'
+    );
   }
 
   @isTest
@@ -1380,9 +1362,7 @@ public class MockEntryTest {
               .withChildren(
                 Scribe.asChild(Order.class)
                   .fields(new List<String>{ 'name' })
-                  .withChildren(
-                    Scribe.asChild(OrderItem.class).fields(new List<String>{ 'description' })
-                  )
+                  .withChildren(Scribe.asChild(OrderItem.class).fields(new List<String>{ 'description' }))
               )
           )
       );
@@ -1438,9 +1418,7 @@ public class MockEntryTest {
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
-      .withChildren(
-        Scribe.asChild(Contract.class).relationName('Contracts').fields(new List<String>{ 'name' })
-      );
+      .withChildren(Scribe.asChild(Contract.class).relationName('Contracts').fields(new List<String>{ 'name' }));
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'Contracts' => new List<IEntry>{
@@ -1466,9 +1444,7 @@ public class MockEntryTest {
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
-      .withChildren(
-        Scribe.asChild(Contract.class).relationName('Contract__r').fields(new List<String>{ 'name' })
-      );
+      .withChildren(Scribe.asChild(Contract.class).relationName('Contract__r').fields(new List<String>{ 'name' }));
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -1493,9 +1469,7 @@ public class MockEntryTest {
     SObject record = new Order(Id = '801000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.of(Order.class)
       .fields(new List<String>{ 'id', 'name' })
-      .through(
-        Scribe.asThrough(OrderItem.class, 'Product2Id').fields(new List<String>{ 'id', 'name' })
-      );
+      .through(Scribe.asThrough(OrderItem.class, 'Product2Id').fields(new List<String>{ 'id', 'name' }));
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     System.debug('Field Structure: ' + fieldStructure);
     Map<String, Object> fieldToValue = new Map<String, Object>{
@@ -1529,26 +1503,17 @@ public class MockEntryTest {
     Scribe scribe = Scribe.of(Order.class)
       .field('Id')
       .through(
-        Scribe.asThrough(OrderItem.class, 'Product2Id')
-          .relationName('OrderItems')
-          .field('Id')
-          .field('Name')
+        Scribe.asThrough(OrderItem.class, 'Product2Id').relationName('OrderItems').field('Id').field('Name')
       );
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     MockEntry mockEntry = MockEntry.of(Order.class)
-      .addChildren(
+      .setChildren(
         'OrderItems',
         new List<MockEntry>{
           MockEntry.of(OrderItem.class)
-            .addParent(
-              'Product2Id',
-              MockEntry.of(Product2.class).autoId(1).add('Name', 'Last Modify 1')
-            ),
+            .setParent('Product2Id', MockEntry.of(Product2.class).autoId(1).set('Name', 'Last Modify 1')),
           MockEntry.of(OrderItem.class)
-            .addParent(
-              'Product2Id',
-              MockEntry.of(Product2.class).autoId(2).add('Name', 'Last Modify 2')
-            )
+            .setParent('Product2Id', MockEntry.of(Product2.class).autoId(2).set('Name', 'Last Modify 2'))
         }
       );
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);

@@ -41,7 +41,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * This method is deprecated in favor of {@link #of(System.Type)} to align with
    * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
    * a more intuitive developer experience (DX).
-   * * * This method is maintained for backward compatibility but may be removed
+   * * This method is maintained for backward compatibility but may be removed
    * in a future version.
    *
    * @param sObjectType The SObject type of the record to create.
@@ -76,7 +76,15 @@ public with sharing class MockEntry extends AbstractEntry {
 
     return new MockEntry((SObject) instance);
   }
+
   /**
+   * @deprecated
+   * This method is deprecated in favor set {@link #set(String fieldName, Object value)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * Sets a value for a specified field.
    * This method is immutable and returns a new MockEntry instance.
    *
@@ -91,6 +99,24 @@ public with sharing class MockEntry extends AbstractEntry {
     this.inheritParameters(newEntry);
     return newEntry;
   }
+
+  
+  /**
+   * Sets a value for a specified field.
+   * This method is immutable and returns a new MockEntry instance.
+   *
+   * @param fieldName The API name of the field to set.
+   * @param value The value to set for the field.
+   * @return A new MockEntry instance with the updated field value.
+   */
+  public MockEntry set(String fieldName, Object value) {
+    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
+    newFieldToValue.put(fieldName, value);
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    this.inheritParameters(newEntry);
+    return newEntry;
+  }
+
 
   /**
    * Sets multiple field values at once using a map of field names to values.
@@ -110,6 +136,13 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
+   * @deprecated
+   * This method is deprecated in favor setChildren {@link #addChildren(String childObjectNameOrRelationName, List<MockEntry> children)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   * 
    * Sets a list of child relationship records.
    *
    * @param childObjectNameOrRelationName The child object name or the relationship name (e.g., 'Contacts').
@@ -125,6 +158,28 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
+   * Sets a list of child relationship records.
+   *
+   * @param childObjectNameOrRelationName The child object name or the relationship name (e.g., 'Contacts').
+   * @param children A list of MockEntry instances for the child records.
+   * @return A new MockEntry instance with the child records added.
+   */
+  public MockEntry setChildren(String childObjectNameOrRelationName, List<MockEntry> children) {
+    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
+    newFieldToValue.put(childObjectNameOrRelationName, children);
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    this.inheritParameters(newEntry);
+    return newEntry;
+  }
+
+  /**
+   * @deprecated
+   * This method is deprecated in favor setParent {@link #addParent(String parentIdFieldName, MockEntry parent)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * Sets a parent relationship record.
    *
    * @param parentIdFieldName The name of the parent ID field (e.g., 'AccountId').
@@ -132,6 +187,21 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A new MockEntry instance with the parent record added.
    */
   public MockEntry addParent(String parentIdFieldName, MockEntry parent) {
+    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
+    newFieldToValue.put(parentIdFieldName, parent);
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    this.inheritParameters(newEntry);
+    return newEntry;
+  }
+
+  /**
+   * Sets a parent relationship record.
+   *
+   * @param parentIdFieldName The name of the parent ID field (e.g., 'AccountId').
+   * @param parent The MockEntry for the parent record.
+   * @return A new MockEntry instance with the parent record added.
+   */
+  public MockEntry setParent(String parentIdFieldName, MockEntry parent) {
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(parentIdFieldName, parent);
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);

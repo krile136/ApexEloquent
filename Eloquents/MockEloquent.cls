@@ -38,9 +38,8 @@ public with sharing class MockEloquent implements IEloquent {
   @TestVisible
   private Scribe scribe;
 
-  @TestVisible
-  private List<SObject> upsertedRecords = new List<SObject>();
-
+  public List<SObject> upsertedRecords = new List<SObject>();
+  public Integer deletedCount = 0;
   /**
    * constructor
    */
@@ -100,31 +99,9 @@ public with sharing class MockEloquent implements IEloquent {
     }
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
-    FieldStructure fieldStructure = scribe.buildFieldStructure();
-    List<IEntry> result = new List<IEntry>();
-    for (IEntry entry : this.entries) {
-      result.add(entry.setFieldStructure(fieldStructure));
-    }
-    return result;
-  }
-
-  /**
-   * @inheritDoc
-   */
-  public List<IEntry> getAggregate(Scribe scribe) {
-    if (this.shouldThrowException) {
-      throw new QueryException('Test Exception from MockEloquent.getAggregate()');
-    }
-
-    if (!scribe.isAggregate()) {
-      throw new QueryException(
-        'The provided Scribe instance does not represent an aggregate query: ' + scribe.toSoql()
-      );
-    }
-
-    this.scribe = scribe;
-    String soql = scribe.toSoql(); // for showing and validate SOQL
-    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    FieldStructure fieldStructure = scribe.isAggregate()
+      ? scribe.buildAggregateFieldStructure()
+      : scribe.buildFieldStructure();
     List<IEntry> result = new List<IEntry>();
     for (IEntry entry : this.entries) {
       result.add(entry.setFieldStructure(fieldStructure));
@@ -238,7 +215,7 @@ public with sharing class MockEloquent implements IEloquent {
     for (SObject record : records) {
       record.Id = this.generateId(record);
     }
-    this.upsertedRecords.addAll(records); 
+    this.upsertedRecords.addAll(records);
     return records;
   }
 
@@ -294,7 +271,7 @@ public with sharing class MockEloquent implements IEloquent {
     if (entries == null || entries.isEmpty()) {
       return new List<IEntry>();
     }
-    
+
     for (IEntry entry : entries) {
       this.upsertedRecords.add(entry.getRecord());
     }
@@ -389,6 +366,7 @@ public with sharing class MockEloquent implements IEloquent {
     if (record == null) {
       throw new DmlException('Cannot delete null record');
     }
+    this.deletedCount++;
     return;
   }
 
@@ -399,6 +377,7 @@ public with sharing class MockEloquent implements IEloquent {
     if (this.shouldThrowException) {
       throw new DmlException('Test Exception from MockEloquent.doDelete()');
     }
+    this.deletedCount++;
     return;
   }
 
@@ -412,6 +391,7 @@ public with sharing class MockEloquent implements IEloquent {
     if (records == null || records.isEmpty()) {
       throw new DmlException('Cannot delete null or empty records');
     }
+    this.deletedCount += records.size();
     return;
   }
 
@@ -422,6 +402,7 @@ public with sharing class MockEloquent implements IEloquent {
     if (this.shouldThrowException) {
       throw new DmlException('Test Exception from MockEloquent.doDelete()');
     }
+    this.deletedCount += entries.size();
     return;
   }
 

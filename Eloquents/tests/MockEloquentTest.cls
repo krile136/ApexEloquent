@@ -18,7 +18,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntryExist_ThenReturnEntries() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '00600000000000');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '00600000000000');
     MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000001', Name = 'Test Opportunity'));
     IEloquent eloquent = new MockEloquent(mockEntry);
 
@@ -33,8 +33,8 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntryExitAndUsingMockEntryGenerator_ThenReturnEntries() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '00600000000000');
-    MockEntry mockEntry = MockENtry.of(Opportunity.getSObjectType()).autoId(1).add('Name', 'Test Opportunity');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '00600000000000');
+    MockEntry mockEntry = MockENtry.of(Opportunity.class).autoId(1).add('Name', 'Test Opportunity');
     IEloquent eloquent = new MockEloquent(mockEntry);
 
     // Act
@@ -48,7 +48,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenNoEntries_ThenReturnEmptyList() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000001');
     IEloquent eloquent = new MockEloquent();
 
     // Act
@@ -61,7 +61,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntriesExist_ThenReturnEntries() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000001');
     MockEntry mockEntry1 = new MockEntry(new Opportunity(Id = '006000000000001', Name = 'Opportunity 1'));
     MockEntry mockEntry2 = new MockEntry(new Opportunity(Id = '006000000000002', Name = 'Opportunity 2'));
     IEloquent eloquent = new MockEloquent(new List<IEntry>{ mockEntry1, mockEntry2 });
@@ -78,15 +78,15 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntryWithParentExist_ThenReturnNestedEntries() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .field('Name')
       .parentField(Scribe.asParent('AccountId').field('Id').field('Name'))
       .whereEqual('Id', '006000000000001');
-    MockENtry oppEntry = MockEntry.of(Opportunity.getSObjectType())
+    MockENtry oppEntry = MockEntry.of(Opportunity.class)
       .autoId(1)
       .add('Name', 'Test Opportunity')
-      .addParent('AccountId', MockEntry.of(Account.getSObjectType()).autoId(1).add('Name', 'Test Account'));
+      .addParent('AccountId', MockEntry.of(Account.class).autoId(1).add('Name', 'Test Account'));
 
     IEloquent eloquent = new MockEloquent(oppEntry);
 
@@ -106,7 +106,7 @@ public with sharing class MockEloquentTest {
   static void testGet_WhenEntryWithNestedParentExist_ThenReturnNestedEntries() {
     // Arrange
     List<String> fields = new List<String>{ 'Name' };
-    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+    Scribe scribe = Scribe.of(OrderItem.class)
       .field('ListPrice')
       .parentField(
         Scribe.asParent('OrderId')
@@ -125,27 +125,27 @@ public with sharing class MockEloquentTest {
               )
           )
       );
-    MockEntry orderItemEntry = MockEntry.of(OrderItem.getSObjectType())
+    MockEntry orderItemEntry = MockEntry.of(OrderItem.class)
       .add('ListPrice', 100)
       .addParent(
         'OrderId',
-        MockEntry.of(Order.getSObjectType())
+        MockEntry.of(Order.class)
           .add('Name', 'Test Order')
           .addParent(
             'OriginalOrderId',
-            MockEntry.of(Order.getSObjectType())
+            MockEntry.of(Order.class)
               .add('Name', 'Original Test Order')
               .addParent(
                 'QuoteId',
-                MockEntry.of(Quote.getSObjectType())
+                MockEntry.of(Quote.class)
                   .add('Name', 'Test Quote')
                   .addParent(
                     'OpportunityId',
-                    MockEntry.of(Opportunity.getSObjectType())
+                    MockEntry.of(Opportunity.class)
                       .add('Name', 'Test Opportunity')
                       .addParent(
                         'ContractId',
-                        MockEntry.of(Contract.getSObjectType()).add('Name', 'Test Contract')
+                        MockEntry.of(Contract.class).add('Name', 'Test Contract')
                       )
                   )
               )
@@ -186,17 +186,17 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntriesWithChildrenExist_ThenReturnEntriesWithChildren() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .field('Name')
-      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').field('Name'))
+      .withChildren(Scribe.asChild(Contact.class).field('Id').field('Name'))
       .whereEqual('Id', '001000000000001');
-    MockEntry accountEntry = MockEntry.of(Account.getSObjectType())
+    MockEntry accountEntry = MockEntry.of(Account.class)
       .autoId(1)
       .add('Name', 'Test Account')
       .addChildren(
         'Contact',
-        MockEntry.of(Contact.getSObjectType()).autoId('{#}').add('Name', 'Test Contact {#}').times(2)
+        MockEntry.of(Contact.class).autoId('{#}').add('Name', 'Test Contact {#}').times(2)
       );
 
     IEloquent eloquent = new MockEloquent(accountEntry);
@@ -220,62 +220,62 @@ public with sharing class MockEloquentTest {
   static void testGet_WhenEntriesWithNestedChildren_ThenReturnEntriesWithNestedChildren() {
     // Arrange
     List<String> fields = new List<String>{ 'Name' };
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .fields(fields)
       .withChildren(
-        Scribe.asChild(Contact.getSObjectType())
+        Scribe.asChild(Contact.class)
           .fields(fields)
           .withChildren(
-            Scribe.asChild(Opportunity.getSObjectType())
+            Scribe.asChild(Opportunity.class)
               .fields(fields)
               .withChildren(
-                Scribe.asChild(Quote.getSObjectType())
+                Scribe.asChild(Quote.class)
                   .fields(fields)
-                  .withChildren(Scribe.asChild(Order.getSObjectType()).fields(fields))
+                  .withChildren(Scribe.asChild(Order.class).fields(fields))
               )
           )
       );
 
-    MockEntry accountEntry = MockEntry.of(Account.getSObjectType())
+    MockEntry accountEntry = MockEntry.of(Account.class)
       .add('Name', 'Test Account')
       .addChildren(
         'Contact',
         new List<MockEntry>{
-          MockEntry.of(Contact.getSObjectType())
+          MockEntry.of(Contact.class)
             .add('Name', 'Test Contact 1')
             .addChildren(
               'Opportunity',
               new List<MockEntry>{
-                MockEntry.of(Opportunity.getSObjectType())
+                MockEntry.of(Opportunity.class)
                   .add('Name', 'Test Opportunity 1')
                   .addChildren(
                     'Quote',
                     new List<MockEntry>{
-                      MockEntry.of(Quote.getSObjectType())
+                      MockEntry.of(Quote.class)
                         .add('Name', 'Test Quote 1')
                         .addChildren(
                           'Order',
-                          new List<MockEntry>{ MockEntry.of(Order.getSObjectType()).add('Name', 'Test Order 1') }
+                          new List<MockEntry>{ MockEntry.of(Order.class).add('Name', 'Test Order 1') }
                         )
                     }
                   )
               }
             ),
-          MockEntry.of(Contact.getSObjectType())
+          MockEntry.of(Contact.class)
             .add('Name', 'Test Contact 2')
             .addChildren(
               'Opportunity',
               new List<MockEntry>{
-                MockEntry.of(Opportunity.getSObjectType())
+                MockEntry.of(Opportunity.class)
                   .add('Name', 'Test Opportunity 2')
                   .addChildren(
                     'Quote',
                     new List<MockEntry>{
-                      MockEntry.of(Quote.getSObjectType())
+                      MockEntry.of(Quote.class)
                         .add('Name', 'Test Quote 2')
                         .addChildren(
                           'Order',
-                          new List<MockEntry>{ MockEntry.of(Order.getSObjectType()).add('Name', 'Test Order 2') }
+                          new List<MockEntry>{ MockEntry.of(Order.class).add('Name', 'Test Order 2') }
                         )
                     }
                   )
@@ -322,7 +322,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenGetNonSelectedField_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '00600000000000');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '00600000000000');
     MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000001', Name = 'Test Opportunity'));
     IEloquent eloquent = new MockEloquent(mockEntry);
 
@@ -345,7 +345,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntryWithoutParentGetParent_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .field('Name')
       .whereEqual('Id', '006000000000001');
@@ -371,7 +371,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntryWithParentGetNonSelectedField_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .field('Name')
       .parentField(Scribe.asParent('AccountId').field('Id')) // 'Name' field is not selected
@@ -483,7 +483,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntryWithoutChildrenGetChildren_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Order.getSObjectType())
+    Scribe scribe = Scribe.of(Order.class)
       .field('Id')
       .field('Name')
       .whereEqual('Id', '801000000000001');
@@ -509,10 +509,10 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntryWithChildrenGetNonSelectedField_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .field('Name')
-      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id')) // 'Name' field is not selected
+      .withChildren(Scribe.asChild(Contact.class).field('Id')) // 'Name' field is not selected
       .whereEqual('Id', '001000000000001');
     MockEntry accountEntry = new MockEntry(
       new Account(Id = '001000000000001', Name = 'Test Account'),
@@ -553,18 +553,18 @@ public with sharing class MockEloquentTest {
   static void testGet_WhenEntryWithNestedChildrenGetNonSelectedField_ThenThrowException() {
     // Arrange
     List<String> fields = new List<String>{ 'Name' };
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .fields(fields)
       .withChildren(
-        Scribe.asChild(Contact.getSObjectType())
+        Scribe.asChild(Contact.class)
           .fields(fields)
           .withChildren(
-            Scribe.asChild(Opportunity.getSObjectType())
+            Scribe.asChild(Opportunity.class)
               .fields(fields)
               .withChildren(
-                Scribe.asChild(Quote.getSObjectType())
+                Scribe.asChild(Quote.class)
                   .fields(fields)
-                  .withChildren(Scribe.asChild(Order.getSObjectType()).fields(fields))
+                  .withChildren(Scribe.asChild(Order.class).fields(fields))
               )
           )
       );
@@ -625,7 +625,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testFirst_WhenEntryExists_ThenReturnFirstEntry() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
     MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
     IEloquent eloquent = new MockEloquent(mockEntry);
 
@@ -640,7 +640,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testFirst_WhenNoEntries_ThenReturnNull() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
     IEloquent eloquent = new MockEloquent();
 
     // Act
@@ -653,7 +653,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testFirst_WhenFieldisNotSelected_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
     MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
     IEloquent eloquent = new MockEloquent(mockEntry);
 
@@ -675,7 +675,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testFirstOrFail_WhenEntryExists_ThenReturnFirstEntry() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
     MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
     IEloquent eloquent = new MockEloquent(mockEntry);
 
@@ -690,7 +690,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testFirstOrFail_WhenNoEntries_ThenReturnNull() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
     IEloquent eloquent = new MockEloquent();
 
     // Act & Assert
@@ -710,7 +710,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testFirstOrFail_WhenFieldisNotSelected_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
     MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
     IEloquent eloquent = new MockEloquent(mockEntry);
 
@@ -732,7 +732,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testFirstOrFailAsSObject_WhenEntryExists_ThenReturnFirstEntry() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
     MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
     IEloquent eloquent = new MockEloquent(mockEntry);
 
@@ -797,10 +797,10 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testDoUpdate_WhenApplyEntry_ThenReturnEntry() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Opportunity.getSObjectType())
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
       .fields(new List<String>{ 'Id', 'Name' })
       .buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.getSObjectType())
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
       .autoId(1)
       .add('Name', 'Opportunity 1')
       .setFieldStructure(fieldStructure);
@@ -839,10 +839,10 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testDoUpdate_WhenMultipleEntriesAreUpdated_ThenReturnEntries() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Opportunity.getSObjectType())
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
       .fields(new List<String>{ 'Id', 'Name' })
       .buildFieldStructure();
-    List<MockEntry> mockEntries = MockEntry.of(Opportunity.getSObjectType())
+    List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
       .autoId('{#}')
       .add('Name', 'Opportunity {#}')
       .times(2);
@@ -887,7 +887,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testDoDelete_WhenEntryIsDeleted_ThenNoExceptionThrown() {
     // Arrange
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.getSObjectType())
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
       .autoId(1)
       .add('Name', 'Opportunity 1');
     IEloquent eloquent = new MockEloquent();
@@ -918,7 +918,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testDoDelete_WhenMultipleEntriesAreDeleted_ThenNoExceptionThrown() {
     // Arrange
-    List<MockEntry> mockEntries = MockEntry.of(Opportunity.getSObjectType())
+    List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
       .autoId('{#}')
       .add('Name', 'Opportunity {#}')
       .times(2);
@@ -932,27 +932,9 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGetAggregate_WhenApplyNonAggregateScribe_ThenThrowException() {
+  static void testGet_WhenAggregateEntryExist_ThenReturnEntries() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000001');
-    IEloquent eloquent = new MockEloquent();
-
-    // Act & Assert
-    try {
-      eloquent.getAggregate(scribe);
-      Assert.fail('Expected QueryException to be thrown for non-aggregate Scribe');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage().startsWith('The provided Scribe instance does not represent an aggregate query: ')
-      );
-    }
-  }
-
-  @isTest
-  static void testGetAggregate_WhenAggregateEntryExist_ThenReturnEntries() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
@@ -964,7 +946,7 @@ public with sharing class MockEloquentTest {
     );
 
     // Act
-    List<IEntry> entries = eloquent.getAggregate(scribe);
+    List<IEntry> entries = eloquent.get(scribe);
 
     // Assert
     Assert.isTrue(entries.size() == 2, 'Expected two aggregate entries to be returned');
@@ -975,9 +957,9 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGetAggregate_WhenAccessNonSelectedField_ThenThrowException() {
+  static void testGet_WhenApplyAggregateScribeAndAccessNonSelectedField_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
@@ -989,7 +971,7 @@ public with sharing class MockEloquentTest {
 
     // Act & Assert
     try {
-      List<IEntry> entries = eloquent.getAggregate(scribe);
+      List<IEntry> entries = eloquent.get(scribe);
       IEntry entry = entries[0];
       entry.get('CloseDate'); // This field is not selected in the Scribe query
       Assert.fail('Expected QueryException to be thrown for non-selected field');
@@ -1008,9 +990,9 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGetAggregate_WhenAccessNonExistAlias_ThenThrowException() {
+  static void testGet_WhenApplyAggregateScribeAndAccessNonExistAlias_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
@@ -1022,7 +1004,7 @@ public with sharing class MockEloquentTest {
 
     // Act & Assert
     try {
-      List<IEntry> entries = eloquent.getAggregate(scribe);
+      List<IEntry> entries = eloquent.get(scribe);
       IEntry entry = entries[0];
       entry.get('totalAmount'); // This alias does not exist in the Scribe query
       Assert.fail('Expected QueryException to be thrown for non-existing alias');
@@ -1041,9 +1023,9 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGetAggregate_WhenAddNestedAggregate_ThenCanAccessFieldAndAliasAsFlatField() {
+  static void testGet_WhenAddNestedAggregateScribe_ThenCanAccessFieldAndAliasAsFlatField() {
     // Arrange
-    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+    Scribe scribe = Scribe.of(OrderItem.class)
       .count('Id', 'itemCount')
       .parentField(
         Scribe.asParent('OrderId')
@@ -1076,11 +1058,12 @@ public with sharing class MockEloquentTest {
     );
 
     // Act
-    List<IEntry> entries = eloquent.getAggregate(scribe);
+    List<IEntry> entries = eloquent.get(scribe);
 
     // Assert
     Assert.isTrue(entries.size() == 1, 'Expected one aggregate entry to be returned');
     IEntry entry = entries[0];
+    System.debug(entry);
     Assert.areEqual(10, entry.get('itemCount'), 'Expected itemCount to match');
     Assert.areEqual(5, entry.get('accountCount'), 'Expected accountCount to match');
     Assert.areEqual('TestType1', entry.get('Type'), 'Expected Type to match');
@@ -1090,7 +1073,7 @@ public with sharing class MockEloquentTest {
   static void testGet_WhenShouldThrowIsTrue_ThenThrowException() {
     // Arrange
     MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
 
     // Act & Assert
     try {
@@ -1105,7 +1088,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGetAsSObject_WhenEntriesExist_ThenReturnSObjects() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000001');
     List<MockEntry> mockEntries = new List<MockEntry>{
       new MockEntry(new Opportunity(Id = '006000000000001', Name = 'Test Opportunity')),
       new MockEntry(new Opportunity(Id = '006000000000002', Name = 'Another Opportunity'))
@@ -1126,29 +1109,10 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGetAggregate_WhenShouldThrowIsTrue_ThenThrowException() {
-    // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('StageName')
-      .average('Amount', 'avgAmount')
-      .groupByField('StageName');
-
-    // Act & Assert
-    try {
-      eloquent.getAggregate(scribe);
-      Assert.fail('Expected QueryException to be thrown for getAggregate method');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.getAggregate()', e.getMessage());
-    }
-  }
-
-  @isTest
   static void testGetAsSObject_WhenShouldThrowIsTrue_ThenThrowException() {
     // Arrange
     MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
 
     // Act & Assert
     try {
@@ -1164,7 +1128,7 @@ public with sharing class MockEloquentTest {
   static void testFirst_WhenShouldThrowIsTrue_ThenThrowException() {
     // Arrange
     MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
 
     // Act & Assert
     try {
@@ -1180,7 +1144,7 @@ public with sharing class MockEloquentTest {
   static void testFirstAsSObject_WhenShouldThrowIsTrue_ThenThrowException() {
     // Arrange
     MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
 
     // Act & Assert
     try {
@@ -1196,7 +1160,7 @@ public with sharing class MockEloquentTest {
   static void testFirstOrFail_WhenShouldThrowIsTrue_ThenThrowException() {
     // Arrange
     MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
 
     // Act & Assert
     try {
@@ -1212,7 +1176,7 @@ public with sharing class MockEloquentTest {
   static void testFirstOrFailAsSObject_WhenShouldThrowIsTrue_ThenThrowException() {
     // Arrange
     MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
 
     // Act & Assert
     try {
@@ -1341,7 +1305,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testDoUpsert_WhenAddEntry_ThenReturnUpsertedEntry() {
     // Arrange
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.getSObjectType());
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class);
     IEloquent eloquent = new MockEloquent();
 
     // Act
@@ -1377,8 +1341,8 @@ public with sharing class MockEloquentTest {
   static void testDoUpsert_WhenAddMultiEntries_ThenReturnUpsertedEntries() {
     // Arrange
     List<MockEntry> mockEntries = new List<MockEntry>{
-      MockEntry.of(Opportunity.getSObjectType()),
-      MockEntry.of(Opportunity.getSObjectType()).autoId(1)
+      MockEntry.of(Opportunity.class),
+      MockEntry.of(Opportunity.class).autoId(1)
     };
     IEloquent eloquent = new MockEloquent();
     // Act

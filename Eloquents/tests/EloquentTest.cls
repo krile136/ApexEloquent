@@ -16,9 +16,9 @@
 @isTest
 public with sharing class EloquentTest {
   @isTest
-  static void testGet() {
+  static void testGet_WhenApplyScribe_ThenSuccess() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act
     List<IEntry> oppEntries = (new Eloquent()).get(scribe);
@@ -28,32 +28,15 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testGet_WhenScribeIsNotAggregate_ThenThrowException() {
+  static void testGet_WhenApplyAggregateScribe_ThenSuccess() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
-
-    // Act & Assert
-    try {
-      List<IEntry> oppEntries = (new Eloquent()).getAggregate(scribe);
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage().startsWith('The provided Scribe instance does not represent an aggregate query: ')
-      );
-    }
-  }
-
-  @isTest
-  static void testGetAggregate_WhenScriveIsAggregate() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'AvgAmount')
       .groupByField('StageName');
 
     // Act
-    List<IEntry> oppEntries = (new Eloquent()).getAggregate(scribe);
+    List<IEntry> oppEntries = (new Eloquent()).get(scribe);
 
     // Assert
     Assert.isTrue(oppEntries.isEmpty(), 'Expected no records to be returned');
@@ -62,7 +45,7 @@ public with sharing class EloquentTest {
   @isTest
   static void testGetAsSObject() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act
     List<SObject> oppSObjects = (new Eloquent()).getAsSObject(scribe);
@@ -74,7 +57,7 @@ public with sharing class EloquentTest {
   @isTest
   static void testFirst() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act
     IEntry oppEntry = (new Eloquent()).first(scribe);
@@ -86,7 +69,7 @@ public with sharing class EloquentTest {
   @isTest
   static void testFirstAsSObject() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act
     SObject oppSObject = (new Eloquent()).firstAsSObject(scribe);
@@ -98,7 +81,7 @@ public with sharing class EloquentTest {
   @isTest
   static void testFirstOrFail() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act & Assert
     try {
@@ -116,7 +99,7 @@ public with sharing class EloquentTest {
   @isTest
   static void testFirstOrFailAsSObject() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
     // Act & Assert
     try {
       SObject oppSObject = (new Eloquent()).firstOrFailAsSObject(scribe);

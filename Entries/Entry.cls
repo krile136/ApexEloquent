@@ -166,6 +166,12 @@ public with sharing class Entry extends AbstractEntry {
     return this.record;
   }
 
+  public override IEntry withoutFieldValidation() {
+    throw new QueryException(
+      'withoutFieldValidation() is not supported in Entry class. Use MockEntry for testing purposes.'
+    );
+  }
+
   /**
    * @inheritDoc
    */

@@ -47,7 +47,7 @@ public class MockEntryTest {
   static void testConstructor_WhenApplySObjectAndFieldStructure_ThenMockEntryCreated() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'Name', 'Industry' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'Name', 'Industry' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
 
     // Act
@@ -61,7 +61,7 @@ public class MockEntryTest {
   static void TestConstructor_WhenApplySObjectAndFieldStructureAndFieldToValue_ThenMockEntryCreated() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'Name', 'Industry' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'Name', 'Industry' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'Name' => 'Mock Account',
@@ -91,17 +91,38 @@ public class MockEntryTest {
   @isTest
   static void testOf_WhenAddSobjectType_ThenReturnMockEntry() {
     // Arrange
-    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+    MockEntry mockEntry = MockEntry.of(Account.class);
 
     // Act & Assert
     Assert.isNotNull(mockEntry, 'MockEntry should be created successfully using of() method.');
   }
 
   @isTest
+  static void testOf_WhenApplyValidRecordType_ThenReturnMockEntry() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class);
+
+    // Act & Assert
+    Assert.isNotNull(mockEntry, 'MockEntry should be created successfully using of() method with valid SObjectType.');
+  }
+
+  @isTest
+  static void testOf_WhenApplyStringType_ThenThrowException() {
+    // Act & Assert
+    try {
+      MockEntry mockEntry = MockEntry.of(String.class);
+      Assert.fail('Expected IllegalArgumentException to be thrown when using String type.');
+    } catch (IllegalArgumentException e) {
+      String expect = '[MockEntry.of] Invalid type: \'String\' is not an SObject.';
+      Assert.isTrue(e.getMessage().contains(expect), 'Expected IllegalArgumentException with specific message when using String type.');
+    }
+  }
+
+  @isTest
   static void testAdd_WhenAddFieldAndValue_ThenGetFieldValue() {
     // Arrange
-    FieldStructure fieldStructure = scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -115,15 +136,15 @@ public class MockEntryTest {
   @isTest
   static void testAddChildren_WhenAddChildren_ThenGetChildren() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType())
-      .withChildren(Scribe.asChild(Contract.getSObjectType()).field('Name'))
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .withChildren(Scribe.asChild(Contract.class).field('Name'))
       .buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Account.getSObjectType())
+    MockEntry mockEntry = MockEntry.of(Account.class)
       .addChildren(
         'Contract',
         new List<MockEntry>{
-          MockEntry.of(Contract.getSObjectType()).add('Name', 'Mock Contract 1'),
-          MockEntry.of(Contract.getSObjectType()).add('Name', 'Mock Contract 2')
+          MockEntry.of(Contract.class).add('Name', 'Mock Contract 1'),
+          MockEntry.of(Contract.class).add('Name', 'Mock Contract 2')
         }
       );
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
@@ -141,11 +162,11 @@ public class MockEntryTest {
   @isTest
   static void testAddParent_WhenAddParent_ThenGetParent() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Opportunity.getSObjectType())
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
       .parentField(Scribe.asParent('AccountId').field('Name'))
       .buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Opportunity.getSObjectType())
-      .addParent('AccountId', MockEntry.of(Account.getSObjectType()).add('Name', 'Mock Account'));
+    MockEntry mockEntry = MockEntry.of(Opportunity.class)
+      .addParent('AccountId', MockEntry.of(Account.class).add('Name', 'Mock Account'));
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -157,10 +178,71 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testTemplate_WhenAddTemplate_ThenCanGetFieldValue() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    Map<String, Object> template = new Map<String, Object>{ 'Name' => 'Mock Account' };
+    mockEntry = mockEntry.template(template);
+
+    // Assert
+    String accountName = mockEntry.getName();
+    Assert.areEqual('Mock Account', accountName, 'The Name should match the template value.');
+  }
+
+  @isTest
+  static void testTemplate_WhenAddTemplateAtChildren_ThenGetChildrenValues() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .withChildren(Scribe.asChild(Contract.class).field('Name'))
+      .buildFieldStructure();
+    Map<String, Object> template = new Map<String, Object>{
+      'Name' => 'Mock Contract {#}'
+    };
+    MockEntry mockEntry = MockEntry.of(Account.class)
+      .addChildren(
+        'Contract',
+        MockEntry.of(Contract.class).template(template).times(2)
+      );
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    List<IEntry> children = mockEntry.getChildren('Contract');
+
+    // Assert
+    Assert.isNotNull(children, 'Children should not be null.');
+    Assert.areEqual(2, children.size(), 'There should be two child entries.');
+    Assert.areEqual('Mock Contract 1', children[0].getName(), 'First child name should match.');
+    Assert.areEqual('Mock Contract 2', children[1].getName(), 'Second child name should match.');
+  }
+
+  @isTest
+  static void testTemplate_WhenAddTemplateAtParent_ThenGetParentValue() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .parentField(Scribe.asParent('AccountId').field('Name'))
+      .buildFieldStructure();
+    Map<String, Object> template = new Map<String, Object>{ 'Name' => 'Mock Account' };
+    MockEntry mockEntry = MockEntry.of(Opportunity.class)
+      .addParent('AccountId', MockEntry.of(Account.class).template(template));
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act
+    IEntry parent = mockEntry.getParent('AccountId');
+
+    // Assert
+    Assert.isNotNull(parent, 'Parent should not be null.');
+    Assert.areEqual('Mock Account', parent.getName(), 'Parent name should match the template value.');
+  }
+
+  @isTest
   static void testAutoId_WhenUsingAutoId_ThenGenerateId() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -174,8 +256,8 @@ public class MockEntryTest {
   @isTest
   static void testAutoId_WhenUsingAutoIdWithInteger_ThenGenerateId() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -189,8 +271,8 @@ public class MockEntryTest {
   @isTest
   static void testAutoId_WhenUsingAutoIdWithMinusInteger_ThenThrowException() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
     // Act & Assert
@@ -205,8 +287,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenAddNameTimes_ThenReturnMockEntriesWithNameTimes() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -223,8 +305,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenAddNameTimesWithStartAt_ThenReturnMockEntriesWithNameTimes() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -241,10 +323,10 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenAddAmountTimesWithStartAt_ThenReturnMOckEntriesWithAmountTimes() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(OrderItem.getSObjectType())
+    FieldStructure fieldStructure = Scribe.of(OrderItem.class)
       .field('Quantity')
       .buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(OrderItem.getSObjectType());
+    MockEntry templateEntry = MockEntry.of(OrderItem.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -261,8 +343,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenAddIdTimes_ThenReturnMockEntriesWithIdTimes() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -279,8 +361,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenAddIdTimesWithStartAt_ThenReturnMockEntriesWithIdTimes() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -297,8 +379,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenUsingUppercaseLetter_ThenReturnConsecutiveUppercaseLetters() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -315,8 +397,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenUsingUppercaseLetterWithStartAt_ThenReturnConsecutiveUppercaseLetters() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -333,8 +415,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenUsingUppercaseLetterAtId_ThenReturnConsectiveUppercaseLetterIds() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -351,8 +433,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenUsingUppercaseLetterAtIdWithStartAt_ThenReturnConsectiveUppercaseLetterIds() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -369,8 +451,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenUsingLowercaseLetter_ThenReturnConsecutiveLowercaseLetters() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -387,8 +469,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenUsingLowercaseLetterWithStartAt_ThenReturnConsecutiveLowercaseLetters() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -405,8 +487,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenUsingLowercaseLetterAtId_ThenReturnConsectiveLowercaseLetterIds() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -423,8 +505,8 @@ public class MockEntryTest {
   @isTest
   static void testTimes_WhenUsingLowercaseLetterAtIdWithStartAt_ThenReturnConsectiveLowercaseLetterIds() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry templateEntry = MockEntry.of(Account.getSObjectType());
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry templateEntry = MockEntry.of(Account.class);
     templateEntry = (MockEntry) templateEntry.setFieldStructure(fieldStructure);
 
     // Act
@@ -442,7 +524,7 @@ public class MockEntryTest {
   static void testGet_WhenFieldExists_ThenReturnFieldValue() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id', 'name' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -458,7 +540,7 @@ public class MockEntryTest {
   static void testGet_WhenScriceDoesNotSelectField_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -476,10 +558,29 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGet_WhenWithoutFieldValidation_ThenNotThrowException() {
+    // Arrange
+    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
+    Scribe scribe = Scribe.of(Account.class); // No fields are selected in Scribe
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>();
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+    mockEntry = (MockEntry) MockEntry.withoutFieldValidation();
+
+    // Act & Assert
+    try {
+      String recordName = mockEntry.getName();
+      Assert.areEqual('Test Account', recordName, 'The field value should be returned without field validation.');
+    } catch (QueryException e) {
+      Assert.fail('QueryException should not be thrown when field validation is disabled.');
+    }
+  }
+
+  @isTest
   static void testGet_WhenFieldValueIsOverride_ThenReturnOverrideValue() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id', 'name' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'Mock Account' };
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -494,7 +595,7 @@ public class MockEntryTest {
   @isTest
   static void testGet_WhenGetNotExistFieldInAggregateScribe_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
@@ -505,7 +606,7 @@ public class MockEntryTest {
 
     // Act & Assert
     try {
-      Object fieldValue = mockEntry.get('Id'); // 'Id' field is not exist in aggregate field structure
+      String id = (String) mockEntry.get('Id'); // id field is not exist in aggregate field structure
       Assert.fail('Expected QueryException to be thrown.');
     } catch (QueryException e) {
       Assert.areEqual(
@@ -518,13 +619,13 @@ public class MockEntryTest {
   @isTest
   static void testGet_WhenGetNotExistAliasInAggregateScribe_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
     String soql = scribe.toSoql(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
-    Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 };
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500, 'maxAmount' => 2000 };
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
 
     // Act & Assert
@@ -540,9 +641,35 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGet_WhenGetNotExistAliasInAggregateScribeWithoutFieldValidation_ThenNotThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .average('Amount', 'avgAmount')
+      .groupByField('StageName');
+    String soql = scribe.toSoql(); // for generate aggregate field structure
+    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500, 'maxAmount' => 2000 };
+    MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
+    mockEntry = (MockEntry) MockEntry.withoutFieldValidation();
+
+    // Act & Assert
+    try {
+      Object fieldValue = mockEntry.get('maxAmount'); // 'maxAmount' field is not exist in aggregate field structure
+      Assert.areEqual(
+        2000,
+        fieldValue,
+        'The field value should match the value in fieldToValue when field validation is disabled.'
+      );
+    } catch (QueryException e) {
+      Assert.fail('QueryException should not be thrown when field validation is disabled.');
+    }
+  }
+
+  @isTest
   static void testGet_WhenGetNotExistFieldInFieldToValue_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
@@ -566,7 +693,7 @@ public class MockEntryTest {
   @isTest
   static void testGet_WhenGetNotExistAliasInFieldToValue_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
@@ -590,7 +717,7 @@ public class MockEntryTest {
   @isTest
   static void testGet_WhenGetExistFieldAndAliasInFieldToValue_ThenReturnValue() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
@@ -610,10 +737,10 @@ public class MockEntryTest {
   @isTest
   static void testPut_WhenPutFieldValue_ThenGetFieldValue() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType())
+    FieldStructure fieldStructure = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
       .buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .autoId(1)
       .add('Name', 'Test Account')
       .setFieldStructure(fieldStructure);
@@ -629,8 +756,8 @@ public class MockEntryTest {
   @isTest
   static void testPut_WhenPutNonSelectedField_ThenCanGetFieldValue() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .autoId(1)
       .setFieldStructure(fieldStructure);
 
@@ -645,8 +772,8 @@ public class MockEntryTest {
   @isTest
   static void testPut_WhenPutNonExistField_ThenThrowException() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Name').buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .autoId(1)
       .setFieldStructure(fieldStructure);
 
@@ -664,8 +791,8 @@ public class MockEntryTest {
   @isTest
   static void testPut_WhenPutNonEditableField_ThenThrowException() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).field('Id').buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .autoId(1)
       .setFieldStructure(fieldStructure);
 
@@ -685,7 +812,7 @@ public class MockEntryTest {
   @isTest
   static void testPut_WhenPutAggregateResult_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
@@ -707,7 +834,7 @@ public class MockEntryTest {
   static void testGetId_WhenCalled_ThenReturnId() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id', 'name' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -723,7 +850,7 @@ public class MockEntryTest {
   static void testGetId_WhenIdFieldDoesNotSelected_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'name' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'name' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -741,10 +868,31 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetId_WhenIdFieldDoesNotSelectedWithoutFieldValidation_ThenNotThrowException() {
+    // Arrange
+    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'name' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>();
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+    mockEntry = (MockEntry) MockEntry.withoutFieldValidation();
+
+    // Act
+    Id id = mockEntry.getId();
+
+    // Assert
+    Assert.areEqual(
+      '001000000000000',
+      id,
+      'The Id should match the expected value even when field validation is disabled.'
+    );
+  }
+
+  @isTest
   static void testGetName_WhenCalled_ThenReturnName() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id', 'name' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -760,7 +908,7 @@ public class MockEntryTest {
   static void testGetName_WhenNameFieldDoesNotSelected_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -778,11 +926,34 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetName_WhenNameFieldDoesNotSelectedWithoutFieldValidation_ThenNotThrowException() {
+    // Arrange
+    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id' });
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>();
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+    mockEntry = (MockEntry) MockEntry.withoutFieldValidation();
+
+    // Act
+    String name = mockEntry.getName();
+
+    // Assert
+    Assert.areEqual(
+      'Test Account',
+      name,
+      'The Name should match the expected value even when field validation is disabled.'
+    );
+  }
+
+  @isTest
   static void testGetRecord_WhenCalled_ThenReturnRecord() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' }).buildFieldStructure();
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .autoId(1)
       .add('Name', 'Test Account')
       .setFieldStructure(fieldStructure);
@@ -798,8 +969,10 @@ public class MockEntryTest {
   @isTest
   static void testGetRecord_WhenAddNonExistFieldValue_ThenIgnoreNonExistField() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' }).buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.getSObjectType())
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .autoId(1)
       .add('Name', 'Test Account')
       .add('NonExistField', 'Some Value') // 'NonExistField' does not exist in Account
@@ -818,7 +991,7 @@ public class MockEntryTest {
   static void testSetRecord_WhenCalled_ThenReturnNewMockEntry() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType()).fields(new List<String>{ 'id', 'name' });
+    Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'id', 'name' });
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -835,7 +1008,7 @@ public class MockEntryTest {
   static void testSetFieldStructure_WhenCalled_ThenReturnNewMockEntryWithFieldStructure() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType());
+    Scribe scribe = Scribe.of(Account.class);
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -852,7 +1025,7 @@ public class MockEntryTest {
   static void testGetParent_WhenParentNotExist_ThenReturnNull() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('AccountId')
       .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'id', 'name' }));
     FieldStructure fieldStructure = scribe.buildFieldStructure();
@@ -870,7 +1043,7 @@ public class MockEntryTest {
   static void testGetParent_WhenParentIsOverride_ThenReturnParentEntry() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .field('Name')
       .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'Id', 'Name' }));
@@ -892,7 +1065,7 @@ public class MockEntryTest {
   static void testGetParent_WhenFieldStructureDoesNotHaveParentIdFiled_ThenThrowException() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id');
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'AccountId' => new MockEntry(new Account(Id = '001000000000001', Name = 'Test Account'))
@@ -913,10 +1086,86 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetParentAndGet_WhenParentAndFieldIsValid_ThenReturnParentFieldValue() {
+    // Arrange
+    SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .field('Name')
+      .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'Id', 'Name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'AccountId' => new MockEntry(new Account(Id = '001000000000001', Name = 'Test Account'))
+    };
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+
+    // Act
+    IEntry parentEntry = mockEntry.getParent('AccountId');
+    String parentName = parentEntry.getName();
+
+    // Assert
+    Assert.areEqual('Test Account', parentName, 'The parent name should match the expected value.');
+  }
+
+  @isTest
+  static void testGetParentAndGet_WhenParentExistButFieldIsNotSelected_ThenThrowException() {
+    // Arrange
+    SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .field('Name')
+      .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'Id' })); // Name field is not selected for parent
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'AccountId' => new MockEntry(new Account(Id = '001000000000001', Name = 'Test Account'))
+    };
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+
+    // Act & Assert
+    try {
+      IEntry parentEntry = mockEntry.getParent('AccountId');
+      String parentName = parentEntry.getName(); // Attempt to get Name field which is not selected in Scribe
+      Assert.fail('Expected QueryException to be thrown.');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'The specified field is not selected in Scribe. object name: Account, field name: Name',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testGetParentAndGet_WhenparentExistButFieldIsNotSelectedWithoutFieldValidation_ThenNotThrowException() {
+    // Arrange
+    SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .field('Name')
+      .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'Id' })); // Name field is not selected for parent
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'AccountId' => new MockEntry(new Account(Id = '001000000000001', Name = 'Test Account'))
+    };
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+    mockEntry = (MockEntry) MockEntry.withoutFieldValidation();
+
+    // Act
+    IEntry parentEntry = mockEntry.getParent('AccountId');
+    String parentName = parentEntry.getName(); // Attempt to get Name field which is not selected in Scribe
+
+    // Assert
+    Assert.areEqual(
+      'Test Account',
+      parentName,
+      'The parent name should match the expected value even when field validation is disabled.'
+    );
+  }
+
+  @isTest
   static void testGetParent_WhenNestedParentExists_ThenReturnNestedParentEntry() {
     // Arrange
     SObject record = new OrderItem();
-    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+    Scribe scribe = Scribe.of(OrderItem.class)
       .fields(new List<String>{ 'Id' })
       .parentField(
         Scribe.asParent('OrderId')
@@ -988,9 +1237,9 @@ public class MockEntryTest {
   static void testGetChildren_WhenChildrenExist_ThenReturnChildEntries() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
-      .withChildren(Scribe.asChild(Contract.getSObjectType()).fields(new List<String>{ 'name' }));
+      .withChildren(Scribe.asChild(Contract.class).fields(new List<String>{ 'name' }));
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'Contract' => new List<IEntry>{
@@ -1014,9 +1263,9 @@ public class MockEntryTest {
   static void testGetChildren_WhenChildrenObjectIsNotIEntry_ThenThrowError() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
-      .withChildren(Scribe.asChild(Contract.getSObjectType()).fields(new List<String>{ 'name' }));
+      .withChildren(Scribe.asChild(Contract.class).fields(new List<String>{ 'name' }));
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'Contract' => new List<Contract>{ new Contract() }
@@ -1041,9 +1290,9 @@ public class MockEntryTest {
   static void testGetChildren_WhenChildObjectDoesNotExist_ThenReturnEmptyList() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
-      .withChildren(Scribe.asChild(Contract.getSObjectType()).fields(new List<String>{ 'name' }));
+      .withChildren(Scribe.asChild(Contract.class).fields(new List<String>{ 'name' }));
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
@@ -1060,10 +1309,10 @@ public class MockEntryTest {
   static void testGetChildren_WhenChildObjectFieldDoesNotSelected_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
       .withChildren(
-        Scribe.asChild(Contract.getSObjectType()).fields(new List<String>{ 'id' }) // 'name' field is not selected
+        Scribe.asChild(Contract.class).fields(new List<String>{ 'id' }) // 'name' field is not selected
       );
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
@@ -1088,22 +1337,51 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetChildren_WhenChildObjectFieldDoesNotSelectedWithoutFieldValidation_ThenNotThrowException() {
+    // Arrange
+    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
+    Scribe scribe = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(
+        Scribe.asChild(Contract.class).fields(new List<String>{ 'id' }) // 'name' field is not selected
+      );
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'Contract' => new List<IEntry>{
+        new MockEntry(new Contract(Id = '800000000000001', Name = 'Test Contract 1')),
+        new MockEntry(new Contract(Id = '800000000000002', Name = 'Test Contract 2'))
+      }
+    };
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+    mockEntry = (MockEntry) MockEntry.withoutFieldValidation();
+
+    // Act
+    List<IEntry> children = mockEntry.getChildren('Contract');
+    String childName1 = children[0].getName();
+    String childName2 = children[1].getName();
+
+    // Assert
+    Assert.areEqual('Test Contract 1', childName1, 'First child name should match even when field validation is disabled.');
+    Assert.areEqual('Test Contract 2', childName2, 'Second child name should match even when field validation is disabled.');
+  }
+
+  @isTest
   static void testGetChildren_WhenNestedChildrenExist_ThenReturnNestedChildEntries() {
     // Arrange
     Sobject accountEnery = new Account(Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .fields(new List<String>{ 'name' })
       .withChildren(
-        Scribe.asChild(Contract.getSObjectType())
+        Scribe.asChild(Contract.class)
           .fields(new List<String>{ 'name' })
           .withChildren(
-            Scribe.asChild(Opportunity.getSObjectType())
+            Scribe.asChild(Opportunity.class)
               .fields(new List<String>{ 'name' })
               .withChildren(
-                Scribe.asChild(Order.getSObjectType())
+                Scribe.asChild(Order.class)
                   .fields(new List<String>{ 'name' })
                   .withChildren(
-                    Scribe.asChild(OrderItem.getSObjectType()).fields(new List<String>{ 'description' })
+                    Scribe.asChild(OrderItem.class).fields(new List<String>{ 'description' })
                   )
               )
           )
@@ -1158,10 +1436,10 @@ public class MockEntryTest {
   static void testGetChildrenByRelationName_WhenRelationNameIsValid_ThenReturnChildEntries() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
       .withChildren(
-        Scribe.asChild(Contract.getSObjectType()).relationName('Contracts').fields(new List<String>{ 'name' })
+        Scribe.asChild(Contract.class).relationName('Contracts').fields(new List<String>{ 'name' })
       );
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
@@ -1186,10 +1464,10 @@ public class MockEntryTest {
   static void testGetChildrenByRelationName_WhenRelationNameIsInvalid_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
       .withChildren(
-        Scribe.asChild(Contract.getSObjectType()).relationName('Contract__r').fields(new List<String>{ 'name' })
+        Scribe.asChild(Contract.class).relationName('Contract__r').fields(new List<String>{ 'name' })
       );
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>();
@@ -1213,10 +1491,10 @@ public class MockEntryTest {
   static void testGetThrough_WhenRelationIsValid_ThenReturnRelatedObject() {
     // Arrange
     SObject record = new Order(Id = '801000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.source(Order.getSObjectType())
+    Scribe scribe = Scribe.of(Order.class)
       .fields(new List<String>{ 'id', 'name' })
       .through(
-        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id').fields(new List<String>{ 'id', 'name' })
+        Scribe.asThrough(OrderItem.class, 'Product2Id').fields(new List<String>{ 'id', 'name' })
       );
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     System.debug('Field Structure: ' + fieldStructure);
@@ -1248,28 +1526,28 @@ public class MockEntryTest {
   static void testGetThroughByRelationName_WhenRelationIsValid_ThenReturnRelatedObject() {
     // Arrange
     SObject record = new User(Id = '005000000000000');
-    Scribe scribe = Scribe.source(Order.getSObjectType())
+    Scribe scribe = Scribe.of(Order.class)
       .field('Id')
       .through(
-        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
+        Scribe.asThrough(OrderItem.class, 'Product2Id')
           .relationName('OrderItems')
           .field('Id')
           .field('Name')
       );
     FieldStructure fieldStructure = scribe.buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Order.getSObjectType())
+    MockEntry mockEntry = MockEntry.of(Order.class)
       .addChildren(
         'OrderItems',
         new List<MockEntry>{
-          MockEntry.of(OrderItem.getSObjectType())
+          MockEntry.of(OrderItem.class)
             .addParent(
               'Product2Id',
-              MockEntry.of(Product2.getSObjectType()).autoId(1).add('Name', 'Last Modify 1')
+              MockEntry.of(Product2.class).autoId(1).add('Name', 'Last Modify 1')
             ),
-          MockEntry.of(OrderItem.getSObjectType())
+          MockEntry.of(OrderItem.class)
             .addParent(
               'Product2Id',
-              MockEntry.of(Product2.getSObjectType()).autoId(2).add('Name', 'Last Modify 2')
+              MockEntry.of(Product2.class).autoId(2).add('Name', 'Last Modify 2')
             )
         }
       );

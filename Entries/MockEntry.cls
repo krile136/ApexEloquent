@@ -34,11 +34,17 @@
  */
 public with sharing class MockEntry extends AbstractEntry {
   private final Map<String, Object> fieldToValue;
+  private Boolean skipFieldValidation = false;
 
   /**
-   * Creates a new instance of MockEntry for a given SObjectType.
+   * @deprecated
+   * This method is deprecated in favor of {@link #of(System.Type)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
    *
-   * @param sObjectType The SObject type of the record to create (e.g., Account.getSObjectType()).
+   * @param sObjectType The SObject type of the record to create.
    * @return A new MockEntry instance.
    */
   public static MockEntry of(Schema.SObjectType sObjectType) {
@@ -46,6 +52,30 @@ public with sharing class MockEntry extends AbstractEntry {
     return new MockEntry(record);
   }
 
+  /**
+   * Creates a new instance of MockEntry for a given SObject Type.
+   *
+   * @param recordType The Class type of the SObject (e.g., Account.class).
+   * @return A new MockEntry instance.
+   * @throws IllegalArgumentException if recordType is null or not an SObject type.
+   */
+  public static MockEntry of(System.Type recordType) {
+    if (recordType == null) {
+      throw new IllegalArgumentException('[MockEntry.of] The recordType argument is required.');
+    }
+
+    Object instance = recordType.newInstance();
+    if (!(instance instanceof SObject)) {
+      throw new IllegalArgumentException(
+        '[MockEntry.of] Invalid type: \'' +
+          recordType.getName() +
+          '\' is not an SObject. ' +
+          'Ensure you are passing a valid SObject class (e.g., Opportunity.class, MyCustomObject__c.class).'
+      );
+    }
+
+    return new MockEntry((SObject) instance);
+  }
   /**
    * Sets a value for a specified field.
    * This method is immutable and returns a new MockEntry instance.
@@ -57,7 +87,26 @@ public with sharing class MockEntry extends AbstractEntry {
   public MockEntry add(String fieldName, Object value) {
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(fieldName, value);
-    return new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    this.inheritParameters(newEntry);
+    return newEntry;
+  }
+
+  /**
+   * Sets multiple field values at once using a map of field names to values.
+   * This method is immutable and returns a new MockEntry instance.
+   *
+   * @param fieldToValue A map where the key is the API name of the field and the value is the value to set.
+   * @return A new MockEntry instance with the updated field values.
+   */
+  public MockEntry template(Map<String, Object> fieldToValue) {
+    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
+    for (String fieldName : fieldToValue.keySet()) {
+      newFieldToValue.put(fieldName, fieldToValue.get(fieldName));
+    }
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    this.inheritParameters(newEntry);
+    return newEntry;
   }
 
   /**
@@ -70,7 +119,9 @@ public with sharing class MockEntry extends AbstractEntry {
   public MockEntry addChildren(String childObjectNameOrRelationName, List<MockEntry> children) {
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(childObjectNameOrRelationName, children);
-    return new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    this.inheritParameters(newEntry);
+    return newEntry;
   }
 
   /**
@@ -83,7 +134,9 @@ public with sharing class MockEntry extends AbstractEntry {
   public MockEntry addParent(String parentIdFieldName, MockEntry parent) {
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(parentIdFieldName, parent);
-    return new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+    this.inheritParameters(newEntry);
+    return newEntry;
   }
 
   /**
@@ -100,7 +153,10 @@ public with sharing class MockEntry extends AbstractEntry {
     String id = this.generate18CharId(suffix);
     FieldStructure clonedfieldStructure = this.fieldStructure.clone();
     clonedfieldStructure.addField('id');
-    return new MockEntry(this.record, clonedfieldStructure, this.fieldToValue).add('Id', id);
+    MockENtry newEntry = new MockEntry(this.record, clonedfieldStructure, this.fieldToValue);
+    newEntry = newEntry.add('Id', id);
+    this.inheritParameters(newEntry);
+    return newEntry;
   }
 
   /**
@@ -192,7 +248,9 @@ public with sharing class MockEntry extends AbstractEntry {
           newFieldToValue.put(key, resolvedValue);
         }
       }
-      entries.add(new MockEntry(this.record, this.fieldStructure, newFieldToValue));
+      MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
+      this.inheritParameters(newEntry);
+      entries.add(newEntry);
     }
 
     return entries;
@@ -359,7 +417,7 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public override Object get(String fieldName) {
     if (this.hasAggregateResult) {
-      if (!this.fieldStructure.hasField(fieldName.toLowerCase())) {
+      if (!this.skipFieldValidation && !this.fieldStructure.hasField(fieldName.toLowerCase())) {
         String error = String.format(
           'The specified field or alias is not exist in Scribe. field or alias name: {0}',
           new List<String>{ fieldName }
@@ -372,6 +430,9 @@ public with sharing class MockEntry extends AbstractEntry {
           Object value = this.fieldToValue.get(key);
           if (value instanceof IEntry) {
             IEntry entry = (IEntry) value;
+            if (this.skipFieldValidation) {
+              entry = entry.withoutFieldValidation();
+            }
             FieldStructure relationFieldStructure = this.fieldStructure == null
               ? new FieldStructure(new List<String>())
               : this.fieldStructure.getRelationFieldStructure(fieldname.toLowerCase());
@@ -397,6 +458,9 @@ public with sharing class MockEntry extends AbstractEntry {
         Object value = this.fieldToValue.get(key);
         if (value instanceof IEntry) {
           IEntry entry = (IEntry) value;
+          if (this.skipFieldValidation) {
+            entry = entry.withoutFieldValidation();
+          }
           FieldStructure relationFieldStructure = this.fieldStructure == null
             ? new FieldStructure(new List<String>())
             : this.fieldStructure.getRelationFieldStructure(fieldname.toLowerCase());
@@ -406,7 +470,6 @@ public with sharing class MockEntry extends AbstractEntry {
       }
     }
 
-    System.debug('MockEntry.get: Falling back to base record for field: ' + fieldName);
     Entry entry = new Entry(this.record);
     return entry.get(fieldName);
   }
@@ -441,7 +504,7 @@ public with sharing class MockEntry extends AbstractEntry {
     this.ensureDescribeResultIfNeeded();
     String lowerCaseFieldName = parentIdFieldName.toLowerCase();
 
-    if (!this.fieldStructure.hasRelation(lowerCaseFieldName)) {
+    if (!this.skipFieldValidation && !this.fieldStructure.hasRelation(lowerCaseFieldName)) {
       String error = String.format(
         'The specified parentIdFieldName is not set in Scribe. object name: {0}, parent Id field name: {1}',
         new List<String>{ this.describeResult.getName(), parentIdFieldName }
@@ -451,9 +514,14 @@ public with sharing class MockEntry extends AbstractEntry {
 
     if (this.fieldToValue.containsKey(parentIdFieldName)) {
       IEntry resultEntry = (IEntry) this.fieldToValue.get(parentIdFieldName);
+      if (this.skipFieldValidation) {
+        System.debug('親もフィールドバリデーションをスキップさせます');
+        resultEntry = resultEntry.withoutFieldValidation();
+      }
       FieldStructure parentFieldStructure = this.fieldStructure == null
         ? new FieldStructure(new List<String>())
         : this.fieldStructure.getRelationFieldStructure(lowerCaseFieldName);
+      System.debug('skipFieldValidation: ' + this.skipFieldValidation);
       return resultEntry.setFieldStructure(parentFieldStructure);
     }
 
@@ -510,7 +578,7 @@ public with sharing class MockEntry extends AbstractEntry {
   public override Id getId() {
     this.validateFieldName('Id');
 
-    if (this.fieldToValue.containsKey('Id')) {
+    if (!this.skipFieldValidation && this.fieldToValue.containsKey('Id')) {
       return (Id) this.fieldToValue.get('Id');
     }
 
@@ -523,7 +591,7 @@ public with sharing class MockEntry extends AbstractEntry {
   public override String getName() {
     this.validateFieldName('Name');
 
-    if (this.fieldToValue.containsKey('Name')) {
+    if (!this.skipFieldValidation && this.fieldToValue.containsKey('Name')) {
       return (String) this.fieldToValue.get('Name');
     }
 
@@ -533,13 +601,25 @@ public with sharing class MockEntry extends AbstractEntry {
   /**
    * @inheritDoc
    */
+  public override IEntry withoutFieldValidation() {
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, this.fieldToValue);
+    newEntry.inheritParameters(newEntry);
+    newEntry.skipFieldValidation = true;
+    return newEntry;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public override SObject getRecord() {
     SObject returnRecord = this.record;
     for (String fieldName : this.fieldToValue.keySet()) {
-      try{
-        returnRecord.put(fieldName, this.get(fieldName));
+      try {
+        returnRecord.put(fieldName, this.fieldToValue.get(fieldName));
       } catch (Exception e) {
-        System.debug('MockEntry.getRecord: Skipped putting value into a field due to a constraint. Field: ' + fieldName);
+        System.debug(
+          'MockEntry.getRecord: Skipped putting value into a field due to a constraint. Field: ' + fieldName
+        );
       }
     }
     return returnRecord;
@@ -549,14 +629,18 @@ public with sharing class MockEntry extends AbstractEntry {
    * @inheritDoc
    */
   public override IEntry setRecord(SObject record) {
-    return new MockEntry(record, this.fieldStructure, this.fieldToValue);
+    MockEntry newMockEntry = new MockEntry(record, this.fieldStructure, this.fieldToValue);
+    this.inheritParameters(newMockEntry);
+    return newMockEntry;
   }
 
   /**
    * @inheritDoc
    */
   public override IEntry setFieldStructure(FieldStructure fieldStructure) {
-    return new MockEntry(this.record, fieldStructure, this.fieldToValue);
+    MockEntry newMockEntry = new MockEntry(this.record, fieldStructure, this.fieldToValue);
+    this.inheritParameters(newMockEntry);
+    return newMockEntry;
   }
 
   /**
@@ -567,9 +651,11 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   private void validateFieldName(String fieldName) {
     String lowerCaseFieldName = fieldName.toLowerCase();
-    if (this.fieldStructure.hasField(lowerCaseFieldName)) {
+    if (this.skipFieldValidation || this.fieldStructure.hasField(lowerCaseFieldName)) {
       return;
     }
+    System.debug('skipFieldValidation: ' + this.skipFieldValidation);
+    System.debug('fieldStructure: ' + this.fieldStructure);
 
     String error = String.format(
       'The specified field is not selected in Scribe. object name: {0}, field name: {1}',
@@ -585,7 +671,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * @throws QueryException if the child relation name is not valid
    */
   private void validateChildRelationInFieldStructure(String relation, String errorTemplate) {
-    if (!this.fieldStructure.hasRelation(relation.toLowerCase())) {
+    if (!this.skipFieldValidation && !this.fieldStructure.hasRelation(relation.toLowerCase())) {
       this.ensureDescribeResultIfNeeded();
       String error = String.format(errorTemplate, new List<String>{ this.describeResult.getName(), relation });
       throw new QueryException(error);
@@ -616,8 +702,15 @@ public with sharing class MockEntry extends AbstractEntry {
       ? new FieldStructure()
       : this.fieldStructure.getRelationFieldStructure(key.toLowerCase());
     for (IEntry entry : entries) {
+      if (this.skipFieldValidation) {
+        entry = entry.withoutFieldValidation();
+      }
       resultEntries.add(entry.setFieldStructure(childFieldStructure));
     }
     return resultEntries;
+  }
+
+  private void inheritParameters(MockEntry entry) {
+    entry.skipFieldValidation = this.skipFieldValidation;
   }
 }

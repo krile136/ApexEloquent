@@ -49,11 +49,11 @@ public with sharing class EntryTest {
   @isTest
   static void testGet_WhenGetUserCount_ThenReutnCountResult() {
     // Arrange
-    Scribe scribe = Scribe.source(User.getSObjectType())
+    Scribe scribe = Scribe.of(User.class)
       .field('IsActive')
       .count('Id', 'UserCount')
       .groupByField('IsActive');
-    List<IEntry> entries = (new Eloquent()).getAggregate(scribe);
+    List<IEntry> entries = (new Eloquent()).get(scribe);
 
     // Act
     Entry entry = (Entry) entries[0];
@@ -66,11 +66,11 @@ public with sharing class EntryTest {
   @isTest
   static void testGet_WhenGetNonExistAlias_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(User.getSObjectType())
+    Scribe scribe = Scribe.of(User.class)
       .field('IsActive')
       .count('Id', 'UserCount')
       .groupByField('IsActive');
-    List<IEntry> entries = (new Eloquent()).getAggregate(scribe);
+    List<IEntry> entries = (new Eloquent()).get(scribe);
     Entry entry = (Entry) entries[0];
 
     // Act & Assert
@@ -122,11 +122,11 @@ public with sharing class EntryTest {
   @isTest
   static void testPut_WhenCalledOnAggregateResult_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(User.getSObjectType())
+    Scribe scribe = Scribe.of(User.class)
       .field('IsActive')
       .count('Id', 'UserCount')
       .groupByField('IsActive');
-    List<IEntry> entries = (new Eloquent()).getAggregate(scribe);
+    List<IEntry> entries = (new Eloquent()).get(scribe);
     Entry entry = (Entry) entries[0];
     String newValue = 'Some Value';
 

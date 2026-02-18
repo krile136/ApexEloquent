@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
- /**
+/**
  * @description Defines the contract for a unified record wrapper, which represents a single result from an `ApexEloquent` query.
  *
  * This interface is the cornerstone of the framework's testability. It abstracts the
@@ -25,7 +25,7 @@
  * It provides methods to access field values and to navigate eager-loaded parent, child,
  * and many-to-many (`through`) relationships.
  */
-public Interface IEntry {
+public interface IEntry {
   /**
    * get SObject field value.
    *
@@ -40,13 +40,13 @@ public Interface IEntry {
    * @param fieldName field name
    * @param value field value
    */
-  void put(String fieldName, Object value); 
+  void put(String fieldName, Object value);
 
   /**
    * get parent SObject as Evaluator.
    *
    * @param parentFieldName parent relationId field name
-   * @return parent SObject as Entry 
+   * @return parent SObject as Entry
    */
   IEntry getParent(String parentIdFieldName);
 
@@ -67,14 +67,14 @@ public Interface IEntry {
   List<IEntry> getChildrenByRelationName(String childRelationName);
 
   /**
-  * get related SObject list through a junction object.
-  *
-  * @param junctionObjectName junction object Name
-  * @param relatedKey related SObject key field name in the junction object
-  * @return related SObject list
-  */
+   * get related SObject list through a junction object.
+   *
+   * @param junctionObjectName junction object Name
+   * @param relatedKey related SObject key field name in the junction object
+   * @return related SObject list
+   */
   List<IEntry> getThrough(String junctionObjectName, String relatedKey);
-  
+
   /**
    * get related SObject list through a junction object relation name.
    *
@@ -112,6 +112,31 @@ public Interface IEntry {
    * @return EvaluatorInterface
    */
   IEntry setRecord(SObject record);
+
+  /**
+   * Get IEntry without field validation.
+   *
+   * WARNING: This should ONLY be used when creating IEntry from SObject
+   * that was NOT retrieved via Scribe/SOQL (e.g., Trigger.new in beforeInsert).
+   *
+   * This method disables the "unselected field detection" feature, which is
+   * one of the core safety mechanisms of ApexEloquent.
+   *
+   * DO NOT use this for performance improvement. The field validation overhead
+   * is negligible and the safety it provides is invaluable.
+   *
+   * Valid use cases:
+   * - Creating Entry from Trigger.new/Trigger.newMap in beforeInsert (no ID yet)
+   * - Creating Entry from manually constructed SObject (not from DB)
+   *
+   * Invalid use cases:
+   * - ❌ "I want to skip validation for performance" - NO! Use Scribe properly.
+   * - ❌ "I forgot to select a field in Scribe" - NO! Fix your Scribe query.
+   * - ❌ "Field validation is annoying" - NO! It's protecting you from bugs.
+   *
+   * @return IEntry without field validation
+   */ 
+  IEntry withoutFieldValidation();
 
   /**
    * set picked fields and relation fields.

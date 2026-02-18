@@ -93,13 +93,49 @@ public with sharing class Scribe {
   // =================================================================================================================
 
   /**
+   * @deprecated
+   * This method is deprecated in favor of {@link #of(System.Type)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * Creates a new Scribe instance, setting the source SObject (the FROM clause).
    * This is the entry point for building a new query.
    * Example: `Scribe.source(Account.getSObjectType())`
    *
    * @param sObjectType The SObject type to query from.
    * @return A new Scribe instance.
-   */ public static Scribe source(Schema.SObjectType sObjectType) {
+   */
+  public static Scribe source(Schema.SObjectType sObjectType) {
+    Scribe newScribe = new Scribe(sObjectType);
+    return newScribe;
+  }
+
+  /**
+   * Creates a new Scribe instance, setting the source SObject (the FROM clause).
+   * This is the entry point for building a new query.
+   * Example: `Scribe.source(Account.getSObjectType())`
+   *
+   * @param recordType The Class type of the SObject (e.g., Account.class).
+   * @return A new Scribe instance.
+   */
+  public static Scribe of(System.Type recordType) {
+    if (recordType == null) {
+      throw new IllegalArgumentException('[Scribe.of] The recordType argument is required.');
+    }
+
+    Object instance = recordType.newInstance();
+    if (!(instance instanceof SObject)) {
+      throw new ApexEloquentException(
+        '[Scribe.of] Invalid type: \'' +
+          recordType.getName() +
+          '\' is not an SObject. ' +
+          'Ensure you are passing a valid SObject class (e.g., Opportunity.class, MyCustomObject__c.class).'
+      );
+    }
+
+    Schema.SObjectType sObjectType = ((SObject) instance).getSObjectType();
     Scribe newScribe = new Scribe(sObjectType);
     return newScribe;
   }
@@ -134,6 +170,13 @@ public with sharing class Scribe {
   }
 
   /**
+   * @deprecated
+   * This method is deprecated in favor of {@link #of(System.Type)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * Creates a Scribe instance representing a child subquery.
    * Example: `.withChildren(Scribe.asChild(Contact.getSObjectType()).fields(...).whereEqual(...))`
    *
@@ -152,6 +195,33 @@ public with sharing class Scribe {
   }
 
   /**
+   * Creates a Scribe instance representing a child subquery.
+   * Example: `.withChildren(Scribe.asChild(Contact.getSObjectType()).fields(...).whereEqual(...))`
+   *
+   * @param childRecordType The Class type of the child SObject (e.g., Contact.class).
+   * @return A new Scribe instance configured for a child relationship.
+   * @throws QueryException if the SObjectType is null.
+   */
+  public static Scribe asChild(System.Type childRecordType) {
+    if (childRecordType == null) {
+      throw new IllegalArgumentException('[Scribe.asChild] The childRecordType argument is required.');
+    }
+
+    Object instance = childRecordType.newInstance();
+    if (!(instance instanceof SObject)) {
+      throw new ApexEloquentException(
+        '[Scribe.asChild] Invalid type: \'' +
+          childRecordType.getName() +
+          '\' is not an SObject. ' +
+          'Ensure you are passing a valid SObject class (e.g., Contact.class, MyCustomObject__c.class).'
+      );
+    }
+
+    Schema.SObjectType childSObjectType = ((SObject) instance).getSObjectType();
+    return Scribe.asChild(childSObjectType);
+  }
+
+  /**
    * Creates a Scribe instance for a HAVING clause.
    * Example: `.havingCondition(Scribe.asHaving().whereGreaterThan(...))`
    *
@@ -164,6 +234,13 @@ public with sharing class Scribe {
   }
 
   /**
+   * @deprecated
+   * This method is deprecated in favor of {@link #of(System.Type)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * Creates a Scribe instance for a many-to-many relationship traversal.
    * Example: `.through(Scribe.asThrough(JunctionObject.getSObjectType(), 'TargetObject__c'))`
    *
@@ -177,6 +254,44 @@ public with sharing class Scribe {
     newScribe.junctionSObjectType = junctionSObjectType;
     newScribe.parentRelationIdFieldName = relatedKey;
 
+    return newScribe;
+  }
+
+  /**
+   * Creates a Scribe instance configured for a many-to-many relationship traversal.
+   * This method defines how to bridge to a target object through a junction object.
+   *
+   * Example:
+   * .through(Scribe.asThrough(OrderItem.class, 'Product2Id'))
+   *
+   * @param junctionType The Class type of the junction SObject (e.g., OrderItem.class).
+   * @param targetLookupField The API name of the field on the junction object that points to the final related object (e.g., 'Product2Id').
+   * @return A new Scribe instance tailored for junction object traversal.
+   */
+  public static Scribe asThrough(System.Type junctionType, String targetLookupField) {
+    if (junctionType == null) {
+      throw new IllegalArgumentException('[Scribe.asThrough] The junctionType argument is required.');
+    }
+
+    if(String.isBlank(targetLookupField)) {
+      throw new IllegalArgumentException('[Scribe.asThrough] The targetLookupField argument is required');
+    }
+
+    Object instance = junctionType.newInstance();
+    if (!(instance instanceof SObject)) {
+      throw new ApexEloquentException(
+        '[Scribe.asThrough] Invalid type: \'' +
+          junctionType.getName() +
+          '\' is not an SObject. ' +
+          'Ensure you are passing a valid SObject class (e.g., JunctionObject__c.class).'
+      );
+    }
+
+    Schema.SObjectType junctionSObjectType = ((SObject) instance).getSObjectType();
+    Scribe newScribe = new Scribe(null);
+    newScribe.isThrough = true;
+    newScribe.junctionSObjectType = junctionSObjectType;
+    newScribe.parentRelationIdFieldName = targetLookupField;
     return newScribe;
   }
 
@@ -1528,7 +1643,7 @@ public with sharing class Scribe {
     if (this.orderByClauses.isEmpty()) {
       return query;
     }
-    if(this.isForUpdate) {
+    if (this.isForUpdate) {
       throw new QueryException('ORDER BY cannot be used with FOR UPDATE clause.');
     }
 
@@ -1566,7 +1681,7 @@ public with sharing class Scribe {
     if (this.offsetNumber == 0) {
       return query;
     }
-    if(this.isForUpdate){
+    if (this.isForUpdate) {
       throw new QueryException('OFFSET cannot be used with FOR UPDATE clause.');
     }
 
@@ -1574,13 +1689,13 @@ public with sharing class Scribe {
   }
 
   /**
-  * Constructs the FOR UPDATE clause string.
-  *
-  * @param query The current query string.
-  * @return The query string with the FOR UPDATE clause appended.
-  */
+   * Constructs the FOR UPDATE clause string.
+   *
+   * @param query The current query string.
+   * @return The query string with the FOR UPDATE clause appended.
+   */
   private String buildForUpdateClause(String query) {
-    if(!this.isForUpdate){
+    if (!this.isForUpdate) {
       return query;
     }
 

@@ -33,6 +33,10 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> get(Scribe scribe) {
+    if (scribe.isAggregate()) {
+      return this.getAggregate(scribe);
+    }
+
     List<IEntry> entries = new List<IEntry>();
     for (SObject record : (List<SObject>) Database.query(scribe.toSoql())) {
       entries.add(new Entry(record));
@@ -41,15 +45,7 @@ public with sharing class Eloquent implements IEloquent {
     return entries;
   }
 
-  /**
-   * @inheritDoc
-   */
-  public List<IEntry> getAggregate(Scribe scribe) {
-    if (!scribe.isAggregate()) {
-      throw new QueryException(
-        'The provided Scribe instance does not represent an aggregate query: ' + scribe.toSoql()
-      );
-    }
+  private List<IEntry> getAggregate(Scribe scribe) {
     FieldStructure fieldStructure = null;
     List<IEntry> entries = new List<IEntry>();
     for (AggregateResult aggregateResult : (List<AggregateResult>) Database.query(scribe.toSoql())) {

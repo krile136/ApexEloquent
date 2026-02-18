@@ -194,5 +194,6 @@ public abstract class AbstractEntry implements IEntry {
   public abstract IEntry setRecord(SObject record);
   public abstract Id getId();
   public abstract String getName();
+  public abstract IEntry withoutFieldValidation();
   public abstract IEntry setFieldStructure(FieldStructure fieldStructure);
 }

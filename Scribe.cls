@@ -273,7 +273,7 @@ public with sharing class Scribe {
       throw new IllegalArgumentException('[Scribe.asThrough] The junctionType argument is required.');
     }
 
-    if(String.isBlank(targetLookupField)) {
+    if (String.isBlank(targetLookupField)) {
       throw new IllegalArgumentException('[Scribe.asThrough] The targetLookupField argument is required');
     }
 
@@ -1454,6 +1454,9 @@ public with sharing class Scribe {
 
     // Add child queries
     if (!this.children.isEmpty()) {
+      if (String.isNotBlank(selectFieldsString)) {
+        selectFieldsString += ', ';
+      }
       lowerNestingDepth++;
       if (lowerNestingDepth > this.MAX_LOWER_NESTING_DEPTH) {
         List<String> overNestedChildrenNames = new List<String>();
@@ -1469,11 +1472,16 @@ public with sharing class Scribe {
         );
         throw new QueryException(error);
       }
+      List<String> childSoqls = new List<String>();
       for (Scribe child : this.children) {
-        selectFieldsString += String.format(
-          ', ({0})',
+        String childSoql = String.format(
+          '({0})',
           new List<String>{ child.buildChildSoql(this.sObjectType, lowerNestingDepth) }
         );
+        childSoqls.add(childSoql);
+      }
+      if (!childSoqls.isEmpty()) {
+        selectFieldsString += String.join(childSoqls, ', ');
       }
     }
 

@@ -856,6 +856,23 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testWithChildren_WhenNoSelectFieldInRootScribe_ThenGenerateOnlyChildField() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .withChildren(
+        Scribe.asChild(Opportunity.class).relationName('Opportunities').field('Id').whereNotNull('Name')
+      )
+      .whereEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT (SELECT id FROM Opportunities WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
   static void testWithChildren_WhenAddParallelWithChildrenCondition_ThenAddParallelWithChildrenCondition() {
     // Arrange
     Scribe scribe = Scribe.of(Account.class)
@@ -1066,7 +1083,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddOnlyParentField_ThenAddOnlyParentField() {
+  static void testParentField_WhenAddParentScribe_ThenGenerateParentField() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1082,7 +1099,22 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddVoidString_ThenThrowException() {
+  static void testParenfField_WhenNoSelectFieldInRootScribe_ThenGenerateOnlyParentField() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testParentField_WhenApplyVoidString_ThenThrowException() {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class)
@@ -1099,7 +1131,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddOnlyParentFieldUsingAsGroup_ThenErrorThrown() {
+  static void testParentField_WhenApplyGroupScribe_ThenErrorThrown() {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class)
@@ -1119,7 +1151,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_AddOnlyParentCondition_ThenAddOnlyParentCondition() {
+  static void testParentCondition_AddParentScribe_ThenAddParentCondition() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1134,7 +1166,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_AddOnlyParentConditionUsingAsGroup_ThenErrorThrown() {
+  static void testParentCondition_AddGroupScribe_ThenErrorThrown() {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class)
@@ -1153,7 +1185,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddWithParentCondition_ThenAddWithParentCondition() {
+  static void testParentFieldAndCondition_WhenAddWithParentCondition_ThenAddWithParentCondition() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1170,7 +1202,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddWithParentMultipleCondition_ThenAddWithParentMultipleCondition() {
+  static void testParentFieldAndCondition_WhenAddWithParentMultipleCondition_ThenAddWithParentMultipleCondition() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1189,7 +1221,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddWithParentMultipleConditionByAnotherMethod_ThenAddWithParentMultipleCondition() {
+  static void testParentCondition_WhenAddWithParentMultipleConditionByAnotherMethod_ThenAddWithParentMultipleCondition() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1207,7 +1239,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddOrConditionParent_ThenAddOrConditionParent() {
+  static void testParentCondition_WhenAddOrConditionParent_ThenAddOrConditionParent() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1229,7 +1261,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddParentConditionAfterOrCondition_ThenThrownError() {
+  static void testParentCondition_WhenAddParentConditionAfterOrCondition_ThenThrownError() {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class)
@@ -1256,7 +1288,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddOrConditionAtFirstInParentCondition_ThenAddOrParentCondition() {
+  static void testParentCondition_WhenAddOrConditionAtFirstInParentCondition_ThenAddOrParentCondition() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1273,7 +1305,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddOrConditionParentAsGroup_ThenAddOrConditionParentAsasGroup() {
+  static void testParentCondition_WhenAddOrConditionParentAsGroup_ThenAddOrConditionParentAsasGroup() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1298,7 +1330,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddNestedParent_ThenAddNestedParentCondition() {
+  static void testParentFieldAndCondition_WhenAddNestedParent_ThenAddNestedParentCondition() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1324,7 +1356,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddThreeNestedParentOrCondition_ThenAddNestedParentCondition() {
+  static void testParentFieldAndCondition_WhenAddThreeNestedParentOrCondition_ThenAddNestedParentCondition() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1352,7 +1384,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddAndConditionAfterOrParentCondition_ThenErrorThrown() {
+  static void testParentCondition_WhenAddAndConditionAfterOrParentCondition_ThenErrorThrown() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1379,7 +1411,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddAndConditionAfterNestedOrParentCondition_ThenErrorThrown() {
+  static void testParentCondition_WhenAddAndConditionAfterNestedOrParentCondition_ThenErrorThrown() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
@@ -1410,7 +1442,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddIgnoreParentCondition_ThenInogreParentCondition() {
+  static void testParentCondition_WhenAddEmptyList_ThenInogreParentCondition() {
     // Arrange
     Scribe scribe = Scribe.of(Quote.class)
       .field('Id')
@@ -1426,7 +1458,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddIgnoreParentCondition_ThenInogreParentCondition_2() {
+  static void testParentCondition_WhenAddEmptyLists_ThenInogreParentCondition_2() {
     // Arrange
     Scribe scribe = Scribe.of(Quote.class)
       .field('Id')
@@ -1447,7 +1479,7 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddOverFourNestedParentFieldOver_ThenThrowException() {
+  static void testParentField_WhenAddOverFourNestedParentField_ThenThrowException() {
     // Arrange
     Scribe scribe = Scribe.of(OrderItem.class)
       .field('Id')

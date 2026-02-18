@@ -162,9 +162,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testGreaterThan_WhenValueIsNotNull_ThenAddGreaterThanCondition() {
     // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class)
-      .field('Id')
-      .whereGreaterThan('TotalOpportunityQuantity', 1000);
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('TotalOpportunityQuantity', 1000);
 
     // Act
     String soql = scribe.toSoql();
@@ -177,9 +175,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testGreaterThan_WhenValueIsNull_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class)
-      .field('Id')
-      .whereGreaterThan('TotalOpportunityQuantity', null);
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('TotalOpportunityQuantity', null);
 
     // Act & Assert
     try {
@@ -196,9 +192,7 @@ public with sharing class ScribeTest {
   static void testGreaterThan_WhenTypeOfValueIsDatetime_ThenAddGreaterThanCondition() {
     // Arrange
     Datetime dt = Datetime.newInstance(2023, 1, 1, 0, 0, 0);
-    Scribe scribe = Scribe.of(Opportunity.class)
-      .field('Id')
-      .whereGreaterThan('LastModifiedDate', dt);
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('LastModifiedDate', dt);
 
     // Act
     String soql = scribe.toSoql();
@@ -245,9 +239,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testLessThan_WhenValueIsNotNull_ThenAddLessThanCondition() {
     // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class)
-      .field('Id')
-      .whereLessThan('TotalOpportunityQuantity', 1000);
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereLessThan('TotalOpportunityQuantity', 1000);
 
     // Act
     String soql = scribe.toSoql();
@@ -260,9 +252,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testLessThan_WhenValueIsNull_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class)
-      .field('Id')
-      .whereLessThan('TotalOpportunityQuantity', null);
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereLessThan('TotalOpportunityQuantity', null);
 
     // Act & Assert
     try {
@@ -319,6 +309,19 @@ public with sharing class ScribeTest {
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name LIKE \'%Test%\'';
     Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testLike_WhenValueContainsSingleQuote_ThenPreventInjection() {
+    // Arrange
+    String dengerousInput = 'Test\' OR Name != \'';
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereLike('Name', dengerousInput);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name LIKE \'Test\\\' OR Name != \\\'\'';
   }
 
   @isTest
@@ -543,10 +546,7 @@ public with sharing class ScribeTest {
   static void testOrCondition_WhenAddOrConditionAtFirst_ThenThrownException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Account.class)
-        .field('Id')
-        .orCondition()
-        .whereEqual('Name', 'Test Account');
+      Scribe scribe = Scribe.of(Account.class).field('Id').orCondition().whereEqual('Name', 'Test Account');
 
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
@@ -766,10 +766,7 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
-      .whereIn(
-        'AccountId',
-        Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account')
-      );
+      .whereIn('AccountId', Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account'));
 
     // Act
     String soql = scribe.toSoql();
@@ -804,10 +801,7 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
-      .whereNotIn(
-        'AccountId',
-        Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account')
-      );
+      .whereNotIn('AccountId', Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account'));
 
     // Act
     String soql = scribe.toSoql();
@@ -977,9 +971,7 @@ public with sharing class ScribeTest {
         Scribe.asChild(Quote.class)
           .field('Id')
           .withChildren(
-            Scribe.asChild(Order.class)
-              .field('Id')
-              .withChildren(Scribe.asChild(OrderItem.class).field('Id'))
+            Scribe.asChild(Order.class).field('Id').withChildren(Scribe.asChild(OrderItem.class).field('Id'))
           )
       );
 
@@ -1024,10 +1016,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .withChildren(
-        Scribe.asChild(Opportunity.class)
-          .relationName('Opporrunity__r')
-          .field('Id')
-          .whereNotNull('Name')
+        Scribe.asChild(Opportunity.class).relationName('Opporrunity__r').field('Id').whereNotNull('Name')
       )
       .whereEqual('Name', 'Test Account');
 
@@ -1647,9 +1636,7 @@ public with sharing class ScribeTest {
             Scribe.asChild(Opportunity.class)
               .fields(fields)
               .withChildren(
-                Scribe.asChild(Quote.class)
-                  .fields(fields)
-                  .withChildren(Scribe.asChild(Order.class).fields(fields))
+                Scribe.asChild(Quote.class).fields(fields).withChildren(Scribe.asChild(Order.class).fields(fields))
               )
           )
       );
@@ -1787,10 +1774,7 @@ public with sharing class ScribeTest {
   static void testOrderBy_WhenAddBlankField_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Opportunity.class)
-        .field('Id')
-        .whereEqual('Id', '006000000000000')
-        .orderBy('');
+      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000').orderBy('');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
@@ -1851,7 +1835,7 @@ public with sharing class ScribeTest {
       Scribe scribe = Scribe.of(Account.class).field('Id').offset(-1);
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
-    System.debug('Expected exception: ' + e.getMessage());
+      System.debug('Expected exception: ' + e.getMessage());
       Assert.areEqual('The offset number must be greater than zero.', e.getMessage());
     }
   }
@@ -1920,10 +1904,7 @@ public with sharing class ScribeTest {
   static void testForUpdate_WhenWithOrderByClause_ThenThrowException_1() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Account.class)
-        .field('Id')
-        .orderBy('Name')
-        .forUpdate();
+      Scribe scribe = Scribe.of(Account.class).field('Id').orderBy('Name').forUpdate();
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
@@ -1936,10 +1917,7 @@ public with sharing class ScribeTest {
   static void testForUpdate_WhenWithOrderByClause_ThenThrowException_2() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Account.class)
-        .field('Id')
-        .forUpdate()
-        .orderBy('Name');
+      Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate().orderBy('Name');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
@@ -1952,10 +1930,7 @@ public with sharing class ScribeTest {
   static void testForUpdate_WhenWithOffsetClause_ThenThrowException_1() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Account.class)
-        .field('Id')
-        .offset(10)
-        .forUpdate();
+      Scribe scribe = Scribe.of(Account.class).field('Id').offset(10).forUpdate();
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
@@ -1968,10 +1943,7 @@ public with sharing class ScribeTest {
   static void testForUpdate_WhenWithOffsetClause_ThenThrowException_2() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Account.class)
-        .field('Id')
-        .forUpdate()
-        .offset(10);
+      Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate().offset(10);
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
@@ -2093,8 +2065,7 @@ public with sharing class ScribeTest {
   static void testCountDistinct_WhenAddNonSupportedFieldToCountDistinct_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Opportunity.class)
-        .countDistinct('IsPrivate', 'countDistinctIsPrivate');
+      Scribe scribe = Scribe.of(Opportunity.class).countDistinct('IsPrivate', 'countDistinctIsPrivate');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
@@ -2250,9 +2221,7 @@ public with sharing class ScribeTest {
   static void testAggregateFunctions_WhenAddSameAlias_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Opportunity.class)
-        .average('Amount', 'amountAlias')
-        .count('Id', 'amountAlias'); // Duplicate alias
+      Scribe scribe = Scribe.of(Opportunity.class).average('Amount', 'amountAlias').count('Id', 'amountAlias'); // Duplicate alias
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {

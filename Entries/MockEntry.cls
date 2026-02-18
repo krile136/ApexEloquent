@@ -35,6 +35,7 @@
 public with sharing class MockEntry extends AbstractEntry {
   private final Map<String, Object> fieldToValue;
   private Boolean skipFieldValidation = false;
+  private String alias;
 
   /**
    * @deprecated
@@ -78,6 +79,99 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
+   * Creates a new MockEntry instance with the specified alias.
+   * The alias is used for retrieving the entry via `getByAlias` method.
+   *
+   * @param alias The alias to assign to this MockEntry.
+   * @return A new MockEntry instance with the specified alias.
+   */
+  public MockEntry alias(String alias) {
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, this.fieldToValue);
+    newEntry.inheritParameters(newEntry);
+    newEntry.alias = alias;
+    return newEntry;
+  }
+
+  /**
+   * Retrieves a MockEntry by its alias. The search is performed recursively through the current entry and all related entries.
+   *
+   * @param alias The alias of the MockEntry to retrieve.
+   * @return The MockEntry with the specified alias.
+   * @throws ApexEloquentException if no MockEntry with the specified alias is found.
+   */
+  public MockEntry getByAlias(String alias) {
+    if (this.alias == alias) {
+      MockEntry returnEntry = new MockEntry(this.record, this.fieldStructure, this.fieldToValue);
+      returnEntry = (MockEntry) returnEntry.withoutFieldValidation();
+      return returnEntry;
+    }
+    List<MockEntry> relations = new List<MockEntry>();
+    for (Object value : this.fieldToValue.values()) {
+      if (value instanceof MockEntry) {
+        relations.add((MockEntry) value);
+      } else if (value instanceof List<MockEntry>) {
+        relations.addAll((List<MockEntry>) value);
+      }
+    }
+    for (MockEntry relation : relations) {
+      MockEntry returnEntry = relation.getByAliasFromRelation(alias);
+      if (returnEntry != null) {
+        returnEntry = (MockEntry) returnEntry.withoutFieldValidation();
+        return returnEntry;
+      }
+    }
+
+    String error = '[MockEntry.getByAlias] No MockEntry found with the specified alias: ' + alias;
+    throw new ApexEloquentException(error);
+  }
+
+  /**
+   * Helper method to recursively search for a MockEntry with the specified alias in related entries.
+   *
+   * @param alias The alias of the MockEntry to retrieve.
+   * @return The MockEntry with the specified alias, or null if not found.
+   */
+  private MockEntry getByAliasFromRelation(String alias) {
+    if (this.alias == alias) {
+      return this;
+    }
+
+    List<MockEntry> relations = new List<MockEntry>();
+    for (Object value : this.fieldToValue.values()) {
+      if (value instanceof MockEntry) {
+        relations.add((MockEntry) value);
+      } else if (value instanceof List<MockEntry>) {
+        relations.addAll((List<MockEntry>) value);
+      }
+    }
+    for (MockEntry relation : relations) {
+      MockEntry returnEntry = relation.getByAliasFromRelation(alias);
+      if (returnEntry != null) {
+        return returnEntry;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Retrieves the Id of a MockEntry by its alias.
+   *
+   * @param alias The alias of the MockEntry whose Id to retrieve.
+   * @return The Id of the MockEntry with the specified alias.
+   * @throws ApexEloquentException if no MockEntry with the specified alias is found.
+   */
+  public Id getAliasId(String alias) {
+    MockEntry entry;
+    try {
+      entry = this.getByAlias(alias);
+    } catch (ApexEloquentException e) {
+      String error = '[MockEntry.getAliasId] No MockEntry found with the specified alias: ' + alias;
+      throw new ApexEloquentException(error);
+    }
+    return entry.getId();
+  }
+
+  /**
    * @deprecated
    * This method is deprecated in favor set {@link #set(String fieldName, Object value)} to align with
    * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
@@ -100,7 +194,6 @@ public with sharing class MockEntry extends AbstractEntry {
     return newEntry;
   }
 
-  
   /**
    * Sets a value for a specified field.
    * This method is immutable and returns a new MockEntry instance.
@@ -116,7 +209,6 @@ public with sharing class MockEntry extends AbstractEntry {
     this.inheritParameters(newEntry);
     return newEntry;
   }
-
 
   /**
    * Sets multiple field values at once using a map of field names to values.
@@ -142,7 +234,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * a more intuitive developer experience (DX).
    * * This method is maintained for backward compatibility but may be removed
    * in a future version.
-   * 
+   *
    * Sets a list of child relationship records.
    *
    * @param childObjectNameOrRelationName The child object name or the relationship name (e.g., 'Contacts').
@@ -311,7 +403,6 @@ public with sharing class MockEntry extends AbstractEntry {
         Object templateValue = this.fieldToValue.get(key);
         Object resolvedValue = this.resolveValue(templateValue, currentSequence);
 
-        // ID項目であれば、解決後の値をsuffixとして18桁IDを生成
         if (key.startsWith('id') || key.startsWith('Id') || key.endsWith('Id')) {
           newFieldToValue.put(key, this.generate18CharId(String.valueOf(resolvedValue)));
         } else {
@@ -320,6 +411,9 @@ public with sharing class MockEntry extends AbstractEntry {
       }
       MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
       this.inheritParameters(newEntry);
+      if (this.alias != null) {
+        newEntry = newEntry.alias((String) this.resolveValue(this.alias, currentSequence));
+      }
       entries.add(newEntry);
     }
 
@@ -648,7 +742,7 @@ public with sharing class MockEntry extends AbstractEntry {
   public override Id getId() {
     this.validateFieldName('Id');
 
-    if (!this.skipFieldValidation && this.fieldToValue.containsKey('Id')) {
+    if (this.fieldToValue.containsKey('Id')) {
       return (Id) this.fieldToValue.get('Id');
     }
 
@@ -661,7 +755,7 @@ public with sharing class MockEntry extends AbstractEntry {
   public override String getName() {
     this.validateFieldName('Name');
 
-    if (!this.skipFieldValidation && this.fieldToValue.containsKey('Name')) {
+    if (this.fieldToValue.containsKey('Name')) {
       return (String) this.fieldToValue.get('Name');
     }
 
@@ -724,8 +818,6 @@ public with sharing class MockEntry extends AbstractEntry {
     if (this.skipFieldValidation || this.fieldStructure.hasField(lowerCaseFieldName)) {
       return;
     }
-    System.debug('skipFieldValidation: ' + this.skipFieldValidation);
-    System.debug('fieldStructure: ' + this.fieldStructure);
 
     String error = String.format(
       'The specified field is not selected in Scribe. object name: {0}, field name: {1}',
@@ -782,5 +874,6 @@ public with sharing class MockEntry extends AbstractEntry {
 
   private void inheritParameters(MockEntry entry) {
     entry.skipFieldValidation = this.skipFieldValidation;
+    entry.alias = this.alias;
   }
 }

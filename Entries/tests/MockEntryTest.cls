@@ -521,7 +521,9 @@ public class MockEntryTest {
   @isTest
   static void testGet_WhenScriceDoesNotSelectField_ThenThrowException() {
     // Arrange
-    FieldStructure fieldStructure = Scribe.of(Account.class).fields(new List<String>{ 'id' }).buildFieldStructure();
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id' })
+      .buildFieldStructure();
     MockEntry mockEntry = MockEntry.of(Account.class).autoId(1).set('Name', 'Test Account');
     mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
 
@@ -1526,5 +1528,353 @@ public class MockEntryTest {
     Assert.areEqual(2, relatedObjects.size(), 'There should be two related objects.');
     Assert.areEqual('Last Modify 1', relatedObjects[0].getName(), 'First related object name should match.');
     Assert.areEqual('Last Modify 2', relatedObjects[1].getName(), 'Second related object name should match.');
+  }
+
+  @isTest
+  static void testAlias_WhenSetAlias_ThenNoErrorThrown() {
+    // Arrange / Act
+    MockEntry mockEntry = MockEntry.of(Account.class).alias('mockAccount').autoId(1).set('Name', 'Test Account');
+
+    // Assert
+    Assert.isNotNull(mockEntry, 'MockEntry should not be null.');
+  }
+
+  @isTest
+  static void testAlias_WhenSetAliasToChild_ThenNoErrorThrown() {
+    // Arrange / Act
+    MockEntry mockEntry = MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Test Account')
+      .setChildren(
+        'contacts',
+        new List<MockEntry>{
+          MockEntry.of(Contact.class).alias('testContact').autoId(1).set('LastName', 'Test Contact')
+        }
+      );
+
+    // Assert
+    Assert.isNotNull(mockEntry, 'MockEntry should not be null.');
+  }
+
+  @isTest
+  static void testAlias_WhenSetAliasToParent_ThenNoErrorThrown() {
+    // Arrange / Act
+    MockEntry mockEntry = MockEntry.of(Contact.class)
+      .autoId(1)
+      .set('LastName', 'Test Contact')
+      .setParent(
+        'AccountId',
+        MockEntry.of(Account.class).alias('testAccount').autoId(1).set('Name', 'Test Account')
+      );
+
+    // Assert
+    Assert.isNotNull(mockEntry, 'MockEntry should not be null.');
+  }
+
+  @isTest
+  static void testGetByAlias_WhenAliasExistsInRoot_ThenReturnMockEntry() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class).alias('mockAccount').autoId(1).set('Name', 'Test Account');
+
+    // Act
+    MockEntry result = mockEntry.getByAlias('mockAccount');
+
+    // Assert
+    Assert.isNotNull(result, 'Result should not be null.');
+    Assert.areEqual('Test Account', result.getName(), 'The Name should match the expected value.');
+  }
+
+  @isTest
+  static void testGetByAlias_WhenAliasExistsInChild_ThenReturnMockEntry() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Test Account')
+      .setChildren(
+        'contacts',
+        new List<MockEntry>{
+          MockEntry.of(Contact.class).alias('testContact').autoId(1).set('LastName', 'Test Contact')
+        }
+      );
+
+    // Act
+    MockEntry result = mockEntry.getByAlias('testContact');
+
+    // Assert
+    Assert.isNotNull(result, 'Result should not be null.');
+    Assert.areEqual('Test Contact', result.get('LastName'), 'The LastName should match the expected value.');
+  }
+
+  @isTest
+  static void testGetByAlias_WhenAliasExistsInParalellChildren_ThenReturnFirstMockEntry() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Test Account')
+      .setChildren(
+        'contacts',
+        new List<MockEntry>{
+          MockEntry.of(Contact.class).alias('testContact').autoId(1).set('LastName', 'Test Contact 1')
+        }
+      )
+      .setChildren(
+        'opportunities',
+        new List<MockEntry>{
+          MockEntry.of(Opportunity.class).alias('testOpportunity').autoId(3).set('Name', 'Test Opportunity')
+        }
+      );
+
+    // Act
+    MockEntry contactEntry = mockEntry.getByAlias('testContact');
+    MockEntry opportunityEntry = mockEntry.getByAlias('testOpportunity');
+
+    // Assert
+    Assert.isNotNull(contactEntry, 'Result should not be null.');
+    Assert.areEqual(
+      'Test Contact 1',
+      contactEntry.get('LastName'),
+      'The LastName should match the first occurrence of the alias.'
+    );
+    Assert.isNotNull(opportunityEntry, 'Opportunity entry should not be null.');
+    Assert.areEqual('Test Opportunity', opportunityEntry.getName(), 'The Name should match the expected value.');
+  }
+
+  @isTest
+  static void testGetByAlias_WhenAliasExistsInNestedChild_ThenReturnMockEntry() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Test Account')
+      .setChildren(
+        'contacts',
+        new List<MockEntry>{
+          MockEntry.of(Contact.class)
+            .autoId(1)
+            .set('LastName', 'Test Contact')
+            .setChildren(
+              'cases',
+              new List<MockEntry>{
+                MockEntry.of(Case.class).alias('testCase').autoId(1).set('Subject', 'Test Case')
+              }
+            )
+        }
+      );
+
+    // Act
+    MockEntry result = mockEntry.getByAlias('testCase');
+
+    // Assert
+    Assert.isNotNull(result, 'Result should not be null.');
+    Assert.areEqual('Test Case', result.get('Subject'), 'The Subject should match the expected value.');
+  }
+
+  @isTest
+  static void testGetByAlias_WhenAliasExistInChildrenWithTimes_ThenReturnMockEntry() {
+    // Arrange
+    Integer times = 3;
+    MockEntry mockEntry = MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Test Account')
+      .setChildren(
+        'contacts',
+        MockEntry.of(Contact.class)
+          .alias('testContact_{#}')
+          .autoId(1)
+          .set('LastName', 'Test Contact {#}')
+          .times(times)
+      );
+
+    // Act / Assert
+    for (Integer i = 1; i <= times; i++) {
+      MockEntry result = mockEntry.getByAlias('testContact_' + i);
+      Assert.isNotNull(result, 'Result should not be null.');
+      Assert.areEqual(
+        'Test Contact ' + i,
+        result.get('LastName'),
+        'The LastName should match the first occurrence of the alias.'
+      );
+    }
+  }
+
+  @isTest
+  static void testGetByAlias_WhenAliasExistsInParent_ThenReturnMockEntry() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Contact.class)
+      .autoId(1)
+      .set('LastName', 'Test Contact')
+      .setParent(
+        'AccountId',
+        MockEntry.of(Account.class).alias('testAccount').autoId(1).set('Name', 'Test Account')
+      );
+
+    // Act
+    MockEntry result = mockEntry.getByAlias('testAccount');
+
+    // Assert
+    Assert.isNotNull(result, 'Result should not be null.');
+    Assert.areEqual('Test Account', result.getName(), 'The Name should match the expected value.');
+  }
+
+  @isTest
+  static void testGetByAlias_WhenAliasExistsInNestedParent_ThenReturnMockEntry() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .set('Name', 'Test Opportunity')
+      .setParent(
+        'ContractId',
+        MockEntry.of(Contract.class)
+          .autoId(1)
+          .set('Name', 'Test Contract')
+          .setParent(
+            'AccountId',
+            MockEntry.of(Account.class).alias('testParentAccount').autoId(1).set('Name', 'Test Parent Account')
+          )
+      );
+
+    // Act
+    MockEntry result = mockEntry.getByAlias('testParentAccount');
+
+    // Assert
+    Assert.isNotNull(result, 'Result should not be null.');
+    Assert.areEqual('Test Parent Account', result.getName(), 'The Name should match the expected value.');
+  }
+
+  @isTest
+  static void TestGetByAlias_WhenAliasExistsInParalellParents_ThenReturnFirstMockEntry() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .set('Name', 'Test Opportunity')
+      .setParent(
+        'ContractId',
+        MockEntry.of(Contract.class).alias('testParent').autoId(1).set('Name', 'Test Contract')
+      )
+      .setParent(
+        'AccountId',
+        MockEntry.of(Account.class).alias('testParent').autoId(1).set('Name', 'Test Account')
+      );
+
+    // Act
+    MockEntry contractResult = mockEntry.getByAlias('testParent');
+    MockEntry accountResult = mockEntry.getByAlias('testParent');
+
+    // Assert
+    Assert.isNotNull(contractResult, 'Contract result should not be null.');
+    Assert.areEqual(
+      'Test Contract',
+      contractResult.getName(),
+      'The Name should match the first occurrence of the alias.'
+    );
+    Assert.isNotNull(accountResult, 'Account result should not be null.');
+    Assert.areEqual(
+      'Test Contract',
+      accountResult.getName(),
+      'The Name should match the first occurrence of the alias.'
+    );
+  }
+
+  @isTest
+  static void testGetByAlias_WhenAliasDoesNotExist_ThenThrowException() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class).autoId(1).set('Name', 'Test Account');
+
+    // Act & Assert
+    try {
+      mockEntry.getByAlias('nonExistingAlias');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      Assert.areEqual(
+        '[MockEntry.getByAlias] No MockEntry found with the specified alias: nonExistingAlias',
+        e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testGetAliasId_WhenAliasExists_ThenReturnId() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class).alias('testAccount').autoId(123).set('Name', 'Test Account');
+
+    // Act
+    Id resultId = mockEntry.getAliasId('testAccount');
+
+    // Assert
+    Assert.isNotNull(resultId, 'Result ID should not be null.');
+    String idString = String.valueOf(resultId);
+    Assert.isTrue(idString.contains('123'), 'Result ID should contain the expected value.');
+  }
+
+  @isTest
+  static void testGetAliasId_WhenAliasInNestedChild_ThenReturnId() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Test Account')
+      .setChildren(
+        'contacts',
+        new List<MockEntry>{
+          MockEntry.of(Contact.class)
+            .autoId(1)
+            .set('LastName', 'Test Contact')
+            .setChildren(
+              'cases',
+              new List<MockEntry>{
+                MockEntry.of(Case.class).alias('testCase').autoId(123).set('Subject', 'Test Case')
+              }
+            )
+        }
+      );
+
+    // Act
+    Id resultId = mockEntry.getAliasId('testCase');
+
+    // Assert
+    Assert.isNotNull(resultId, 'Result ID should not be null.');
+    String idString = String.valueOf(resultId);
+    Assert.isTrue(idString.contains('123'), 'Result ID should contain the expected value.');
+  }
+
+  @isTest
+  static void testGetAliasId_WhenAliasInNestedParent_ThenReturnId() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .set('Name', 'Test Opportunity')
+      .setParent(
+        'ContractId',
+        MockEntry.of(Contract.class)
+          .autoId(1)
+          .set('Name', 'Test Contract')
+          .setParent(
+            'AccountId',
+            MockEntry.of(Account.class).alias('testParentAccount').autoId(123).set('Name', 'Test Parent Account')
+          )
+      );
+
+    // Act
+    Id resultId = mockEntry.getAliasId('testParentAccount');
+
+    // Assert
+    Assert.isNotNull(resultId, 'Result ID should not be null.');
+    String idString = String.valueOf(resultId);
+    Assert.isTrue(idString.contains('123'), 'Result ID should contain the expected value.');
+  }
+
+  @isTest
+  static void testGetAliasId_WhenAliasDoesNotExist_ThenThrowException() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class).autoId(1).set('Name', 'Test Account');
+
+    // Act & Assert
+    try {
+      mockEntry.getAliasId('nonExistingAlias');
+      Assert.fail('Expected ApexEloquentException  to be thrown.');
+    } catch (ApexEloquentException e) {
+      Assert.areEqual(
+        '[MockEntry.getAliasId] No MockEntry found with the specified alias: nonExistingAlias',
+        e.getMessage()
+      );
+    }
   }
 }

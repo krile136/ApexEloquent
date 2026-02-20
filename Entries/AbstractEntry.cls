@@ -127,43 +127,80 @@ public abstract class AbstractEntry implements IEntry {
    *
    * @param childObjectName child object name
    * @return child relation name
-   * @throws QueryException if the child object name is not exist in the parent object's children relationships
-   *                        or if there are multiple relationships with the same child object name
+   * @throws ApexEloquentException if the child object name is not exist in the parent object's children relationships
+   *                               or if there are multiple relationships with the same child object name
    */
   protected String getChildrenRelationNameFromChildObjectName(String childObjectName) {
-    List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
+    List<Schema.ChildRelationship> childRelationships = this.describeResult.getChildRelationships();
+    Integer size = childRelationships.size();
 
-    Schema.ChildRelationship targetChildRelationShip;
-    for (Schema.ChildRelationship childRelationShip : childRelationShips) {
-      if (childRelationShip.getChildSObject().getDescribe().getName() == childObjectName) {
-        if (targetChildRelationShip != null) {
-          String error = String.format(
-            'The specified childObjectName has multiple relationships in the parent object\'s children relationships. Please specify the relationship name instead of the object name. parent object name: {0}, child object name: {1}',
-            new List<String>{ this.describeResult.getName(), childObjectName }
-          );
-          throw new QueryException(error);
-        }
-        targetChildRelationShip = childRelationShip;
+    Integer low = 0;
+    Integer high = size - 1;
+    Integer foundIndex = -1;
+
+    // 1. 二分探索で一つ目を見つける
+    while (low <= high) {
+      Integer mid = (low + high) / 2;
+      String midName = childRelationships[mid].getChildSObject().getDescribe().getName();
+      Integer res = childObjectName.compareTo(midName);
+
+      if (res == 0) {
+        foundIndex = mid;
+        break;
+      } else if (res > 0) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
       }
     }
-    if (targetChildRelationShip == null) {
-      String error = String.format(
-        'The specified childObjectName does not exist in the parent object\'s children relationships. parent object name: {0}, child object name: {1}',
-        new List<String>{ this.describeResult.getName(), childObjectName }
+
+    if (foundIndex == -1) {
+      throw new ApexEloquentException(
+        String.format(
+          'The specified child object name `{0}` does not exist on Parent: {1}',
+          new List<String>{ childObjectName, this.describeResult.getName() }
+        )
       );
-      throw new QueryException(error);
     }
 
-    String childRelationName = targetChildRelationShip.getRelationshipName();
+    // 2. 曖昧性（Ambiguous）のチェック：見つかった場所の前後だけを確認
+    // Salesforceのリストはソート済みなので、同じ名前は必ず隣接している
+    Schema.ChildRelationship targetRelation = childRelationships[foundIndex];
 
-    return childRelationName;
+    Boolean isAmbiguous = false;
+    // 前を確認
+    if (
+      foundIndex > 0 &&
+      childRelationships[foundIndex - 1].getChildSObject().getDescribe().getName() == childObjectName
+    ) {
+      isAmbiguous = true;
+    }
+    // 後を確認
+    if (
+      !isAmbiguous &&
+      foundIndex < size - 1 &&
+      childRelationships[foundIndex + 1].getChildSObject().getDescribe().getName() == childObjectName
+    ) {
+      isAmbiguous = true;
+    }
+
+    if (isAmbiguous) {
+      throw new ApexEloquentException(
+        String.format(
+          'The specified child object name `{0}` is ambiguous because multiple relationships exist on Parent: {1}',
+          new List<String>{ childObjectName, this.describeResult.getName() }
+        )
+      );
+    }
+
+    return targetRelation.getRelationshipName();
   }
 
   /**
    * validate the child relation name.
    *
    * @param childRelationName child relation name to be validated
-   * @throws QueryException if the child relation name is not exist in the parent object's children relationships
+   * @throws ApexEloquentException if the child relation name is not exist in the parent object's children relationships
    */
   protected void validateChildRelationName(String childRelationName) {
     List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
@@ -177,10 +214,10 @@ public abstract class AbstractEntry implements IEntry {
     }
     if (!found) {
       String error = String.format(
-        'The specified childRelationName does not exist in the parent object\'s children relationships. parent object name: {0}, child relation name: {1}',
-        new List<String>{ this.describeResult.getName(), childRelationName }
+        'The specified childRelationName does not exist in the parent object\'s children relationships. parent object name: {0}',
+        new List<String>{ this.describeResult.getName() }
       );
-      throw new QueryException(error);
+      throw new ApexEloquentException(error);
     }
   }
 

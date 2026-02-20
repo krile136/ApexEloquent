@@ -97,12 +97,10 @@ public class MockEntryTest {
     try {
       MockEntry mockEntry = MockEntry.of(String.class);
       Assert.fail('Expected IllegalArgumentException to be thrown when using String type.');
-    } catch (IllegalArgumentException e) {
-      String expect = '[MockEntry.of] Invalid type: \'String\' is not an SObject.';
-      Assert.isTrue(
-        e.getMessage().contains(expect),
-        'Expected IllegalArgumentException with specific message when using String type.'
-      );
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('MockEntry.of(System.Type recordType)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -252,7 +250,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void testAutoId_WhenUsingAutoIdWithMinusInteger_ThenThrowException() {
+  static void testAutoId_WhenApplyMinusInteger_ThenThrowException() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
     MockEntry mockEntry = MockEntry.of(Account.class);
@@ -261,9 +259,29 @@ public class MockEntryTest {
     // Act & Assert
     try {
       mockEntry = mockEntry.autoId(-1);
-      Assert.fail('Expected IllegalArgumentException to be thrown.');
-    } catch (IllegalArgumentException e) {
-      Assert.areEqual('suffix must be greater than or equal to 0', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('autoId(Integer suffix)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
+    }
+  }
+
+  @isTest
+  static void testAutoId_WhenApplyVoidString_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Id').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry = mockEntry.autoId('');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('autoId(String suffix)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
     }
   }
 
@@ -530,12 +548,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       mockEntry.get('Name');
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Account, field name: Name',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -553,8 +570,8 @@ public class MockEntryTest {
     try {
       String recordName = mockEntry.getName();
       Assert.areEqual('Test Account', recordName, 'The field value should be returned without field validation.');
-    } catch (QueryException e) {
-      Assert.fail('QueryException should not be thrown when field validation is disabled.');
+    } catch (ApexEloquentException e) {
+      Assert.fail('ApexEloquentException should not be thrown when field validation is disabled.');
     }
   }
 
@@ -588,13 +605,12 @@ public class MockEntryTest {
 
     // Act & Assert
     try {
-      String id = (String) mockEntry.get('Id'); // id field is not exist in aggregate field structure
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field or alias is not exist in Scribe. field or alias name: Id',
-        e.getMessage()
-      );
+      Id oppId = (Id) mockEntry.get('Id'); // id field is not exist in aggregate field structure
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -613,12 +629,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       Object fieldValue = mockEntry.get('maxAmount'); // 'maxAmount' field is not exist in aggregate field structure
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field or alias is not exist in Scribe. field or alias name: maxAmount',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -643,8 +658,8 @@ public class MockEntryTest {
         fieldValue,
         'The field value should match the value in fieldToValue when field validation is disabled.'
       );
-    } catch (QueryException e) {
-      Assert.fail('QueryException should not be thrown when field validation is disabled.');
+    } catch (ApexEloquentException e) {
+      Assert.fail('ApexEloquentException should not be thrown when field validation is disabled.');
     }
   }
 
@@ -663,12 +678,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       Object fieldValue = mockEntry.get('StageName'); // 'StageName' field is not exist in fieldToValue
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field or alias is not found in the mock data. field or alias name: StageName',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -687,12 +701,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       Object fieldValue = mockEntry.get('avgAmount'); // 'avgAmount' field is not exist in fieldToValue
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field or alias is not found in the mock data. field or alias name: avgAmount',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -758,11 +771,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       mockEntry.put('NonExistField', 'Some Value'); // 'NonExistField' does not exist in Account
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.isTrue(
-        e.getMessage().contains('Failed to put value to the SObject. field name: NonExistField, value: Some Value')
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('put(String fieldName, Object value)'));
+      Assert.isTrue(errorMessage.contains('provided arguments are Invalid'));
     }
   }
 
@@ -775,13 +788,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       mockEntry.put('LastModifiedById', '005000000000AAA');
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage()
-          .contains('Failed to put value to the SObject. field name: LastModifiedById, value: 005000000000AAA')
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('put(String fieldName, Object value)'));
+      Assert.isTrue(errorMessage.contains('provided arguments are Invalid'));
     }
   }
 
@@ -800,9 +811,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       mockEntry.put('avgAmount', 2000); // Cannot put value to aggregate result
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual('Cannot call put() on an AggregateResult record.', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('put(String fieldName, Object value)'));
+      Assert.isTrue(errorMessage.contains('Invalid operation'));
     }
   }
 
@@ -834,12 +847,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       mockEntry.getId();
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Account, field name: Id',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getId()'));
+      Assert.isTrue(errorMessage.contains('Add the Id field to the Scribe definition for this object'));
     }
   }
 
@@ -892,12 +904,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       mockEntry.getName();
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Account, field name: Name',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getName()'));
+      Assert.isTrue(errorMessage.contains('Add the Name field to the Scribe definition for this object'));
     }
   }
 
@@ -1052,12 +1063,11 @@ public class MockEntryTest {
     try {
       IEntry parentEntry = mockEntry.getParent('AccountId');
       String parentName = parentEntry.getName();
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified parentIdFieldName is not set in Scribe. object name: Opportunity, parent Id field name: AccountId',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getParent(String parentIdFieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -1101,12 +1111,11 @@ public class MockEntryTest {
     try {
       IEntry parentEntry = mockEntry.getParent('AccountId');
       String parentName = parentEntry.getName(); // Attempt to get Name field which is not selected in Scribe
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Account, field name: Name',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getName()'));
+      Assert.isTrue(errorMessage.contains('Add the Name field to the Scribe definition for this object'));
     }
   }
 
@@ -1251,14 +1260,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       List<IEntry> children = mockEntry.getChildren('Contract');
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      String expected = String.format(
-        'The child object needs to be a List<IEntry> or IEntry. object name: {0}, child object name: {1}',
-        new List<String>{ 'Account', 'Contract' }
-      );
-      Assert.areEqual(expected, e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildren(String childObjectName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -1303,12 +1309,11 @@ public class MockEntryTest {
     try {
       List<IEntry> children = mockEntry.getChildren('Contract');
       String childName = children[0].getName();
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Contract, field name: Name',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getName()'));
+      Assert.isTrue(errorMessage.contains('Add the Name field to the Scribe definition for this object'));
     }
   }
 
@@ -1415,6 +1420,30 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetChildren_WhenChildObjectIsAmbiguous_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(User.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(Scribe.asChild(Account.class).fields(new List<String>{ 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(User.class)
+      .autoId(1)
+      .setChildren('Account', MockEntry.of(Account.class).autoId('{#}').times(2));
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      List<IEntry> children = mockEntry.getChildren('Account');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildren(String childObjectName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
+      Assert.isTrue(errorMessage.contains('ambiguous'));
+    }
+  }
+
+  @isTest
   static void testGetChildrenByRelationName_WhenRelationNameIsValid_ThenReturnChildEntries() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
@@ -1454,14 +1483,11 @@ public class MockEntryTest {
     // Act & Assert
     try {
       List<IEntry> children = mockEntry.getChildrenByRelationName('Contract__r');
-      Assert.fail('Expected QueryException to be thrown.');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      String expected = String.format(
-        'The specified childRelationName does not exist in the parent object\'s children relationships. parent object name: {0}, child relation name: {1}',
-        new List<String>{ 'Account', 'Contract__r' }
-      );
-      Assert.areEqual(expected, e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildrenByRelationName(String childRelationName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -1784,10 +1810,9 @@ public class MockEntryTest {
       mockEntry.getByAlias('nonExistingAlias');
       Assert.fail('Expected ApexEloquentException to be thrown.');
     } catch (ApexEloquentException e) {
-      Assert.areEqual(
-        '[MockEntry.getByAlias] No MockEntry found with the specified alias: nonExistingAlias',
-        e.getMessage()
-      );
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('MockEntry.getByAlias(String alias)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -1871,10 +1896,9 @@ public class MockEntryTest {
       mockEntry.getAliasId('nonExistingAlias');
       Assert.fail('Expected ApexEloquentException  to be thrown.');
     } catch (ApexEloquentException e) {
-      Assert.areEqual(
-        '[MockEntry.getAliasId] No MockEntry found with the specified alias: nonExistingAlias',
-        e.getMessage()
-      );
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('MockEntry.getAliasId(String alias)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 }

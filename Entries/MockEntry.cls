@@ -86,6 +86,11 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A new MockEntry instance with the specified alias.
    */
   public MockEntry alias(String alias) {
+    String method = 'alias(String alias)';
+    if (alias == null || String.isBlank(alias)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'alias', alias);
+    }
+
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, this.fieldToValue);
     newEntry.inheritParameters(newEntry);
     newEntry.alias = alias;
@@ -101,6 +106,10 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public MockEntry getByAlias(String alias) {
     String method = 'getByAlias(String alias)';
+    if(alias == null || String.isBlank(alias)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'alias', alias);
+    }
+
     if (this.alias == alias) {
       MockEntry returnEntry = new MockEntry(this.record, this.fieldStructure, this.fieldToValue);
       returnEntry = (MockEntry) returnEntry.withoutFieldValidation();
@@ -167,6 +176,10 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public Id getAliasId(String alias) {
     String method = 'getAliasId(String alias)';
+    if(alias == null || String.isBlank(alias)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'alias', alias);
+    }
+
     MockEntry entry;
     try {
       entry = this.getByAlias(alias);
@@ -210,6 +223,10 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A new MockEntry instance with the updated field value.
    */
   public MockEntry set(String fieldName, Object value) {
+    String method = 'set(String fieldName, Object value)';
+    if(fieldName == null || String.isBlank(fieldName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName);
+    }
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(fieldName, value);
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
@@ -225,6 +242,11 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A new MockEntry instance with the updated field values.
    */
   public MockEntry template(Map<String, Object> fieldToValue) {
+    String method = 'template(Map<String, Object> fieldToValue)';
+    if (fieldToValue == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldToValue', fieldToValue);
+    }
+
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     for (String fieldName : fieldToValue.keySet()) {
       newFieldToValue.put(fieldName, fieldToValue.get(fieldName));
@@ -264,6 +286,13 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A new MockEntry instance with the child records added.
    */
   public MockEntry setChildren(String childObjectNameOrRelationName, List<MockEntry> children) {
+    String method = 'setChildren(String childObjectNameOrRelationName, List<MockEntry> children)';
+    if (childObjectNameOrRelationName == null || String.isBlank(childObjectNameOrRelationName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'childObjectNameOrRelationName', childObjectNameOrRelationName);
+    }
+    if(children == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'children', children);
+    }
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(childObjectNameOrRelationName, children);
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
@@ -301,6 +330,10 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A new MockEntry instance with the parent record added.
    */
   public MockEntry setParent(String parentIdFieldName, MockEntry parent) {
+    String method = 'setParent(String parentIdFieldName, MockEntry parent)';
+    if(parentIdFieldName == null || String.isBlank(parentIdFieldName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'parentIdFieldName', parentIdFieldName);
+    }
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(parentIdFieldName, parent);
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
@@ -598,6 +631,10 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public override Object get(String fieldName) {
     String method = 'get(String fieldName)';
+    if (fieldName == null || String.isBlank(fieldName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName);
+    }
+
     if (this.hasAggregateResult) {
       if (!this.skipFieldValidation && !this.fieldStructure.hasField(fieldName.toLowerCase())) {
         String reason = 'The specified field or alias is not exist in Scribe.';
@@ -691,6 +728,10 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public override IEntry getParent(String parentIdFieldName) {
     String method = 'getParent(String parentIdFieldName)';
+    if (parentIdFieldName == null || String.isBlank(parentIdFieldName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'parentIdFieldName', parentIdFieldName);
+    }
+
     this.ensureDescribeResultIfNeeded();
     String lowerCaseFieldName = parentIdFieldName.toLowerCase();
 
@@ -734,6 +775,10 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public override List<IEntry> getChildren(String childObjectName) {
     String method = 'getChildren(String childObjectName)';
+    if (childObjectName == null || String.isBlank(childObjectName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'childObjectName', childObjectName);
+    }
+
     this.ensureDescribeResultIfNeeded();
     // for validate the childObjectName
     try {

@@ -37,22 +37,18 @@ public with sharing class EntryTest {
     // Act & Assert
     try {
       entry.get('NonExistentField');
-      Assert.fail('Expected Exception to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field does not exist in the object\'s fields. object name: Account, field name: NonExistentField',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
   @isTest
   static void testGet_WhenGetUserCount_ThenReutnCountResult() {
     // Arrange
-    Scribe scribe = Scribe.of(User.class)
-      .field('IsActive')
-      .count('Id', 'UserCount')
-      .groupByField('IsActive');
+    Scribe scribe = Scribe.of(User.class).field('IsActive').count('Id', 'UserCount').groupByField('IsActive');
     List<IEntry> entries = (new Eloquent()).get(scribe);
 
     // Act
@@ -66,22 +62,18 @@ public with sharing class EntryTest {
   @isTest
   static void testGet_WhenGetNonExistAlias_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.of(User.class)
-      .field('IsActive')
-      .count('Id', 'UserCount')
-      .groupByField('IsActive');
+    Scribe scribe = Scribe.of(User.class).field('IsActive').count('Id', 'UserCount').groupByField('IsActive');
     List<IEntry> entries = (new Eloquent()).get(scribe);
     Entry entry = (Entry) entries[0];
 
     // Act & Assert
     try {
       entry.get('NonExistAlias');
-      Assert.fail('Expected Exception to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field or alias is not exist in Scribe. field or alias name: NonExistAlias',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -110,22 +102,18 @@ public with sharing class EntryTest {
     // Act & Assert
     try {
       entry.put('NonExistentField', newValue);
-      Assert.fail('Expected Exception to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified field does not exist in the object\'s fields. object name: Account, field name: NonExistentField',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('put(String fieldName, Object value)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
   @isTest
   static void testPut_WhenCalledOnAggregateResult_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.of(User.class)
-      .field('IsActive')
-      .count('Id', 'UserCount')
-      .groupByField('IsActive');
+    Scribe scribe = Scribe.of(User.class).field('IsActive').count('Id', 'UserCount').groupByField('IsActive');
     List<IEntry> entries = (new Eloquent()).get(scribe);
     Entry entry = (Entry) entries[0];
     String newValue = 'Some Value';
@@ -133,12 +121,13 @@ public with sharing class EntryTest {
     // Act & Assert
     try {
       entry.put('IsActive', newValue);
-      Assert.fail('Expected Exception to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual('Cannot call put() on an AggregateResult record.', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('put(String fieldName, Object value)'));
+      Assert.isTrue(errorMessage.contains('Invalid operation'));
     }
   }
-
 
   @isTest
   static void testGetId_WhenCalled_ShouldReturnId() {

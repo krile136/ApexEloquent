@@ -29,6 +29,8 @@
  * @see MockEntry
  */
 public with sharing class Entry extends AbstractEntry {
+  private static final String CLASS_NAME = 'Entry';
+
   /**
    * constructor
    *
@@ -52,18 +54,23 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override Object get(String fieldName) {
+    String method = 'get(String fieldName)';
     if (this.hasAggregateResult) {
       if (!this.fieldStructure.hasField(fieldName.toLowerCase())) {
-        String error = String.format(
-          'The specified field or alias is not exist in Scribe. field or alias name: {0}',
-          new List<String>{ fieldName }
-        );
-        throw new QueryException(error);
+        String reason = 'The specified field or alias is not exist in Scribe.';
+        String action = 'Add the field or alias to the Scribe definition for this AggregateResult';
+        throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName);
       }
       return this.aggregateResult.get(fieldName);
     }
 
-    this.validateFieldName(fieldName);
+    try {
+      this.validateFieldName(fieldName);
+    } catch (ApexEloquentException e) {
+      String reason = e.getMessage();
+      String action = 'Ensure that the field name is correct and exists in the object\'s fields.';
+      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName, e);
+    }
     return this.record.get(fieldName);
   }
 
@@ -71,12 +78,19 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override void put(String fieldName, Object value) {
+    String method = 'put(String fieldName, Object value)';
     if (this.hasAggregateResult) {
-      String error = 'Cannot call put() on an AggregateResult record.';
-      throw new QueryException(error);
+      String reason = 'The put() operation is incompatible with AggregateResult-based Entry instances';
+      throw ApexEloquentException.invalidOperation(CLASS_NAME, method, reason);
     }
 
-    this.validateFieldName(fieldName);
+    try {
+      this.validateFieldName(fieldName);
+    } catch (ApexEloquentException e) {
+      String reason = e.getMessage();
+      String action = 'Ensure that the field name is correct and exists in the object\'s fields.';
+      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName, e);
+    }
     this.record.put(fieldName, value);
   }
 
@@ -189,20 +203,18 @@ public with sharing class Entry extends AbstractEntry {
   }
 
   /**
-  * validate field name
-  *
-  * @param fieldName field name to be validated
-  * @throws QueryException if the field is not exist in the SObject
-  */
+   * validate field name
+   *
+   * @param fieldName field name to be validated
+   * @throws ApexEloquentException if the field is not exist in the SObject
+   */
   private void validateFieldName(String fieldName) {
     this.ensureDescribeResultIfNeeded();
     Map<String, Schema.SObjectField> fieldMap = this.describeResult.fields.getMap();
     if (!fieldMap.containsKey(fieldName)) {
-      String error = String.format(
-        'The specified field does not exist in the object\'s fields. object name: {0}, field name: {1}',
-        new List<String>{ this.describeResult.getName(), fieldName }
-      );
-      throw new QueryException(error);
+      String reason =
+        'The specified field does not exist in the object\'s fields. Object name:' + this.describeResult.getName();
+      throw new ApexEloquentException(reason);
     }
   }
 }

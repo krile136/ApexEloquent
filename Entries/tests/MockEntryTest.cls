@@ -105,6 +105,42 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testSet_WhenApplyNullFieldName_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.set(null, 'Mock Account');
+      Assert.fail('Expected ApexEloquentException to be thrown when setting a field with null name.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('set(String fieldName, Object value)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testSet_WhenApplyEmptyFieldName_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.set('', 'Mock Account');
+      Assert.fail('Expected ApexEloquentException to be thrown when setting a field with empty string name.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('set(String fieldName, Object value)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
   static void testSet_WhenAddFieldAndValue_ThenGetFieldValue() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
@@ -120,20 +156,86 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testSetChildren_WhenApplyNullToChildObjectName_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .withChildren(Scribe.asChild(Contract.class).field('Name'))
+      .buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.setChildren(null, new List<MockEntry>());
+      Assert.fail('Expected ApexEloquentException to be thrown when setting children with null list.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(
+        errorMessage.contains('setChildren(String childObjectNameOrRelationName, List<MockEntry> children)')
+      );
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testSetChildren_WhenApplyEmptyStringToChildObjectName_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .withChildren(Scribe.asChild(Contract.class).field('Name'))
+      .buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.setChildren('', new List<MockEntry>());
+      Assert.fail('Expected ApexEloquentException to be thrown when setting children with null childObjectName.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(
+        errorMessage.contains('setChildren(String childObjectNameOrRelationName, List<MockEntry> children)')
+      );
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testSetChildren_WhenApplyNullToChildren_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .withChildren(Scribe.asChild(Contract.class).field('Name'))
+      .buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.setChildren('Contract', null);
+      Assert.fail('Expected ApexEloquentException to be thrown when setting children with null list.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(
+        errorMessage.contains('setChildren(String childObjectNameOrRelationName, List<MockEntry> children)')
+      );
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
   static void testSetChildren_WhenAddChildren_ThenGetChildren() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class)
       .withChildren(Scribe.asChild(Contract.class).field('Name'))
       .buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Account.class)
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
       .setChildren(
         'Contract',
         new List<MockEntry>{
           MockEntry.of(Contract.class).set('Name', 'Mock Contract 1'),
           MockEntry.of(Contract.class).set('Name', 'Mock Contract 2')
         }
-      );
-    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+      )
+      .setFieldStructure(fieldStructure);
 
     // Act
     List<IEntry> children = mockEntry.getChildren('Contract');
@@ -146,14 +248,56 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testSetParent_WhenApplyNullToParentIdFieldName_WhenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .parentField(Scribe.asParent('AccountId').field('Name'))
+      .buildFieldStructure();
+
+    // Act & Assert
+    try {
+      MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
+        .setParent(null, MockEntry.of(Account.class).set('Name', 'Mock Account'))
+        .setFieldStructure(fieldStructure);
+      Assert.fail('Expected ApexEloquentException to be thrown when setting parent with null parentIdFieldName.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('setParent(String parentIdFieldName, MockEntry parent)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testSetParent_WhenApplyEmptyStringToParentIdFieldName_WhenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .parentField(Scribe.asParent('AccountId').field('Name'))
+      .buildFieldStructure();
+
+    // Act & Assert
+    try {
+      MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
+        .setParent('', MockEntry.of(Account.class).set('Name', 'Mock Account'))
+        .setFieldStructure(fieldStructure);
+      Assert.fail(
+        'Expected ApexEloquentException to be thrown when setting parent with empty string parentIdFieldName.'
+      );
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('setParent(String parentIdFieldName, MockEntry parent)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
   static void testSetParent_WhenAddParent_ThenGetParent() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Opportunity.class)
       .parentField(Scribe.asParent('AccountId').field('Name'))
       .buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Opportunity.class)
-      .setParent('AccountId', MockEntry.of(Account.class).set('Name', 'Mock Account'));
-    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
+      .setParent('AccountId', MockEntry.of(Account.class).set('Name', 'Mock Account'))
+      .setFieldStructure(fieldStructure);
 
     // Act
     IEntry parent = mockEntry.getParent('AccountId');
@@ -161,6 +305,24 @@ public class MockEntryTest {
     // Assert
     Assert.isNotNull(parent, 'Parent should not be null.');
     Assert.areEqual('Mock Account', parent.getName(), 'Parent name should match.');
+  }
+
+  @isTest
+  static void testTemplate_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.template(null);
+      Assert.fail('Expected ApexEloquentException to be thrown when applying null template.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('template(Map<String, Object> fieldToValue)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
   }
 
   @isTest
@@ -282,6 +444,42 @@ public class MockEntryTest {
       String errorMessage = e.getMessage();
       Assert.isTrue(errorMessage.contains('autoId(String suffix)'));
       Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.set('Name', 'Name-{#}').times(null);
+      Assert.fail('Expected ApexEloquentException to be thrown when applying null times.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('times(Integer count)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenApplyNegativeInteger_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.set('Name', 'Name-{#}').times(-1);
+      Assert.fail('Expected ApexEloquentException to be thrown when applying negative times.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('times(Integer count)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -517,6 +715,42 @@ public class MockEntryTest {
     Assert.areEqual('00100000000000zAAA', mockEntries[0].getId(), 'First entry Id should match.');
     Assert.areEqual('0010000000000aaAAA', mockEntries[1].getId(), 'Second entry Id should match.');
     Assert.areEqual('0010000000000abAAA', mockEntries[2].getId(), 'Third entry Id should match.');
+  }
+
+  @isTest
+  static void testGet_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.get(null);
+      Assert.fail('Expected ApexEloquentException to be thrown when getting a field with null name.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testGet_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.get('');
+      Assert.fail('Expected ApexEloquentException to be thrown when getting a field with empty string name.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
   }
 
   @isTest
@@ -1009,6 +1243,46 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetParent_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'id', 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class).setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      IEntry parentEntry = mockEntry.getParent(null);
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getParent(String parentIdFieldName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGetParent_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'id', 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class).setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      IEntry parentEntry = mockEntry.getParent('');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getParent(String parentIdFieldName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
   static void testGetParent_WhenParentNotExist_ThenReturnNull() {
     // Arrange
     SObject record = new Opportunity(Id = '006000000000000', Name = 'Test Opportunity');
@@ -1216,6 +1490,46 @@ public class MockEntryTest {
     IEntry accountEntry = contractEntry.getParent('AccountId');
     Assert.isNotNull(accountEntry, 'Account entry should not be null.');
     Assert.areEqual('Test Account', accountEntry.getName(), 'Account name should match.');
+  }
+
+  @isTest
+  static void testGetChildren_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(Scribe.asChild(Contract.class).fields(new List<String>{ 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class).setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      List<IEntry> children = mockEntry.getChildren(null);
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildren(String childObjectName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGetChildren_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(Scribe.asChild(Contract.class).fields(new List<String>{ 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class).setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      List<IEntry> children = mockEntry.getChildren('');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildren(String childObjectName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
   }
 
   @isTest
@@ -1566,6 +1880,32 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testAlias_WhenApplyNull_ThenThrowException() {
+    // Arrange / Act
+    try {
+      MockEntry mockEntry = MockEntry.of(Account.class).alias(null).autoId(1).set('Name', 'Test Account');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('alias(String alias)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAlias_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange / Act
+    try {
+      MockEntry mockEntry = MockEntry.of(Account.class).alias('').autoId(1).set('Name', 'Test Account');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('alias(String alias)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
   static void testAlias_WhenSetAliasToChild_ThenNoErrorThrown() {
     // Arrange / Act
     MockEntry mockEntry = MockEntry.of(Account.class)
@@ -1595,6 +1935,38 @@ public class MockEntryTest {
 
     // Assert
     Assert.isNotNull(mockEntry, 'MockEntry should not be null.');
+  }
+
+  @isTest
+  static void testGetByAlias_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class).alias('mockAccount').autoId(1).set('Name', 'Test Account');
+
+    // Act & Assert
+    try {
+      MockEntry result = mockEntry.getByAlias(null);
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getByAlias(String alias)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGetByAlias_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class).alias('mockAccount').autoId(1).set('Name', 'Test Account');
+
+    // Act & Assert
+    try {
+      MockEntry result = mockEntry.getByAlias('');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getByAlias(String alias)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
   }
 
   @isTest
@@ -1813,6 +2185,38 @@ public class MockEntryTest {
       String errorMessage = e.getMessage();
       Assert.isTrue(errorMessage.contains('MockEntry.getByAlias(String alias)'));
       Assert.isTrue(errorMessage.contains('argument is Invalid'));
+    }
+  }
+
+  @isTest
+  static void testGetAliasId_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class).alias('mockAccount').autoId(1).set('Name', 'Test Account');
+
+    // Act & Assert
+    try {
+      Id resultId = mockEntry.getAliasId(null);
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getAliasId(String alias)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGetAliasId_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class).alias('mockAccount').autoId(1).set('Name', 'Test Account');
+
+    // Act & Assert
+    try {
+      Id resultId = mockEntry.getAliasId('');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getAliasId(String alias)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
     }
   }
 

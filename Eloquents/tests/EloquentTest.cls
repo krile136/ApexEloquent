@@ -16,6 +16,22 @@
 @isTest
 public with sharing class EloquentTest {
   @isTest
+  static void testGet_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).get(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
   static void testGet_WhenApplyScribe_ThenSuccess() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
@@ -43,7 +59,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testGetAsSObject() {
+  static void testGetAsSObject_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).getAsSObject(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testGetAsSObject_WhenApplyScribe_ThenSuccess() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
@@ -55,7 +87,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testFirst() {
+  static void testGetFirst_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).first(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('first(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirst_WhenApplyScribe_ThenSuccess() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
@@ -67,7 +115,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testFirstAsSObject() {
+  static void testFirstAsSObject_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).firstAsSObject(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirstAsSObject_WhenApplyScribe_ThenSuccess() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
@@ -79,7 +143,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testFirstOrFail() {
+  static void testFirstOrFail_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).firstOrFail(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstOrFail(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenApplyScribe_ThenSuccess() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
@@ -97,7 +177,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testFirstOrFailAsSObject() {
+  static void testFirstOrFailAsSObject_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).firstOrFailAsSObject(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstOrFailAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirstOrFailAsSObject_WhenApplyScribe_ThenSuccess() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
     // Act & Assert
@@ -114,7 +210,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testInsertSingleRecord() {
+  static void testDoInsert_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doInsert(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doInsert(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenApplySingleRecord_ThenExcuteInsert() {
     // Arrange
     Opportunity opp = new Opportunity();
     opp.Name = 'Test';
@@ -128,7 +240,24 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testInsertMultipleRecords() {
+  static void testDoInsert_WhenApplyNullList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doInsert(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doInsert(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+
+  @isTest
+  static void testDoInsert_WhenApplyMultipleRecords_ThenExcuteInsert() {
     // Arrange
     Opportunity opp1 = new Opportunity(Name = 'Test1');
     Opportunity opp2 = new Opportunity(Name = 'Test2');
@@ -143,7 +272,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testUpdateSingleRecord() {
+  static void testDoUpdate_WhenApplyNullSObject_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObject_ThenThrowException() { 
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
 
@@ -156,7 +301,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testUpdateSingleEntry() {
+  static void testDoUpdate_WhenApplyNullEntry_ThenThrowException() {
+    // Arrange
+    IEntry entry = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(entry);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(IEntry entry)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObject_ThenExcuteUpdate() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
     IEntry entry = new Entry(opp);
@@ -170,7 +331,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testUpdateMultipleRecords() {
+  static void testDoUpdate_WhenApplyNullSObjectList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObjectList_ThenExecuteUpdate() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
     Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
@@ -185,7 +362,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testUpdateMultipleEntries() {
+  static void testDoUpdate_WhenApplyNullEntryList_ThenThrowException() {
+    // Arrange
+    List<IEntry> entries = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<IEntry> entries)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEntryList_ThenExecuteUpdate() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
     Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
@@ -211,7 +404,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testUpsertSingleRecord() {
+  static void testDoUpsert_WhenApplyNullSObject_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsert(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenApplySObject_ThenExecuteUpsert() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
 
@@ -224,7 +433,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testUpsertSingleEntry() {
+  static void testDoUpsert_WhenApplyNullEntry_ThenThrowException() {
+    // Arrange
+    IEntry entry = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsert(entry);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(IEntry entry)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenApplyEntry_ThenExecuteUpsert() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
     IEntry entry = new Entry(opp);
@@ -237,7 +462,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testUpsertMultipleRecords() {
+  static void testDoUpsert_WhenApplyNullSObjectList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsert(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenApplyMultipleSObjectList_ThenExecuteUpsert() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
     Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
@@ -251,7 +492,33 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testUpsertMultipleEntries() {
+  static void testDoUpsert_WhenApplyNullEntryList_ThenThrowException() {
+    // Arrange
+    List<IEntry> entries = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsert(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(List<IEntry> entries)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testUpser_WhenApplyEmptyEntryList_ThenReturnEmptyEntryList() {
+    // Arrange
+    List<IEntry> entries = new List<IEntry>();
+    // Act
+    List<IEntry> upsertedEntries = (new Eloquent()).doUpsert(entries);
+    // Assert
+    Assert.isTrue(upsertedEntries.isEmpty(), 'Expected no entries to be upserted');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenApplyMultipleEntryList_ThenExecuteUpsert() { 
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
     Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
@@ -265,18 +532,25 @@ public with sharing class EloquentTest {
     }
   }
 
+
   @isTest
-  static void testUpsertEmptyEntries() {
+  static void testDoDelete_WhenApplyNullSObject_ThenThrowException() {
     // Arrange
-    List<IEntry> entries = new List<IEntry>();
-    // Act
-    List<IEntry> upsertedEntries = (new Eloquent()).doUpsert(entries);
-    // Assert
-    Assert.isTrue(upsertedEntries.isEmpty(), 'Expected no entries to be upserted');
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
   }
 
   @isTest
-  static void testDeleteSingleRecord() {
+  static void testDoDelete_WhenApplySObject_ThenExecuteDelete() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000');
 
@@ -289,7 +563,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testDeleteSingleEntry() {
+  static void testDoDelete_WhenApplyNullEntry_ThenThrowException() {
+    // Arrange
+    IEntry entry = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(entry);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(IEntry entry)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplyEntry_ThenExecuteDelete() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000');
     IEntry entry = new Entry(opp);
@@ -303,7 +593,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testDeleteMultipleRecords() {
+  static void testDoDelete_WhenApplyNullSObjectList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplySObjectList_ThenExecuteDelete() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000');
     Opportunity opp2 = new Opportunity(Id = '006000000000001');
@@ -318,7 +624,23 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testDeleteMultipleEntries() {
+  static void testDoDelete_WhenApplyNullEntryList_ThenThrowException() {
+    // Arrange
+    List<IEntry> entries = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(List<IEntry> entries)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplyEntryList_ThenExecuteDelete() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000');
     Opportunity opp2 = new Opportunity(Id = '006000000000001');

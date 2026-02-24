@@ -29,10 +29,17 @@
 public with sharing class Eloquent implements IEloquent {
   private final Integer MAX_DML_CHUNKING = 10;
 
+  private static final String CLASS_NAME = 'Scribe';
+
   /**
    * @inheritDoc
    */
   public List<IEntry> get(Scribe scribe) {
+    String method = ('get(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
+    }
+
     if (scribe.isAggregate()) {
       return this.getAggregate(scribe);
     }
@@ -59,6 +66,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> getAsSObject(Scribe scribe) {
+    String method = ('getAsSObject(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     return (List<SObject>) Database.query(scribe.toSoql());
   }
 
@@ -66,6 +78,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry first(Scribe scribe) {
+    String method = ('first(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
     if (records.isEmpty()) {
       return null;
@@ -77,6 +94,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject firstAsSObject(Scribe scribe) {
+    String method = ('firstAsSObject(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
     if (records.isEmpty()) {
       return null;
@@ -88,7 +110,13 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry firstOrFail(Scribe scribe) {
+    String method = ('firstOrFail(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+
     if (records.isEmpty()) {
       throw new QueryException('No records found for query: ' + scribe.toSoql());
     }
@@ -99,6 +127,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject firstOrFailAsSObject(Scribe scribe) {
+    String method = ('firstOrFailAsSObject(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
     if (records.isEmpty()) {
       throw new QueryException('No records found for query: ' + scribe.toSoql());
@@ -110,6 +143,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doInsert(SObject record) {
+    String method = ('doInsert(SObject record)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
+    }
+
     insert record;
     return record;
   }
@@ -118,6 +156,10 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doInsert(List<SObject> records) {
+    String method = ('doInsert(List<SObject> records)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
     sortToPreventChunkingErrors(records);
     insert records;
     return records;
@@ -127,6 +169,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doUpdate(SObject record) {
+    String method = ('doUpdate(SObject record)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
     update record;
     return record;
   }
@@ -135,6 +182,10 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry doUpdate(IEntry entry) {
+    String method = ('doUpdate(IEntry entry)');
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
     SObject record = entry.getRecord();
     update record;
     return new Entry(record);
@@ -144,6 +195,10 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doUpdate(List<SObject> records) {
+    String method = ('doUpdate(List<SObject> records)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
     sortToPreventChunkingErrors(records);
     update records;
     return records;
@@ -153,6 +208,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> doUpdate(List<IEntry> entries) {
+    String method = ('doUpdate(List<IEntry> entries)');
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
     if (entries.isEmpty()) {
       return new List<IEntry>();
     }
@@ -173,6 +233,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doUpsert(SObject record) {
+    String method = ('doUpsert(SObject record)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
     upsert record;
     return record;
   }
@@ -181,6 +246,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry doUpsert(IEntry entry) {
+    String method = ('doUpsert(IEntry entry)');
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
+
     SObject record = entry.getRecord();
     upsert record;
     return new Entry(record);
@@ -190,6 +260,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doUpsert(List<SObject> records) {
+    String method = ('doUpsert(List<SObject> records)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
+
     sortToPreventChunkingErrors(records);
     upsert records;
     return records;
@@ -199,6 +274,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> doUpsert(List<IEntry> entries) {
+    String method = ('doUpsert(List<IEntry> entries)');
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
     if (entries.isEmpty()) {
       return new List<IEntry>();
     }
@@ -219,6 +299,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(SObject record) {
+    String method = ('doDelete(SObject record)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
     delete record;
   }
 
@@ -226,6 +311,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(IEntry entry) {
+    String method = ('doDelete(IEntry entry)');
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
+
     delete entry.getRecord();
   }
 
@@ -233,6 +323,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(List<SObject> records) {
+    String method = ('doDelete(List<SObject> records)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
+
     delete records;
   }
 
@@ -240,6 +335,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(List<IEntry> entries) {
+    String method = ('doDelete(List<IEntry> entries)');
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
     if (entries.isEmpty()) {
       System.debug('No entries to delete.');
       return;

@@ -60,19 +60,19 @@ public with sharing class MockEntry extends AbstractEntry {
    *
    * @param recordType The Class type of the SObject (e.g., Account.class).
    * @return A new MockEntry instance.
-   * @throws IllegalArgumentException if recordType is null or not an SObject type.
+   * @throws ApexEloquentException if recordType is null or not an SObject type.
    */
   public static MockEntry of(System.Type recordType) {
     String method = 'of(System.Type recordType)';
     if (recordType == null) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'recordType', recordType);
+      ApexEloquentException.required(CLASS_NAME, method, 'recordType', recordType).fire();
     }
 
     Object instance = recordType.newInstance();
     if (!(instance instanceof SObject)) {
       String reason = '`recordType` is not an SObject type. ';
       String action = 'Ensure you are passing a valid SObject class (e.g., Opportunity.class, MyCustomObject__c.class)';
-      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'recordType', recordType);
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'recordType', recordType).fire();
     }
 
     return new MockEntry((SObject) instance);
@@ -88,7 +88,7 @@ public with sharing class MockEntry extends AbstractEntry {
   public MockEntry alias(String alias) {
     String method = 'alias(String alias)';
     if (alias == null || String.isBlank(alias)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'alias', alias);
+      ApexEloquentException.required(CLASS_NAME, method, 'alias', alias).fire();
     }
 
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, this.fieldToValue);
@@ -106,8 +106,8 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public MockEntry getByAlias(String alias) {
     String method = 'getByAlias(String alias)';
-    if(alias == null || String.isBlank(alias)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'alias', alias);
+    if (alias == null || String.isBlank(alias)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'alias', alias).fire();
     }
 
     if (this.alias == alias) {
@@ -136,7 +136,10 @@ public with sharing class MockEntry extends AbstractEntry {
       'Ensure that a MockEntry with the alias \'' +
       alias +
       '\' exists in the current entry or its relations.';
-    throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'alias', alias);
+    ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'alias', alias).fire();
+
+    // This line will never be reached because the above line will always throw an exception, but it's required to satisfy the method's return type.
+    return null;
   }
 
   /**
@@ -176,8 +179,8 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public Id getAliasId(String alias) {
     String method = 'getAliasId(String alias)';
-    if(alias == null || String.isBlank(alias)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'alias', alias);
+    if (alias == null || String.isBlank(alias)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'alias', alias).fire();
     }
 
     MockEntry entry;
@@ -186,7 +189,7 @@ public with sharing class MockEntry extends AbstractEntry {
     } catch (ApexEloquentException e) {
       String reason = 'The specified alias does not exist in the current entry or its relations.';
       String action = 'Ensure that a MockEntry with the alias \'' + alias + '\' exists and is correctly set.';
-      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'alias', alias);
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'alias', alias).fire();
     }
     return entry.getId();
   }
@@ -224,8 +227,8 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public MockEntry set(String fieldName, Object value) {
     String method = 'set(String fieldName, Object value)';
-    if(fieldName == null || String.isBlank(fieldName)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName);
+    if (fieldName == null || String.isBlank(fieldName)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName).fire();
     }
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(fieldName, value);
@@ -244,7 +247,7 @@ public with sharing class MockEntry extends AbstractEntry {
   public MockEntry template(Map<String, Object> fieldToValue) {
     String method = 'template(Map<String, Object> fieldToValue)';
     if (fieldToValue == null) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldToValue', fieldToValue);
+      ApexEloquentException.required(CLASS_NAME, method, 'fieldToValue', fieldToValue).fire();
     }
 
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
@@ -288,10 +291,16 @@ public with sharing class MockEntry extends AbstractEntry {
   public MockEntry setChildren(String childObjectNameOrRelationName, List<MockEntry> children) {
     String method = 'setChildren(String childObjectNameOrRelationName, List<MockEntry> children)';
     if (childObjectNameOrRelationName == null || String.isBlank(childObjectNameOrRelationName)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'childObjectNameOrRelationName', childObjectNameOrRelationName);
+      ApexEloquentException.required(
+          CLASS_NAME,
+          method,
+          'childObjectNameOrRelationName',
+          childObjectNameOrRelationName
+        )
+        .fire();
     }
-    if(children == null) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'children', children);
+    if (children == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'children', children).fire();
     }
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(childObjectNameOrRelationName, children);
@@ -331,8 +340,8 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public MockEntry setParent(String parentIdFieldName, MockEntry parent) {
     String method = 'setParent(String parentIdFieldName, MockEntry parent)';
-    if(parentIdFieldName == null || String.isBlank(parentIdFieldName)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'parentIdFieldName', parentIdFieldName);
+    if (parentIdFieldName == null || String.isBlank(parentIdFieldName)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'parentIdFieldName', parentIdFieldName).fire();
     }
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(parentIdFieldName, parent);
@@ -351,7 +360,7 @@ public with sharing class MockEntry extends AbstractEntry {
   public MockEntry autoId(String suffix) {
     String method = 'autoId(String suffix)';
     if (String.isBlank(suffix)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'suffix', suffix);
+      ApexEloquentException.required(CLASS_NAME, method, 'suffix', suffix).fire();
     }
     if (suffix == '{#}' || suffix == '{A}' || suffix == '{a}') {
       return this.add('Id', suffix);
@@ -371,17 +380,17 @@ public with sharing class MockEntry extends AbstractEntry {
    *
    * @param suffix The number (non-negative) to be used at the end of the ID.
    * @return A new MockEntry instance with the Id field set.
-   * @throws IllegalArgumentException if the suffix is a negative number.
+   * @throws ApexEloquentException if the suffix is a negative number.
    */
   public MockEntry autoId(Integer suffix) {
     String method = 'autoId(Integer suffix)';
     if (suffix == null) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'suffix', suffix);
+      ApexEloquentException.required(CLASS_NAME, method, 'suffix', suffix).fire();
     }
     if (suffix < 0) {
       String reason = 'Negative values are not allowed for ID generation suffixes.';
       String action = 'Change the `suffix` argument to a non-negative integer (0 or greater).';
-      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'suffix', suffix);
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'suffix', suffix).fire();
     }
     return this.autoId(String.valueOf(suffix));
   }
@@ -394,6 +403,11 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A list of generated MockEntry instances.
    */
   public List<MockENtry> times(Integer count) {
+    String method = 'times(Integer count)';
+    ApexEloquentException validationException = this.validateTimesParams(count, 1, 1);
+    if (validationException != null) {
+      validationException.method(method).fire();
+    }
     return this.times(count, 1, 1);
   }
 
@@ -406,6 +420,11 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A list of generated MockEntry instances.
    */
   public List<MockEntry> times(Integer count, Integer startAt) {
+    String method = 'times(Integer count, Integer startAt)';
+    ApexEloquentException validationException = this.validateTimesParams(count, startAt, 1);
+    if (validationException != null) {
+      validationException.method(method).fire();
+    }
     return this.times(count, startAt, 1);
   }
 
@@ -423,25 +442,10 @@ public with sharing class MockEntry extends AbstractEntry {
    * .add('Name', 'Test Account {#}').times(3, 10, 10);
    */
   public List<MockEntry> times(Integer count, Integer startAt, Integer interval) {
-    if (count <= 0) {
-      throw new IllegalArgumentException('count must be greater than 0');
-    }
-
-    Boolean hasAlphabeticPlaceholder = false;
-    for (Object value : this.fieldToValue.values()) {
-      if (value instanceof String) {
-        String strValue = (String) value;
-        if (strValue.contains('{A}') || strValue.contains('{a}')) {
-          hasAlphabeticPlaceholder = true;
-          break;
-        }
-      }
-    }
-
-    if (hasAlphabeticPlaceholder && startAt < 1) {
-      throw new IllegalArgumentException(
-        'Alphabetic sequences {A} or {a} require \'startAt\' to be 1 or greater.'
-      );
+    String method = 'times(Integer count, Integer startAt, Integer interval)';
+    ApexEloquentException validationException = this.validateTimesParams(count, startAt, interval);
+    if (validationException != null) {
+      validationException.method(method).fire();
     }
 
     List<MockEntry> entries = new List<MockEntry>();
@@ -468,6 +472,52 @@ public with sharing class MockEntry extends AbstractEntry {
     }
 
     return entries;
+  }
+
+  private ApexEloquentException validateTimesParams(Integer count, Integer startAt, Integer interval) {
+    if (count == null) {
+      return ApexEloquentException.required(CLASS_NAME, '', 'count', count);
+    }
+    if (count <= 0) {
+      String reason = 'The `count` argument must be greater than 0';
+      String action = 'Ensure that the `count` argument is a positive integer (1 or greater)';
+      return ApexEloquentException.invalidArgument(CLASS_NAME, '', reason, action, 'count', count);
+    }
+
+    if (startAt == null) {
+      return ApexEloquentException.required(CLASS_NAME, '', 'startAt', startAt);
+    }
+
+    if(interval == null) {
+      return ApexEloquentException.required(CLASS_NAME, '', 'interval', interval);
+    }
+    if(interval == 0) {
+      String reason = 'The `interval` argument must be a non-zero integer for creating a sequence with a step';
+      String action = 'Ensure that the `interval` argument is a non-zero integer';
+      return ApexEloquentException.invalidArgument(CLASS_NAME, '', reason, action, 'interval', interval);
+    }
+
+    Boolean hasAlphabeticPlaceholder = false;
+    for (Object value : this.fieldToValue.values()) {
+      if (value instanceof String) {
+        String strValue = (String) value;
+        if (strValue.contains('{A}') || strValue.contains('{a}')) {
+          hasAlphabeticPlaceholder = true;
+          break;
+        }
+      }
+    }
+
+    if (hasAlphabeticPlaceholder && startAt < 1) {
+      // throw new IllegalArgumentException(
+        // 'Alphabetic sequences {A} or {a} require \'startAt\' to be 1 or greater.'
+      //);
+      String reason = 'Alphabetic sequences {A} or {a} require `startAt` to be 1 or greater';
+      String action = 'Ensure that the `startAt` argument is set to 1 or greater when using alphabetic placeholders';
+      return ApexEloquentException.invalidArgument(CLASS_NAME, '', reason, action, 'startAt', startAt);
+    }
+
+    return null;
   }
 
   /**
@@ -632,14 +682,14 @@ public with sharing class MockEntry extends AbstractEntry {
   public override Object get(String fieldName) {
     String method = 'get(String fieldName)';
     if (fieldName == null || String.isBlank(fieldName)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName);
+      ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName).fire();
     }
 
     if (this.hasAggregateResult) {
       if (!this.skipFieldValidation && !this.fieldStructure.hasField(fieldName.toLowerCase())) {
         String reason = 'The specified field or alias is not exist in Scribe.';
         String action = 'Add the field or alias to the Scribe definition for this AggregateResult';
-        throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName);
+        ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName).fire();
       }
 
       for (String key : this.fieldToValue.keySet()) {
@@ -665,7 +715,7 @@ public with sharing class MockEntry extends AbstractEntry {
         'Ensure that the field or alias \'' +
         fieldName +
         '\' is included in the mock data map when creating this MockEntry instance.';
-      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName);
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName).fire();
     }
 
     try {
@@ -676,7 +726,7 @@ public with sharing class MockEntry extends AbstractEntry {
         'Ensure that the field \'' +
         fieldName +
         '\' is included in the Scribe definition for this object.';
-      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName, e);
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName, e).fire();
     }
     this.ensureDescribeResultIfNeeded();
 
@@ -708,7 +758,7 @@ public with sharing class MockEntry extends AbstractEntry {
     String method = 'put(String fieldName, Object value)';
     if (this.hasAggregateResult) {
       String reason = 'The put() operation is incompatible with AggregateResult-based MockEntry instances';
-      throw ApexEloquentException.invalidOperation(CLASS_NAME, method, reason);
+      ApexEloquentException.invalidOperation(CLASS_NAME, method, reason).fire();
     }
 
     try {
@@ -719,7 +769,7 @@ public with sharing class MockEntry extends AbstractEntry {
       String reason = 'SObject.put() failed: ' + e.getMessage();
       String action = 'Check the field API name and ensure the value type matches the field definition.';
       Map<String, Object> paramToValue = new Map<String, Object>{ 'fieldName' => fieldName, 'value' => value };
-      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, paramToValue, e);
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, paramToValue, e).fire();
     }
   }
 
@@ -729,7 +779,7 @@ public with sharing class MockEntry extends AbstractEntry {
   public override IEntry getParent(String parentIdFieldName) {
     String method = 'getParent(String parentIdFieldName)';
     if (parentIdFieldName == null || String.isBlank(parentIdFieldName)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'parentIdFieldName', parentIdFieldName);
+      ApexEloquentException.required(CLASS_NAME, method, 'parentIdFieldName', parentIdFieldName).fire();
     }
 
     this.ensureDescribeResultIfNeeded();
@@ -743,14 +793,15 @@ public with sharing class MockEntry extends AbstractEntry {
         'Ensure that the parentIdFieldName \'' +
         parentIdFieldName +
         '\' is included as a relationship in the Scribe definition for this object.';
-      throw ApexEloquentException.invalidArgument(
-        CLASS_NAME,
-        method,
-        reason,
-        action,
-        'parentIdFieldName',
-        parentIdFieldName
-      );
+      ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'parentIdFieldName',
+          parentIdFieldName
+        )
+        .fire();
     }
 
     if (this.fieldToValue.containsKey(parentIdFieldName)) {
@@ -776,7 +827,7 @@ public with sharing class MockEntry extends AbstractEntry {
   public override List<IEntry> getChildren(String childObjectName) {
     String method = 'getChildren(String childObjectName)';
     if (childObjectName == null || String.isBlank(childObjectName)) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'childObjectName', childObjectName);
+      ApexEloquentException.required(CLASS_NAME, method, 'childObjectName', childObjectName).fire();
     }
 
     this.ensureDescribeResultIfNeeded();
@@ -786,15 +837,16 @@ public with sharing class MockEntry extends AbstractEntry {
     } catch (ApexEloquentException e) {
       String reason = e.getMessage();
       String action = 'Use getChildrenByRelationName() to specify the relationship name instead of the object name';
-      throw ApexEloquentException.invalidArgument(
-        CLASS_NAME,
-        method,
-        reason,
-        action,
-        'childObjectName',
-        childObjectName,
-        e
-      );
+      ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'childObjectName',
+          childObjectName,
+          e
+        )
+        .fire();
     }
 
     String errorTemplate = 'The specified child Object Name `{0}` is not set in Scribe. parent object name: {1}';
@@ -806,15 +858,16 @@ public with sharing class MockEntry extends AbstractEntry {
         'Ensure that the childObjectName \'' +
         childObjectName +
         '\' or its corresponding child relation name is included in the Scribe definition for this object.';
-      throw ApexEloquentException.invalidArgument(
-        CLASS_NAME,
-        method,
-        reason,
-        action,
-        'childObjectName',
-        childObjectName,
-        e
-      );
+      ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'childObjectName',
+          childObjectName,
+          e
+        )
+        .fire();
     }
 
     for (String key : this.fieldToValue.keySet()) {
@@ -828,15 +881,16 @@ public with sharing class MockEntry extends AbstractEntry {
             'Ensure that the value associated with \'' +
             childObjectName +
             '\' is a List<IEntry> or IEntry in the mock data for this object.';
-          throw ApexEloquentException.invalidArgument(
-            CLASS_NAME,
-            method,
-            reason,
-            action,
-            'childObjectName',
-            childObjectName,
-            e
-          );
+          ApexEloquentException.invalidArgument(
+              CLASS_NAME,
+              method,
+              reason,
+              action,
+              'childObjectName',
+              childObjectName,
+              e
+            )
+            .fire();
         }
       }
     }
@@ -850,6 +904,10 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   public override List<IEntry> getChildrenByRelationName(String childRelationName) {
     String method = 'getChildrenByRelationName(String childRelationName)';
+    if(childRelationName == null || String.isBlank(childRelationName)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'childRelationName', childRelationName).fire();
+    }
+
     this.ensureDescribeResultIfNeeded();
     String errorTemplate = 'The specified child relation name `{0}` is not set in Scribe. parent object name: {0}';
     try {
@@ -860,15 +918,16 @@ public with sharing class MockEntry extends AbstractEntry {
         'Ensure that the child relation name \'' +
         childRelationName +
         '\' is included in the Scribe definition for this object.';
-      throw ApexEloquentException.invalidArgument(
-        CLASS_NAME,
-        method,
-        reason,
-        action,
-        'childRelationName',
-        childRelationName,
-        e
-      );
+      ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'childRelationName',
+          childRelationName,
+          e
+        )
+        .fire();
     }
 
     try {
@@ -879,15 +938,17 @@ public with sharing class MockEntry extends AbstractEntry {
         'Ensure that the child relation name \'' +
         childRelationName +
         '\' is a valid child relationship for this object.';
-      throw ApexEloquentException.invalidArgument(
-        CLASS_NAME,
-        method,
-        reason,
-        action,
-        'childRelationName',
-        childRelationName,
-        e
-      );
+      System.debug('fireするよ');
+      ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'childRelationName',
+          childRelationName,
+          e
+        )
+        .fire();
     }
 
     for (String key : this.fieldToValue.keySet()) {
@@ -901,15 +962,16 @@ public with sharing class MockEntry extends AbstractEntry {
             'Ensure that the value associated with \'' +
             childRelationName +
             '\' is a List<IEntry> or IEntry in the mock data for this object.';
-          throw ApexEloquentException.invalidArgument(
-            CLASS_NAME,
-            method,
-            reason,
-            action,
-            'childRelationName',
-            childRelationName,
-            e
-          );
+          ApexEloquentException.invalidArgument(
+              CLASS_NAME,
+              method,
+              reason,
+              action,
+              'childRelationName',
+              childRelationName,
+              e
+            )
+            .fire();
         }
       }
     }
@@ -928,7 +990,7 @@ public with sharing class MockEntry extends AbstractEntry {
     } catch (ApexEloquentException e) {
       String reason = e.getMessage() + ', field: Id';
       String action = 'Add the Id field to the Scribe definition for this object';
-      throw ApexEloquentException.message(CLASS_NAME, 'getId()', reason, action, e);
+      ApexEloquentException.message(CLASS_NAME, 'getId()', reason, action, e).fire();
     }
 
     if (this.fieldToValue.containsKey('Id')) {
@@ -948,7 +1010,7 @@ public with sharing class MockEntry extends AbstractEntry {
     } catch (ApexEloquentException e) {
       String reason = e.getMessage() + ', field: Name';
       String action = 'Add the Name field to the Scribe definition for this object';
-      throw ApexEloquentException.message(CLASS_NAME, method, reason, action, e);
+      ApexEloquentException.message(CLASS_NAME, method, reason, action, e).fire();
     }
 
     if (this.fieldToValue.containsKey('Name')) {
@@ -1025,7 +1087,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * validate the child relation name.
    *
    * @param childRelationName child relation name to be validated
-   * @throws QueryException if the child relation name is not valid
+   * @throws ApexEloquentException if the child relation name is not valid
    */
   private void validateChildRelationInFieldStructure(String relation, String errorTemplate) {
     if (!this.skipFieldValidation && !this.fieldStructure.hasRelation(relation.toLowerCase())) {
@@ -1039,7 +1101,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * validate the child relation name.
    *
    * @param childRelationName child relation name to be validated
-   * @throws QueryException if the child relation name is not valid
+   * @throws ApexEloquentException if the child relation name is not valid
    */
   private List<IEntry> getChildEntriesFromFieldToValue(String key, String errorTemplate) {
     List<IEntry> entries = new List<IEntry>();

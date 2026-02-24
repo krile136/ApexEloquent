@@ -55,11 +55,15 @@ public with sharing class Entry extends AbstractEntry {
    */
   public override Object get(String fieldName) {
     String method = 'get(String fieldName)';
+    if (fieldName == null || String.isBlank(fieldName)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName).fire();
+    }
+
     if (this.hasAggregateResult) {
       if (!this.fieldStructure.hasField(fieldName.toLowerCase())) {
         String reason = 'The specified field or alias is not exist in Scribe.';
         String action = 'Add the field or alias to the Scribe definition for this AggregateResult';
-        throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName);
+        ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName).fire();
       }
       return this.aggregateResult.get(fieldName);
     }
@@ -69,7 +73,7 @@ public with sharing class Entry extends AbstractEntry {
     } catch (ApexEloquentException e) {
       String reason = e.getMessage();
       String action = 'Ensure that the field name is correct and exists in the object\'s fields.';
-      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName, e);
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName, e).fire();
     }
     return this.record.get(fieldName);
   }
@@ -81,7 +85,7 @@ public with sharing class Entry extends AbstractEntry {
     String method = 'put(String fieldName, Object value)';
     if (this.hasAggregateResult) {
       String reason = 'The put() operation is incompatible with AggregateResult-based Entry instances';
-      throw ApexEloquentException.invalidOperation(CLASS_NAME, method, reason);
+      ApexEloquentException.invalidOperation(CLASS_NAME, method, reason).fire();
     }
 
     try {
@@ -89,7 +93,7 @@ public with sharing class Entry extends AbstractEntry {
     } catch (ApexEloquentException e) {
       String reason = e.getMessage();
       String action = 'Ensure that the field name is correct and exists in the object\'s fields.';
-      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName, e);
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName, e).fire();
     }
     this.record.put(fieldName, value);
   }
@@ -98,25 +102,45 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override IEntry getParent(String parentIdFieldName) {
+    String method = 'getParent(String parentIdFieldName)';
+    if (parentIdFieldName == null || String.isBlank(parentIdFieldName)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'parentIdFieldName', parentIdFieldName).fire();
+    }
+
     this.ensureDescribeResultIfNeeded();
     Map<String, Schema.SObjectField> fieldMap = this.describeResult.fields.getMap();
 
     Schema.SObjectField field = fieldMap.get(parentIdFieldName);
     if (field == null) {
-      String error = String.format(
-        'The specified parentIdFieldName does not exist in the object\'s fields. object name: {0}, parent Id field name: {1}',
-        new List<String>{ this.describeResult.getName(), parentIdFieldName }
-      );
-      throw new QueryException(error);
+      String reason =
+        'The specified parentIdFieldName does not exist in the object\'s fields. Object name:' +
+        this.describeResult.getName();
+      String action = 'Ensure that the parentIdFieldName is correct and exists in the object\'s fields.';
+      ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'parentIdFieldName',
+          parentIdFieldName
+        )
+        .fire();
     }
 
     Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
     if (fieldDescribe.getType() != Schema.DisplayType.Reference) {
-      String error = String.format(
-        'The specified parentIdFieldName is not a reference type. object name: {0}, parent Id field name: {1}',
-        new List<String>{ this.describeResult.getName(), parentIdFieldName }
-      );
-      throw new QueryException(error);
+      String reason =
+        'The specified parentIdFieldName is not a reference type. Object name:' + this.describeResult.getName();
+      String action = 'Ensure that the parentIdFieldName is a reference type field.';
+      ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'parentIdFieldName',
+          parentIdFieldName
+        )
+        .fire();
     }
 
     String parentRelationName = fieldDescribe.getRelationshipName();
@@ -132,10 +156,31 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override List<IEntry> getChildren(String childObjectName) {
+    String method = 'getChildren(String childObjectName)';
+    if (childObjectName == null || String.isBlank(childObjectName)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'childObjectName', childObjectName).fire();
+    }
+
     this.ensureDescribeResultIfNeeded();
     List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
 
-    String childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
+    String childRelationName = null;
+    try {
+      childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
+    } catch (ApexEloquentException e) {
+      String reason = e.getMessage();
+      String action = 'Ensure that the child object name is correct and exists in the parent object\'s child relationships.';
+      ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'childObjectName',
+          childObjectName,
+          e
+        )
+        .fire();
+    }
     List<IEntry> childRecords = new List<IEntry>();
     for (SObject childSObject : this.record.getSObjects(childRelationName)) {
       childRecords.add(new Entry(ChildSObject));
@@ -148,8 +193,28 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override List<IEntry> getChildrenByRelationName(String childRelationName) {
+    String method = 'getChildrenByRelationName(String childRelationName)';
+    if (childRelationName == null || String.isBlank(childRelationName)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'childRelationName', childRelationName).fire();
+    }
+
     this.ensureDescribeResultIfNeeded();
-    this.validateChildRelationName(childRelationName);
+    try {
+      this.validateChildRelationName(childRelationName);
+    } catch (ApexEloquentException e) {
+      String reason = e.getMessage();
+      String action = 'Ensure that the child relation name is correct and exists in the parent object\'s child relationships.';
+      ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'childRelationName',
+          childRelationName,
+          e
+        )
+        .fire();
+    }
 
     List<IEntry> childRecords = new List<IEntry>();
     for (SObject childSObject : this.record.getSObjects(childRelationName)) {
@@ -181,9 +246,12 @@ public with sharing class Entry extends AbstractEntry {
   }
 
   public override IEntry withoutFieldValidation() {
-    throw new QueryException(
-      'withoutFieldValidation() is not supported in Entry class. Use MockEntry for testing purposes.'
-    );
+    String method = 'withoutFieldValidation()';
+    String reason = 'The withoutFieldValidation() method is not supported in Entry class because this class represents actual database records. If you need to bypass field validation in a test context, please ensure you are using a MockEntry instance instead.';
+    ApexEloquentException.invalidOperation(CLASS_NAME, method, reason).fire();
+
+    // This line will never be reached because the above method call will always throw an exception, but it is required to satisfy the method's return type.
+    return null;
   }
 
   /**
@@ -197,9 +265,12 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override IEntry setFieldStructure(FieldStructure fieldStructure) {
-    throw new QueryException(
-      'Field structure is not supported in Entry class. Use MockEntry for testing purposes.'
-    );
+    String method = 'setFieldStructure(FieldStructure fieldStructure)';
+    String reason = 'The setFieldStructure() method is not supported in Entry class because this class represents actual database records. If you need to validate field access in a test context, please ensure you are using a MockEntry instance instead.';
+    ApexEloquentException.invalidoperation(CLASS_NAME, method, reason).fire();
+
+    // This line will never be reached because the above method call will always throw an exception, but it is required to satisfy the method's return type.
+    return null;
   }
 
   /**

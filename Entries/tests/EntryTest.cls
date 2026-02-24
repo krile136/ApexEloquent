@@ -16,6 +16,40 @@
 @isTest
 public with sharing class EntryTest {
   @isTest
+  static void testGet_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.get(null);
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGet_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.get('');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(String fieldName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
   static void testGet_WhenFieldExists_ShouldReturnFieldValue() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');
@@ -169,6 +203,40 @@ public with sharing class EntryTest {
   }
 
   @isTest
+  static void testGetParent_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    SObject record = new Opportunity(Name = 'Test Opportunity');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.getParent(null);
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getParent(String parentIdFieldName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGetParent_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange
+    SObject record = new Opportunity(Name = 'Test Opportunity');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.getParent('');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getParent(String parentIdFieldName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
   static void testGetParent_WhenParentExists_ShouldReturnParentEntry() {
     // Arrange
     SObject record = new Opportunity(Name = 'Test Opportunity', Id = '006000000000001');
@@ -210,12 +278,11 @@ public with sharing class EntryTest {
     // Act & Assert
     try {
       entry.getParent('NonExistentParentIdField');
-      Assert.fail('Expected Exception to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified parentIdFieldName does not exist in the object\'s fields. object name: Opportunity, parent Id field name: NonExistentParentIdField',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getParent(String parentIdFieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -228,12 +295,45 @@ public with sharing class EntryTest {
     // Act & Assert
     try {
       entry.getParent('Name'); // Name is not a reference field
-      Assert.fail('Expected Exception to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified parentIdFieldName is not a reference type. object name: Account, parent Id field name: Name',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getParent(String parentIdFieldName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
+    }
+  }
+
+  @isTest
+  static void testGetChildren_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.getChildren(null);
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildren(String childObjectName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGetChildren_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.getChildren('');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildren(String childObjectName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
     }
   }
 
@@ -259,12 +359,62 @@ public with sharing class EntryTest {
     // Act & Assert
     try {
       entry.getChildren('NonExistentChildObject');
-      Assert.fail('Expected Exception to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'The specified childObjectName does not exist in the parent object\'s children relationships. parent object name: Account, child object name: NonExistentChildObject',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildren(String childObjectName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
+    }
+  }
+
+  @isTest
+  static void testGetChildrenByRelationName_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.getChildrenByRelationName(null);
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildrenByRelationName(String childRelationName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGetChildrenByRelationName_WhenApplyEmptyString_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.getChildrenByRelationName('');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildrenByRelationName(String childRelationName)'));
+      Assert.isTrue(errorMessage.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGetChildrenByRelationName_WhenApplyNonExistRelationName_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.getChildrenByRelationName('NonExistentRelation');
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getChildrenByRelationName(String childRelationName)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
   }
 
@@ -319,12 +469,28 @@ public with sharing class EntryTest {
     // Act & Assert
     try {
       entry.setFieldStructure(fieldStructure);
-      Assert.fail('Expected Exception to be thrown.');
-    } catch (QueryException e) {
-      Assert.areEqual(
-        'Field structure is not supported in Entry class. Use MockEntry for testing purposes.',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('setFieldStructure(FieldStructure fieldStructure)'));
+      Assert.isTrue(errorMessage.contains('Invalid operation'));
+    }
+  }
+
+  @isTest
+  static void testWithoutFieldVladition_WhenCalled_ThenThrowException() {
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act & Assert
+    try {
+      entry.withoutFieldValidation();
+      Assert.fail('Expected ApexEloquentException to be thrown.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('withoutFieldValidation()'));
+      Assert.isTrue(errorMessage.contains('Invalid operation'));
     }
   }
 }

@@ -502,6 +502,25 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testTimes_WhenAddNullToStartAt_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.set('Name', 'Name-{#}').times(3, null);
+      Assert.fail('Expected ApexEloquentException to be thrown when applying null startAt.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('times(Integer count, Integer startAt)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+
+  @isTest
   static void testTimes_WhenAddNameTimesWithStartAt_ThenReturnMockEntriesWithNameTimes() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
@@ -517,6 +536,60 @@ public class MockEntryTest {
     Assert.areEqual('Name-5', mockEntries[0].getName(), 'First entry name should match.');
     Assert.areEqual('Name-6', mockEntries[1].getName(), 'Second entry name should match.');
     Assert.areEqual('Name-7', mockEntries[2].getName(), 'Third entry name should match.');
+  }
+
+  @isTest
+  static void testTimes_WhenAddNullToInterval_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(OrderItem.class).field('Quantity').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(OrderItem.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.set('Quantity', '{#}').times(3, 1, null);
+      Assert.fail('Expected ApexEloquentException to be thrown when applying null interval.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('times(Integer count, Integer startAt, Integer interval)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenAddZeroToInterval_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(OrderItem.class).field('Quantity').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(OrderItem.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.set('Quantity', '{#}').times(3, 1, 0);
+      Assert.fail('Expected ApexEloquentException to be thrown when applying zero interval.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('times(Integer count, Integer startAt, Integer interval)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
+    }
+  }
+
+  @isTest
+  static void testTimes_AddAlphabeticPlaceholderAndNegativeStartAt_ThenThrowException() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act & Assert
+    try {
+      mockEntry.set('Name', 'Name-{A}').times(3, -1, 1);
+      Assert.fail('Expected ApexEloquentException to be thrown when applying negative interval.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('times(Integer count, Integer startAt, Integer interval)'));
+      Assert.isTrue(errorMessage.contains('argument is Invalid'));
+    }
   }
 
   @isTest

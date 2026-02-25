@@ -138,7 +138,7 @@ public abstract class AbstractEntry implements IEntry {
     Integer high = size - 1;
     Integer foundIndex = -1;
 
-    // 1. 二分探索で一つ目を見つける
+    // 1. Find the first occurrence using Binary Search
     while (low <= high) {
       Integer mid = (low + high) / 2;
       String midName = childRelationships[mid].getChildSObject().getDescribe().getName();
@@ -163,19 +163,20 @@ public abstract class AbstractEntry implements IEntry {
       );
     }
 
-    // 2. 曖昧性（Ambiguous）のチェック：見つかった場所の前後だけを確認
-    // Salesforceのリストはソート済みなので、同じ名前は必ず隣接している
+    // 2. Ambiguity Check: Verify adjacent elements only
+    // Since Salesforce returns child relationships sorted by name, 
+    // identical object names will always be positioned next to each other.
     Schema.ChildRelationship targetRelation = childRelationships[foundIndex];
 
     Boolean isAmbiguous = false;
-    // 前を確認
+    // Check preceding element
     if (
       foundIndex > 0 &&
       childRelationships[foundIndex - 1].getChildSObject().getDescribe().getName() == childObjectName
     ) {
       isAmbiguous = true;
     }
-    // 後を確認
+    // Check succeeding element
     if (
       !isAmbiguous &&
       foundIndex < size - 1 &&

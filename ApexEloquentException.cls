@@ -67,23 +67,11 @@ public with sharing class ApexEloquentException extends Exception {
     return e;
   }
 
-  private ApexEloquentException cloneError() {
-    ApexEloquentException e = new ApexEloquentException();
-    e.className = this.className;
-    e.methodName = this.methodName;
-    e.error = this.error;
-    e.reason = this.reason;
-    e.action = this.action;
-    e.params = this.params.clone();
-    e.originalException = this.originalException;
-    return e;
-  }
-
-  public void fire() {
+  public ApexEloquentException build() {
     List<String> lines = new List<String>{};
     lines.add('====== APEX ELOQUENT EXCEPTION ======');
     lines.add('Location'.rightPad(PAD_SIZE) + ': ' + this.className + '.' + this.methodName);
-    if(this.error != null) {
+    if (this.error != null) {
       lines.add('Error'.rightPad(PAD_SIZE) + ': ' + this.error);
     }
     if (this.reason != null) {
@@ -97,19 +85,32 @@ public with sharing class ApexEloquentException extends Exception {
     }
 
     String errorMessage = mergeLines(lines);
-    if (this.originalException != null) {
-      throw new ApexEloquentException(errorMessage, this.originalException);
-    }
 
-    throw new ApexEloquentException(errorMessage);
+    if (this.originalException != null) {
+      return new ApexEloquentException(errorMessage, this.originalException);
+    }
+    return new ApexEloquentException(errorMessage);
+  }
+
+  public void fire() {
+    throw this.build();
+  }
+
+  private ApexEloquentException cloneError() {
+    ApexEloquentException e = new ApexEloquentException();
+    e.className = this.className;
+    e.methodName = this.methodName;
+    e.error = this.error;
+    e.reason = this.reason;
+    e.action = this.action;
+    e.params = this.params.clone();
+    e.originalException = this.originalException;
+    return e;
   }
 
   // -------------- message --------------
   public static ApexEloquentException message(String className, String methodName, String err, String action) {
-    ApexEloquentException ex = ApexEloquentException.at(className)
-      .method(methodName)
-      .error(err)
-      .action(action);
+    ApexEloquentException ex = ApexEloquentException.at(className).method(methodName).error(err).action(action);
 
     return ex;
   }
@@ -227,10 +228,7 @@ public with sharing class ApexEloquentException extends Exception {
 
   public static ApexEloquentException invalidOperation(String className, String methodName, String reason) {
     string error = 'Invalid operation';
-    ApexEloquentException ex = ApexEloquentException.at(className)
-      .method(methodName)
-      .error(error)
-      .reason(reason);
+    ApexEloquentException ex = ApexEloquentException.at(className).method(methodName).error(error).reason(reason);
 
     return ex;
   }

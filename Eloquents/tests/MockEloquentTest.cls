@@ -16,6 +16,22 @@
 @isTest
 public with sharing class MockEloquentTest {
   @isTest
+  static void testGet_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new MockEloquent()).get(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
   static void testGet_WhenEntryExist_ThenReturnEntries() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '00600000000000');
@@ -143,10 +159,7 @@ public with sharing class MockEloquentTest {
                     'OpportunityId',
                     MockEntry.of(Opportunity.class)
                       .add('Name', 'Test Opportunity')
-                      .addParent(
-                        'ContractId',
-                        MockEntry.of(Contract.class).add('Name', 'Test Contract')
-                      )
+                      .addParent('ContractId', MockEntry.of(Contract.class).add('Name', 'Test Contract'))
                   )
               )
           )
@@ -194,10 +207,7 @@ public with sharing class MockEloquentTest {
     MockEntry accountEntry = MockEntry.of(Account.class)
       .autoId(1)
       .add('Name', 'Test Account')
-      .addChildren(
-        'Contact',
-        MockEntry.of(Contact.class).autoId('{#}').add('Name', 'Test Contact {#}').times(2)
-      );
+      .addChildren('Contact', MockEntry.of(Contact.class).autoId('{#}').add('Name', 'Test Contact {#}').times(2));
 
     IEloquent eloquent = new MockEloquent(accountEntry);
 
@@ -229,9 +239,7 @@ public with sharing class MockEloquentTest {
             Scribe.asChild(Opportunity.class)
               .fields(fields)
               .withChildren(
-                Scribe.asChild(Quote.class)
-                  .fields(fields)
-                  .withChildren(Scribe.asChild(Order.class).fields(fields))
+                Scribe.asChild(Quote.class).fields(fields).withChildren(Scribe.asChild(Order.class).fields(fields))
               )
           )
       );
@@ -331,24 +339,19 @@ public with sharing class MockEloquentTest {
     try {
       IEntry entry = entries[0];
       entry.getName(); // This field is not selected in the Scribe query
-      Assert.fail('Expected QueryException to be thrown for non-selected field');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage()
-          .contains('The specified field is not selected in Scribe. object name: Opportunity, field name: Name'),
-        'Expected QueryException with specific message for non-selected field'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown for non-selected field');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
+      Assert.isTrue(error.contains('SObject: Opportunity'));
+      Assert.isTrue(error.contains('field: Name'));
     }
   }
 
   @isTest
   static void testGet_WhenEntryWithoutParentGetParent_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class)
-      .field('Id')
-      .field('Name')
-      .whereEqual('Id', '006000000000001');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').field('Name').whereEqual('Id', '006000000000001');
     MockEntry oppEntry = new MockEntry(new Opportunity(Id = '006000000000001', Name = 'Test Opportunity'));
     IEloquent eloquent = new MockEloquent(oppEntry);
 
@@ -357,14 +360,11 @@ public with sharing class MockEloquentTest {
     try {
       IEntry entry = entries[0];
       entry.getParent('AccountId'); // This parent does not exist in the mock entry
-      Assert.fail('Expected QueryException to be thrown for non-existing parent');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'The specified parentIdFieldName is not set in Scribe. object name: Opportunity, parent Id field name: AccountId',
-        e.getMessage(),
-        'Expected QueryException with specific message for non-existing parent'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown for non-existing parent');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('The specified parentIdFieldName is not defined as a relationship in Scribe'));
+      Assert.isTrue(error.contains('parentIdFieldName \'AccountId\''));
     }
   }
 
@@ -387,14 +387,12 @@ public with sharing class MockEloquentTest {
     try {
       IEntry entry = entries[0];
       entry.getParent('AccountId').getName(); // This field is not selected in the Scribe query
-      Assert.fail('Expected QueryException to be thrown for non-selected field in parent');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Account, field name: Name',
-        e.getMessage(),
-        'Expected QueryException with specific message for non-selected field in parent'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown for non-selected field in parent');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
+      Assert.isTrue(error.contains('SObject: Account'));
+      Assert.isTrue(error.contains('field: Name'));
     }
   }
 
@@ -469,24 +467,19 @@ public with sharing class MockEloquentTest {
     // Assert
     try {
       accountEntry.getId(); // This field is not selected in the Scribe query
-      Assert.fail('Expected QueryException to be thrown for non-selected field in nested parent');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Account, field name: Id',
-        e.getMessage(),
-        'Expected QueryException with specific message for non-selected field in nested parent'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown for non-selected field in nested parent');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
+      Assert.isTrue(error.contains('SObject: Account'));
+      Assert.isTrue(error.contains('field: Id'));
     }
   }
 
   @isTest
   static void testGet_WhenEntryWithoutChildrenGetChildren_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.of(Order.class)
-      .field('Id')
-      .field('Name')
-      .whereEqual('Id', '801000000000001');
+    Scribe scribe = Scribe.of(Order.class).field('Id').field('Name').whereEqual('Id', '801000000000001');
     MockEntry accountEntry = new MockEntry(new Order(Id = '801000000000000001', Name = 'Test Account'));
     IEloquent eloquent = new MockEloquent(accountEntry);
 
@@ -495,14 +488,11 @@ public with sharing class MockEloquentTest {
     try {
       IEntry entry = entries[0];
       entry.getChildren('OrderItem'); // This child does not exist in the mock entry
-      Assert.fail('Expected QueryException to be thrown for non-existing child');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'The specified childObjectName is not set in Scribe. object name: Order, child object name: OrderItem',
-        e.getMessage(),
-        'Expected QueryException with specific message for non-existing child'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown for non-existing child');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('The specified child Object Name `OrderItem` is not set in Scribe'));
+      Assert.isTrue(error.contains('parent object name: Order'));
     }
   }
 
@@ -514,18 +504,10 @@ public with sharing class MockEloquentTest {
       .field('Name')
       .withChildren(Scribe.asChild(Contact.class).field('Id')) // 'Name' field is not selected
       .whereEqual('Id', '001000000000001');
-    MockEntry accountEntry = new MockEntry(
-      new Account(Id = '001000000000001', Name = 'Test Account'),
-      new Map<String, Object>{
-        'Contact' => new List<IEntry>{
-          new MockEntry(
-            new Contact(Id = '003000000000001'),
-            new Map<String, Object>{ 'Name' => 'Test Contact 1' }
-          ),
-          new MockEntry(new Contact(Id = '003000000000002'), new Map<String, Object>{ 'Name' => 'Test Contact 2' })
-        }
-      }
-    );
+    MockEntry accountEntry = MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Test Account')
+      .addChildren('Contact', MockEntry.of(Contact.class).autoId('{#}').set('Name', 'Test Contact {#}').times(2));
     IEloquent eloquent = new MockEloquent(accountEntry);
 
     // Act
@@ -538,14 +520,12 @@ public with sharing class MockEloquentTest {
       for (IEntry contact : contacts) {
         contact.getName(); // This field is not selected in the Scribe query
       }
-      Assert.fail('Expected QueryException to be thrown for non-selected field in child');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Contact, field name: Name',
-        e.getMessage(),
-        'Expected QueryException with specific message for non-selected field in child'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown for non-selected field in child');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
+      Assert.isTrue(error.contains('SObject: Contact'));
+      Assert.isTrue(error.contains('field: Name'));
     }
   }
 
@@ -562,9 +542,7 @@ public with sharing class MockEloquentTest {
             Scribe.asChild(Opportunity.class)
               .fields(fields)
               .withChildren(
-                Scribe.asChild(Quote.class)
-                  .fields(fields)
-                  .withChildren(Scribe.asChild(Order.class).fields(fields))
+                Scribe.asChild(Quote.class).fields(fields).withChildren(Scribe.asChild(Order.class).fields(fields))
               )
           )
       );
@@ -610,325 +588,138 @@ public with sharing class MockEloquentTest {
     try {
       for (IEntry order : orders1) {
         order.getId(); // This field is not selected in the Scribe query
-        Assert.fail('Expected QueryException to be thrown for non-selected field in nested child');
+        Assert.fail('Expected ApexEloquentException to be thrown for non-selected field in nested child');
       }
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'The specified field is not selected in Scribe. object name: Order, field name: Id',
-        e.getMessage(),
-        'Expected QueryException with specific message for non-selected field in nested child'
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
+      Assert.isTrue(error.contains('SObject: Order'));
+      Assert.isTrue(error.contains('field: Id'));
     }
   }
 
   @isTest
-  static void testFirst_WhenEntryExists_ThenReturnFirstEntry() {
+  static void testRepeat_WhenUsingWithoutFailONXxxMethod_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
-    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
-    IEloquent eloquent = new MockEloquent(mockEntry);
-
-    // Act
-    IEntry entry = eloquent.first(scribe);
-
-    // Assert
-    Assert.isNotNull(entry, 'Expected first entry to be returned');
-    Assert.areEqual('006000000000000001', entry.getId(), 'Expected entry ID to match');
-  }
-
-  @isTest
-  static void testFirst_WhenNoEntries_ThenReturnNull() {
-    // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    IEntry entry = eloquent.first(scribe);
-
-    // Assert
-    Assert.isNull(entry, 'Expected null when no entries exist');
-  }
-
-  @isTest
-  static void testFirst_WhenFieldisNotSelected_ThenThrowException() {
-    // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
-    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
-    IEloquent eloquent = new MockEloquent(mockEntry);
-
-    // Act
-    try {
-      IEntry entry = eloquent.first(scribe);
-      entry.getName(); // This field is not selected in the Scribe query
-      Assert.fail('Expected QueryException to be thrown for non-selected field');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage()
-          .contains('The specified field is not selected in Scribe. object name: Opportunity, field name: Name'),
-        'Expected QueryException with specific message for non-selected field'
-      );
-    }
-  }
-
-  @isTest
-  static void testFirstOrFail_WhenEntryExists_ThenReturnFirstEntry() {
-    // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
-    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
-    IEloquent eloquent = new MockEloquent(mockEntry);
-
-    // Act
-    IEntry entry = eloquent.firstOrFail(scribe);
-
-    // Assert
-    Assert.isNotNull(entry, 'Expected first entry to be returned');
-    Assert.areEqual('006000000000000001', entry.getId(), 'Expected entry ID to match');
-  }
-
-  @isTest
-  static void testFirstOrFail_WhenNoEntries_ThenReturnNull() {
-    // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
-    IEloquent eloquent = new MockEloquent();
+    MockEloquent mockEloquent = new MockEloquent();
 
     // Act & Assert
     try {
-      IEntry entry = eloquent.firstOrFail(scribe);
-      Assert.fail('Expected QueryException to be thrown when no entries exist');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'No records found for query: ' + scribe.toSoql(),
-        e.getMessage(),
-        'Expected QueryException with specific message'
-      );
+      mockEloquent.repeat();
+      Assert.fail('Expected ApexEloquentException to be thrown when calling repeat() without failOnXxx()');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('No method call to repeat'));
     }
   }
 
   @isTest
-  static void testFirstOrFail_WhenFieldisNotSelected_ThenThrowException() {
+  static void testGet_WhenSetFail_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
-    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
-    IEloquent eloquent = new MockEloquent(mockEntry);
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnGet();
 
-    // Act
+    // Act & Assert
     try {
-      IEntry entry = eloquent.first(scribe);
-      entry.getName(); // This field is not selected in the Scribe query
-      Assert.fail('Expected QueryException to be thrown for non-selected field');
+      eloquent.get(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testGet_WhenSetFailAndGetTwice_ThenThrowExceptionOnlyFirstTime() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnGet();
+
+    // Act & Assert
+    try {
+      eloquent.get(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown on first get');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+
+    // Second call should not throw exception
+    try {
+      List<IEntry> entries = eloquent.get(scribe);
+      Assert.isNotNull(entries, 'Expected entries to be returned on second get');
+    } catch (ApexEloquentException e) {
+      Assert.fail('Did not expect ApexEloquentException to be thrown on second get');
+    }
+  }
+
+  @isTest
+  static void testGet_WhenSetFailAndRepeat_ThenThrowExceptionEveryTime() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnGet().repeat();
+
+    // Act & Assert
+    for (Integer i = 0; i < 3; i++) {
+      try {
+        eloquent.get(scribe);
+        Assert.fail('Expected ApexEloquentException to be thrown on get attempt ' + (i + 1));
+      } catch (ApexEloquentException e) {
+        String errorMessage = e.getMessage();
+        Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
+        Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      }
+    }
+  }
+
+  @isTest
+  static void testGet_WhenSetFailTwiceAndGetTreeTimes_ThenThrowExceptionFirstTwoTimes() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnGet().failOnGet();
+
+    // Act & Assert
+    for (Integer i = 0; i < 3; i++) {
+      try {
+        eloquent.get(scribe);
+        if (i < 2) {
+          Assert.fail('Expected ApexEloquentException to be thrown on get attempt ' + (i + 1));
+        } else {
+          Assert.isNotNull(eloquent.get(scribe), 'Expected entries to be returned on third get');
+        }
+      } catch (ApexEloquentException e) {
+        if (i < 2) {
+          String errorMessage = e.getMessage();
+          Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
+          Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+        } else {
+          Assert.fail('Did not expect ApexEloquentException to be thrown on third get');
+        }
+      }
+    }
+  }
+
+  @isTest
+  static void testGet_WhenSetQueryException_ThenThrowQueryException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    QueryException qe = new QueryException('Mocked query exception');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnGet(qe);
+
+    // Act & Assert
+    try {
+      eloquent.get(scribe);
+      Assert.fail('Expected QueryException to be thrown');
     } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage()
-          .contains('The specified field is not selected in Scribe. object name: Opportunity, field name: Name'),
-        'Expected QueryException with specific message for non-selected field'
-      );
+      Assert.areEqual('Mocked query exception', e.getMessage(), 'Expected the mocked query exception message');
     }
-  }
-
-  @isTest
-  static void testFirstOrFailAsSObject_WhenEntryExists_ThenReturnFirstEntry() {
-    // Arrange
-    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
-    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
-    IEloquent eloquent = new MockEloquent(mockEntry);
-
-    // Act
-    Opportunity opp = (Opportunity) eloquent.firstOrFailAsSObject(scribe);
-
-    // Assert
-    Assert.isNotNull(opp, 'Expected first entry to be returned');
-    Assert.areEqual('006000000000000001', opp.Id, 'Expected entry ID to match');
-    Assert.areEqual('Test Opportunity', opp.Name, 'Expected entry Name to match');
-  }
-
-  @isTest
-  static void testDoInsert_WhenRecordIsInserted_ThenReturnRecordWithId() {
-    // Arrange
-    Opportunity record = new Opportunity(Name = 'Test Opportunity');
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    Opportunity insertedRecord = (Opportunity) eloquent.doInsert(record);
-
-    // Assert
-    Assert.isNotNull(insertedRecord.Id, 'Expected record to have an Id after insertion');
-    Assert.areEqual('Test Opportunity', insertedRecord.Name, 'Expected record Name to match');
-    Assert.areEqual('006000000000000', insertedRecord.Id, 'Expected record Id to be generated');
-  }
-
-  @isTest
-  static void testDoInsert_WhenMultipleRecordsAreInserted_ThenReturnRecordsWithIds() {
-    // Arrange
-    List<Opportunity> records = new List<Opportunity>{
-      new Opportunity(Name = 'Test Opportunity 1'),
-      new Opportunity(Name = 'Test Opportunity 2')
-    };
-    IEloquent eloquent = new MockEloquent();
-    // Act
-    List<Opportunity> insertedRecords = (List<Opportunity>) eloquent.doInsert(records);
-    // Assert
-    Assert.isTrue(insertedRecords.size() == 2, 'Expected two records to be inserted');
-    for (Integer i = 0; i < insertedRecords.size(); i++) {
-      Opportunity record = insertedRecords[i];
-      Assert.isNotNull(record.Id, 'Expected each record to have an Id after insertion');
-      String generatedId = '00600000000000' + String.valueOf(i);
-      Assert.areEqual(generatedId, record.Id, 'Expected each record Id to be generated');
-    }
-  }
-
-  @isTest
-  static void testDoUpdate_WhenRecordIsUpdated_ThenReturnRecord() {
-    // Arrange
-    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    Opportunity updatedRecord = (Opportunity) eloquent.doUpdate(record);
-
-    // Assert
-    Assert.isNotNull(updatedRecord.Id, 'Expected record to have an Id after update');
-    Assert.areEqual('Updated Opportunity', updatedRecord.Name, 'Expected record Name to match after update');
-  }
-
-  @isTest
-  static void testDoUpdate_WhenApplyEntry_ThenReturnEntry() {
-    // Arrange
-    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
-      .fields(new List<String>{ 'Id', 'Name' })
-      .buildFieldStructure();
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
-      .autoId(1)
-      .add('Name', 'Opportunity 1')
-      .setFieldStructure(fieldStructure);
-
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    mockEntry.put('Name', 'Updated Opportunity 1');
-    IEntry updatedEntry = eloquent.doUpdate(mockEntry);
-
-    // Assert
-    Assert.isNotNull(updatedEntry.getId(), 'Expected entry to have an Id after update');
-    Assert.areEqual(
-      'Updated Opportunity 1',
-      updatedEntry.get('Name'),
-      'Expected entry Name to match after update'
-    );
-  }
-
-  @isTest
-  static void testDoUpdate_WhenMultipleRecordsAreUpdated_ThenReturnRecords() {
-    // Arrange
-    List<Opportunity> records = new List<Opportunity>{
-      new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity 1'),
-      new Opportunity(Id = '006000000000002', Name = 'Updated Opportunity 2')
-    };
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    List<Opportunity> updatedRecords = (List<Opportunity>) eloquent.doUpdate(records);
-
-    // Assert
-    Assert.isTrue(updatedRecords.size() == 2, 'Expected two records to be updated');
-  }
-
-  @isTest
-  static void testDoUpdate_WhenMultipleEntriesAreUpdated_ThenReturnEntries() {
-    // Arrange
-    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
-      .fields(new List<String>{ 'Id', 'Name' })
-      .buildFieldStructure();
-    List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
-      .autoId('{#}')
-      .add('Name', 'Opportunity {#}')
-      .times(2);
-    List<MockEntry> updateEntries = new List<MockEntry>();
-    for (MockEntry entry : mockEntries) {
-      updateEntries.add((MockEntry) entry.setFieldStructure(fieldStructure));
-    }
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    for (MockEntry entry : updateEntries) {
-      entry.put('Name', 'Updated ' + entry.get('Name'));
-    }
-    List<IEntry> resultEntries = eloquent.doUpdate(updateEntries);
-
-    // Assert
-    Assert.areEqual(2, resultEntries.size(), 'Expected two entries to be updated');
-    for (Integer i = 0; i < resultEntries.size(); i++) {
-      IEntry entry = resultEntries[i];
-      Assert.isNotNull(entry.getId(), 'Expected each entry to have an Id after update');
-      Assert.areEqual(
-        'Updated Opportunity ' + (i + 1),
-        entry.get('Name'),
-        'Expected each entry Name to match after update'
-      );
-    }
-  }
-
-  @isTest
-  static void testDoDelete_WhenRecordIsDeleted_ThenNoExceptionThrown() {
-    // Arrange
-    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Test Opportunity');
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    eloquent.doDelete(record);
-
-    // Assert
-    // No exception should be thrown, indicating successful deletion
-  }
-
-  @isTest
-  static void testDoDelete_WhenEntryIsDeleted_ThenNoExceptionThrown() {
-    // Arrange
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
-      .autoId(1)
-      .add('Name', 'Opportunity 1');
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    eloquent.doDelete(mockEntry);
-
-    // Assert
-    // No exception should be thrown, indicating successful deletion
-  }
-
-  @isTest
-  static void testDoDelete_WhenMultipleRecordsAreDeleted_ThenNoExceptionThrown() {
-    // Arrange
-    List<Opportunity> records = new List<Opportunity>{
-      new Opportunity(Id = '006000000000001', Name = 'Test Opportunity 1'),
-      new Opportunity(Id = '006000000000002', Name = 'Test Opportunity 2')
-    };
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    eloquent.doDelete(records);
-
-    // Assert
-    // No exception should be thrown, indicating successful deletion
-  }
-
-  @isTest
-  static void testDoDelete_WhenMultipleEntriesAreDeleted_ThenNoExceptionThrown() {
-    // Arrange
-    List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
-      .autoId('{#}')
-      .add('Name', 'Opportunity {#}')
-      .times(2);
-    IEloquent eloquent = new MockEloquent();
-
-    // Act
-    eloquent.doDelete(mockEntries);
-
-    // Assert
-    // No exception should be thrown, indicating successful deletion
   }
 
   @isTest
@@ -974,18 +765,10 @@ public with sharing class MockEloquentTest {
       List<IEntry> entries = eloquent.get(scribe);
       IEntry entry = entries[0];
       entry.get('CloseDate'); // This field is not selected in the Scribe query
-      Assert.fail('Expected QueryException to be thrown for non-selected field');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      String expected = String.format(
-        'The specified field or alias is not exist in Scribe. field or alias name: {0}',
-        new List<String>{ 'CloseDate' }
-      );
-      Assert.areEqual(
-        expected,
-        e.getMessage(),
-        'Expected QueryException with specific message for non-selected field'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown for non-selected field');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('The specified field or alias is not exist in Scribe'));
     }
   }
 
@@ -1007,18 +790,10 @@ public with sharing class MockEloquentTest {
       List<IEntry> entries = eloquent.get(scribe);
       IEntry entry = entries[0];
       entry.get('totalAmount'); // This alias does not exist in the Scribe query
-      Assert.fail('Expected QueryException to be thrown for non-existing alias');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      String expected = String.format(
-        'The specified field or alias is not exist in Scribe. field or alias name: {0}',
-        new List<String>{ 'totalAmount' }
-      );
-      Assert.areEqual(
-        expected,
-        e.getMessage(),
-        'Expected QueryException with specific message for non-existing alias'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown for non-existing alias');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('The specified field or alias is not exist in Scribe'));
     }
   }
 
@@ -1070,18 +845,58 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGet_WhenShouldThrowIsTrue_ThenThrowException() {
+  static void testGetAsSObject_WhenApplyNull_ThenThrowException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000001');
+    IEloquent eloquent = new MockEloquent();
 
     // Act & Assert
     try {
-      eloquent.get(scribe);
-      Assert.fail('Expected QueryException to be thrown for get method');
+      eloquent.getAsSObject(null);
+      Assert.fail('Expected ApexEloquentException to be thrown for null Scribe');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testGetAsSObject_WhenSetFail_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnGetAsSObject();
+
+    // Act & Assert
+    try {
+      eloquent.getAsSObject(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testGetAsSObject_WhenSetQueryException_ThenThrowQueryException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    QueryException qe = new QueryException('Mocked query exception for getAsSObject');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnGetAsSObject(qe);
+
+    // Act & Assert
+    try {
+      eloquent.getAsSObject(scribe);
+      Assert.fail('Expected QueryException to be thrown');
     } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.get()', e.getMessage());
+      Assert.areEqual(
+        'Mocked query exception for getAsSObject',
+        e.getMessage(),
+        'Expected the mocked query exception message for getAsSObject'
+      );
     }
   }
 
@@ -1109,150 +924,686 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGetAsSObject_WhenShouldThrowIsTrue_ThenThrowException() {
+  static void testFirst_WhenApplyNull_ThenThrowException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
+    IEloquent eloquent = new MockEloquent();
 
     // Act & Assert
     try {
-      eloquent.getAsSObject(scribe);
-      Assert.fail('Expected QueryException to be thrown for getAsSObject method');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.getAsSObject()', e.getMessage());
+      eloquent.first(null);
+      Assert.fail('Expected ApexEloquentException to be thrown for null Scribe');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('first(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
     }
   }
 
   @isTest
-  static void testFirst_WhenShouldThrowIsTrue_ThenThrowException() {
+  static void testFirst_WhenSetFail_ThenThrowException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnFirst();
 
     // Act & Assert
     try {
       eloquent.first(scribe);
-      Assert.fail('Expected QueryException to be thrown for first method');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.first()', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('first(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
     }
   }
 
   @isTest
-  static void testFirstAsSObject_WhenShouldThrowIsTrue_ThenThrowException() {
+  static void testFirst_WhenSetQueryException_ThenThrowQueryException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    QueryException qe = new QueryException('Mocked query exception for first');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnFirst(qe);
+
+    // Act & Assert
+    try {
+      eloquent.first(scribe);
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'Mocked query exception for first',
+        e.getMessage(),
+        'Expected the mocked query exception message for first'
+      );
+    }
+  }
+
+  @isTest
+  static void testFirst_WhenEntryExists_ThenReturnFirstEntry() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    IEntry entry = eloquent.first(scribe);
+
+    // Assert
+    Assert.isNotNull(entry, 'Expected first entry to be returned');
+    Assert.areEqual('006000000000000001', entry.getId(), 'Expected entry ID to match');
+  }
+
+  @isTest
+  static void testFirst_WhenNoEntries_ThenReturnNull() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    IEntry entry = eloquent.first(scribe);
+
+    // Assert
+    Assert.isNull(entry, 'Expected null when no entries exist');
+  }
+
+  @isTest
+  static void testFirst_WhenFieldisNotSelected_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    try {
+      IEntry entry = eloquent.first(scribe);
+      entry.getName(); // This field is not selected in the Scribe query
+      Assert.fail('Expected ApexEloquentException to be thrown for non-selected field');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('The specified field is not selected in Scribe'));
+      Assert.isTrue(e.getMessage().contains('SObject: Opportunity'));
+      Assert.isTrue(e.getMessage().contains('field: Name'));
+    }
+  }
+
+  @isTest
+  static void testFirstAsSObject_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    try {
+      eloquent.firstAsSObject(null);
+      Assert.fail('Expected ApexEloquentException to be thrown for null Scribe');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirstAsSObject_WhenSetFail_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnFirstAsSObject();
 
     // Act & Assert
     try {
       eloquent.firstAsSObject(scribe);
-      Assert.fail('Expected QueryException to be thrown for firstAsSObject method');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.firstAsSObject()', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
     }
   }
 
   @isTest
-  static void testFirstOrFail_WhenShouldThrowIsTrue_ThenThrowException() {
+  static void testFirstAsSObject_WhenSetQueryException_ThenThrowQueryException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    QueryException qe = new QueryException('Mocked query exception for firstAsSObject');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnFirstAsSObject(qe);
+
+    // Act & Assert
+    try {
+      eloquent.firstAsSObject(scribe);
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'Mocked query exception for firstAsSObject',
+        e.getMessage(),
+        'Expected the mocked query exception message for firstAsSObject'
+      );
+    }
+  }
+
+  @isTest
+  static void testFirstAsSObject_WhenEntryExists_ThenReturnFirstEntry() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    Opportunity opp = (Opportunity) eloquent.firstAsSObject(scribe);
+
+    // Assert
+    Assert.isNotNull(opp, 'Expected first entry to be returned');
+    Assert.areEqual('006000000000000001', opp.Id, 'Expected entry ID to match');
+    Assert.areEqual('Test Opportunity', opp.Name, 'Expected entry Name to match');
+  }
+
+  @isTest
+  static void testFirstAsSObject_WhenNoEntries_ThenReturnNull() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Opportunity opp = (Opportunity) eloquent.firstAsSObject(scribe);
+
+    // Assert
+    Assert.isNull(opp, 'Expected null when no entries exist');
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    try {
+      eloquent.firstOrFail(null);
+      Assert.fail('Expected ApexEloquentException to be thrown for null Scribe');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstOrFail(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenSetFail_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnFirstOrFail();
 
     // Act & Assert
     try {
       eloquent.firstOrFail(scribe);
-      Assert.fail('Expected QueryException to be thrown for firstOrFail method');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.firstOrFail()', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstOrFail(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
     }
   }
 
   @isTest
-  static void testFirstOrFailAsSObject_WhenShouldThrowIsTrue_ThenThrowException() {
+  static void testFirstOrFail_WhenSetQueryException_ThenThrowQueryException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
-    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('StageName', 'Prospecting');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    QueryException qe = new QueryException('Mocked query exception for firstOrFail');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnFirstOrFail(qe);
+
+    // Act & Assert
+    try {
+      eloquent.firstOrFail(scribe);
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'Mocked query exception for firstOrFail',
+        e.getMessage(),
+        'Expected the mocked query exception message for firstOrFail'
+      );
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenEntryExists_ThenReturnFirstEntry() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    IEntry entry = eloquent.firstOrFail(scribe);
+
+    // Assert
+    Assert.isNotNull(entry, 'Expected first entry to be returned');
+    Assert.areEqual('006000000000000001', entry.getId(), 'Expected entry ID to match');
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenNoEntries_ThenReturnNull() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    try {
+      IEntry entry = eloquent.firstOrFail(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown when no entries exist');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('No records were found'));
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenFieldisNotSelected_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    try {
+      IEntry entry = eloquent.first(scribe);
+      entry.getName(); // This field is not selected in the Scribe query
+      Assert.fail('Expected ApexEloquentException to be thrown for non-selected field');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('The specified field is not selected in Scribe.'));
+      Assert.isTrue(e.getMessage().contains('SObject: Opportunity'));
+      Assert.isTrue(e.getMessage().contains('field: Name'));
+    }
+  }
+
+  @isTest
+  static void testFirstOrFailAsSObject_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    try {
+      eloquent.firstOrFailAsSObject(null);
+      Assert.fail('Expected ApexEloquentException to be thrown for null Scribe');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstOrFailAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirstOrFailAsSObject_WhenSetFail_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnFirstOrFailAsSObject();
 
     // Act & Assert
     try {
       eloquent.firstOrFailAsSObject(scribe);
-      Assert.fail('Expected QueryException to be thrown for firstOrFailAsSObject method');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.firstOrFailAsSObject()', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstOrFailAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
     }
   }
 
   @isTest
-  static void testDoInsert_WhenShouldThrowIsTrue_ThenThrowException() {
+  static void testFirstOrFailAsSObject_WhenSetQueryException_ThenThrowQueryException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    QueryException qe = new QueryException('Mocked query exception for firstOrFailAsSObject');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnFirstOrFailAsSObject(qe);
+
+    // Act & Assert
+    try {
+      eloquent.firstOrFailAsSObject(scribe);
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
+      Assert.areEqual(
+        'Mocked query exception for firstOrFailAsSObject',
+        e.getMessage(),
+        'Expected the mocked query exception message for firstOrFailAsSObject'
+      );
+    }
+  }
+
+  @isTest
+  static void testFirstOrFailAsSObject_WhenEntryExists_ThenReturnFirstEntry() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    MockEntry mockEntry = new MockEntry(new Opportunity(Id = '006000000000000001', Name = 'Test Opportunity'));
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act
+    Opportunity opp = (Opportunity) eloquent.firstOrFailAsSObject(scribe);
+
+    // Assert
+    Assert.isNotNull(opp, 'Expected first entry to be returned');
+    Assert.areEqual('006000000000000001', opp.Id, 'Expected entry ID to match');
+    Assert.areEqual('Test Opportunity', opp.Name, 'Expected entry Name to match');
+  }
+
+  @isTest
+  static void testFirstOrFailAsSObject_WhenNoEntries_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000001');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    try {
+      Opportunity opp = (Opportunity) eloquent.firstOrFailAsSObject(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown when no entries exist');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('No records were found'));
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenApplyNullAsSObjct_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    Opportunity opp = null;
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doInsert(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenSetFail_ThenThrowException() {
+    // Arrange
     Opportunity record = new Opportunity(Name = 'Test Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoInsert();
 
     // Act & Assert
     try {
       eloquent.doInsert(record);
-      Assert.fail('Expected QueryException to be thrown for doInsert method');
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.doInsert()', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doInsert(SObject record)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
     }
   }
 
   @isTest
-  static void testDoInsert_WhenShouldThrowIsTrueWithInsertMultipleRecord_ThenThrowException() {
+  static void testDoInsert_WhenSetDmlException_ThenThrowDmlException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
+    Opportunity record = new Opportunity(Name = 'Test Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    DmlException dmlException = new DmlException('Mocked DML exception for doInsert');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoInsert(dmlException);
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(record);
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
+      Assert.areEqual(
+        'Mocked DML exception for doInsert',
+        e.getMessage(),
+        'Expected the mocked DML exception message for doInsert'
+      );
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenApplyNullAsListOfSObjct_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<Opportunity> opps = null;
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doInsert(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenRecordIsInserted_ThenReturnRecordWithId() {
+    // Arrange
+    Opportunity record = new Opportunity(Name = 'Test Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Opportunity insertedRecord = (Opportunity) eloquent.doInsert(record);
+
+    // Assert
+    Assert.isNotNull(insertedRecord.Id, 'Expected record to have an Id after insertion');
+    Assert.areEqual('Test Opportunity', insertedRecord.Name, 'Expected record Name to match');
+    Assert.areEqual('006000000000000', insertedRecord.Id, 'Expected record Id to be generated');
+  }
+
+  @isTest
+  static void testDoInsert_WhenMultipleRecordsAreInserted_ThenReturnRecordsWithIds() {
+    // Arrange
     List<Opportunity> records = new List<Opportunity>{
       new Opportunity(Name = 'Test Opportunity 1'),
       new Opportunity(Name = 'Test Opportunity 2')
     };
-
-    // Act & Assert
-    try {
-      eloquent.doInsert(records);
-      Assert.fail('Expected QueryException to be thrown for doInsert method with multiple records');
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.doInsert()', e.getMessage());
+    IEloquent eloquent = new MockEloquent();
+    // Act
+    List<Opportunity> insertedRecords = (List<Opportunity>) eloquent.doInsert(records);
+    // Assert
+    Assert.isTrue(insertedRecords.size() == 2, 'Expected two records to be inserted');
+    for (Integer i = 0; i < insertedRecords.size(); i++) {
+      Opportunity record = insertedRecords[i];
+      Assert.isNotNull(record.Id, 'Expected each record to have an Id after insertion');
+      String generatedId = '00600000000000' + String.valueOf(i);
+      Assert.areEqual(generatedId, record.Id, 'Expected each record Id to be generated');
     }
   }
 
   @isTest
-  static void testDoUpdate_WhenShouldThrowIsTrue_ThenThrowException() {
+  static void testDoUpdate_WhenApplyNullAsSObjct_ThenThrowException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
+    IEloquent eloquent = new MockEloquent();
+    Opportunity opp = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenSetFail_ThenThrowException() {
+    // Arrange
     Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoUpdate();
+
     // Act & Assert
     try {
       eloquent.doUpdate(record);
-      Assert.fail('Expected QueryException to be thrown for doUpdate method');
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.doUpdate()', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(SObject record)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
     }
   }
 
   @isTest
-  static void testDoUpdate_WhenShouldThrowIsTrueWithUpdateMultipleRecord_ThenThrowException() {
+  static void testDoUpdate_WhenSetDmlException_ThenThrowDmlException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    DmlException dmlException = new DmlException('Mocked DML exception for doUpdate');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoUpdate(dmlException);
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(record);
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
+      Assert.areEqual(
+        'Mocked DML exception for doUpdate',
+        e.getMessage(),
+        'Expected the mocked DML exception message for doUpdate'
+      );
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenRecordIsUpdated_ThenReturnRecord() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Opportunity updatedRecord = (Opportunity) eloquent.doUpdate(record);
+
+    // Assert
+    Assert.isNotNull(updatedRecord.Id, 'Expected record to have an Id after update');
+    Assert.areEqual('Updated Opportunity', updatedRecord.Name, 'Expected record Name to match after update');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenAppluNullAsIEntry_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry entry = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(entry);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(IEntry entry)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEntry_ThenReturnEntry() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .fields(new List<String>{ 'Id', 'Name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .add('Name', 'Opportunity 1')
+      .setFieldStructure(fieldStructure);
+
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    mockEntry.put('Name', 'Updated Opportunity 1');
+    IEntry updatedEntry = eloquent.doUpdate(mockEntry);
+
+    // Assert
+    Assert.isNotNull(updatedEntry.getId(), 'Expected entry to have an Id after update');
+    Assert.areEqual(
+      'Updated Opportunity 1',
+      updatedEntry.get('Name'),
+      'Expected entry Name to match after update'
+    );
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullAsListOfSObject_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<Opportunity> opps = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenMultipleRecordsAreUpdated_ThenReturnRecords() {
+    // Arrange
     List<Opportunity> records = new List<Opportunity>{
       new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity 1'),
       new Opportunity(Id = '006000000000002', Name = 'Updated Opportunity 2')
     };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Opportunity> updatedRecords = (List<Opportunity>) eloquent.doUpdate(records);
+
+    // Assert
+    Assert.isTrue(updatedRecords.size() == 2, 'Expected two records to be updated');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullAsListOfIEntry_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<MockEntry> entries = null;
+
     // Act & Assert
     try {
-      eloquent.doUpdate(records);
-      Assert.fail('Expected QueryException to be thrown for doUpdate method with multiple records');
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.doUpdate()', e.getMessage());
+      eloquent.doUpdate(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<IEntry> entries)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenMultipleEntriesAreUpdated_ThenReturnEntries() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .fields(new List<String>{ 'Id', 'Name' })
+      .buildFieldStructure();
+    List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
+      .autoId('{#}')
+      .add('Name', 'Opportunity {#}')
+      .times(2);
+    List<MockEntry> updateEntries = new List<MockEntry>();
+    for (MockEntry entry : mockEntries) {
+      updateEntries.add((MockEntry) entry.setFieldStructure(fieldStructure));
+    }
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    for (MockEntry entry : updateEntries) {
+      entry.put('Name', 'Updated ' + entry.get('Name'));
+    }
+    List<IEntry> resultEntries = eloquent.doUpdate(updateEntries);
+
+    // Assert
+    Assert.areEqual(2, resultEntries.size(), 'Expected two entries to be updated');
+    for (Integer i = 0; i < resultEntries.size(); i++) {
+      IEntry entry = resultEntries[i];
+      Assert.isNotNull(entry.getId(), 'Expected each entry to have an Id after update');
+      Assert.areEqual(
+        'Updated Opportunity ' + (i + 1),
+        entry.get('Name'),
+        'Expected each entry Name to match after update'
+      );
     }
   }
 
@@ -1260,15 +1611,72 @@ public with sharing class MockEloquentTest {
   static void testDoUpsert_WhenAddNullRecord_ThenThrowException() {
     // Arrange
     IEloquent eloquent = new MockEloquent();
+    SObject record = null;
 
     // Act & Assert
     try {
-      SObject record = null;
       eloquent.doUpsert(record);
-      Assert.fail('Expected IllegalArgumentException to be thrown for null record');
+      Assert.fail('Expected ApexEloquentException to be thrown for null record');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAddNullInSObjectList_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{ new Opportunity(Name = 'Upserted Opportunity 1'), null };
+
+    // Act & Assert
+    try {
+      eloquent.doUpsert(records);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record in list');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('doUpsert(List<SObject> records)'));
+      Assert.isTrue(error.contains('Null record found in records list'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenSetFail_ThenThrowException() {
+    // Arrange
+    Opportunity record = new Opportunity(Name = 'Upserted Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoUpsert();
+
+    // Act & Assert
+    try {
+      eloquent.doUpsert(record);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(SObject record)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenSetDmlException_ThenThrowDmlException() {
+    // Arrange
+    Opportunity record = new Opportunity(Name = 'Upserted Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    DmlException dmlException = new DmlException('Mocked DML exception for doUpsert');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoUpsert(dmlException);
+
+    // Act & Assert
+    try {
+      eloquent.doUpsert(record);
+      Assert.fail('Expected DmlException to be thrown');
     } catch (DmlException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Cannot upsert null record', e.getMessage());
+      Assert.areEqual(
+        'Mocked DML exception for doUpsert',
+        e.getMessage(),
+        'Expected the mocked DML exception message for doUpsert'
+      );
     }
   }
 
@@ -1295,10 +1703,28 @@ public with sharing class MockEloquentTest {
     try {
       IEntry entry = null;
       eloquent.doUpsert(entry);
-      Assert.fail('Expected IllegalArgumentException to be thrown for null entry');
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Cannot upsert null entry', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(IEntry entry)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAddNullInEntryList_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<IEntry> entries = new List<IEntry>{ MockEntry.of(Opportunity.class), null };
+
+    // Act & Assert
+    try {
+      eloquent.doUpsert(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry in list');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('doUpsert(List<IEntry> entries)'));
+      Assert.isTrue(error.contains('Null entry found in entries list'));
     }
   }
 
@@ -1313,6 +1739,23 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.isNotNull(upsertedEntry.getId(), 'Expected entry to have an Id after upsert');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAddNullListOfSObject_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpsert(records);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
   }
 
   @isTest
@@ -1338,6 +1781,23 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testDoUpsert_WhenAddNullListOfIEntry_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<IEntry> entries = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpsert(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(List<IEntry> entries)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
   static void testDoUpsert_WhenAddMultiEntries_ThenReturnUpsertedEntries() {
     // Arrange
     List<MockEntry> mockEntries = new List<MockEntry>{
@@ -1355,38 +1815,168 @@ public with sharing class MockEloquentTest {
     }
   }
 
-
   @isTest
-  static void testDoDelete_WhenShouldThrowIsTrue_ThenThrowException() {
+  static void testDoDelete_WhenApplyNullAsSObjct_ThenThrowException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
-    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Test Opportunity');
+    IEloquent eloquent = new MockEloquent();
+    Opportunity opp = null;
 
     // Act & Assert
     try {
-      eloquent.doDelete(record);
-      Assert.fail('Expected QueryException to be thrown for doDelete method');
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.doDelete()', e.getMessage());
+      eloquent.doDelete(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
     }
   }
 
   @isTest
-  static void testDoDelete_WhenShouldThrowIsTrueWithDeleteMultipleRecord_ThenThrowException() {
+  static void testDoDelete_WhenSetFail_ThenThrowException() {
     // Arrange
-    MockEloquent eloquent = new MockEloquent(true);
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Test Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoDelete();
+
+    // Act & Assert
+    try {
+      eloquent.doDelete(record);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(SObject record)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenSetDmlException_ThenThrowDmlException() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Test Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    DmlException dmlException = new DmlException('Mocked DML exception for doDelete');
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoDelete(dmlException);
+
+    // Act & Assert
+    try {
+      eloquent.doDelete(record);
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
+      Assert.areEqual(
+        'Mocked DML exception for doDelete',
+        e.getMessage(),
+        'Expected the mocked DML exception message for doDelete'
+      );
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenRecordIsDeleted_ThenNoExceptionThrown() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Test Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    eloquent.doDelete(record);
+
+    // Assert
+    // No exception should be thrown, indicating successful deletion
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplyNullAsIEntry_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry entry = null;
+
+    // Act & Assert
+    try {
+      eloquent.doDelete(entry);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(IEntry entry)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenEntryIsDeleted_ThenNoExceptionThrown() {
+    // Arrange
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class).autoId(1).add('Name', 'Opportunity 1');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    eloquent.doDelete(mockEntry);
+
+    // Assert
+    // No exception should be thrown, indicating successful deletion
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplyNullAsListOfSObjct_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<Opportunity> opps = null;
+
+    // Act & Assert
+    try {
+      eloquent.doDelete(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenMultipleRecordsAreDeleted_ThenNoExceptionThrown() {
+    // Arrange
     List<Opportunity> records = new List<Opportunity>{
       new Opportunity(Id = '006000000000001', Name = 'Test Opportunity 1'),
       new Opportunity(Id = '006000000000002', Name = 'Test Opportunity 2')
     };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    eloquent.doDelete(records);
+
+    // Assert
+    // No exception should be thrown, indicating successful deletion
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplyNullAsListOfIEntry_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<MockEntry> entries = null;
+
     // Act & Assert
     try {
-      eloquent.doDelete(records);
-      Assert.fail('Expected QueryException to be thrown for doDelete method with multiple records');
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
-      Assert.areEqual('Test Exception from MockEloquent.doDelete()', e.getMessage());
+      eloquent.doDelete(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(List<IEntry> entries)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
     }
+  }
+
+  @isTest
+  static void testDoDelete_WhenMultipleEntriesAreDeleted_ThenNoExceptionThrown() {
+    // Arrange
+    List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
+      .autoId('{#}')
+      .add('Name', 'Opportunity {#}')
+      .times(2);
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    eloquent.doDelete(mockEntries);
+
+    // Assert
+    // No exception should be thrown, indicating successful deletion
   }
 }

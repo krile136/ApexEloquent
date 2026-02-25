@@ -166,13 +166,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       IEntry oppEntry = (new Eloquent()).firstOrFail(scribe);
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
       System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage().contains('No records found for query'),
-        'Expected QueryException with specific message'
-      );
+      Assert.isTrue(e.getMessage().contains('No records were found'));
     }
   }
 
@@ -199,13 +196,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       SObject oppSObject = (new Eloquent()).firstOrFailAsSObject(scribe);
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage().contains('No records found for query'),
-        'Expected QueryException with specific message'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('No records were found'));
     }
   }
 
@@ -234,8 +228,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opp = (Opportunity) (new Eloquent()).doInsert(opp);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to insert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -255,7 +251,6 @@ public with sharing class EloquentTest {
     }
   }
 
-
   @isTest
   static void testDoInsert_WhenApplyMultipleRecords_ThenExcuteInsert() {
     // Arrange
@@ -266,8 +261,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opps = (List<Opportunity>) (new Eloquent()).doInsert(opps);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to insert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -288,15 +285,17 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testDoUpdate_WhenApplySObject_ThenThrowException() { 
+  static void testDoUpdate_WhenApplySObject_ThenThrowException() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
 
     // Act & Assert
     try {
       opp = (Opportunity) (new Eloquent()).doUpdate(opp);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -325,8 +324,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entry = (new Eloquent()).doUpdate(entry);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -356,8 +357,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opps = (List<Opportunity>) (new Eloquent()).doUpdate(opps);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -386,8 +389,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entries = (List<IEntry>) (new Eloquent()).doUpdate(entries);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -427,8 +432,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opp = (Opportunity) (new Eloquent()).doUpsert(opp);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -456,8 +463,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entry = (new Eloquent()).doUpsert(entry);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -486,8 +495,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opps = (List<Opportunity>) (new Eloquent()).doUpsert(opps);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -518,7 +529,7 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testDoUpsert_WhenApplyMultipleEntryList_ThenExecuteUpsert() { 
+  static void testDoUpsert_WhenApplyMultipleEntryList_ThenExecuteUpsert() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
     Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
@@ -527,11 +538,12 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entries = (List<IEntry>) (new Eloquent()).doUpsert(entries);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
-
 
   @isTest
   static void testDoDelete_WhenApplyNullSObject_ThenThrowException() {
@@ -557,8 +569,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(opp);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to delete operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -587,8 +601,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(entry);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to delete operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -618,8 +634,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(opps);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to delete operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -649,8 +667,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(entries);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to delete operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 

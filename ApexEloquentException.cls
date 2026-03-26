@@ -70,7 +70,11 @@ public with sharing class ApexEloquentException extends Exception {
   public ApexEloquentException build() {
     List<String> lines = new List<String>{};
     lines.add('====== APEX ELOQUENT EXCEPTION ======');
-    lines.add('Location'.rightPad(PAD_SIZE) + ': ' + this.className + '.' + this.methodName);
+    String location = 'Location'.rightPad(PAD_SIZE) + ': ' + this.className;
+    if(this.methodName != null) {
+      location += '.' + this.methodName + '()';
+    }
+    lines.add(location);
     if (this.error != null) {
       lines.add('Error'.rightPad(PAD_SIZE) + ': ' + this.error);
     }

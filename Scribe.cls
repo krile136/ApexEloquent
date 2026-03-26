@@ -1188,7 +1188,7 @@ public with sharing class Scribe {
     if (!childScribe.isChild) {
       String error = 'Invalid Scribe Context';
       String reason = 'The Scribe instance passed to withChildren() must be initialized using the Scribe.asChild() method.';
-      String action = 'Initialize the child query using Scribe.asChild(System.Type childRecordType) and pass it to withChildren().';
+      String action = 'Initialize the child query using `Scribe.asChild(System.Type childRecordType)` and pass it to withChildren().';
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
@@ -1209,12 +1209,14 @@ public with sharing class Scribe {
     this.validateOrConditionNotAllowed(method);
 
     if (parentScribe == null) {
-      throw new QueryException('The parent Scribe instance cannot be null.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'parentScribe', null).build();
     }
 
     if (!parentScribe.isParent) {
-      String error = 'The Scribe instance for the parentCondition() method must be created with Scribe.asParent().';
-      throw new QueryException(error);
+      String error = 'Invalid Scribe Context';
+      String reason = 'The Scribe instance passed to parentField() must be initialized using the Scribe.asParent() method.';
+      String action = 'Initialize the parent Scribe using `Scribe.asChild(System.Type childRecordType)` and pass it to withParent().';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -1238,12 +1240,14 @@ public with sharing class Scribe {
     this.validateOrConditionNotAllowed(method);
 
     if (parentScribe == null) {
-      throw new QueryException('The parent Scribe instance cannot be null.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'parentScribe', null).build();
     }
 
     if (!parentScribe.isParent) {
-      String error = 'The Scribe instance for the parentField() method must be created with Scribe.asParent().';
-      throw new QueryException(error);
+      String error = 'Invalid Scribe Context';
+      String reason = 'The Scribe instance passed to parentField() must be initialized using the Scribe.asParent() method.';
+      String action = 'Initialize the parent Scribe using `Scribe.asChild(System.Type childRecordType)` and pass it to withParent().';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -1261,9 +1265,15 @@ public with sharing class Scribe {
    * @return The Scribe instance for method chaining.
    */
   public Scribe through(Scribe throughScribe) {
+    String method = 'through(Scribe throughScribe)';
+    if(throughScribe == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'throughScribe', null).build();
+    }
     if (!throughScribe.isThrough) {
-      String error = 'The Scribe instance for the through() method must be created with Scribe.asThrough().';
-      throw new QueryException(error);
+      String error = 'Invalid Scribe Context';
+      String reason = 'The Scribe instance passed to through() must be initialized using the Scribe.asThrough() method.';
+      String action = 'Initialize the through Scribe using `asThrough(System.Type junctionType, String targetLookupField)` and pass it to through().';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
     throughScribe.isParent = true;
     Scribe childScribe = Scribe.asChild(throughScribe.junctionSObjectType)
@@ -1290,8 +1300,14 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the LIMIT clause.
    */
   public Scribe take(Integer limitNumber) {
-    if (limitNumber == null || limitNumber <= 0) {
-      throw new QueryException('The limit number must be greater than zero.');
+    String method = 'take(Integer limitNumber)';
+    if (limitNumber == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'limitNumber', limitNumber).build();
+    }
+    if(limitNumber < 0) {
+      String reason = 'The limit number cannot be negative.';
+      String action = 'Please provide a non-negative integer for the limit.';
+      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'limitNumber', limitNumber).build();
     }
     Scribe clonedScribe = this.deepClone();
     clonedScribe.limitNumber = limitNumber;
@@ -1306,12 +1322,20 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the OFFSET clause.
    */
   public Scribe offset(Integer offsetNumber) {
-    if (offsetNumber == null || offsetNumber < 0) {
-      throw new QueryException('The offset number must be greater than zero.');
+    String method = 'offset(Integer offsetNumber)';
+    if (offsetNumber == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'offsetNumber', offsetNumber).build();
+    }
+    if(offsetNumber < 0) {
+      String reason = 'The offset number cannot be negative.';
+      String action = 'Please provide a non-negative integer for the offset.';
+      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'offsetNumber', offsetNumber).build();
     }
 
     if (offsetNumber > 2000) {
-      throw new QueryException('The offset number cannot exceed 2000.');
+      String reason = 'Salesforce SOQL has a maximum offset limit of 2000 records.';
+      String action = 'Please provide an offset number less than or equal to 2000';
+      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'offsetNumber', offsetNumber).build();
     }
     Scribe clonedScribe = this.deepClone();
     clonedScribe.offsetNumber = offsetNumber;
@@ -1445,11 +1469,10 @@ public with sharing class Scribe {
     } else {
       for (String fieldName : this.selectFields) {
         if (!fieldMap.containsKey(fieldName.toLowerCase())) {
-          String error = String.format(
-            'The specified field does not exist in the object\'s fields. object name: {0}, field name: {1}',
-            new List<String>{ this.describe.getName(), fieldName }
-          );
-          throw new QueryException(error);
+          String error = 'Field Selection Failed';
+          String reason = String.format('The field `{0}` does not exist on the SObject `{1}`.', new List<String>{ fieldName, this.describe.getName() });
+          String action = 'Please check the field API name for typos or ensure the field is accessible in the current Org.';
+          throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
         }
         selectFields.add(fieldName.toLowerCase());
       }
@@ -1540,11 +1563,10 @@ public with sharing class Scribe {
       selectFieldsString += aggregateClauseString;
       String alias = aggregateClause.getAlias();
       if (this.aggregateAliasMap.containsKey(alias)) {
-        String error = String.format(
-          'The alias {0} in the aggregate clause conflicts with an existing alias.',
-          new List<String>{ alias }
-        );
-        throw new QueryException(error);
+        String error = 'Duplicate Alias Error';
+        String reason = String.format('The alias {0} is already defined in the aggregate clause.', new List<String>{ alias });
+        String action = 'Ensure each aggregate function has a unique alias.';
+        throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
       }
       String aggregateField = aggregateClause.getFieldName();
       String aggregateTarget = aggregateClauseString.split(' ')[0];
@@ -1560,11 +1582,10 @@ public with sharing class Scribe {
       Map<String, AliasStructure> parentAggregateAliasMap = parent.getAggregateAliasMap();
       for (String alias : parentAggregateAliasMap.keySet()) {
         if (this.aggregateAliasMap.containsKey(alias)) {
-          String error = String.format(
-            'The alias {0} in the parent query conflicts with an existing alias.',
-            new List<String>{ alias }
-          );
-          throw new QueryException(error);
+          String error = 'Duplicate Alias Error';
+          String reason = String.format('The alias {0} in the parent query is already defined in the aggregate clause.', new List<String>{ alias });
+          String action = 'Ensure each aggregate function has a unique alias.';
+          throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
         }
         this.aggregateAliasMap.put(alias, parentAggregateAliasMap.get(alias));
       }
@@ -1581,14 +1602,16 @@ public with sharing class Scribe {
         for (Scribe child : this.children) {
           overNestedChildrenNames.add(child.getDescribe().getName());
         }
-        String error = String.format(
-          'Maximum nesting depth for child queries reached. Max depth: {0}, Object name: {1}',
-          new List<String>{
-            String.valueOf(this.MAX_LOWER_NESTING_DEPTH),
-            String.join(overNestedChildrenNames, ', ')
-          }
+        String error = 'Query Nesting Limit Exceeded';
+        String reason = String.format(
+            'The query reached the maximum allowed nesting depth ({0}). Over-nested child relationship: [{1}]', 
+            new List<String>{
+                String.valueOf(this.MAX_LOWER_NESTING_DEPTH),
+                String.join(overNestedChildrenNames, ', ')
+            }
         );
-        throw new QueryException(error);
+        String action = 'Reduce the nesting depth.';
+        throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
       }
       List<String> childSoqls = new List<String>();
       for (Scribe child : this.children) {
@@ -1624,9 +1647,10 @@ public with sharing class Scribe {
     Boolean isLastOperatorOr = false;
     for (ConditionPart conditionPart : this.conditionParts) {
       if (isLastOperatorOr && !conditionPart.isOr) {
-        throw new QueryException(
-          'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.'
-        );
+        String error = 'Logical Operator Mismatch';
+        String reason = 'A condition following an orWhere() must also be an OR condition to maintain logical consistency.';
+        String action = 'Ensure all subsequent where clauses after the first `orCondition()` in this chain are used with the `orCondition()` method.';
+        throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
       }
       isFirstOperatorOr = isFirstOperatorOr == null ? conditionPart.isOr : isFirstOperatorOr;
       WhereClauseData whereClauseData = null;
@@ -1688,9 +1712,10 @@ public with sharing class Scribe {
 
     for (ConditionPart conditionPart : this.conditionParts) {
       if (isLastOperatorOr && !conditionPart.isOr) {
-        throw new QueryException(
-          'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.'
-        );
+        String error = 'Logical Operator Mismatch';
+        String reason = 'A condition following an orWhere() must also be an OR condition to maintain logical consistency.';
+        String action = 'Ensure all subsequent having clauses after the first orCondition() in this chain are used with the orCondition() method.';
+        throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
       }
       WhereClauseData whereClauseData = null;
       String clause = '';
@@ -1701,11 +1726,13 @@ public with sharing class Scribe {
         String alias = conditionPart.condition.getFieldName();
 
         if (!aggregateAliasMap.containsKey(alias)) {
-          String error = String.format(
-            'The alias {0} in the HAVING clause does not match any aggregate alias',
-            new List<String>{ alias }
+          String error = 'Aggregate Alias Not Found';
+          String reason = String.format(
+              'The alias "{0}" used in the HAVING clause does not match any alias defined in the aggregate clauses.',
+              new List<String>{ alias }
           );
-          throw new QueryException(error);
+          String action = 'Ensure the alias is correctly defined using aggregate methods.';
+          throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
         }
         AliasStructure aliasStructure = aggregateAliasMap.get(alias);
 

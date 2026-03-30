@@ -1511,13 +1511,27 @@ public with sharing class ScribeTest {
       // Act
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      String expected = String.format(
-        'The specified parent relationship name is not valid. child object name: {0}, parent object name: {1}, relationship name: {2}',
-        new List<String>{ 'Opportunity', 'Account', 'Opporrunity__r' }
-      );
-      Assert.areEqual(expected, e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Invalid Relationship Name'));
+    }
+  }
+
+  @isTest
+  static void testWithChildren_WhenAddNonExistChildObject_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(Product2.class).field('Id').whereNotNull('Name')) // Account does not have Product2 as child object
+      .whereEqual('Name', 'Test Account');
+
+    // Act / Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('No Child Relationship Found'));
     }
   }
 
@@ -1532,13 +1546,9 @@ public with sharing class ScribeTest {
     try {
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      String errorMessage = String.format(
-        'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
-        new List<String>{ 'Contract', 'User' }
-      );
-      Assert.areEqual(errorMessage, e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Ambiguous Relationship'));
     }
   }
 
@@ -2506,9 +2516,9 @@ public with sharing class ScribeTest {
       Scribe scribe = Scribe.of(Account.class).field('Id').orderBy('Name').forUpdate();
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('ORDER BY cannot be used with FOR UPDATE clause.', e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Order By Conflict'));
     }
   }
 
@@ -2519,9 +2529,9 @@ public with sharing class ScribeTest {
       Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate().orderBy('Name');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('ORDER BY cannot be used with FOR UPDATE clause.', e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Order By Conflict'));
     }
   }
 
@@ -2532,9 +2542,9 @@ public with sharing class ScribeTest {
       Scribe scribe = Scribe.of(Account.class).field('Id').offset(10).forUpdate();
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('OFFSET cannot be used with FOR UPDATE clause.', e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Offset Conflict'));
     }
   }
 
@@ -2545,9 +2555,9 @@ public with sharing class ScribeTest {
       Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate().offset(10);
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('OFFSET cannot be used with FOR UPDATE clause.', e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Offset Conflict'));
     }
   }
 
@@ -3754,13 +3764,9 @@ public with sharing class ScribeTest {
     try {
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      String expected = String.format(
-        'The specified parent relationship name is not valid. child object name: {0}, parent object name: {1}, relationship name: {2}',
-        new List<String>{ 'OrderItem', 'Order', 'OrderItems__r' }
-      );
-      Assert.areEqual(expected, e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Invalid Relationship Name'));
     }
   }
 
@@ -3774,13 +3780,9 @@ public with sharing class ScribeTest {
     try {
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      String errorMessage = String.format(
-        'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
-        new List<String>{ 'Contract', 'User' }
-      );
-      Assert.areEqual(errorMessage, e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Ambiguous Relationship'));
     }
   }
 }

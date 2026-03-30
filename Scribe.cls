@@ -1797,7 +1797,11 @@ public with sharing class Scribe {
       return query;
     }
     if (this.isForUpdate) {
-      throw new QueryException('ORDER BY cannot be used with FOR UPDATE clause.');
+      String error = 'Order By Conflict';
+      String reason = 'The ORDER BY clause cannot be used in conjunction with the FOR UPDATE clause due to Salesforce SOQL limitations.';
+      String action = 'Remove either the orderBy() or forUpdate() method from your query chain.';
+
+      ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
     }
 
     query += ' ORDER BY ';
@@ -1835,7 +1839,11 @@ public with sharing class Scribe {
       return query;
     }
     if (this.isForUpdate) {
-      throw new QueryException('OFFSET cannot be used with FOR UPDATE clause.');
+      String error = 'Offset Conflict';
+      String reason = 'The OFFSET clause cannot be used in conjunction with the FOR UPDATE clause due to Salesforce SOQL limitations.';
+      String action = 'Remove either the offset() or forUpdate() method from your query chain.';
+
+    ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
     }
 
     return query += ' OFFSET ' + String.valueOf(this.offsetNumber);
@@ -1877,6 +1885,7 @@ public with sharing class Scribe {
       fromString = this.relationName;
 
       boolean isValid = false;
+      // checking amibibuity
       if (foundIndex != -1) {
         for (
           Integer i = foundIndex;
@@ -1905,23 +1914,25 @@ public with sharing class Scribe {
 
       if (!isValid) {
         String parentObjectName = parentSObjectType.getDescribe().getName();
-        String errorMessage = String.format(
-          'The specified parent relationship name is not valid. child object name: {0}, parent object name: {1}, relationship name: {2}',
-          new List<String>{ objectName, parentObjectName, fromString }
-        );
-        throw new QueryException(errorMessage);
+        String errorLabel = 'Invalid Relationship Name';
+        String reason = String.format( 'The relationship "{2}" was not found between child SObject "{0}" and parent SObject "{1}".', new List<String>{ objectName, parentObjectName, fromString });
+        String action = 'Check for typos in the relationship name or verify the lookup field configuration in Salesforce.';
+        ApexEloquentException.at(CLASS_NAME).error(errorLabel).reason(reason).action(action).fire();
       }
     } else {
       if (foundIndex == -1) {
         String parentObjectName = parentSObjectType.getDescribe().getName();
-        String error = String.format(
-          '{0} does not have a child relationship with {1}',
-          new List<String>{ parentObjectName, objectName }
+        String errorLabel = 'No Child Relationship Found';
+        String reason = String.format(
+            'The parent SObject "{0}" does not have any defined child relationships with SObject "{1}".',
+            new List<String>{ parentObjectName, objectName }
         );
-        throw new QueryException(error);
+        String action = 'Ensure a Lookup or Master-Detail field exists on "{1}" pointing to "{0}", or verify that the parent and child objects are not swapped in your Scribe definition.';
+
+        ApexEloquentException.at(CLASS_NAME).error(errorLabel).reason(reason).action(action).fire();      
       }
 
-      // 3. 重複（Ambiguity）チェック
+      // checking amibibuity
       Boolean isAmbiguous = false;
       if (
         foundIndex > 0 &&
@@ -1939,14 +1950,28 @@ public with sharing class Scribe {
 
       if (isAmbiguous) {
         String parentObjectName = parentSObjectType.getDescribe().getName();
-        String errorMessage = String.format(
-          'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
-          new List<String>{ objectName, parentObjectName }
+        String error = 'Ambiguous Relationship';
+        String reason = String.format(
+            'Multiple relationships exist for {0} on {1}. The system cannot determine which one to use automatically.',
+            new List<String>{ objectName, parentObjectName }
         );
-        throw new QueryException(errorMessage);
+        String action = 'Explicitly specify the relationship name using the relationName() method to resolve the ambiguity.';
+
+        ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
       }
 
       fromString = childRelationships[foundIndex].getRelationshipName();
+
+      if(fromString == null) {
+        String parentObjectName = parentSObjectType.getDescribe().getName();
+        String error = 'Inaccessible Relationship';
+        String reason = String.format(
+          'The identified relationship for {0} on {1} does not have a valid name and cannot be used in a SOQL subquery.',
+          new List<String>{ objectName, parentObjectName }
+        );
+        String action = 'Verify if this relationship supports subqueries, or explicitly provide the correct relationship name using the relationName() method.';
+        ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
+      }
     }
 
     String query = String.format('SELECT {0} FROM {1}', new List<String>{ selectFieldsString, fromString });
@@ -1965,6 +1990,7 @@ public with sharing class Scribe {
     while (low <= high) {
       Integer mid = (low + high) / 2;
       String midName = relationships[mid].getChildSObject().getDescribe().getName();
+      System.debug('midName: ' + midName);
       Integer res = targetChildObjectName.compareTo(midName);
 
       if (res == 0) {

@@ -1055,7 +1055,7 @@ public with sharing class Scribe {
     this.validateConditionClause(method, fieldName, null, true);
 
     Scribe clonedScribe = this.deepClone();
-    IconditionClause conditionClause = new IsNullConditionClause(clonedScribe.sObjectType, null, fieldName);
+    IConditionClause conditionClause = new IsNullConditionClause(clonedScribe.sObjectType, null, fieldName);
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -1074,7 +1074,7 @@ public with sharing class Scribe {
     this.validateConditionClause(method, fieldName, null, true);
 
     Scribe clonedScribe = this.deepClone();
-    IconditionClause conditionClause = new IsNotNullConditionClause(clonedScribe.sObjectType, null, fieldName);
+    IConditionClause conditionClause = new IsNotNullConditionClause(clonedScribe.sObjectType, null, fieldName);
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -1132,7 +1132,7 @@ public with sharing class Scribe {
     }
 
     Scribe clonedScribe = this.deepClone();
-    Conditionpart groupConditionPart = new ConditionPart(groupScribe, this.isNextConditionOr);
+    ConditionPart groupConditionPart = new ConditionPart(groupScribe, this.isNextConditionOr);
     clonedScribe.sObjectType = this.sObjectType;
     clonedScribe.conditionParts.add(groupConditionPart);
     clonedScribe.isNextConditionOr = false;

@@ -183,7 +183,7 @@ public with sharing class Entry extends AbstractEntry {
     }
     List<IEntry> childRecords = new List<IEntry>();
     for (SObject childSObject : this.record.getSObjects(childRelationName)) {
-      childRecords.add(new Entry(ChildSObject));
+      childRecords.add(new Entry(childSObject));
     }
 
     return childRecords;
@@ -218,7 +218,7 @@ public with sharing class Entry extends AbstractEntry {
 
     List<IEntry> childRecords = new List<IEntry>();
     for (SObject childSObject : this.record.getSObjects(childRelationName)) {
-      childRecords.add(new Entry(ChildSObject));
+      childRecords.add(new Entry(childSObject));
     }
 
     return childRecords;
@@ -267,7 +267,7 @@ public with sharing class Entry extends AbstractEntry {
   public override IEntry setFieldStructure(FieldStructure fieldStructure) {
     String method = 'setFieldStructure(FieldStructure fieldStructure)';
     String reason = 'The setFieldStructure() method is not supported in Entry class because this class represents actual database records. If you need to validate field access in a test context, please ensure you are using a MockEntry instance instead.';
-    ApexEloquentException.invalidoperation(CLASS_NAME, method, reason).fire();
+    ApexEloquentException.invalidOperation(CLASS_NAME, method, reason).fire();
 
     // This line will never be reached because the above method call will always throw an exception, but it is required to satisfy the method's return type.
     return null;

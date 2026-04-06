@@ -368,7 +368,7 @@ public with sharing class MockEntry extends AbstractEntry {
     String id = this.generate18CharId(suffix);
     FieldStructure clonedfieldStructure = this.fieldStructure.clone();
     clonedfieldStructure.addField('id');
-    MockENtry newEntry = new MockEntry(this.record, clonedfieldStructure, this.fieldToValue);
+    MockEntry newEntry = new MockEntry(this.record, clonedfieldStructure, this.fieldToValue);
     newEntry = newEntry.add('Id', id);
     this.inheritParameters(newEntry);
     return newEntry;
@@ -402,7 +402,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * @param count The number of records to generate.
    * @return A list of generated MockEntry instances.
    */
-  public List<MockENtry> times(Integer count) {
+  public List<MockEntry> times(Integer count) {
     String method = 'times(Integer count)';
     ApexEloquentException validationException = this.validateTimesParams(count, 1, 1);
     if (validationException != null) {

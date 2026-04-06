@@ -50,7 +50,7 @@ public with sharing class MockEloquentTest {
   static void testGet_WhenEntryExitAndUsingMockEntryGenerator_ThenReturnEntries() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '00600000000000');
-    MockEntry mockEntry = MockENtry.of(Opportunity.class).autoId(1).add('Name', 'Test Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class).autoId(1).add('Name', 'Test Opportunity');
     IEloquent eloquent = new MockEloquent(mockEntry);
 
     // Act
@@ -99,7 +99,7 @@ public with sharing class MockEloquentTest {
       .field('Name')
       .parentField(Scribe.asParent('AccountId').field('Id').field('Name'))
       .whereEqual('Id', '006000000000001');
-    MockENtry oppEntry = MockEntry.of(Opportunity.class)
+    MockEntry oppEntry = MockEntry.of(Opportunity.class)
       .autoId(1)
       .add('Name', 'Test Opportunity')
       .addParent('AccountId', MockEntry.of(Account.class).autoId(1).add('Name', 'Test Account'));
@@ -131,12 +131,12 @@ public with sharing class MockEloquentTest {
             Scribe.asParent('OriginalOrderId')
               .fields(fields)
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .fields(fields)
                   .parentField(
-                    Scribe.asParent('OpportunityId')
+                    Scribe.asParent('AccountId')
                       .fields(fields)
-                      .parentField(Scribe.asParent('ContractId').fields(fields))
+                      .parentField(Scribe.asParent('ParentId').fields(fields))
                   )
               )
           )
@@ -152,14 +152,14 @@ public with sharing class MockEloquentTest {
             MockEntry.of(Order.class)
               .add('Name', 'Original Test Order')
               .addParent(
-                'QuoteId',
-                MockEntry.of(Quote.class)
-                  .add('Name', 'Test Quote')
+                'ContractId',
+                MockEntry.of(Contract.class)
+                  .add('Name', 'Test Contract')
                   .addParent(
-                    'OpportunityId',
-                    MockEntry.of(Opportunity.class)
-                      .add('Name', 'Test Opportunity')
-                      .addParent('ContractId', MockEntry.of(Contract.class).add('Name', 'Test Contract'))
+                    'AccountId',
+                    MockEntry.of(Account.class)
+                      .add('Name', 'Test Account')
+                      .addParent('ParentId', MockEntry.of(Account.class).add('Name', 'Parent Account'))
                   )
               )
           )
@@ -180,18 +180,18 @@ public with sharing class MockEloquentTest {
       originalOrderEntry.getName(),
       'Expected nested grandchild entry Name to match'
     );
-    IEntry quoteEntry = originalOrderEntry.getParent('QuoteId');
-    Assert.areEqual('Test Quote', quoteEntry.getName(), 'Expected nested great-grandchild entry Name to match');
-    IEntry opportunityEntry = quoteEntry.getParent('OpportunityId');
+    IEntry contractEntry = originalOrderEntry.getParent('ContractId');
+    Assert.areEqual('Test Contract', contractEntry.getName(), 'Expected nested great-grandchild entry Name to match');
+    IEntry accountEntry = contractEntry.getParent('AccountId');
     Assert.areEqual(
-      'Test Opportunity',
-      opportunityEntry.getName(),
+      'Test Account',
+      accountEntry.getName(),
       'Expected nested great-great-grandchild entry Name to match'
     );
-    IEntry contractEntry = opportunityEntry.getParent('ContractId');
+    IEntry parentAccountEntry = accountEntry.getParent('ParentId');
     Assert.areEqual(
-      'Test Contract',
-      contractEntry.getName(),
+      'Parent Account',
+      parentAccountEntry.getName(),
       'Expected nested great-great-great-grandchild entry Name to match'
     );
   }
@@ -229,17 +229,18 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntriesWithNestedChildren_ThenReturnEntriesWithNestedChildren() {
     // Arrange
-    List<String> fields = new List<String>{ 'Name' };
+    List<String> nameFields = new List<String>{ 'Name' };
+    List<String> caseFields = new List<String>{ 'Subject' };
     Scribe scribe = Scribe.of(Account.class)
-      .fields(fields)
+      .fields(nameFields)
       .withChildren(
         Scribe.asChild(Contact.class)
-          .fields(fields)
+          .fields(nameFields)
           .withChildren(
-            Scribe.asChild(Opportunity.class)
-              .fields(fields)
+            Scribe.asChild(Case.class)
+              .fields(caseFields)
               .withChildren(
-                Scribe.asChild(Quote.class).fields(fields).withChildren(Scribe.asChild(Order.class).fields(fields))
+                Scribe.asChild(Case.class).fields(caseFields).withChildren(Scribe.asChild(Case.class).fields(caseFields))
               )
           )
       );
@@ -252,18 +253,18 @@ public with sharing class MockEloquentTest {
           MockEntry.of(Contact.class)
             .add('Name', 'Test Contact 1')
             .addChildren(
-              'Opportunity',
+              'Case',
               new List<MockEntry>{
-                MockEntry.of(Opportunity.class)
-                  .add('Name', 'Test Opportunity 1')
+                MockEntry.of(Case.class)
+                  .add('Subject', 'Test Case 1')
                   .addChildren(
-                    'Quote',
+                    'Case',
                     new List<MockEntry>{
-                      MockEntry.of(Quote.class)
-                        .add('Name', 'Test Quote 1')
+                      MockEntry.of(Case.class)
+                        .add('Subject', 'Test Child Case 1')
                         .addChildren(
-                          'Order',
-                          new List<MockEntry>{ MockEntry.of(Order.class).add('Name', 'Test Order 1') }
+                          'Case',
+                          new List<MockEntry>{ MockEntry.of(Case.class).add('Subject', 'Test Grandchild Case 1') }
                         )
                     }
                   )
@@ -272,18 +273,18 @@ public with sharing class MockEloquentTest {
           MockEntry.of(Contact.class)
             .add('Name', 'Test Contact 2')
             .addChildren(
-              'Opportunity',
+              'Case',
               new List<MockEntry>{
-                MockEntry.of(Opportunity.class)
-                  .add('Name', 'Test Opportunity 2')
+                MockEntry.of(Case.class)
+                  .add('Subject', 'Test Case 2')
                   .addChildren(
-                    'Quote',
+                    'Case',
                     new List<MockEntry>{
-                      MockEntry.of(Quote.class)
-                        .add('Name', 'Test Quote 2')
+                      MockEntry.of(Case.class)
+                        .add('Subject', 'Test Child Case 2')
                         .addChildren(
-                          'Order',
-                          new List<MockEntry>{ MockEntry.of(Order.class).add('Name', 'Test Order 2') }
+                          'Case',
+                          new List<MockEntry>{ MockEntry.of(Case.class).add('Subject', 'Test Grandchild Case 2') }
                         )
                     }
                   )
@@ -304,27 +305,27 @@ public with sharing class MockEloquentTest {
 
     // Assert first contact and its children
     Assert.areEqual('Test Contact 1', contacts[0].getName(), 'Expected first child entry Name to match');
-    List<IEntry> opportunities1 = contacts[0].getChildren('Opportunity');
-    Assert.isTrue(opportunities1.size() == 1, 'Expected one opportunity entry to be returned');
-    Assert.areEqual('Test Opportunity 1', opportunities1[0].getName(), 'Expected opportunity Name to match');
-    List<IEntry> quotes1 = opportunities1[0].getChildren('Quote');
-    Assert.isTrue(quotes1.size() == 1, 'Expected one quote entry to be returned');
-    Assert.areEqual('Test Quote 1', quotes1[0].getName(), 'Expected quote Name to match');
-    List<IEntry> orders1 = quotes1[0].getChildren('Order');
-    Assert.isTrue(orders1.size() == 1, 'Expected one order entry to be returned');
-    Assert.areEqual('Test Order 1', orders1[0].getName(), 'Expected order Name to match');
+    List<IEntry> cases1 = contacts[0].getChildren('Case');
+    Assert.isTrue(cases1.size() == 1, 'Expected one case entry to be returned');
+    Assert.areEqual('Test Case 1', cases1[0].get('Subject'), 'Expected case Subject to match');
+    List<IEntry> childCases1 = cases1[0].getChildren('Case');
+    Assert.isTrue(childCases1.size() == 1, 'Expected one child case entry to be returned');
+    Assert.areEqual('Test Child Case 1', childCases1[0].get('Subject'), 'Expected child case Subject to match');
+    List<IEntry> grandchildCases1 = childCases1[0].getChildren('Case');
+    Assert.isTrue(grandchildCases1.size() == 1, 'Expected one grandchild case entry to be returned');
+    Assert.areEqual('Test Grandchild Case 1', grandchildCases1[0].get('Subject'), 'Expected grandchild case Subject to match');
 
     // Assert second contact and its children
     Assert.areEqual('Test Contact 2', contacts[1].getName(), 'Expected second child entry Name to match');
-    List<IEntry> opportunities2 = contacts[1].getChildren('Opportunity');
-    Assert.isTrue(opportunities2.size() == 1, 'Expected one opportunity entry to be returned');
-    Assert.areEqual('Test Opportunity 2', opportunities2[0].getName(), 'Expected opportunity Name to match');
-    List<IEntry> quotes2 = opportunities2[0].getChildren('Quote');
-    Assert.isTrue(quotes2.size() == 1, 'Expected one quote entry to be returned');
-    Assert.areEqual('Test Quote 2', quotes2[0].getName(), 'Expected quote Name to match');
-    List<IEntry> orders2 = quotes2[0].getChildren('Order');
-    Assert.isTrue(orders2.size() == 1, 'Expected one order entry to be returned');
-    Assert.areEqual('Test Order 2', orders2[0].getName(), 'Expected order Name to match');
+    List<IEntry> cases2 = contacts[1].getChildren('Case');
+    Assert.isTrue(cases2.size() == 1, 'Expected one case entry to be returned');
+    Assert.areEqual('Test Case 2', cases2[0].get('Subject'), 'Expected case Subject to match');
+    List<IEntry> childCases2 = cases2[0].getChildren('Case');
+    Assert.isTrue(childCases2.size() == 1, 'Expected one child case entry to be returned');
+    Assert.areEqual('Test Child Case 2', childCases2[0].get('Subject'), 'Expected child case Subject to match');
+    List<IEntry> grandchildCases2 = childCases2[0].getChildren('Case');
+    Assert.isTrue(grandchildCases2.size() == 1, 'Expected one grandchild case entry to be returned');
+    Assert.areEqual('Test Grandchild Case 2', grandchildCases2[0].get('Subject'), 'Expected grandchild case Subject to match');
   }
 
   @isTest
@@ -406,16 +407,16 @@ public with sharing class MockEloquentTest {
         'orderid' => new FieldStructure(
           new List<String>{ 'name' },
           new Map<String, FieldStructure>{
-            'quoteid' => new FieldStructure(
+            'contractid' => new FieldStructure(
               new List<String>{ 'name' },
               new Map<String, FieldStructure>{
-                'opportunityid' => new FieldStructure(
+                'accountid' => new FieldStructure(
                   new List<String>{ 'name' },
                   new Map<String, FieldStructure>{
-                    'contractid' => new FieldStructure(
+                    'parentid' => new FieldStructure(
                       new List<String>{ 'name' },
                       new Map<String, FieldStructure>{
-                        'accountid' => new FieldStructure(new List<String>{ 'name' })
+                        'parentid' => new FieldStructure(new List<String>{ 'name' })
                       }
                     )
                   }
@@ -431,18 +432,18 @@ public with sharing class MockEloquentTest {
       'OrderId' => new MockEntry(
         new Order(Name = 'Test Order'),
         new Map<String, Object>{
-          'QuoteId' => new MockEntry(
-            new Quote(Name = 'Test Quote'),
+          'ContractId' => new MockEntry(
+            new Contract(Name = 'Test Contract'),
             new Map<String, Object>{
-              'OpportunityId' => new MockEntry(
-                new Opportunity(Name = 'Test Opportunity'),
+              'AccountId' => new MockEntry(
+                new Account(Name = 'Test Account'),
                 new Map<String, Object>{
-                  'ContractId' => new MockEntry(
-                    new Contract(Name = 'Test Account'),
+                  'ParentId' => new MockEntry(
+                    new Account(Name = 'Parent Account'),
                     new Map<String, Object>{
-                      'AccountId' => new MockEntry(
+                      'ParentId' => new MockEntry(
                         new Account(
-                          Name = 'Test Account',
+                          Name = 'Grandparent Account',
                           Id = '001000000000000001' // account Id is not selected in Scribe
                         )
                       )
@@ -459,14 +460,14 @@ public with sharing class MockEloquentTest {
     // Act
     MockEntry mockEntry = new MockEntry(record, FieldStructure, fieldToValue);
     IEntry orderEnrty = mockEntry.getParent('OrderId');
-    IEntry quoteEntry = orderEnrty.getParent('QuoteId');
-    IEntry opportunityEntry = quoteEntry.getParent('OpportunityId');
-    IEntry contractEntry = opportunityEntry.getParent('ContractId');
+    IEntry contractEntry = orderEnrty.getParent('ContractId');
     IEntry accountEntry = contractEntry.getParent('AccountId');
+    IEntry parentEntry = accountEntry.getParent('ParentId');
+    IEntry grandparentEntry = parentEntry.getParent('ParentId');
 
     // Assert
     try {
-      accountEntry.getId(); // This field is not selected in the Scribe query
+      grandparentEntry.getId(); // This field is not selected in the Scribe query
       Assert.fail('Expected ApexEloquentException to be thrown for non-selected field in nested parent');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -532,17 +533,18 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testGet_WhenEntryWithNestedChildrenGetNonSelectedField_ThenThrowException() {
     // Arrange
-    List<String> fields = new List<String>{ 'Name' };
+    List<String> nameFields = new List<String>{ 'Name' };
+    List<String> caseFields = new List<String>{ 'Subject' };
     Scribe scribe = Scribe.of(Account.class)
-      .fields(fields)
+      .fields(nameFields)
       .withChildren(
         Scribe.asChild(Contact.class)
-          .fields(fields)
+          .fields(nameFields)
           .withChildren(
-            Scribe.asChild(Opportunity.class)
-              .fields(fields)
+            Scribe.asChild(Case.class)
+              .fields(caseFields)
               .withChildren(
-                Scribe.asChild(Quote.class).fields(fields).withChildren(Scribe.asChild(Order.class).fields(fields))
+                Scribe.asChild(Case.class).fields(caseFields).withChildren(Scribe.asChild(Case.class).fields(caseFields))
               )
           )
       );
@@ -555,15 +557,15 @@ public with sharing class MockEloquentTest {
             new Contact(),
             new Map<String, Object>{
               'Name' => 'Test Contact 1',
-              'Opportunity' => new List<IEntry>{
+              'Case' => new List<IEntry>{
                 new MockEntry(
-                  new Opportunity(Name = 'Test Opportunity 1'),
+                  new Case(Subject = 'Test Case 1'),
                   new Map<String, Object>{
-                    'Quote' => new List<IEntry>{
+                    'Case' => new List<IEntry>{
                       new MockEntry(
-                        new Quote(Name = 'Test Quote 1'),
+                        new Case(Subject = 'Test Child Case 1'),
                         new Map<String, Object>{
-                          'Order' => new List<IEntry>{ new MockEntry(new Order(Name = 'Test Order 1')) }
+                          'Case' => new List<IEntry>{ new MockEntry(new Case(Subject = 'Test Grandchild Case 1')) }
                         }
                       )
                     }
@@ -580,20 +582,20 @@ public with sharing class MockEloquentTest {
     // Act
     List<IEntry> entries = eloquent.get(scribe);
     List<IEntry> contacts = entries[0].getChildren('Contact');
-    List<IEntry> opportunities1 = contacts[0].getChildren('Opportunity');
-    List<IEntry> quotes1 = opportunities1[0].getChildren('Quote');
-    List<IEntry> orders1 = quotes1[0].getChildren('Order');
+    List<IEntry> cases1 = contacts[0].getChildren('Case');
+    List<IEntry> childCases1 = cases1[0].getChildren('Case');
+    List<IEntry> grandchildCases1 = childCases1[0].getChildren('Case');
 
     // Assert
     try {
-      for (IEntry order : orders1) {
-        order.getId(); // This field is not selected in the Scribe query
+      for (IEntry grandchildCase : grandchildCases1) {
+        grandchildCase.getId(); // This field is not selected in the Scribe query
         Assert.fail('Expected ApexEloquentException to be thrown for non-selected field in nested child');
       }
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
-      Assert.isTrue(error.contains('SObject: Order'));
+      Assert.isTrue(error.contains('SObject: Case'));
       Assert.isTrue(error.contains('field: Id'));
     }
   }
@@ -807,10 +809,10 @@ public with sharing class MockEloquentTest {
           .parentField(
             Scribe.asParent('OriginalOrderId')
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .parentField(
-                    Scribe.asParent('OpportunityId')
-                      .parentField(Scribe.asParent('AccountId').field('Type').count('Name', 'accountCount'))
+                    Scribe.asParent('AccountId')
+                      .parentField(Scribe.asParent('ParentId').field('Type').count('Name', 'accountCount'))
                   )
               )
           )
@@ -820,10 +822,10 @@ public with sharing class MockEloquentTest {
           .groupByParent(
             Scribe.asParent('OriginalOrderId')
               .groupByParent(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .groupByParent(
-                    Scribe.asParent('OpportunityId')
-                      .groupByParent(Scribe.asParent('AccountId').groupByField('Type'))
+                    Scribe.asParent('AccountId')
+                      .groupByParent(Scribe.asParent('ParentId').groupByField('Type'))
                   )
               )
           )

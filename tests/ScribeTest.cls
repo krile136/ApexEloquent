@@ -1428,15 +1428,15 @@ public with sharing class ScribeTest {
         Scribe.asChild(Contact.class)
           .field('Id')
           .withChildren(
-            Scribe.asChild(Opportunity.class)
+            Scribe.asChild(Case.class)
               .field('Id')
               .withChildren(
-                Scribe.asChild(Quote.class)
+                Scribe.asChild(Case.class)
                   .field('Id')
                   .withChildren(
-                    Scribe.asChild(Order.class)
+                    Scribe.asChild(Case.class)
                       .field('Id')
-                      .withChildren(Scribe.asChild(OrderItem.class).field('Id'))
+                      .withChildren(Scribe.asChild(Case.class).field('Id'))
                   )
               )
           )
@@ -1455,19 +1455,19 @@ public with sharing class ScribeTest {
   @isTest
   static void testWithChildren_WhenAddOverFourNestChildrenUsingOtherScribeInstance_ThenThrowException() {
     // Arrange
-    Scribe oppScribe = Scribe.asChild(Opportunity.class)
+    Scribe caseScribe = Scribe.asChild(Case.class)
       .field('Id')
       .withChildren(
-        Scribe.asChild(Quote.class)
+        Scribe.asChild(Case.class)
           .field('Id')
           .withChildren(
-            Scribe.asChild(Order.class).field('Id').withChildren(Scribe.asChild(OrderItem.class).field('Id'))
+            Scribe.asChild(Case.class).field('Id').withChildren(Scribe.asChild(Case.class).field('Id'))
           )
       );
 
     Scribe accountScribe = Scribe.of(Account.class)
       .field('Id')
-      .withChildren(Scribe.asChild(Contact.class).field('Id').withChildren(oppScribe));
+      .withChildren(Scribe.asChild(Contact.class).field('Id').withChildren(caseScribe));
 
     // Act / Assert
     try {
@@ -2014,25 +2014,25 @@ public with sharing class ScribeTest {
   @isTest
   static void testParentCondition_WhenAddEmptyList_ThenInogreParentCondition() {
     // Arrange
-    Scribe scribe = Scribe.of(Quote.class)
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
       .field('Id')
-      .whereEqual('Name', 'Test Quote')
+      .whereEqual('Name', 'Test OLI')
       .parentCondition(Scribe.asParent('OpportunityId').whereNotIn('Id', new List<Id>()));
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Quote WHERE Name = \'Test Quote\'';
+    String expectedSoql = 'SELECT id FROM OpportunityLineItem WHERE Name = \'Test OLI\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
   static void testParentCondition_WhenAddEmptyLists_ThenInogreParentCondition_2() {
     // Arrange
-    Scribe scribe = Scribe.of(Quote.class)
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
       .field('Id')
-      .whereEqual('Name', 'Test Quote')
+      .whereEqual('Name', 'Test OLI')
       .parentCondition(
         Scribe.asParent('OpportunityId')
           .whereNotIn('Id', new List<Id>())
@@ -2044,7 +2044,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Quote WHERE Name = \'Test Quote\' AND Opportunity.Name LIKE \'Test%\'';
+    String expectedSoql = 'SELECT id FROM OpportunityLineItem WHERE Name = \'Test OLI\' AND Opportunity.Name LIKE \'Test%\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -2060,15 +2060,15 @@ public with sharing class ScribeTest {
             Scribe.asParent('OriginalOrderId')
               .field('Id')
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .field('Id')
                   .parentField(
-                    Scribe.asParent('OpportunityId')
+                    Scribe.asParent('AccountId')
                       .field('Id')
                       .parentField(
-                        Scribe.asParent('ContractId')
+                        Scribe.asParent('ParentId')
                           .field('Id')
-                          .parentField(Scribe.asParent('AccountId').field('Id'))
+                          .parentField(Scribe.asParent('ParentId').field('Id'))
                       )
                   )
               )
@@ -2141,12 +2141,12 @@ public with sharing class ScribeTest {
             Scribe.asParent('OriginalOrderId')
               .fields(fields)
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .fields(fields)
                   .parentField(
-                    Scribe.asParent('OpportunityId')
+                    Scribe.asParent('AccountId')
                       .fields(fields)
-                      .parentField(Scribe.asParent('ContractId').fields(fields))
+                      .parentField(Scribe.asParent('ParentId').fields(fields))
                   )
               )
           )
@@ -2166,18 +2166,18 @@ public with sharing class ScribeTest {
     FieldStructure originalOrderFieldStructure = orderFieldStructure.getRelationFieldStructure('originalorderid');
     Assert.isTrue(originalOrderFieldStructure.hasField('id'));
     Assert.isTrue(originalOrderFieldStructure.hasField('name'));
-    Assert.isTrue(originalOrderFieldStructure.hasRelation('quoteid'));
-    FieldStructure quoteFieldStructure = originalOrderFieldStructure.getRelationFieldStructure('quoteid');
-    Assert.isTrue(quoteFieldStructure.hasField('id'));
-    Assert.isTrue(quoteFieldStructure.hasField('name'));
-    Assert.isTrue(quoteFieldStructure.hasRelation('opportunityid'));
-    FieldStructure opportunityFieldStructure = quoteFieldStructure.getRelationFieldStructure('opportunityid');
-    Assert.isTrue(opportunityFieldStructure.hasField('id'));
-    Assert.isTrue(opportunityFieldStructure.hasField('name'));
-    Assert.isTrue(opportunityFieldStructure.hasRelation('contractid'));
-    FieldStructure contractFieldStructure = opportunityFieldStructure.getRelationFieldStructure('contractid');
+    Assert.isTrue(originalOrderFieldStructure.hasRelation('contractid'));
+    FieldStructure contractFieldStructure = originalOrderFieldStructure.getRelationFieldStructure('contractid');
     Assert.isTrue(contractFieldStructure.hasField('id'));
     Assert.isTrue(contractFieldStructure.hasField('name'));
+    Assert.isTrue(contractFieldStructure.hasRelation('accountid'));
+    FieldStructure accountFieldStructure2 = contractFieldStructure.getRelationFieldStructure('accountid');
+    Assert.isTrue(accountFieldStructure2.hasField('id'));
+    Assert.isTrue(accountFieldStructure2.hasField('name'));
+    Assert.isTrue(accountFieldStructure2.hasRelation('parentid'));
+    FieldStructure parentFieldStructure = accountFieldStructure2.getRelationFieldStructure('parentid');
+    Assert.isTrue(parentFieldStructure.hasField('id'));
+    Assert.isTrue(parentFieldStructure.hasField('name'));
   }
 
   @isTest
@@ -2207,17 +2207,17 @@ public with sharing class ScribeTest {
   @isTest
   static void testBuildFieldStructure_WhenAddNestedChildrenField_ThenReturnFieldStructureWithNestedChildren() {
     // Arrange
-    List<String> fields = new List<String>{ 'Id', 'Name' };
+    List<String> fields = new List<String>{ 'Id', 'OwnerId' };
     Scribe scribe = Scribe.of(Account.class)
       .fields(fields)
       .withChildren(
         Scribe.asChild(Contact.class)
           .fields(fields)
           .withChildren(
-            Scribe.asChild(Opportunity.class)
+            Scribe.asChild(Case.class)
               .fields(fields)
               .withChildren(
-                Scribe.asChild(Quote.class).fields(fields).withChildren(Scribe.asChild(Order.class).fields(fields))
+                Scribe.asChild(Case.class).fields(fields).withChildren(Scribe.asChild(Case.class).fields(fields))
               )
           )
       );
@@ -2227,24 +2227,24 @@ public with sharing class ScribeTest {
 
     // Assert
     Assert.isTrue(fieldStructure.hasField('id'));
-    Assert.isTrue(fieldStructure.hasField('name'));
+    Assert.isTrue(fieldStructure.hasField('ownerid'));
     Assert.isTrue(fieldStructure.hasRelation('contact'));
     FieldStructure contactFieldStructure = fieldStructure.getRelationFieldStructure('contact');
     Assert.isTrue(contactFieldStructure.hasField('id'));
-    Assert.isTrue(contactFieldStructure.hasField('name'));
-    Assert.isTrue(contactFieldStructure.hasRelation('opportunity'));
-    FieldStructure opportunityFieldStructure = contactFieldStructure.getRelationFieldStructure('opportunity');
-    Assert.isTrue(opportunityFieldStructure.hasField('id'));
-    Assert.isTrue(opportunityFieldStructure.hasField('name'));
-    Assert.isTrue(opportunityFieldStructure.hasRelation('quote'));
-    FieldStructure quoteFieldStructure = opportunityFieldStructure.getRelationFieldStructure('quote');
-    Assert.isTrue(quoteFieldStructure.hasField('id'));
-    Assert.isTrue(quoteFieldStructure.hasField('name'));
-    Assert.isTrue(quoteFieldStructure.hasRelation('order'));
-    FieldStructure orderFieldStructure = quoteFieldStructure.getRelationFieldStructure('order');
-    Assert.isTrue(orderFieldStructure.hasField('id'));
-    Assert.isTrue(orderFieldStructure.hasField('name'));
-    Assert.isFalse(orderFieldStructure.hasField('email'));
+    Assert.isTrue(contactFieldStructure.hasField('ownerid'));
+    Assert.isTrue(contactFieldStructure.hasRelation('case'));
+    FieldStructure caseFieldStructure1 = contactFieldStructure.getRelationFieldStructure('case');
+    Assert.isTrue(caseFieldStructure1.hasField('id'));
+    Assert.isTrue(caseFieldStructure1.hasField('ownerid'));
+    Assert.isTrue(caseFieldStructure1.hasRelation('case'));
+    FieldStructure caseFieldStructure2 = caseFieldStructure1.getRelationFieldStructure('case');
+    Assert.isTrue(caseFieldStructure2.hasField('id'));
+    Assert.isTrue(caseFieldStructure2.hasField('ownerid'));
+    Assert.isTrue(caseFieldStructure2.hasRelation('case'));
+    FieldStructure caseFieldStructure3 = caseFieldStructure2.getRelationFieldStructure('case');
+    Assert.isTrue(caseFieldStructure3.hasField('id'));
+    Assert.isTrue(caseFieldStructure3.hasField('ownerid'));
+    Assert.isFalse(caseFieldStructure3.hasField('email'));
   }
 
   @isTest
@@ -3373,14 +3373,14 @@ public with sharing class ScribeTest {
   @isTest
   static void testAverageInParent_WhenAddAverageInParent_ThenReturnAverageInParent() {
     // Arrange
-    Scribe scribe = Scribe.of(Quote.class)
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
       .parentField(Scribe.asParent('OpportunityId').average('Amount', 'avgAmount'));
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT AVG(Opportunity.Amount) avgAmount FROM Quote';
+    String expectedSoql = 'SELECT AVG(Opportunity.Amount) avgAmount FROM OpportunityLineItem';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -3389,14 +3389,14 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.of(Order.class)
       .parentField(
-        Scribe.asParent('QuoteId').parentField(Scribe.asParent('OpportunityId').average('Amount', 'avgAmount'))
+        Scribe.asParent('ContractId').parentField(Scribe.asParent('AccountId').average('AnnualRevenue', 'avgRevenue'))
       );
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT AVG(Quote.Opportunity.Amount) avgAmount FROM Order';
+    String expectedSoql = 'SELECT AVG(Contract.Account.AnnualRevenue) avgRevenue FROM Order';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -3405,15 +3405,15 @@ public with sharing class ScribeTest {
     // Arrange
     Scribe scribe = Scribe.of(Order.class)
       .parentField(
-        Scribe.asParent('QuoteId')
+        Scribe.asParent('ContractId')
           .parentField(
-            Scribe.asParent('OpportunityId')
-              .average('Amount', 'amountAvg')
-              .count('Id', 'oppCount')
-              .countDistinct('AccountId', 'accountCount')
-              .max('Amount', 'amountMax')
-              .min('Amount', 'amountMin')
-              .sum('Amount', 'amountSum')
+            Scribe.asParent('AccountId')
+              .average('AnnualRevenue', 'revenueAvg')
+              .count('Id', 'accCount')
+              .countDistinct('ParentId', 'parentCount')
+              .max('AnnualRevenue', 'revenueMax')
+              .min('AnnualRevenue', 'revenueMin')
+              .sum('AnnualRevenue', 'revenueSum')
           )
       );
 
@@ -3421,7 +3421,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT AVG(Quote.Opportunity.Amount) amountAvg, COUNT(Quote.Opportunity.Id) oppCount, COUNT_DISTINCT(Quote.Opportunity.AccountId) accountCount, MAX(Quote.Opportunity.Amount) amountMax, MIN(Quote.Opportunity.Amount) amountMin, SUM(Quote.Opportunity.Amount) amountSum FROM Order';
+    String expectedSoql = 'SELECT AVG(Contract.Account.AnnualRevenue) revenueAvg, COUNT(Contract.Account.Id) accCount, COUNT_DISTINCT(Contract.Account.ParentId) parentCount, MAX(Contract.Account.AnnualRevenue) revenueMax, MIN(Contract.Account.AnnualRevenue) revenueMin, SUM(Contract.Account.AnnualRevenue) revenueSum FROM Order';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -3432,9 +3432,9 @@ public with sharing class ScribeTest {
       Scribe scribe = Scribe.of(Order.class)
         .count('Id', 'countIdAlias')
         .parentField(
-          Scribe.asParent('QuoteId')
+          Scribe.asParent('ContractId')
             .parentField(
-              Scribe.asParent('OpportunityId').count('Id', 'countIdAlias') // Duplicate alias
+              Scribe.asParent('AccountId').count('Id', 'countIdAlias') // Duplicate alias
             )
         );
       String soql = scribe.toSoql();
@@ -3449,11 +3449,11 @@ public with sharing class ScribeTest {
   static void testGroupByParent_WhenApplyNull_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Quote.class)
-        .field('AccountId')
-        .sum('TotalPrice', 'quoteTotalPrice')
-        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
-        .groupByField('AccountId')
+      Scribe scribe = Scribe.of(OpportunityLineItem.class)
+        .field('Product2Id')
+        .sum('TotalPrice', 'totalPrice')
+        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
+        .groupByField('Product2Id')
         .groupByParent(null); // null is not allowed
       String soql = scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
@@ -3468,11 +3468,11 @@ public with sharing class ScribeTest {
   static void testGroupByParent_WhenAddNonParentScribe_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.of(Quote.class)
-        .field('AccountId')
-        .sum('TotalPrice', 'quoteTotalPrice')
-        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
-        .groupByField('AccountId')
+      Scribe scribe = Scribe.of(OpportunityLineItem.class)
+        .field('Product2Id')
+        .sum('TotalPrice', 'totalPrice')
+        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
+        .groupByField('Product2Id')
         .groupByParent(Scribe.of(Opportunity.class).field('Id')); // must use asParent()
       String soql = scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
@@ -3485,30 +3485,30 @@ public with sharing class ScribeTest {
   @isTest
   static void testGroupByParent_WhenAddParentGroup_ThenReturnGroupByParent() {
     // Arrange
-    Scribe scribe = Scribe.of(Quote.class)
-      .field('AccountId')
-      .sum('TotalPrice', 'quoteTotalPrice')
-      .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
-      .groupByField('AccountId')
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
+      .field('Product2Id')
+      .sum('TotalPrice', 'totalPrice')
+      .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
+      .groupByField('Product2Id')
       .groupByParent(Scribe.asParent('OpportunityId').groupByField('Id'));
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT accountid, SUM(TotalPrice) quoteTotalPrice, Opportunity.id, MAX(Opportunity.Amount) maxOppAmount FROM Quote GROUP BY AccountId, Opportunity.Id';
+    String expectedSoql = 'SELECT product2id, SUM(TotalPrice) totalPrice, Opportunity.id, MAX(Opportunity.Amount) maxAmount FROM OpportunityLineItem GROUP BY Product2Id, Opportunity.Id';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
   static void testGroupByParent_WhenAddNonGroupedSelectFields_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.of(Quote.class)
-      .field('AccountId')
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
+      .field('Product2Id')
       .field('Id') // Id is not in GROUP BY
-      .sum('TotalPrice', 'quoteTotalPrice')
-      .parentField(Scribe.asParent('OpportunityId').field('Id').field('Name').max('Amount', 'maxOppAmount')) // Name is not in GROUP BY
-      .groupByField('AccountId')
+      .sum('TotalPrice', 'totalPrice')
+      .parentField(Scribe.asParent('OpportunityId').field('Id').field('Name').max('Amount', 'maxAmount')) // Name is not in GROUP BY
+      .groupByField('Product2Id')
       .groupByParent(Scribe.asParent('OpportunityId').groupByField('Id'));
 
     // Act / Assert
@@ -3534,9 +3534,9 @@ public with sharing class ScribeTest {
           .groupByParent(
             Scribe.asParent('OriginalOrderId')
               .groupByParent(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .groupByParent(
-                    Scribe.asParent('OpportunityId').groupByParent(Scribe.asParent('AccountId').groupByField('Id'))
+                    Scribe.asParent('AccountId').groupByParent(Scribe.asParent('ParentId').groupByField('Id'))
                   )
               )
           )
@@ -3546,7 +3546,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT COUNT(Id) itemCount FROM OrderItem GROUP BY Order.OriginalOrder.Quote.Opportunity.Account.Id';
+    String expectedSoql = 'SELECT COUNT(Id) itemCount FROM OrderItem GROUP BY Order.OriginalOrder.Contract.Account.Parent.Id';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -3561,11 +3561,11 @@ public with sharing class ScribeTest {
           .parentField(
             Scribe.asParent('OriginalOrderId')
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .parentField(
-                    Scribe.asParent('OpportunityId')
+                    Scribe.asParent('AccountId')
                       .parentField(
-                        Scribe.asParent('AccountId').field('Id').field('Name') // Name is not in GROUP BY
+                        Scribe.asParent('ParentId').field('Id').field('Name') // Name is not in GROUP BY
                       )
                   )
               )
@@ -3576,9 +3576,9 @@ public with sharing class ScribeTest {
           .groupByParent(
             Scribe.asParent('OriginalOrderId')
               .groupByParent(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .groupByParent(
-                    Scribe.asParent('OpportunityId').groupByParent(Scribe.asParent('AccountId').groupByField('Id'))
+                    Scribe.asParent('AccountId').groupByParent(Scribe.asParent('ParentId').groupByField('Id'))
                   )
               )
           )
@@ -3590,7 +3590,7 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expected = 'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id, orderid.originalorderid.quoteid.opportunityid.accountid.name';
+      String expected = 'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id, orderid.originalorderid.contractid.accountid.parentid.name';
       Assert.areEqual(expected, e.getMessage());
     }
   }
@@ -3598,21 +3598,21 @@ public with sharing class ScribeTest {
   @isTest
   static void testHavingCondition_WhenAddHavingConditionWithParentField_ThenReturnHavingConditionWithParentField() {
     // Arrange
-    Scribe scribe = Scribe.of(Quote.class)
-      .field('AccountId')
-      .sum('TotalPrice', 'quoteTotalPrice')
-      .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
-      .groupByField('AccountId')
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
+      .field('Product2Id')
+      .sum('TotalPrice', 'totalPrice')
+      .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
+      .groupByField('Product2Id')
       .groupByParent(Scribe.asParent('OpportunityId').groupByField('Id'))
       .havingCondition(
-        Scribe.asHaving().whereGreaterThan('quoteTotalPrice', 1000).whereLessThanOrEqual('maxOppAmount', 50000)
+        Scribe.asHaving().whereGreaterThan('totalPrice', 1000).whereLessThanOrEqual('maxAmount', 50000)
       );
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT accountid, SUM(TotalPrice) quoteTotalPrice, Opportunity.id, MAX(Opportunity.Amount) maxOppAmount FROM Quote GROUP BY AccountId, Opportunity.Id HAVING SUM(TotalPrice) > 1000 AND MAX(Opportunity.Amount) <= 50000';
+    String expectedSoql = 'SELECT product2id, SUM(TotalPrice) totalPrice, Opportunity.id, MAX(Opportunity.Amount) maxAmount FROM OpportunityLineItem GROUP BY Product2Id, Opportunity.Id HAVING SUM(TotalPrice) > 1000 AND MAX(Opportunity.Amount) <= 50000';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -3626,9 +3626,9 @@ public with sharing class ScribeTest {
           .parentField(
             Scribe.asParent('OriginalOrderId')
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .parentField(
-                    Scribe.asParent('OpportunityId').field('AccountId').average('Amount', 'avgOppAmount')
+                    Scribe.asParent('AccountId').field('ParentId').average('AnnualRevenue', 'avgRevenue')
                   )
               )
           )
@@ -3638,20 +3638,20 @@ public with sharing class ScribeTest {
           .groupByParent(
             Scribe.asParent('OriginalOrderId')
               .groupByParent(
-                Scribe.asParent('QuoteId')
-                  .groupByParent(Scribe.asParent('OpportunityId').groupByField('AccountId'))
+                Scribe.asParent('ContractId')
+                  .groupByParent(Scribe.asParent('AccountId').groupByField('ParentId'))
               )
           )
       )
       .havingCondition(
-        Scribe.asHaving().whereGreaterThan('itemcount', 10).whereLessThanOrEqual('avgOppAmount', 50000)
+        Scribe.asHaving().whereGreaterThan('itemcount', 10).whereLessThanOrEqual('avgRevenue', 50000)
       );
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT COUNT(Id) itemcount, Order.OriginalOrder.Quote.Opportunity.accountid, AVG(Order.OriginalOrder.Quote.Opportunity.Amount) avgOppAmount FROM OrderItem GROUP BY Order.OriginalOrder.Quote.Opportunity.AccountId HAVING COUNT(Id) > 10 AND AVG(Order.OriginalOrder.Quote.Opportunity.Amount) <= 50000';
+    String expectedSoql = 'SELECT COUNT(Id) itemcount, Order.OriginalOrder.Contract.Account.parentid, AVG(Order.OriginalOrder.Contract.Account.AnnualRevenue) avgRevenue FROM OrderItem GROUP BY Order.OriginalOrder.Contract.Account.ParentId HAVING COUNT(Id) > 10 AND AVG(Order.OriginalOrder.Contract.Account.AnnualRevenue) <= 50000';
     Assert.areEqual(expectedSoql, soql);
   }
 

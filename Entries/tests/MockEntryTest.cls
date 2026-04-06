@@ -1503,15 +1503,15 @@ public class MockEntryTest {
         Scribe.asParent('OrderId')
           .fields(new List<String>{ 'Name' })
           .parentField(
-            Scribe.asParent('QuoteId')
+            Scribe.asParent('ContractId')
               .fields(new List<String>{ 'Name' })
               .parentField(
-                Scribe.asParent('OpportunityId')
+                Scribe.asParent('AccountId')
                   .fields(new List<String>{ 'Name' })
                   .parentField(
-                    Scribe.asParent('ContractId')
+                    Scribe.asParent('ParentId')
                       .fields(new List<String>{ 'Name' })
-                      .parentField(Scribe.asParent('AccountId').fields(new List<String>{ 'Name' }))
+                      .parentField(Scribe.asParent('ParentId').fields(new List<String>{ 'Name' }))
                   )
               )
           )
@@ -1523,15 +1523,15 @@ public class MockEntryTest {
       'OrderId' => new MockEntry(
         new Order(Name = 'Test Order'),
         new Map<String, Object>{
-          'QuoteId' => new MockEntry(
-            new Quote(Name = 'Test Quote'),
+          'ContractId' => new MockEntry(
+            new Contract(Name = 'Test Contract'),
             new Map<String, Object>{
-              'OpportunityId' => new MockEntry(
-                new Opportunity(Name = 'Test Opportunity'),
+              'AccountId' => new MockEntry(
+                new Account(Name = 'Test Account'),
                 new Map<String, Object>{
-                  'ContractId' => new MockEntry(
-                    new Contract(Name = 'Test Account'),
-                    new Map<String, Object>{ 'AccountId' => new MockEntry(new Account(Name = 'Test Account')) }
+                  'ParentId' => new MockEntry(
+                    new Account(Name = 'Parent Account'),
+                    new Map<String, Object>{ 'ParentId' => new MockEntry(new Account(Name = 'Grandparent Account')) }
                   )
                 }
               )
@@ -1547,22 +1547,22 @@ public class MockEntryTest {
     IEntry orderEnrty = mockEntry.getParent('OrderId');
     Assert.isNotNull(orderEnrty, 'Order entry should not be null.');
     Assert.areEqual('Test Order', orderEnrty.getName(), 'Order name should match.');
-    System.debug('get Quote');
-    IEntry quoteEntry = orderEnrty.getParent('QuoteId');
-    Assert.isNotNull(quoteEntry, 'Quote entry should not be null.');
-    Assert.areEqual('Test Quote', quoteEntry.getName(), 'Quote name should match.');
-    System.debug('get Opportunity');
-    IEntry opportunityEntry = quoteEntry.getParent('OpportunityId');
-    Assert.isNotNull(opportunityEntry, 'Opportunity entry should not be null.');
-    Assert.areEqual('Test Opportunity', opportunityEntry.getName(), 'Opportunity name should match.');
     System.debug('get Contract');
-    IEntry contractEntry = opportunityEntry.getParent('ContractId');
+    IEntry contractEntry = orderEnrty.getParent('ContractId');
     Assert.isNotNull(contractEntry, 'Contract entry should not be null.');
-    Assert.areEqual('Test Account', contractEntry.getName(), 'Contract name should match.');
+    Assert.areEqual('Test Contract', contractEntry.getName(), 'Contract name should match.');
     System.debug('get Account');
     IEntry accountEntry = contractEntry.getParent('AccountId');
     Assert.isNotNull(accountEntry, 'Account entry should not be null.');
     Assert.areEqual('Test Account', accountEntry.getName(), 'Account name should match.');
+    System.debug('get Parent Account');
+    IEntry parentEntry = accountEntry.getParent('ParentId');
+    Assert.isNotNull(parentEntry, 'Parent account entry should not be null.');
+    Assert.areEqual('Parent Account', parentEntry.getName(), 'Parent account name should match.');
+    System.debug('get Grandparent Account');
+    IEntry grandparentEntry = parentEntry.getParent('ParentId');
+    Assert.isNotNull(grandparentEntry, 'Grandparent account entry should not be null.');
+    Assert.areEqual('Grandparent Account', grandparentEntry.getName(), 'Grandparent account name should match.');
   }
 
   @isTest

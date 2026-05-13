@@ -31,6 +31,80 @@ public with sharing class MockEloquentTest {
     }
   }
 
+  // ====== rawSoql ======
+
+  @isTest
+  static void testRawSoql_WhenSoqlIsBlank_ThenThrowException() {
+    try {
+      (new MockEloquent()).rawSoql(null);
+      Assert.fail('Expected ApexEloquentException when SOQL is null');
+    } catch (ApexEloquentException e) {
+      String msg = e.getMessage();
+      Assert.isTrue(msg.contains('rawSoql(String soql)'), 'should mention rawSoql method');
+      Assert.isTrue(msg.contains('argument is required'), 'should indicate required-parameter violation');
+    }
+
+    try {
+      (new MockEloquent()).rawSoql('');
+      Assert.fail('Expected ApexEloquentException when SOQL is empty');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('rawSoql(String soql)'), 'should mention rawSoql method');
+    }
+  }
+
+  @isTest
+  static void testRawSoql_WhenAccessUnselectedField_ThenDoesNotThrow() {
+    // Raw SOQL bypasses the Scribe FieldStructure pipeline; the returned mock IEntry
+    // should have select-forgotten detection disabled so that any field can be read.
+    // Arrange — register a MockEntry built via a Scribe with only 'Id' selected.
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id');
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    MockEntry mockEntry = new MockEntry(
+      new Opportunity(Id = '006000000000001', Name = 'Test Opportunity'),
+      fieldStructure,
+      new Map<String, Object>{ 'Name' => 'Test Opportunity' }
+    );
+    IEloquent eloquent = new MockEloquent(mockEntry);
+
+    // Act — call rawSoql (which should disable select-forgotten detection)
+    List<IEntry> entries = eloquent.rawSoql('SELECT Id FROM Opportunity');
+
+    // Assert — accessing 'Name' (NOT selected in the original Scribe) must not throw
+    Assert.areEqual(1, entries.size(), 'should return the registered entry');
+    Object name = entries[0].get('Name');
+    Assert.areEqual('Test Opportunity', name, 'should return the mocked value without select-forgotten detection');
+  }
+
+  @isTest
+  static void testRawSoql_WhenFailOnRawSoqlNoArg_ThenThrowTestException() {
+    // Arrange
+    MockEloquent eloquent = (new MockEloquent()).failOnRawSoql();
+
+    // Act & Assert
+    try {
+      eloquent.rawSoql('SELECT Id FROM Opportunity');
+      Assert.fail('Expected forced ApexEloquentException');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Forced Exception for Testing'), 'should be the framework testException');
+      Assert.isTrue(e.getMessage().contains('rawSoql(String soql)'), 'should attach the method signature');
+    }
+  }
+
+  @isTest
+  static void testRawSoql_WhenFailOnRawSoqlWithCustomException_ThenThrowThatException() {
+    // Arrange
+    Exception customEx = new System.DmlException('custom failure');
+    MockEloquent eloquent = (new MockEloquent()).failOnRawSoql(customEx);
+
+    // Act & Assert
+    try {
+      eloquent.rawSoql('SELECT Id FROM Opportunity');
+      Assert.fail('Expected the custom exception to be thrown');
+    } catch (System.DmlException e) {
+      Assert.areEqual('custom failure', e.getMessage(), 'should propagate the user-supplied exception verbatim');
+    }
+  }
+
   @isTest
   static void testGet_WhenEntryExist_ThenReturnEntries() {
     // Arrange

@@ -59,6 +59,28 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testRawSoql_WhenSoqlIsBlank_ThenThrowException() {
+    // Note: Real-DML success path is intentionally not covered here — the same as the
+    // other Eloquent tests, organization-specific object permissions make execution
+    // assertions brittle. Only the input-validation contract is covered.
+    try {
+      (new Eloquent()).rawSoql(null);
+      Assert.fail('Expected ApexEloquentException when SOQL is null');
+    } catch (ApexEloquentException e) {
+      String msg = e.getMessage();
+      Assert.isTrue(msg.contains('rawSoql(String soql)'), 'should mention rawSoql method');
+      Assert.isTrue(msg.contains('argument is required'), 'should indicate required-parameter violation');
+    }
+
+    try {
+      (new Eloquent()).rawSoql('');
+      Assert.fail('Expected ApexEloquentException when SOQL is empty');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('rawSoql(String soql)'), 'should mention rawSoql method');
+    }
+  }
+
+  @isTest
   static void testGetAsSObject_WhenApplyNull_ThenThrowException() {
     // Arrange
     Scribe scribe = null;

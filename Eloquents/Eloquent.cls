@@ -65,6 +65,21 @@ public with sharing class Eloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public List<IEntry> rawSoql(String soql) {
+    String method = 'rawSoql(String soql)';
+    if (String.isBlank(soql)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'soql', soql).fire();
+    }
+    List<IEntry> entries = new List<IEntry>();
+    for (SObject record : (List<SObject>) Database.query(soql)) {
+      entries.add(new Entry(record));
+    }
+    return entries;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public List<SObject> getAsSObject(Scribe scribe) {
     String method = ('getAsSObject(Scribe scribe)');
     if (scribe == null) {

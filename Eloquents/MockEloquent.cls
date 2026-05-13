@@ -110,6 +110,30 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public List<IEntry> rawSoql(String soql) {
+    String method = 'rawSoql(String soql)';
+    this.handleErrorQueue(method);
+    if (String.isBlank(soql)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'soql', soql).fire();
+    }
+    // Raw SOQL bypasses the Scribe FieldStructure pipeline, so we cannot apply
+    // "select-forgotten detection" to the mocked rows. For MockEntry instances,
+    // turn off skipFieldValidation so callers can read any field; non-MockEntry
+    // entries pass through unchanged.
+    List<IEntry> result = new List<IEntry>();
+    for (IEntry entry : this.entries) {
+      if (entry instanceof MockEntry) {
+        result.add(((MockEntry) entry).withoutFieldValidation());
+      } else {
+        result.add(entry);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public List<SObject> getAsSObject(Scribe scribe) {
     String method = 'getAsSObject(Scribe scribe)';
     this.handleErrorQueue(method);
@@ -468,6 +492,14 @@ public with sharing class MockEloquent implements IEloquent {
 
   public MockEloquent failOnGet(Exception e) {
     return this.failOnMethod('get', e);
+  }
+
+  public MockEloquent failOnRawSoql() {
+    return this.failOnRawSoql(this.testException);
+  }
+
+  public MockEloquent failOnRawSoql(Exception e) {
+    return this.failOnMethod('rawSoql', e);
   }
 
   public MockEloquent failOnGetAsSObject() {

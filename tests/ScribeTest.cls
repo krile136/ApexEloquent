@@ -2764,8 +2764,9 @@ public with sharing class ScribeTest {
 
   @isTest
   static void testToSoql_WhenCalledTwiceWithCount_ThenReturnsSameSoqlIdempotently() {
-    // 集計クエリで toSoql() を 2 回呼ぶと "Duplicate Alias Error" が出るバグの再現テスト。
-    // MockEloquent 内部で 1 回呼ばれた後、テストで 2 回目を呼ぶシナリオを直接的に検証する。
+    // Reproduces the "Duplicate Alias Error" that occurred when toSoql() was called twice
+    // on an aggregate query. Mirrors the MockEloquent scenario where the framework calls
+    // toSoql() once internally and the test then calls it a second time for assertions.
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'oppCount');
     String expectedSoql = 'SELECT COUNT(Id) oppCount FROM Opportunity';
@@ -2781,8 +2782,8 @@ public with sharing class ScribeTest {
 
   @isTest
   static void testToSoql_WhenCalledTwiceWithoutExplicitFields_ThenReturnsSameSoql() {
-    // validateAndInitialize() で selectFields に 'Id' を auto 追加する副作用が
-    // 2 回目の toSoql() に影響しないか確認する。
+    // Confirms that the side effect in validateAndInitialize() — auto-adding 'Id' to
+    // selectFields when no field is specified — does not break idempotency of a second toSoql() call.
     // Arrange
     Scribe scribe = Scribe.of(Account.class);
 
@@ -2796,7 +2797,7 @@ public with sharing class ScribeTest {
 
   @isTest
   static void testToSoql_WhenCalledTwiceWithMultipleAggregates_ThenReturnsSameSoql() {
-    // 複数 aggregate (sum + count) で toSoql() 2 回呼びが同じ結果を返すか確認。
+    // Confirms that calling toSoql() twice with multiple aggregates (sum + count) returns the same SOQL.
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .sum('Amount', 'totalAmount')
@@ -2812,8 +2813,9 @@ public with sharing class ScribeTest {
 
   @isTest
   static void testToSoql_WhenCalledTwiceWithAggregateAndHaving_ThenReturnsSameSoql() {
-    // aggregate + HAVING の組合せで 2 回呼びが同じ結果を返すか確認。
-    // HAVING は buildSelectFields 後に aggregateAliasMap を読み出すので、map 再初期化の影響を受けやすい。
+    // Confirms idempotency when aggregate is combined with HAVING.
+    // HAVING reads aggregateAliasMap after buildSelectFields populates it, so this path is
+    // particularly sensitive to the map being reset properly on each toSoql() call.
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
@@ -2831,8 +2833,8 @@ public with sharing class ScribeTest {
 
   @isTest
   static void testToSoql_WhenCalledTwiceWithParentField_ThenReturnsSameSoql() {
-    // 親クエリ (parentField) で 2 回呼びの冪等性を確認。
-    // ParentScribe.buildSelectClause が呼ばれる経路でも map 状態が持ち越されないか検証する。
+    // Confirms idempotency for a query with a parent field (parentField path).
+    // Verifies that the map state inside ParentScribe.buildSelectClause is also reset between calls.
     // Arrange
     Scribe scribe = Scribe.of(OpportunityLineItem.class)
       .field('Id')

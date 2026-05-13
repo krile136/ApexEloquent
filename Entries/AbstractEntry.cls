@@ -227,6 +227,9 @@ public abstract class AbstractEntry implements IEntry {
   public abstract void put(String fieldName, Object value);
   public abstract IEntry getParent(String parentFieldName);
   public abstract List<IEntry> getChildren(String childObjectName);
+  /**
+   * @deprecated Use {@link #getChildren(String)} instead.
+   */
   public abstract List<IEntry> getChildrenByRelationName(String childRelationName);
   public abstract SObject getRecord();
   public abstract IEntry setRecord(SObject record);

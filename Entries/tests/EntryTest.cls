@@ -386,6 +386,22 @@ public with sharing class EntryTest {
   }
 
   @isTest
+  static void testGetChildren_WhenGivenRelationName_ThenFallbackResolveAndReturnEmptyList() {
+    // The argument is a relationship name (`Contacts`), not the SObject name (`Contact`).
+    // getChildren should fall back to the relationship-name lookup so callers don't have
+    // to switch to getChildrenByRelationName.
+    // Arrange
+    SObject record = new Account(Name = 'Test Account');
+    Entry entry = new Entry(record);
+
+    // Act
+    List<IEntry> children = entry.getChildren('Contacts');
+
+    // Assert
+    Assert.isTrue(children.isEmpty(), 'should resolve via relation-name fallback and return empty list');
+  }
+
+  @isTest
   static void testGetChildren_WhenChildObjectNameDoesNotExist_ThenThrowException() {
     // Arrange
     SObject record = new Account(Name = 'Test Account');

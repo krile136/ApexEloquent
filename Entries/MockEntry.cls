@@ -877,22 +877,28 @@ public with sharing class MockEntry extends AbstractEntry {
     }
 
     this.ensureDescribeResultIfNeeded();
-    // for validate the childObjectName
+    // Validate that the argument resolves to either a child SObject name or a child
+    // relationship name on the parent's describe. (The string itself is used for
+    // fieldStructure / fieldToValue matching below, so we don't reassign it.)
     try {
-      String childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
-    } catch (ApexEloquentException e) {
-      String reason = e.getMessage();
-      String action = 'Use getChildrenByRelationName() to specify the relationship name instead of the object name';
-      ApexEloquentException.invalidArgument(
-          CLASS_NAME,
-          method,
-          reason,
-          action,
-          'childObjectName',
-          childObjectName,
-          e
-        )
-        .fire();
+      this.getChildrenRelationNameFromChildObjectName(childObjectName);
+    } catch (ApexEloquentException firstErr) {
+      try {
+        this.validateChildRelationName(childObjectName);
+      } catch (ApexEloquentException secondErr) {
+        String reason = firstErr.getMessage();
+        String action = 'Pass either a child SObject name or the explicit child relationship name. The given value matches neither.';
+        ApexEloquentException.invalidArgument(
+            CLASS_NAME,
+            method,
+            reason,
+            action,
+            'childObjectName',
+            childObjectName,
+            firstErr
+          )
+          .fire();
+      }
     }
 
     String errorTemplate = 'The specified child Object Name `{0}` is not set in Scribe. parent object name: {1}';
@@ -946,6 +952,13 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
+   * @deprecated
+   * Use {@link #getChildren(String)} instead. As of this release, `getChildren`
+   * accepts both child SObject names AND child relationship names (with object
+   * name resolved first, falling back to relationship name on failure).
+   * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * @inheritDoc
    */
   public override List<IEntry> getChildrenByRelationName(String childRelationName) {
@@ -984,7 +997,6 @@ public with sharing class MockEntry extends AbstractEntry {
         'Ensure that the child relation name \'' +
         childRelationName +
         '\' is a valid child relationship for this object.';
-      System.debug('fireするよ');
       ApexEloquentException.invalidArgument(
           CLASS_NAME,
           method,

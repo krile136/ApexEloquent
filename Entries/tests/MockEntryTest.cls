@@ -2009,6 +2009,35 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetChildren_WhenGivenRelationName_ThenFallbackResolveAndReturnChildren() {
+    // For a mock built with Scribe.relationName('Contracts') / setChildren('Contracts', ...),
+    // calling getChildren('Contracts') (the relationship name, not the SObject name) must work
+    // via the fallback path so callers don't have to switch to getChildrenByRelationName.
+    // Arrange
+    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
+    Scribe scribe = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .withChildren(Scribe.asChild(Contract.class).relationName('Contracts').fields(new List<String>{ 'name' }));
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    Map<String, Object> fieldToValue = new Map<String, Object>{
+      'Contracts' => new List<IEntry>{
+        new MockEntry(new Contract(), new Map<String, Object>{ 'Name' => 'Test Contract 1' }),
+        new MockEntry(new Contract(), new Map<String, Object>{ 'Name' => 'Test Contract 2' })
+      }
+    };
+    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
+
+    // Act — calling getChildren with the relation name (instead of getChildrenByRelationName)
+    List<IEntry> children = mockEntry.getChildren('Contracts');
+
+    // Assert
+    Assert.isNotNull(children, 'children should not be null');
+    Assert.areEqual(2, children.size(), 'should return both mocked children');
+    Assert.areEqual('Test Contract 1', children[0].getName());
+    Assert.areEqual('Test Contract 2', children[1].getName());
+  }
+
+  @isTest
   static void testGetChildrenByRelationName_WhenRelationNameIsValid_ThenReturnChildEntries() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');

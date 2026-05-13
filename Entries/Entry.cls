@@ -162,24 +162,33 @@ public with sharing class Entry extends AbstractEntry {
     }
 
     this.ensureDescribeResultIfNeeded();
-    List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
 
+    // Step 1: try to interpret the argument as a child SObject name (existing behavior).
+    // Step 2 (fallback): if that fails, try interpreting it as a child relationship name
+    //                    so callers don't have to reach for getChildrenByRelationName when
+    //                    they actually have a relationship name in hand (e.g. set via
+    //                    Scribe.relationName('xxx__r')).
     String childRelationName = null;
     try {
       childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
-    } catch (ApexEloquentException e) {
-      String reason = e.getMessage();
-      String action = 'Ensure that the child object name is correct and exists in the parent object\'s child relationships.';
-      ApexEloquentException.invalidArgument(
-          CLASS_NAME,
-          method,
-          reason,
-          action,
-          'childObjectName',
-          childObjectName,
-          e
-        )
-        .fire();
+    } catch (ApexEloquentException firstErr) {
+      try {
+        this.validateChildRelationName(childObjectName);
+        childRelationName = childObjectName;
+      } catch (ApexEloquentException secondErr) {
+        String reason = firstErr.getMessage();
+        String action = 'Pass either a child SObject name (e.g. Contact) or the explicit child relationship name (e.g. Contacts). The given value matches neither.';
+        ApexEloquentException.invalidArgument(
+            CLASS_NAME,
+            method,
+            reason,
+            action,
+            'childObjectName',
+            childObjectName,
+            firstErr
+          )
+          .fire();
+      }
     }
     List<IEntry> childRecords = new List<IEntry>();
     for (SObject childSObject : this.record.getSObjects(childRelationName)) {
@@ -190,6 +199,14 @@ public with sharing class Entry extends AbstractEntry {
   }
 
   /**
+   * @deprecated
+   * Use {@link #getChildren(String)} instead. As of this release, `getChildren`
+   * accepts both child SObject names AND child relationship names (with object
+   * name resolved first, falling back to relationship name on failure), so a
+   * dedicated relation-name-only entry point is no longer necessary.
+   * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * @inheritDoc
    */
   public override List<IEntry> getChildrenByRelationName(String childRelationName) {

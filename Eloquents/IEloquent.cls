@@ -36,15 +36,6 @@ public interface IEloquent {
   List<IEntry> get(Scribe scribe);
 
   /**
-  * Executes SOQL and retrieves the aggregate results.
-  * If the number of retrieved records is 0, an empty list is returned.
-  *
-  * @param Scribe scribe: Scribe instance containing the SOQL query
-  * @return Retrieved aggregate results as a list of Entry objects
-  */
-  List<IEntry> getAggregate(Scribe scribe);
-
-  /**
   * Executes SOQL and retrieves the results as SObject.
   * If the number of retrieved records is 0, an empty list is returned.
   *
@@ -90,6 +81,24 @@ public interface IEloquent {
   * @throws QueryException If the number of retrieved records is 0
   */
   SObject firstOrFailAsSObject(Scribe scribe) ;
+
+  /**
+   * Executes a raw SOQL string and returns the results as IEntry instances.
+   *
+   * Use this when the Scribe builder cannot express the desired query (e.g.,
+   * complex dynamic SOQL, vendor-supplied queries, migration of legacy code).
+   *
+   * IMPORTANT: When called via MockEloquent during testing, the returned
+   * IEntry instances have the "select-forgotten detection" disabled, because
+   * raw SOQL bypasses the Scribe FieldStructure pipeline. Field access on
+   * those mocks will not validate that the field was part of the original SELECT.
+   *
+   * @param soql The full SOQL query string (e.g., 'SELECT Id, Name FROM Account WHERE ...').
+   * @return The query results wrapped as IEntry instances. Empty list when no records match.
+   * @throws ApexEloquentException when soql is null or blank.
+   * @throws QueryException when soql is syntactically invalid or refers to inaccessible objects (production only).
+   */
+  List<IEntry> rawSoql(String soql);
 
   /**
   * Inserts a record and returns the inserted record.

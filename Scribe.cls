@@ -21,6 +21,8 @@
  * It is the core of the ApexEloquent ORM's query building capabilities.
  */
 public with sharing class Scribe {
+  private static final String CLASS_NAME = 'Scribe';
+
   // =================================================================================================================
   // Properties
   // =================================================================================================================
@@ -93,13 +95,55 @@ public with sharing class Scribe {
   // =================================================================================================================
 
   /**
+   * @deprecated
+   * This method is deprecated in favor of {@link #of(System.Type)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * Creates a new Scribe instance, setting the source SObject (the FROM clause).
    * This is the entry point for building a new query.
    * Example: `Scribe.source(Account.getSObjectType())`
    *
    * @param sObjectType The SObject type to query from.
    * @return A new Scribe instance.
-   */ public static Scribe source(Schema.SObjectType sObjectType) {
+   */
+  public static Scribe source(Schema.SObjectType sObjectType) {
+    Scribe newScribe = new Scribe(sObjectType);
+    return newScribe;
+  }
+
+  /**
+   * Creates a new Scribe instance, setting the source SObject (the FROM clause).
+   * This is the entry point for building a new query.
+   * Example: `Scribe.source(Account.getSObjectType())`
+   *
+   * @param recordType The Class type of the SObject (e.g., Account.class).
+   * @return A new Scribe instance.
+   */
+  public static Scribe of(System.Type recordType) {
+    String method = 'of(System.Type recordType)';
+    if (recordType == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'recordType', null).build();
+    }
+
+    Object instance = recordType.newInstance();
+    if (!(instance instanceof SObject)) {
+      String reason = recordType.getName() + ' is not an SObject type.';
+      String action = 'Ensure you are passing a valid SObject class (e.g., Opportunity.class, MyCustomObject__c.class).';
+      throw ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'recordType',
+          recordType.getName()
+        )
+        .build();
+    }
+
+    Schema.SObjectType sObjectType = ((SObject) instance).getSObjectType();
     Scribe newScribe = new Scribe(sObjectType);
     return newScribe;
   }
@@ -121,11 +165,18 @@ public with sharing class Scribe {
    *
    * @param parentRelationIdFieldName The API name of the lookup or master-detail field (e.g., 'AccountId').
    * @return A new Scribe instance configured for a parent relationship.
-   * @throws QueryException if the field name is blank.
+   * @throws ApexEloquentException if the field name is blank.
    */
   public static Scribe asParent(String parentRelationIdFieldName) {
+    String method = 'asParent(String parentRelationIdFieldName)';
     if (String.isBlank(parentRelationIdFieldName)) {
-      throw new QueryException('The relationship field name for asParent() must be specified.');
+      throw ApexEloquentException.required(
+          CLASS_NAME,
+          method,
+          'parentRelationIdFieldName',
+          parentRelationIdFieldName
+        )
+        .build();
     }
     Scribe newScribe = new Scribe(null);
     newScribe.isParent = true;
@@ -134,21 +185,62 @@ public with sharing class Scribe {
   }
 
   /**
+   * @deprecated
+   * This method is deprecated in favor asChild {@link #asChild(System.Type)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * Creates a Scribe instance representing a child subquery.
    * Example: `.withChildren(Scribe.asChild(Contact.getSObjectType()).fields(...).whereEqual(...))`
    *
    * @param childSObjectType The SObjectType of the child records.
    * @return A new Scribe instance configured for a child relationship.
-   * @throws QueryException if the SObjectType is null.
+   * @throws ApexEloquentException if the SObjectType is null.
    */
   public static Scribe asChild(Schema.SObjectType childSObjectType) {
+    String method = 'asChild(Schema.SObjectType childSObjectType)';
     if (childSObjectType == null) {
-      throw new QueryException('The SObjectType provided to asChild() must not be null.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'childRecordType', null).build();
     }
     Scribe newScribe = new Scribe(childSObjectType);
     newScribe.isChild = true;
 
     return newScribe;
+  }
+
+  /**
+   * Creates a Scribe instance representing a child subquery.
+   * Example: `.withChildren(Scribe.asChild(Contact.getSObjectType()).fields(...).whereEqual(...))`
+   *
+   * @param childRecordType The Class type of the child SObject (e.g., Contact.class).
+   * @return A new Scribe instance configured for a child relationship.
+   * @throws ApexEloquentException if the SObjectType is null.
+   */
+  public static Scribe asChild(System.Type childRecordType) {
+    String method = 'asChild(System.Type childRecordType)';
+    if (childRecordType == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'childRecordType', null).build();
+    }
+
+    Object instance = childRecordType.newInstance();
+    if (!(instance instanceof SObject)) {
+      String reason = childRecordType.getName() + ' is not an SObject type.';
+      String action = 'Ensure you are passing a valid SObject class (e.g., Contact.class, MyCustomObject__c.class).';
+      throw ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'childRecordType',
+          childRecordType.getName()
+        )
+        .build();
+    }
+
+    Schema.SObjectType childSObjectType = ((SObject) instance).getSObjectType();
+    return Scribe.asChild(childSObjectType);
   }
 
   /**
@@ -164,6 +256,13 @@ public with sharing class Scribe {
   }
 
   /**
+   * @deprecated
+   * This method is deprecated in favor asThrough {@link #asThrough(System.Type)} to align with
+   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
+   * a more intuitive developer experience (DX).
+   * * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
    * Creates a Scribe instance for a many-to-many relationship traversal.
    * Example: `.through(Scribe.asThrough(JunctionObject.getSObjectType(), 'TargetObject__c'))`
    *
@@ -177,6 +276,50 @@ public with sharing class Scribe {
     newScribe.junctionSObjectType = junctionSObjectType;
     newScribe.parentRelationIdFieldName = relatedKey;
 
+    return newScribe;
+  }
+
+  /**
+   * Creates a Scribe instance configured for a many-to-many relationship traversal.
+   * This method defines how to bridge to a target object through a junction object.
+   *
+   * Example:
+   * .through(Scribe.asThrough(OrderItem.class, 'Product2Id'))
+   *
+   * @param junctionType The Class type of the junction SObject (e.g., OrderItem.class).
+   * @param targetLookupField The API name of the field on the junction object that points to the final related object (e.g., 'Product2Id').
+   * @return A new Scribe instance tailored for junction object traversal.
+   */
+  public static Scribe asThrough(System.Type junctionType, String targetLookupField) {
+    String method = 'asThrough(System.Type junctionType, String targetLookupField)';
+    if (junctionType == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'junctionType', null).build();
+    }
+
+    if (String.isBlank(targetLookupField)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'targetLookupField', targetLookupField).build();
+    }
+
+    Object instance = junctionType.newInstance();
+    if (!(instance instanceof SObject)) {
+      String reason = junctionType.getName() + ' is not an SObject type.';
+      String action = 'Ensure you are passing a valid SObject class (e.g., JunctionObject__c.class).';
+      throw ApexEloquentException.invalidArgument(
+          CLASS_NAME,
+          method,
+          reason,
+          action,
+          'junctionType',
+          junctionType.getName()
+        )
+        .build();
+    }
+
+    Schema.SObjectType junctionSObjectType = ((SObject) instance).getSObjectType();
+    Scribe newScribe = new Scribe(null);
+    newScribe.isThrough = true;
+    newScribe.junctionSObjectType = junctionSObjectType;
+    newScribe.parentRelationIdFieldName = targetLookupField;
     return newScribe;
   }
 
@@ -218,10 +361,14 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the added field.
    */
   public Scribe field(String fieldName) {
-    this.validateAddFieldClause();
+    String method = 'field(String fieldName)';
+    ApexEloquentException validationError = this.validateAddFieldClause();
+    if (validationError != null) {
+      validationError.method(method).fire();
+    }
 
-    if (String.isBlank(fieldName)) {
-      throw new QueryException('A field name must be provided.');
+    if (fieldName == null || String.isBlank(fieldName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldName', null).build();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -237,15 +384,22 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the added fields.
    */
   public Scribe fields(List<String> fieldNames) {
-    this.validateAddFieldClause();
+    String method = 'fields(List<String> fieldNames)';
+    ApexEloquentException validationError = this.validateAddFieldClause();
+    if (validationError != null) {
+      validationError.method(method).fire();
+    }
 
-    if (fieldNames == null || fieldNames.isEmpty()) {
-      throw new QueryException('The list of field names cannot be empty.');
+    if (fieldNames == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldNames', null).build();
     }
 
     Scribe clonedScribe = this.deepClone();
-    clonedScribe.selectFields.addAll(new Set<String>(fieldNames));
+    if (fieldNames.isEmpty()) {
+      return clonedScribe;
+    }
 
+    clonedScribe.selectFields.addAll(new Set<String>(fieldNames));
     return clonedScribe;
   }
 
@@ -256,7 +410,11 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance configured to select all fields.
    */
   public Scribe allFields() {
-    this.validateAddFieldClause();
+    String method = 'allFields()';
+    ApexEloquentException validationError = this.validateAddFieldClause();
+    if (validationError != null) {
+      validationError.method(method).fire();
+    }
 
     Scribe clonedScribe = this.deepClone();
     clonedScribe.isSelectAll = true;
@@ -276,7 +434,10 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the aggregate function.
    */
   public Scribe average(String fieldName, String alias) {
-    this.validateAddAggregateClause();
+    String method = 'average(String fieldName, String alias)';
+    this.validateAggregateClauseParams(method, fieldName, alias);
+    this.validateAddAggregateClause(method);
+
     IAggregateClause averageClause = new AverageClause(this.sObjectType, null, fieldName, alias);
 
     Scribe clonedScribe = this.deepClone();
@@ -293,7 +454,10 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the aggregate function.
    */
   public Scribe count(String fieldName, String alias) {
-    this.validateAddAggregateClause();
+    String method = 'count(String fieldName, String alias)';
+    this.validateAggregateClauseParams(method, fieldName, alias);
+    this.validateAddAggregateClause(method);
+
     IAggregateClause countClause = new CountClause(this.sObjectType, null, fieldName, alias);
 
     Scribe clonedScribe = this.deepClone();
@@ -310,7 +474,10 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the aggregate function.
    */
   public Scribe countDistinct(String fieldName, String alias) {
-    this.validateAddAggregateClause();
+    String method = 'countDistinct(String fieldName, String alias)';
+    this.validateAggregateClauseParams(method, fieldName, alias);
+    this.validateAddAggregateClause(method);
+
     IAggregateClause countDistinctClause = new CountDistinctClause(this.sObjectType, null, fieldName, alias);
 
     Scribe clonedScribe = this.deepClone();
@@ -327,7 +494,10 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the aggregate function.
    */
   public Scribe min(String fieldName, String alias) {
-    this.validateAddAggregateClause();
+    String method = 'min(String fieldName, String alias)';
+    this.validateAggregateClauseParams(method, fieldName, alias);
+    this.validateAddAggregateClause(method);
+
     IAggregateClause minClause = new MinClause(this.sObjectType, null, fieldName, alias);
 
     Scribe clonedScribe = this.deepClone();
@@ -344,7 +514,10 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the aggregate function.
    */
   public Scribe max(String fieldName, String alias) {
-    this.validateAddAggregateClause();
+    String method = 'max(String fieldName, String alias)';
+    this.validateAggregateClauseParams(method, fieldName, alias);
+    this.validateAddAggregateClause(method);
+
     IAggregateClause maxClause = new MaxClause(this.sObjectType, null, fieldName, alias);
 
     Scribe clonedScribe = this.deepClone();
@@ -361,7 +534,10 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the aggregate function.
    */
   public Scribe sum(String fieldName, String alias) {
-    this.validateAddAggregateClause();
+    String method = 'sum(String fieldName, String alias)';
+    this.validateAggregateClauseParams(method, fieldName, alias);
+    this.validateAddAggregateClause(method);
+
     IAggregateClause sumClause = new SumClause(this.sObjectType, null, fieldName, alias);
 
     Scribe clonedScribe = this.deepClone();
@@ -376,11 +552,18 @@ public with sharing class Scribe {
    * @param fieldName The API name of the field to group by.
    * @return A new, immutable Scribe instance with the GROUP BY field.
    */
-  public Scribe groupByField(string fieldName) {
-    this.validateAddAggregateClause();
+  public Scribe groupByField(String fieldName) {
+    String method = 'groupByField(String fieldName)';
+    this.validateAddAggregateClause(method);
+    if (fieldName == null || String.isBlank(fieldName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName).build();
+    }
 
-    if (String.isBlank(fieldName)) {
-      throw new QueryException('The field name for groupByField() cannot be blank.');
+    if (!this.children.isEmpty()) {
+      String error = 'SOQL Aggregate Restriction';
+      String reason = 'Aggregate functions and child relationship queries (withChildren) are incompatible in a single SOQL statement.';
+      String action = 'Remove the withChildren() calls, or separate the aggregate and child queries.';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -397,14 +580,20 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the GROUP BY fields.
    */
   public Scribe groupByFields(List<String> fieldNames) {
-    this.validateAddAggregateClause();
-
+    String method = 'groupByFields(List<String> fieldNames)';
+    this.validateAddAggregateClause(method);
     if (fieldNames == null || fieldNames.isEmpty()) {
-      throw new QueryException('The list of field names for groupByFields() cannot be empty.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldNames', fieldNames).build();
     }
 
     Scribe clonedScribe = this.deepClone();
     for (String fieldName : fieldNames) {
+      if (fieldName == null || String.isBlank(fieldName)) {
+        String reason = 'string value in fieldnames argument must not be null or blank.';
+        String action = 'Ensure all field names in the list are not null or blank.';
+        throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldNames', fieldNames)
+          .build();
+      }
       GroupByClause groupByClause = new GroupByClause(fieldName);
       clonedScribe.groupByClauses.add(groupByClause);
     }
@@ -420,14 +609,17 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the parent GROUP BY field.
    */
   public Scribe groupByParent(Scribe parentScribe) {
-    this.validateAddAggregateClause();
+    String method = 'groupByParent(Scribe parentScribe)';
 
+    this.validateAddAggregateClause(method);
     if (parentScribe == null) {
-      throw new QueryException('The Scribe instance for the groupByParent() method cannot be null.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'parentScribe', null).build();
     }
     if (!parentScribe.isParent) {
-      String error = 'The Scribe instance for the groupByParent() method must be created with Scribe.asParent().';
-      throw new QueryException(error);
+      String error = 'Contextual Violation: groupByParent() Forbidden';
+      String reason = 'Currently not within a parent context. The groupByParent() method is only permitted in parent context.';
+      String action = 'Ensure you are passing a Scribe instance created with Scribe.asParent()';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -446,12 +638,21 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the HAVING clause.
    */
   public Scribe havingCondition(Scribe havingScribe) {
+    String method = 'havingCondition(Scribe havingScribe)';
+    if (havingScribe == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'havingScribe', null).build();
+    }
     if (this.groupByClauses.isEmpty()) {
-      throw new QueryException('The havingCondition() method must be used in conjunction with a groupBy method.');
+      String error = 'Missing Required Clause: GROUP BY';
+      String reason = 'The HAVING clause requires a GROUP BY clause. The current query does not have any GROUP BY fields defined.';
+      String action = 'Please add a .groupBy() or .groupByParent() method call before invoking .havingCondition().';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
     if (!havingScribe.isHaving) {
-      String error = 'The Scribe instance for the havingCondition() method must be created with Scribe.asHaving().';
-      throw new QueryException(error);
+      String reason = 'The provided Scribe instance was not initialized asHaving()';
+      String action = 'Please create the input Scribe instance using asHaving()';
+      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'havingScribe', havingScribe)
+        .build();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -471,14 +672,16 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance configured for an OR condition.
    */
   public Scribe orCondition() {
-    this.validateOrConditionNotAllowed();
+    String method = 'orCondition()';
+    this.validateOrConditionNotAllowed(method);
 
     Scribe clonedScribe = this.deepClone();
 
     if (clonedScribe.conditionParts.isEmpty() && !clonedScribe.isParent) {
-      throw new QueryException(
-        'The orCondition() method cannot be called first. Please add a condition with a where...() method before adding an OR condition.'
-      );
+      String error = 'Invalid Logical Sequence';
+      String reason = 'An OR condition cannot be the starting point of a WHERE clause. It must append to an existing condition.';
+      String action = 'Please call a where...() method (e.g., .whereEqual(), .whereIn()) before invoking .orCondition().';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
     clonedScribe.isNextConditionOr = true;
     clonedScribe.canOnlyAddOrCondition = true;
@@ -498,7 +701,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereEqual(String fieldName, Object value) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereEqual(String fieldName, Object value)';
+    this.validateConditionClause(method, fieldName, value, true);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause;
@@ -522,7 +726,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotEqual(String fieldName, Object value) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereNotEqual(String fieldName, Object value)';
+    this.validateConditionClause(method, fieldName, value, true);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause;
@@ -546,7 +751,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereGreaterThan(String fieldName, Object value) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereGreaterThan(String fieldName, Object value)';
+    this.validateConditionClause(method, fieldName, value, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new GreaterThanConditionClause(
@@ -570,7 +776,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereGreaterThanOrEqual(String fieldName, Object value) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereGreaterThanOrEqual(String fieldName, Object value)';
+    this.validateConditionClause(method, fieldName, value, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new GreaterThanOrEqualConditionClause(
@@ -594,7 +801,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereLessThan(String fieldName, Object value) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereLessThan(String fieldName, Object value)';
+    this.validateConditionClause(method, fieldName, value, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new LessThanConditionClause(
@@ -618,7 +826,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereLessThanOrEqual(String fieldName, Object value) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereLessThanOrEqual(String fieldName, Object value)';
+    this.validateConditionClause(method, fieldName, value, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new LessThanOrEqualConditionClause(
@@ -642,7 +851,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereLike(String fieldName, String value) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereLike(String fieldName, String value)';
+    this.validateConditionClause(method, fieldName, value, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new LikeConditionClause(clonedScribe.sObjectType, null, fieldName, value);
@@ -661,7 +871,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotLike(String fieldName, String value) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereNotLike(String fieldName, String value)';
+    this.validateConditionClause(method, fieldName, value, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new NotLikeConditionClause(
@@ -686,7 +897,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereIn(String fieldName, Object values) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereIn(String fieldName, Object values)';
+    this.validateConditionClause(method, fieldName, values, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new InConditionClause(clonedScribe.sObjectType, null, fieldName, values);
@@ -705,11 +917,18 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereIn(String fieldName, Scribe subQuery) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereIn(String fieldName, Scribe subQuery)';
+    this.validateConditionClause(method, fieldName, subQuery, false);
 
     Scribe clonedScribe = this.deepClone();
     if (clonedScribe.isNextConditionOr) {
-      throw new QueryException('The whereIn() method with a subquery is not supported after orCondition().');
+      String error = 'SOQL Semi-Join Restriction';
+      String reason =
+        'The ' +
+        method +
+        ' method cannot be combined with an OR operator due to Salesforce SOQL limitations.';
+      String action = 'Remove the preceding .orCondition() to use a default AND condition, or use whereIn(fieldName, List<Object>) instead of a subquery.';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     IConditionClause conditionClause = new InSubQueryConditionClause(
@@ -734,7 +953,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotIn(String fieldName, Object values) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereNotIn(String fieldName, Object values)';
+    this.validateConditionClause(method, fieldName, values, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new NotInConditionClause(clonedScribe.sObjectType, null, fieldName, values);
@@ -753,11 +973,18 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotIn(String fieldName, Scribe subQuery) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereNotIn(String fieldName, Scribe subQuery)';
+    this.validateConditionClause(method, fieldName, subQuery, false);
 
     Scribe clonedScribe = this.deepClone();
     if (clonedScribe.isNextConditionOr) {
-      throw new QueryException('The whereNotIn() method with a subquery is not supported after orCondition().');
+      String error = 'SOQL Semi-Join Restriction';
+      String reason =
+        'The ' +
+        method +
+        ' method cannot be combined with an OR operator due to Salesforce SOQL limitations.';
+      String action = 'Remove the preceding .orCondition() to use a default AND condition, or use whereIn(fieldName, List<Object>) instead of a subquery.';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     IConditionClause conditionClause = new NotInSubQueryConditionClause(
@@ -781,7 +1008,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereIncludes(String fieldName, List<String> values) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereIncludes(String fieldName, List<String> values)';
+    this.validateConditionClause(method, fieldName, values, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new IncludesConditionClause(
@@ -805,7 +1033,8 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereExcludes(String fieldName, List<String> values) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereExcludes(String fieldName, List<String> values)';
+    this.validateConditionClause(method, fieldName, values, false);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new ExcludeConditionClause(
@@ -828,10 +1057,11 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNull(String fieldName) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereNull(String fieldName)';
+    this.validateConditionClause(method, fieldName, null, true);
 
     Scribe clonedScribe = this.deepClone();
-    IconditionClause conditionClause = new IsNullConditionClause(clonedScribe.sObjectType, null, fieldName);
+    IConditionClause conditionClause = new IsNullConditionClause(clonedScribe.sObjectType, null, fieldName);
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -846,10 +1076,11 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotNull(String fieldName) {
-    this.validateConditionClause(fieldName);
+    String method = 'whereNotNull(String fieldName)';
+    this.validateConditionClause(method, fieldName, null, true);
 
     Scribe clonedScribe = this.deepClone();
-    IconditionClause conditionClause = new IsNotNullConditionClause(clonedScribe.sObjectType, null, fieldName);
+    IConditionClause conditionClause = new IsNotNullConditionClause(clonedScribe.sObjectType, null, fieldName);
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -899,14 +1130,15 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the grouped condition.
    */
   public Scribe whereGroup(Scribe groupScribe) {
-    this.validateConditionOperator();
+    String method = 'whereGroup(Scribe groupScribe)';
+    this.validateConditionOperator(method, null, null);
 
     if (groupScribe == null) {
-      throw new QueryException('The Scribe instance provided to whereGroup() cannot be null.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'groupScribe', null).build();
     }
 
     Scribe clonedScribe = this.deepClone();
-    Conditionpart groupConditionPart = new ConditionPart(groupScribe, this.isNextConditionOr);
+    ConditionPart groupConditionPart = new ConditionPart(groupScribe, this.isNextConditionOr);
     clonedScribe.sObjectType = this.sObjectType;
     clonedScribe.conditionParts.add(groupConditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -927,8 +1159,9 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the relationship name set.
    */
   public Scribe relationName(String relationName) {
+    String method = 'relationName(String relationName)';
     if (String.isBlank(relationName)) {
-      throw new QueryException('A relationship name must be provided.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'relationName', relationName).build();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -944,21 +1177,25 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the child subquery.
    */
   public Scribe withChildren(Scribe childScribe) {
-    this.validateOrConditionNotAllowed();
+    String method = 'withChildren(Scribe childScribe)';
+    this.validateOrConditionNotAllowed(method);
 
     if (childScribe == null) {
-      throw new QueryException('The child Scribe instance cannot be null.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'childScribe', null).build();
     }
 
     if (!this.groupByClauses.isEmpty() || !this.aggregateClauses.isEmpty()) {
-      throw new QueryException(
-        'Aggregate functions cannot be used in conjunction with the withChildren() method.'
-      );
+      String error = 'SOQL Aggregate Restriction';
+      String reason = 'Aggregate functions and child relationship queries (withChildren) are incompatible in a single SOQL statement.';
+      String action = 'Remove the withChildren() calls, or separate the aggregate and child queries.';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     if (!childScribe.isChild) {
-      String error = 'The Scribe instance for the withChildren() method must be created with Scribe.asChild().';
-      throw new QueryException(error);
+      String error = 'Invalid Scribe Context';
+      String reason = 'The Scribe instance passed to withChildren() must be initialized using the Scribe.asChild() method.';
+      String action = 'Initialize the child query using `Scribe.asChild(System.Type childRecordType)` and pass it to withChildren().';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -974,15 +1211,18 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the parent condition.
    */
   public Scribe parentCondition(Scribe parentScribe) {
-    this.validateOrConditionNotAllowed();
+    String method = 'parentCondition(Scribe parentScribe)';
+    this.validateOrConditionNotAllowed(method);
 
     if (parentScribe == null) {
-      throw new QueryException('The parent Scribe instance cannot be null.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'parentScribe', null).build();
     }
 
     if (!parentScribe.isParent) {
-      String error = 'The Scribe instance for the parentCondition() method must be created with Scribe.asParent().';
-      throw new QueryException(error);
+      String error = 'Invalid Scribe Context';
+      String reason = 'The Scribe instance passed to parentField() must be initialized using the Scribe.asParent() method.';
+      String action = 'Initialize the parent Scribe using `Scribe.asChild(System.Type childRecordType)` and pass it to withParent().';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -1002,15 +1242,18 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the parent fields in the SELECT clause.
    */
   public Scribe parentField(Scribe parentScribe) {
-    this.validateOrConditionNotAllowed();
+    String method = 'parentField(Scribe parentScribe)';
+    this.validateOrConditionNotAllowed(method);
 
     if (parentScribe == null) {
-      throw new QueryException('The parent Scribe instance cannot be null.');
+      throw ApexEloquentException.required(CLASS_NAME, method, 'parentScribe', null).build();
     }
 
     if (!parentScribe.isParent) {
-      String error = 'The Scribe instance for the parentField() method must be created with Scribe.asParent().';
-      throw new QueryException(error);
+      String error = 'Invalid Scribe Context';
+      String reason = 'The Scribe instance passed to parentField() must be initialized using the Scribe.asParent() method.';
+      String action = 'Initialize the parent Scribe using `Scribe.asChild(System.Type childRecordType)` and pass it to withParent().';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
     Scribe clonedScribe = this.deepClone();
@@ -1028,9 +1271,15 @@ public with sharing class Scribe {
    * @return The Scribe instance for method chaining.
    */
   public Scribe through(Scribe throughScribe) {
+    String method = 'through(Scribe throughScribe)';
+    if (throughScribe == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'throughScribe', null).build();
+    }
     if (!throughScribe.isThrough) {
-      String error = 'The Scribe instance for the through() method must be created with Scribe.asThrough().';
-      throw new QueryException(error);
+      String error = 'Invalid Scribe Context';
+      String reason = 'The Scribe instance passed to through() must be initialized using the Scribe.asThrough() method.';
+      String action = 'Initialize the through Scribe using `asThrough(System.Type junctionType, String targetLookupField)` and pass it to through().';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
     throughScribe.isParent = true;
     Scribe childScribe = Scribe.asChild(throughScribe.junctionSObjectType)
@@ -1057,8 +1306,15 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the LIMIT clause.
    */
   public Scribe take(Integer limitNumber) {
-    if (limitNumber == null || limitNumber <= 0) {
-      throw new QueryException('The limit number must be greater than zero.');
+    String method = 'take(Integer limitNumber)';
+    if (limitNumber == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'limitNumber', limitNumber).build();
+    }
+    if (limitNumber < 0) {
+      String reason = 'The limit number cannot be negative.';
+      String action = 'Please provide a non-negative integer for the limit.';
+      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'limitNumber', limitNumber)
+        .build();
     }
     Scribe clonedScribe = this.deepClone();
     clonedScribe.limitNumber = limitNumber;
@@ -1073,12 +1329,22 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the OFFSET clause.
    */
   public Scribe offset(Integer offsetNumber) {
-    if (offsetNumber == null || offsetNumber < 0) {
-      throw new QueryException('The offset number must be greater than zero.');
+    String method = 'offset(Integer offsetNumber)';
+    if (offsetNumber == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'offsetNumber', offsetNumber).build();
+    }
+    if (offsetNumber < 0) {
+      String reason = 'The offset number cannot be negative.';
+      String action = 'Please provide a non-negative integer for the offset.';
+      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'offsetNumber', offsetNumber)
+        .build();
     }
 
     if (offsetNumber > 2000) {
-      throw new QueryException('The offset number cannot exceed 2000.');
+      String reason = 'Salesforce SOQL has a maximum offset limit of 2000 records.';
+      String action = 'Please provide an offset number less than or equal to 2000';
+      throw ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'offsetNumber', offsetNumber)
+        .build();
     }
     Scribe clonedScribe = this.deepClone();
     clonedScribe.offsetNumber = offsetNumber;
@@ -1146,6 +1412,10 @@ public with sharing class Scribe {
    * @return The complete, executable SOQL query string.
    */
   public String toSoql() {
+    // Reset accumulator state so toSoql() is idempotent across multiple calls
+    // (otherwise alias entries from the previous build trigger Duplicate Alias Error).
+    this.aggregateAliasMap = new Map<String, AliasStructure>();
+
     this.validateAndInitialize();
 
     Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
@@ -1212,11 +1482,13 @@ public with sharing class Scribe {
     } else {
       for (String fieldName : this.selectFields) {
         if (!fieldMap.containsKey(fieldName.toLowerCase())) {
-          String error = String.format(
-            'The specified field does not exist in the object\'s fields. object name: {0}, field name: {1}',
-            new List<String>{ this.describe.getName(), fieldName }
+          String error = 'Field Selection Failed';
+          String reason = String.format(
+            'The field `{0}` does not exist on the SObject `{1}`.',
+            new List<String>{ fieldName, this.describe.getName() }
           );
-          throw new QueryException(error);
+          String action = 'Please check the field API name for typos or ensure the field is accessible in the current Org.';
+          throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
         }
         selectFields.add(fieldName.toLowerCase());
       }
@@ -1307,11 +1579,13 @@ public with sharing class Scribe {
       selectFieldsString += aggregateClauseString;
       String alias = aggregateClause.getAlias();
       if (this.aggregateAliasMap.containsKey(alias)) {
-        String error = String.format(
-          'The alias {0} in the aggregate clause conflicts with an existing alias.',
+        String error = 'Duplicate Alias Error';
+        String reason = String.format(
+          'The alias {0} is already defined in the aggregate clause.',
           new List<String>{ alias }
         );
-        throw new QueryException(error);
+        String action = 'Ensure each aggregate function has a unique alias.';
+        throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
       }
       String aggregateField = aggregateClause.getFieldName();
       String aggregateTarget = aggregateClauseString.split(' ')[0];
@@ -1327,11 +1601,13 @@ public with sharing class Scribe {
       Map<String, AliasStructure> parentAggregateAliasMap = parent.getAggregateAliasMap();
       for (String alias : parentAggregateAliasMap.keySet()) {
         if (this.aggregateAliasMap.containsKey(alias)) {
-          String error = String.format(
-            'The alias {0} in the parent query conflicts with an existing alias.',
+          String error = 'Duplicate Alias Error';
+          String reason = String.format(
+            'The alias {0} in the parent query is already defined in the aggregate clause.',
             new List<String>{ alias }
           );
-          throw new QueryException(error);
+          String action = 'Ensure each aggregate function has a unique alias.';
+          throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
         }
         this.aggregateAliasMap.put(alias, parentAggregateAliasMap.get(alias));
       }
@@ -1339,26 +1615,36 @@ public with sharing class Scribe {
 
     // Add child queries
     if (!this.children.isEmpty()) {
+      if (String.isNotBlank(selectFieldsString)) {
+        selectFieldsString += ', ';
+      }
       lowerNestingDepth++;
       if (lowerNestingDepth > this.MAX_LOWER_NESTING_DEPTH) {
         List<String> overNestedChildrenNames = new List<String>();
         for (Scribe child : this.children) {
           overNestedChildrenNames.add(child.getDescribe().getName());
         }
-        String error = String.format(
-          'Maximum nesting depth for child queries reached. Max depth: {0}, Object name: {1}',
+        String error = 'Query Nesting Limit Exceeded';
+        String reason = String.format(
+          'The query reached the maximum allowed nesting depth ({0}). Over-nested child relationship: [{1}]',
           new List<String>{
             String.valueOf(this.MAX_LOWER_NESTING_DEPTH),
             String.join(overNestedChildrenNames, ', ')
           }
         );
-        throw new QueryException(error);
+        String action = 'Reduce the nesting depth.';
+        throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
       }
+      List<String> childSoqls = new List<String>();
       for (Scribe child : this.children) {
-        selectFieldsString += String.format(
-          ', ({0})',
+        String childSoql = String.format(
+          '({0})',
           new List<String>{ child.buildChildSoql(this.sObjectType, lowerNestingDepth) }
         );
+        childSoqls.add(childSoql);
+      }
+      if (!childSoqls.isEmpty()) {
+        selectFieldsString += String.join(childSoqls, ', ');
       }
     }
 
@@ -1383,9 +1669,10 @@ public with sharing class Scribe {
     Boolean isLastOperatorOr = false;
     for (ConditionPart conditionPart : this.conditionParts) {
       if (isLastOperatorOr && !conditionPart.isOr) {
-        throw new QueryException(
-          'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.'
-        );
+        String error = 'Logical Operator Mismatch';
+        String reason = 'A condition following an orWhere() must also be an OR condition to maintain logical consistency.';
+        String action = 'Ensure all subsequent where clauses after the first `orCondition()` in this chain are used with the `orCondition()` method.';
+        throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
       }
       isFirstOperatorOr = isFirstOperatorOr == null ? conditionPart.isOr : isFirstOperatorOr;
       WhereClauseData whereClauseData = null;
@@ -1447,9 +1734,10 @@ public with sharing class Scribe {
 
     for (ConditionPart conditionPart : this.conditionParts) {
       if (isLastOperatorOr && !conditionPart.isOr) {
-        throw new QueryException(
-          'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.'
-        );
+        String error = 'Logical Operator Mismatch';
+        String reason = 'A condition following an orWhere() must also be an OR condition to maintain logical consistency.';
+        String action = 'Ensure all subsequent having clauses after the first orCondition() in this chain are used with the orCondition() method.';
+        throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
       }
       WhereClauseData whereClauseData = null;
       String clause = '';
@@ -1460,11 +1748,13 @@ public with sharing class Scribe {
         String alias = conditionPart.condition.getFieldName();
 
         if (!aggregateAliasMap.containsKey(alias)) {
-          String error = String.format(
-            'The alias {0} in the HAVING clause does not match any aggregate alias',
+          String error = 'Aggregate Alias Not Found';
+          String reason = String.format(
+            'The alias "{0}" used in the HAVING clause does not match any alias defined in the aggregate clauses.',
             new List<String>{ alias }
           );
-          throw new QueryException(error);
+          String action = 'Ensure the alias is correctly defined using aggregate methods.';
+          throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
         }
         AliasStructure aliasStructure = aggregateAliasMap.get(alias);
 
@@ -1528,8 +1818,12 @@ public with sharing class Scribe {
     if (this.orderByClauses.isEmpty()) {
       return query;
     }
-    if(this.isForUpdate) {
-      throw new QueryException('ORDER BY cannot be used with FOR UPDATE clause.');
+    if (this.isForUpdate) {
+      String error = 'Order By Conflict';
+      String reason = 'The ORDER BY clause cannot be used in conjunction with the FOR UPDATE clause due to Salesforce SOQL limitations.';
+      String action = 'Remove either the orderBy() or forUpdate() method from your query chain.';
+
+      ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
     }
 
     query += ' ORDER BY ';
@@ -1566,21 +1860,25 @@ public with sharing class Scribe {
     if (this.offsetNumber == 0) {
       return query;
     }
-    if(this.isForUpdate){
-      throw new QueryException('OFFSET cannot be used with FOR UPDATE clause.');
+    if (this.isForUpdate) {
+      String error = 'Offset Conflict';
+      String reason = 'The OFFSET clause cannot be used in conjunction with the FOR UPDATE clause due to Salesforce SOQL limitations.';
+      String action = 'Remove either the offset() or forUpdate() method from your query chain.';
+
+      ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
     }
 
     return query += ' OFFSET ' + String.valueOf(this.offsetNumber);
   }
 
   /**
-  * Constructs the FOR UPDATE clause string.
-  *
-  * @param query The current query string.
-  * @return The query string with the FOR UPDATE clause appended.
-  */
+   * Constructs the FOR UPDATE clause string.
+   *
+   * @param query The current query string.
+   * @return The query string with the FOR UPDATE clause appended.
+   */
   private String buildForUpdateClause(String query) {
-    if(!this.isForUpdate){
+    if (!this.isForUpdate) {
       return query;
     }
 
@@ -1600,49 +1898,104 @@ public with sharing class Scribe {
     Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
     String selectFieldsString = this.buildSelectFields(fieldMap, lowerNestingDepth);
 
+    String objectName = this.describe.getName();
     String fromString;
     List<Schema.ChildRelationship> childRelationships = parentSObjectType.getDescribe().getChildRelationships();
+    Integer foundIndex = findChildRelationshipIndex(childRelationships, objectName);
+
     if (String.isNotBlank(this.relationName)) {
       fromString = this.relationName;
-      Boolean isRelationNameValid = false;
-      for (Schema.ChildRelationship childRelationship : childRelationships) {
-        if (childRelationship.getRelationshipName() == fromString) {
-          isRelationNameValid = true;
-          break;
+
+      boolean isValid = false;
+      // checking amibibuity
+      if (foundIndex != -1) {
+        for (
+          Integer i = foundIndex;
+          i >= 0 &&
+          childRelationships[i].getChildSObject().getDescribe().getName() == objectName;
+          i--
+        ) {
+          if (childRelationships[i].getRelationshipName() == fromString) {
+            isValid = true;
+            break;
+          }
         }
-      }
-      if (!isRelationNameValid) {
-        String parentObjectName = parentSObjectType.getDescribe().getName();
-        String objectName = this.describe.getName();
-        String errorMessage = String.format(
-          'The specified parent relationship name is not valid. child object name: {0}, parent object name: {1}, relationship name: {2}',
-          new List<String>{ objectName, parentObjectName, fromString }
-        );
-        throw new QueryException(errorMessage);
-      }
-    } else {
-      String objectName = this.describe.getName();
-      for (Schema.ChildRelationship childRelationship : childRelationships) {
-        if (childRelationship.getChildSObject().getDescribe().getName() == objectName) {
-          if (fromString == null) {
-            fromString = childRelationship.getRelationshipName();
-          } else {
-            String parentObjectName = parentSObjectType.getDescribe().getName();
-            String errorMessage = String.format(
-              'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
-              new List<String>{ objectName, parentObjectName }
-            );
-            throw new QueryException(errorMessage);
+        for (
+          Integer i = foundIndex + 1;
+          !isValid &&
+          i < childRelationships.size() &&
+          childRelationships[i].getChildSObject().getDescribe().getName() == objectName;
+          i++
+        ) {
+          if (childRelationships[i].getRelationshipName() == fromString) {
+            isValid = true;
+            break;
           }
         }
       }
-      if (fromString == null) {
+
+      if (!isValid) {
         String parentObjectName = parentSObjectType.getDescribe().getName();
-        String error = String.format(
-          '{0} does not have a child relationship with {1}',
+        String errorLabel = 'Invalid Relationship Name';
+        String reason = String.format(
+          'The relationship "{2}" was not found between child SObject "{0}" and parent SObject "{1}".',
+          new List<String>{ objectName, parentObjectName, fromString }
+        );
+        String action = 'Check for typos in the relationship name or verify the lookup field configuration in Salesforce.';
+        ApexEloquentException.at(CLASS_NAME).error(errorLabel).reason(reason).action(action).fire();
+      }
+    } else {
+      if (foundIndex == -1) {
+        String parentObjectName = parentSObjectType.getDescribe().getName();
+        String errorLabel = 'No Child Relationship Found';
+        String reason = String.format(
+          'The parent SObject "{0}" does not have any defined child relationships with SObject "{1}".',
           new List<String>{ parentObjectName, objectName }
         );
-        throw new QueryException(error);
+        String action = 'Ensure a Lookup or Master-Detail field exists on "{1}" pointing to "{0}", or verify that the parent and child objects are not swapped in your Scribe definition.';
+
+        ApexEloquentException.at(CLASS_NAME).error(errorLabel).reason(reason).action(action).fire();
+      }
+
+      // checking amibibuity
+      Boolean isAmbiguous = false;
+      if (
+        foundIndex > 0 &&
+        childRelationships[foundIndex - 1].getChildSObject().getDescribe().getName() == objectName
+      ) {
+        isAmbiguous = true;
+      }
+      if (
+        !isAmbiguous &&
+        foundIndex < childRelationships.size() - 1 &&
+        childRelationships[foundIndex + 1].getChildSObject().getDescribe().getName() == objectName
+      ) {
+        isAmbiguous = true;
+      }
+
+      if (isAmbiguous) {
+        String parentObjectName = parentSObjectType.getDescribe().getName();
+        String error = 'Ambiguous Relationship';
+        String reason = String.format(
+          'Multiple relationships exist for {0} on {1}. The system cannot determine which one to use automatically.',
+          new List<String>{ objectName, parentObjectName }
+        );
+        String action = 'Explicitly specify the relationship name using the relationName() method to resolve the ambiguity.';
+
+        ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
+      }
+
+      fromString = childRelationships[foundIndex].getRelationshipName();
+
+      if (fromString == null) {
+        String parentObjectName = parentSObjectType.getDescribe().getName();
+        String error = 'Inaccessible Relationship';
+        String reason = String.format(
+          'The identified relationship for {0} on {1} does not have a valid name and cannot be used in a SOQL subquery.',
+          new List<String>{ objectName, parentObjectName }
+        );
+        String action = 'Verify if this relationship supports subqueries, or explicitly provide the correct relationship name using the relationName() method.';
+        ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
       }
     }
 
@@ -1650,6 +2003,30 @@ public with sharing class Scribe {
     query = this.buildQueryTrail(query, fieldMap, selectFieldsString);
 
     return query;
+  }
+
+  private Integer findChildRelationshipIndex(
+    List<Schema.ChildRelationship> relationships,
+    String targetChildObjectName
+  ) {
+    Integer low = 0;
+    Integer high = relationships.size() - 1;
+
+    while (low <= high) {
+      Integer mid = (low + high) / 2;
+      String midName = relationships[mid].getChildSObject().getDescribe().getName();
+      System.debug('midName: ' + midName);
+      Integer res = targetChildObjectName.compareTo(midName);
+
+      if (res == 0) {
+        return mid;
+      } else if (res > 0) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return -1;
   }
 
   /**
@@ -1685,11 +2062,13 @@ public with sharing class Scribe {
     List<String> groupByStrings = this.buildGroupByFields(fieldMap, fieldStructure, childObjectNames);
 
     if (!fieldStructure.isEmpty()) {
-      String error = String.format(
-        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: {0}',
-        new List<String>{ String.join(fieldStructure.getFieldsAsFlattenWithRelationName(null), ', ') }
-      );
-      throw new QueryException(error);
+      String reason = 'There are fields in the SELECT clause that are not included in the GROUP BY clause';
+      String action = 'Add the non-grouped fields to a groupByField(), or remove them from the SELECT';
+      String nonGrouped = String.join(fieldStructure.getFieldsAsFlattenWithRelationName(null), ', ');
+      ApexEloquentException.invalidOperation(CLASS_NAME, null, reason)
+        .param('nonGroupedFields', nonGrouped)
+        .action(action)
+        .fire();
     }
     return query + ' GROUP BY ' + String.join(groupByStrings, ', ');
   }
@@ -1747,59 +2126,119 @@ public with sharing class Scribe {
    *
    * @param fieldName The field name being added to a condition.
    */
-  private void validateConditionClause(String fieldName) {
-    if (String.isBlank(fieldName)) {
-      throw new QueryException('Field name must be provided.');
+  private void validateConditionClause(String method, String fieldName, Object value, Boolean isAllowNullValue) {
+    if (fieldName == null || String.isBlank(fieldName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName).build();
     }
-    this.validateConditionOperator();
+    if (!isAllowNullValue && value == null) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'value', null).build();
+    }
+    this.validateConditionOperator(method, fieldName, value);
   }
 
   /**
    * Validates the OR/AND operator chaining logic.
    */
-  private void validateConditionOperator() {
+  private void validateConditionOperator(String method, String fieldName, Object value) {
     if (this.canOnlyAddOrCondition && !this.isNextConditionOr) {
-      throw new QueryException(
-        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method. '
-      );
+      String error = 'Illegal Logical Transition';
+      String reason = 'Once an OR condition is introduced, all subsequent conditions must be explicitly prefixed with .orCondition()';
+      String action = 'Insert .orCondition() before this ' + method + ' call';
+      ApexEloquentException transitionError = ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error(error)
+        .reason(reason)
+        .action(action);
+
+      if (fieldName != null) {
+        transitionError.param('fieldName', fieldName).fire();
+      }
+      transitionError.fire();
     }
   }
 
   /**
    * Validates that OR is not followed by a non-WHERE clause method.
    */
-  private void validateOrConditionNotAllowed() {
+  private void validateOrConditionNotAllowed(String method) {
     if (this.isNextConditionOr) {
-      throw new QueryException(
-        'The method following orCondition() must be a where...() method or the whereGroup() method.'
-      );
+      String error = 'Incomplete Logical Expression';
+      String reason = 'The .orCondition() method was called, but the required following condition is missing.';
+      String action = 'After calling .orCondition(), you must immediately follow it with a where...() method (e.g., .whereEqual()) or the .whereGroup() method to complete the expression.';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+    }
+  }
+
+  private void validateAggregateClauseParams(String method, String fieldName, String alias) {
+    if (fieldName == null || String.isBlank(fieldName)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName).build();
+    }
+    if (alias == null || String.isBlank(alias)) {
+      throw ApexEloquentException.required(CLASS_NAME, method, 'alias', fieldName).build();
     }
   }
 
   /**
    * Validates that aggregate functions are not used in unsupported contexts.
    */
-  private void validateAddAggregateClause() {
+  private void validateAddAggregateClause(String method) {
     if (this.isChild) {
-      throw new QueryException('Aggregate functions cannot be used in a child Scribe.');
+      ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error('Contextual Violation: Aggregate Function Forbidden')
+        .reason(
+          'Currently within a children context. aggregate function addition is not permitted in child context.'
+        )
+        .action('Please add aggregate functions to the root Scribe instance.')
+        .fire();
     }
+
     if (this.isHaving) {
-      throw new QueryException('Aggregate functions cannot be used within a HAVING clause.');
+      ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error('Contextual Violation: Aggregate Function Forbidden')
+        .reason(
+          'Currently within a HAVING clause context. aggregate function addition is not permitted in having context.'
+        )
+        .action('Please finish your .havingCondition() block before adding aggregate functions')
+        .fire();
     }
+
+    if (!this.children.isEmpty()) {
+      ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error('SOQL Aggregate Restriction')
+        .reason(
+          'Aggregate functions and child relationship queries (withChildren) are incompatible in a single SOQL statement.'
+        )
+        .action('Remove the withChildren() calls, or separate the aggregate and child queries.')
+        .fire();
+    }
+
+    this.validateOrConditionNotAllowed(method);
   }
 
   /**
    * Validates that fields are not added in unsupported contexts.
    */
-  private void validateAddFieldClause() {
+  private ApexEloquentException validateAddFieldClause() {
     if (this.isGroup) {
-      throw new QueryException('Fields cannot be added while defining a group condition (inside whereGroup()).');
+      return ApexEloquentException.at(CLASS_NAME)
+        .error('Contextual Violation: Field Addition Forbidden')
+        .reason(
+          'Currently within a grouping context (whereGroup). Field selection is not permitted in grouping context'
+        )
+        .action('Please finish your .whereGroup() block before adding additional SELECT fields');
     }
+
     if (this.isHaving) {
-      throw new QueryException(
-        'Fields cannot be added while defining a having condition(inside havingCondition().'
-      );
+      return ApexEloquentException.at(CLASS_NAME)
+        .error('Contextual Violation: Field Addition Forbidden')
+        .reason('Currently within a HAVING clause context. Field selection is not permitted in having context')
+        .action('Please finish your .havingCondition() block before adding additional SELECT fields');
     }
+
+    return null;
   }
 
   /**
@@ -1809,7 +2248,7 @@ public with sharing class Scribe {
   private void validateAndInitialize() {
     Boolean isSObjectTypeNull = this.sObjectType == null;
     if (isSObjectTypeNull) {
-      throw new QueryException('source is not set');
+      ApexEloquentException.invalidOperation(CLASS_NAME, null, 'source SObjectType is not set').fire();
     }
     if (
       this.selectFields.isEmpty() &&
@@ -1914,18 +2353,19 @@ public with sharing class Scribe {
       String childObjectName,
       Integer upperNestingDepth
     ) {
+      // Reset the inner scribe's aggregate alias map so this method is idempotent
+      // across multiple top-level toSoql() invocations (mirrors Scribe.toSoql()).
+      this.scribe.aggregateAliasMap = new Map<String, AliasStructure>();
+
       ParentObjectData parentObjectData = this.validate(childFieldMap);
 
       Integer currentUpperNestingDepth = upperNestingDepth + 1;
       if (currentUpperNestingDepth > this.MAX_UPPER_NESTING_DEPTH) {
-        String error = String.format(
-          'Maximum nesting depth for parent queries reached. Max depth: {0}, Object name: {1}',
-          new List<String>{
-            String.valueOf(this.MAX_UPPER_NESTING_DEPTH),
-            parentObjectData.relationSObjectType.getDescribe().getName()
-          }
-        );
-        throw new QueryException(error);
+        String reason = 'Maximum nesting depth for parent queries reached';
+        ApexEloquentException.invalidOperation('Scribe.ParentScribe', null, reason)
+          .param('maxDepth', this.MAX_UPPER_NESTING_DEPTH)
+          .param('objectName', parentObjectData.relationSObjectType.getDescribe().getName())
+          .fire();
       }
 
       if (this.scribe.sObjectType == null) {
@@ -1974,18 +2414,19 @@ public with sharing class Scribe {
           Map<String, AliasStructure> grandParentAggregateAliasMap = grandParentScribe.getAggregateAliasMap();
           for (String alias : grandParentAggregateAliasMap.keySet()) {
             if (this.scribe.aggregateAliasMap.containsKey(alias)) {
-              String error = String.format(
-                'The alias {0} in the parent query conflicts with an existing alias.',
-                new List<String>{ alias }
-              );
-              throw new QueryException(error);
+              String reason = 'The alias in the parent query conflicts with an existing alias';
+              ApexEloquentException.invalidOperation('Scribe.ParentScribe', null, reason)
+                .param('alias', alias)
+                .action('Use a unique alias for each aggregate clause in nested parent queries')
+                .fire();
             }
             this.scribe.aggregateAliasMap.put(alias, grandParentAggregateAliasMap.get(alias));
           }
         }
       }
       if (parentSelects.isEmpty()) {
-        throw new QueryException('The parent fields list is empty');
+        ApexEloquentException.invalidOperation('Scribe.ParentScribe', null, 'The parent fields list is empty')
+          .fire();
       }
       return String.join(parentSelects, ', ');
     }
@@ -2041,34 +2482,53 @@ public with sharing class Scribe {
 
     private ParentObjectData validate(Map<String, Schema.SObjectField> fieldMap) {
       if (!fieldMap.containsKey(this.relationFieldName)) {
-        throw new QueryException(
-          'The specified relation ID field does not exist in the object\'s fields. field name: ' +
-          this.relationFieldName
-        );
+        ApexEloquentException.invalidArgument(
+            'Scribe.ParentScribe',
+            null,
+            'The specified relation ID field does not exist in the object\'s fields',
+            'Use a valid relation ID field name on the source object',
+            'relationFieldName',
+            this.relationFieldName
+          )
+          .fire();
       }
 
       Schema.SObjectField relationField = fieldMap.get(this.relationFieldName);
       Schema.DescribeFieldResult relationFieldDescribe = relationField.getDescribe();
 
       if (relationFieldDescribe.getType() != Schema.DisplayType.REFERENCE) {
-        throw new QueryException(
-          'The specified relation ID field is not of reference type. field name: ' + this.relationFieldName
-        );
+        ApexEloquentException.invalidArgument(
+            'Scribe.ParentScribe',
+            null,
+            'The specified relation ID field is not of reference type',
+            'Pass a lookup/master-detail field name',
+            'relationFieldName',
+            this.relationFieldName
+          )
+          .fire();
       }
 
       String relationFieldNameString = relationFieldDescribe.getRelationshipName();
       if (relationFieldNameString == null) {
-        throw new QueryException(
-          'The specified relation ID field does not have a relationship name. field name: ' +
-          this.relationFieldName
-        );
+        ApexEloquentException.invalidArgument(
+            'Scribe.ParentScribe',
+            null,
+            'The specified relation ID field does not have a relationship name',
+            'Pass a relation ID field that has a defined relationship name',
+            'relationFieldName',
+            this.relationFieldName
+          )
+          .fire();
       }
 
       if (relationFieldDescribe.isNamePointing()) {
-        throw new QueryException(
-          'Sorry, we don\'t support relation IDs that can point to multiple SObject types yet. ' +
-          this.relationFieldName
-        );
+        ApexEloquentException.invalidOperation(
+            'Scribe.ParentScribe',
+            null,
+            'Polymorphic relation IDs (pointing to multiple SObject types) are not supported yet'
+          )
+          .param('relationFieldName', this.relationFieldName)
+          .fire();
       }
 
       Schema.SObjectType relationSObjectType = relationFieldDescribe.getReferenceTo()[0];
@@ -2148,13 +2608,13 @@ public with sharing class Scribe {
 
     private void validateField(String field) {
       if (String.isBlank(field)) {
-        throw new QueryException('The field name for orderBy() cannot be blank.');
+        ApexEloquentException.required('Scribe.OrderByClause', null, 'field', field).fire();
       }
     }
 
     private void validateFields(List<String> fields) {
       if (fields == null || fields.isEmpty()) {
-        throw new QueryException('The list of field names for orderBy() cannot be null or empty.');
+        ApexEloquentException.required('Scribe.OrderByClause', null, 'fields', fields).fire();
       }
       for (String field : fields) {
         this.validateField(field);
@@ -2163,13 +2623,29 @@ public with sharing class Scribe {
 
     private void validateOrder(String order) {
       if (String.isBlank(order) || !this.ORDERS.contains(order.toUpperCase())) {
-        throw new QueryException('Invalid order direction for orderBy(). Please use \'ASC\' or \'DESC\'.');
+        ApexEloquentException.invalidArgument(
+            'Scribe.OrderByClause',
+            null,
+            'Invalid order direction for orderBy()',
+            'Pass \'ASC\' or \'DESC\'',
+            'order',
+            order
+          )
+          .fire();
       }
     }
 
     private void validateNullsOperator(String nullsOperator) {
       if (String.isBlank(nullsOperator) || !this.NULLS_OPERATORS.contains(nullsOperator.toUpperCase())) {
-        throw new QueryException('Invalid nulls operator for orderBy(). Please use \'FIRST\' or \'LAST\'.');
+        ApexEloquentException.invalidArgument(
+            'Scribe.OrderByClause',
+            null,
+            'Invalid nulls operator for orderBy()',
+            'Pass \'FIRST\' or \'LAST\'',
+            'nullsOperator',
+            nullsOperator
+          )
+          .fire();
       }
     }
   }
@@ -2185,7 +2661,7 @@ public with sharing class Scribe {
 
     public GroupByClause(String fieldName) {
       if (String.isBlank(fieldName)) {
-        throw new QueryException('The field name for grouping cannot be blank.');
+        ApexEloquentException.required('Scribe.GroupByClause', null, 'fieldName', fieldName).fire();
       }
       this.fieldName = fieldName;
       this.parentScribe = null;
@@ -2194,7 +2670,7 @@ public with sharing class Scribe {
 
     public GroupByClause(ParentScribe parentScribe) {
       if (parentScribe == null) {
-        throw new QueryException('The parent Scribe for grouping cannot be null.');
+        ApexEloquentException.required('Scribe.GroupByClause', null, 'parentScribe', parentScribe).fire();
       }
       this.fieldName = null;
       this.parentScribe = parentScribe;
@@ -2210,11 +2686,16 @@ public with sharing class Scribe {
       if (this.isGroupByField) {
         String lowerFieldName = this.fieldName.toLowerCase();
         if (!fieldMap.containsKey(lowerFieldName)) {
-          String error = String.format(
-            'The specified group by field does not exist in the object\'s fields. object name: {0}, field name: {1}',
-            new List<String>{ describe.getName(), this.fieldName }
-          );
-          throw new QueryException(error);
+          ApexEloquentException.invalidArgument(
+              'Scribe.GroupByClause',
+              null,
+              'The specified group by field does not exist in the object\'s fields',
+              'Pass a field name that exists on the SObject',
+              'fieldName',
+              this.fieldName
+            )
+            .param('objectName', describe.getName())
+            .fire();
         }
 
         fieldStructure.removeField(lowerFieldName);

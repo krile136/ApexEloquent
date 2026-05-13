@@ -28,6 +28,8 @@
  * @see Scribe
  */
 public with sharing abstract class AbstractConditionClause implements IConditionClause {
+  private static final String CLASS_NAME = 'AbstractConditionClause';
+
   protected final Schema.SObjectType sObjectType;
   protected final Map<String, Schema.SObjectField> fieldMap;
   protected final String field;
@@ -90,7 +92,7 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    */
   protected Schema.DisplayType getFieldType(String field) {
     if (this.sObjectType == null) {
-      throw new QueryException('The source SObjectType has not been set.');
+      ApexEloquentException.invalidOperation(CLASS_NAME, null, 'source SObjectType is not set').fire();
     }
     if (!this.fieldMap.containsKey(field)) {
       // If the field doesn't exist in the describe map, default to String.
@@ -123,5 +125,39 @@ public with sharing abstract class AbstractConditionClause implements ICondition
       return dateTimeValue.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\'');
     }
     return String.escapeSingleQuotes(String.valueOf(value));
+  }
+
+  /**
+   * Normalize a `List` or `Set` of primitive values into a `List<Object>`.
+   *
+   * Accepts:
+   *   - `List<X>` for any X — returned as-is via Apex's primitive-list covariance
+   *   - `Set<X>` where X is one of:
+   *     Id, String, Integer, Long, Decimal, Double, Boolean, Date, Datetime, Time
+   *
+   * Used by `InConditionClause` / `NotInConditionClause` to accept both List- and Set-
+   * shaped inputs without forcing the caller to cast to `Set<Id>` or pre-convert to a List.
+   *
+   * @param values A List or Set of primitive values.
+   * @return The values as a `List<Object>`.
+   * @throws ApexEloquentException when `values` is neither a List nor a supported Set type.
+   */
+  public static List<Object> toListObject(Object values) {
+    if (values instanceof List<Object>) return (List<Object>) values;
+    if (values instanceof Set<Id>) return new List<Id>((Set<Id>) values);
+    if (values instanceof Set<String>) return new List<String>((Set<String>) values);
+    if (values instanceof Set<Integer>) return new List<Integer>((Set<Integer>) values);
+    if (values instanceof Set<Long>) return new List<Long>((Set<Long>) values);
+    if (values instanceof Set<Decimal>) return new List<Decimal>((Set<Decimal>) values);
+    if (values instanceof Set<Double>) return new List<Double>((Set<Double>) values);
+    if (values instanceof Set<Boolean>) return new List<Boolean>((Set<Boolean>) values);
+    if (values instanceof Set<Date>) return new List<Date>((Set<Date>) values);
+    if (values instanceof Set<Datetime>) return new List<Datetime>((Set<Datetime>) values);
+    if (values instanceof Set<Time>) return new List<Time>((Set<Time>) values);
+
+    String reason = 'values must be a List or a Set of a primitive type (Id, String, Integer, Long, Decimal, Double, Boolean, Date, Datetime, Time)';
+    String action = 'Pass a List<X> or Set<X> where X is one of the supported primitive types';
+    ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'values', values).fire();
+    return null; // unreachable
   }
 }

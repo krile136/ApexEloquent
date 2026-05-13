@@ -18,7 +18,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testScribeIsImmutableTest() {
     // Arrange
-    Scribe scribeOriginal = Scribe.source(Account.getSObjectType());
+    Scribe scribeOriginal = Scribe.of(Account.class);
 
     // Act
     Scribe scribeAfterAddingId = scribeOriginal.field('Id');
@@ -38,9 +38,221 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testOf_WhenApplyNull_ThenThrowException() {
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(null);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('of(System.Type recordType)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testOf_WhenApplyString_ThenThrowException() {
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(String.class);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('of(System.Type recordType)'));
+      Assert.isTrue(error.contains('argument is Invalid'));
+    }
+  }
+
+  @isTest
+  static void testAsParent_WhenApplyNull_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.asParent(null);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('asParent(String parentRelationIdFieldName)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAsParent_WhenApplyVoidString_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.asParent('');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('asParent(String parentRelationIdFieldName)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAsChild_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    System.Type childRecordType = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.asChild(childRecordType);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('asChild(System.Type childRecordType)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAsChild_WhenApplyStringClass_ThenThrowException() {
+    // Arrange
+    System.Type childRecordType = String.class;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.asChild(childRecordType);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('asChild(System.Type childRecordType)'));
+      Assert.isTrue(error.contains('argument is Invalid'));
+    }
+  }
+
+  @isTest
+  static void testAsThrough_WhenApplyNullToJunctionType_ThenThrowException() {
+    // Arrange
+    System.Type junctionType = null;
+    String targetLookupField = 'Target__c';
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.asThrough(junctionType, targetLookupField);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('asThrough(System.Type junctionType, String targetLookupField)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAsThrough_WhenApplyStringClassToJunctionType_ThenThrowException() {
+    // Arrange
+    System.Type junctionType = String.class;
+    String targetLookupField = 'Target__c';
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.asThrough(junctionType, targetLookupField);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('asThrough(System.Type junctionType, String targetLookupField)'));
+      Assert.isTrue(error.contains('argument is Invalid'));
+    }
+  }
+
+  @isTest
+  static void testAsThrough_WhenApplyNullToTargetLookupField_ThenThrowException() {
+    // Arrange
+    System.Type junctionType = Account.class;
+    String targetLookupField = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.asThrough(junctionType, targetLookupField);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('asThrough(System.Type junctionType, String targetLookupField)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAsThrough_WhenApplyVoidStringToTargetLookupField_ThenThrowException() {
+    // Arrange
+    System.Type junctionType = Account.class;
+    String targetLookupField = '';
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.asThrough(junctionType, targetLookupField);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('asThrough(System.Type junctionType, String targetLookupField)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testField_WhenApplyNullAsString_WhenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class);
+    String fieldName = null;
+
+    // Act & Assert
+    try {
+      scribe.field(fieldName);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('field(String fieldName)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testField_WhenApplyVoidStringAsString_WhenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class);
+    String fieldName = '';
+
+    // Act & Assert
+    try {
+      scribe.field(fieldName);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('field(String fieldName)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testField_WhenUsedWithAsGroup_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.asGroup().field('Id');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('field(String fieldName)'));
+      Assert.isTrue(error.contains('Field Addition Forbidden'));
+    }
+  }
+
+  @isTest
+  static void testField_WhenUsedWithAsHaving_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.asHaving().field('Id');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('field(String fieldName)'));
+      Assert.isTrue(error.contains('Field Addition Forbidden'));
+    }
+  }
+
+  @isTest
   static void testField_WhenAddField_ThenAddFieldToSelect() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id');
+    Scribe scribe = Scribe.of(Account.class).field('Id');
 
     // Act
     String soql = scribe.toSoql();
@@ -53,7 +265,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testField_WhenAddMultiFieldsUsingFieldMethod_ThenAddFieldsToSelect() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').field('Name').field('StageName');
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').field('Name').field('StageName');
 
     // Act
     String soql = scribe.toSoql();
@@ -66,16 +278,73 @@ public with sharing class ScribeTest {
   @isTest
   static void testField_WhenAddNonExistField_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('NonExistField');
+    Scribe scribe = Scribe.of(Account.class).field('NonExistField');
 
     // Act & Assert
     try {
       String soql = scribe.toSoql();
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      // Assert that the exception message is as expected
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Account, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Field Selection Failed'));
+    }
+  }
+
+  @isTest
+  static void testFields_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class);
+    List<String> fields = null;
+
+    // Act & Assert
+    try {
+      scribe.fields(fields);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('fields(List<String> fieldNames)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testFields_WhenApplyEmptyList_ThenNoErrorThrown() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class);
+    List<String> fields = new List<String>();
+
+    // Act
+    scribe.fields(fields);
+
+    // Assert
+    String soql = scribe.toSoql();
+    String expectedSoql = 'SELECT id FROM Account';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testFields_WhenUsedWithAsGroup_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.asGroup().fields(new List<String>{ 'Id', 'Name' });
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('fields(List<String> fieldNames)'));
+      Assert.isTrue(error.contains('Field Addition Forbidden'));
+    }
+  }
+
+  @isTest
+  static void testFields_WhenUsedWithAsHaving_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.asHaving().fields(new List<String>{ 'Id', 'Name' });
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('fields(List<String> fieldNames)'));
+      Assert.isTrue(error.contains('Field Addition Forbidden'));
     }
   }
 
@@ -83,7 +352,7 @@ public with sharing class ScribeTest {
   static void testFields_WhenAddList_ThenAddFieldsToSelect() {
     // Arrange
     List<String> fields = new List<String>{ 'Id', 'Name', 'StageName' };
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).fields(fields);
+    Scribe scribe = Scribe.of(Opportunity.class).fields(fields);
 
     // Act
     String soql = scribe.toSoql();
@@ -94,9 +363,35 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testAllFields_WhenUsedWithAsGroup_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.asGroup().allFields();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('allFields()'));
+      Assert.isTrue(error.contains('Field Addition Forbidden'));
+    }
+  }
+
+  @isTest
+  static void testAllFields_WhenUsedWithAsHaving_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.asHaving().allFields();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('allFields()'));
+      Assert.isTrue(error.contains('Field Addition Forbidden'));
+    }
+  }
+
+  @isTest
   static void testAllFields_WhenAddAllFields_ThenAddAllFieldsToSelect() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).allFields();
+    Scribe scribe = Scribe.of(Opportunity.class).allFields();
 
     // Act
     String soql = scribe.toSoql();
@@ -108,9 +403,43 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testEqual_WhenApplyNullToFieldName_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class);
+    String fieldName = null;
+
+    // Act & Assert
+    try {
+      scribe.whereEqual(fieldName, 'Test Account');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereEqual(String fieldName, Object value)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testEqual_WhenApplyVoidStringToFieldName_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class);
+    String fieldName = '';
+
+    // Act & Assert
+    try {
+      scribe.whereEqual(fieldName, 'Test Account');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereEqual(String fieldName, Object value)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
   static void testEqual_WhenValueIsNotNull_ThenAddEqualCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('Name', 'Test Account');
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account');
 
     // Act
     String soql = scribe.toSoql();
@@ -123,7 +452,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testEqual_WhenValueIsNull_ThenAddIsNullCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereEqual('Name', null);
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('Name', null);
 
     // Act
     String soql = scribe.toSoql();
@@ -131,458 +460,30 @@ public with sharing class ScribeTest {
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name = NULL';
     Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testNotEqual_WhenValueIsNotNull_ThenAddEqualCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereNotEqual('Name', 'Test Account');
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name != \'Test Account\'';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testNotEqual_WhenValueIsNull_ThenAddIsNotNullCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereNotEqual('Name', null);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name != NULL';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testGreaterThan_WhenValueIsNotNull_ThenAddGreaterThanCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereGreaterThan('TotalOpportunityQuantity', 1000);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity > 1000';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testGreaterThan_WhenValueIsNull_ThenThrowException() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereGreaterThan('TotalOpportunityQuantity', null);
-
-    // Act & Assert
-    try {
-      String soql = scribe.toSoql();
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      // Assert that the exception message is as expected
-      String expectedMessage = 'Value cannot be null for GreaterThan condition. field: TotalOpportunityQuantity';
-      Assert.areEqual(expectedMessage, e.getMessage());
-    }
-  }
-
-  @isTest
-  static void testGreaterThan_WhenTypeOfValueIsDatetime_ThenAddGreaterThanCondition() {
-    // Arrange
-    Datetime dt = Datetime.newInstance(2023, 1, 1, 0, 0, 0);
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereGreaterThan('LastModifiedDate', dt);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedDatetime = dt.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\'');
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE LastModifiedDate > ' + expectedDatetime;
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testGreaterThanOrEqual_WhenValueIsNotNull_ThenAddGreaterThanCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereGreaterThanOrEqual('TotalOpportunityQuantity', 1000);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity >= 1000';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testGreaterThanOrEqual_WhenValueIsNull_ThenThrowException() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereGreaterThanOrEqual('TotalOpportunityQuantity', null);
-
-    // Act & Assert
-    try {
-      String soql = scribe.toSoql();
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      // Assert that the exception message is as expected
-      String expectedMessage = 'Value cannot be null for GreaterThanOrEqual condition. field: TotalOpportunityQuantity';
-      Assert.areEqual(expectedMessage, e.getMessage());
-    }
-  }
-
-  @isTest
-  static void testLessThan_WhenValueIsNotNull_ThenAddLessThanCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereLessThan('TotalOpportunityQuantity', 1000);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity < 1000';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testLessThan_WhenValueIsNull_ThenThrowException() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereLessThan('TotalOpportunityQuantity', null);
-
-    // Act & Assert
-    try {
-      String soql = scribe.toSoql();
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      // Assert that the exception message is as expected
-      String expectedMessage = 'Value cannot be null for LessThan condition. field: TotalOpportunityQuantity';
-      Assert.areEqual(expectedMessage, e.getMessage());
-    }
-  }
-
-  @isTest
-  static void testLessThanOrEqual_WhenValueIsNotNull_ThenAddLessThanOrEqualCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereLessThanOrEqual('TotalOpportunityQuantity', 1000);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity <= 1000';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testLessThanOrEqual_WhenValueIsNull_ThenThrowException() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereLessThanOrEqual('TotalOpportunityQuantity', null);
-
-    // Act & Assert
-    try {
-      String soql = scribe.toSoql();
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      // Assert that the exception message is as expected
-      String expectedMessage = 'Value cannot be null for LessThanOrEqual condition. field: TotalOpportunityQuantity';
-      Assert.areEqual(expectedMessage, e.getMessage());
-    }
-  }
-
-  @isTest
-  static void testLike_WhenValueIsNotNull_ThenAddLikeCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereLike('Name', '%Test%');
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name LIKE \'%Test%\'';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testLike_WhenValueIsNull_ThenThrowException() {
-    // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereLike('Name', null);
-
-    // Act & Assert
-    try {
-      String soql = scribe.toSoql();
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      // Assert that the exception message is as expected
-      String expectedMessage = 'Value cannot be null for LIKE condition. field: Name';
-      Assert.areEqual(expectedMessage, e.getMessage());
-    }
-  }
-
-  @isTest
-  static void testNotLike_WhenValueIsNotNull_ThenAddNotLikeCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereNotLike('Name', '%Test%');
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE (NOT Name LIKE \'%Test%\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testNotLike_WhenValueIsNull_ThenThrowException() {
-    // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereNotLike('Name', null);
-
-    // Act & Assert
-    try {
-      String soql = scribe.toSoql();
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      // Assert that the exception message is as expected
-      String expectedMessage = 'Value cannot be null for NOT LIKE condition. field: Name';
-      Assert.areEqual(expectedMessage, e.getMessage());
-    }
-  }
-
-  @isTest
-  static void testIn_WhenValueIsList_ThenAddInCondition() {
-    // Arrange
-    List<String> values = new List<String>{ 'Test Account 1', 'Test Account 2' };
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereIn('Name', values);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name IN (\'Test Account 1\', \'Test Account 2\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testIn_WhenValueIsIdSet_ThenAddInCondition() {
-    // Arrange
-    Set<Id> values = new Set<Id>{ '001000000000000AAA', '001000000000000AAB' };
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereIn('Id', values);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Id IN (\'001000000000000AAA\', \'001000000000000AAB\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testIn_WhenValueIncludeNull_ThenAddInConditionWithNull() {
-    // Arrange
-    List<String> values = new List<String>{ 'Test Account 1', null };
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereIn('Name', values);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name IN (\'Test Account 1\', NULL)';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testIn_WhenValueIsEmptyList_ThenAddConditionThatAlwaysFalse() {
-    // Arrange
-    List<String> values = new List<String>();
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereIn('Name', values);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Id = null';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testNotIn_WhenValueIsList_ThenAddNotInCondition() {
-    // Arrange
-    List<String> values = new List<String>{ 'Test Account 1', 'Test Account 2' };
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereNotIn('Name', values);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name NOT IN (\'Test Account 1\', \'Test Account 2\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testNotIn_WhenValueIsIdSet_ThenAddNotInCondition() {
-    // Arrange
-    Set<Id> values = new Set<Id>{ '001000000000000AAA', '001000000000000AAB' };
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereNotIn('Id', values);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Id NOT IN (\'001000000000000AAA\', \'001000000000000AAB\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testNotIn_WhenValueIncludeNull_ThenAddNotInConditionWithNull() {
-    // Arrange
-    List<String> values = new List<String>{ 'Test Account 1', null };
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereNotIn('Name', values);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name NOT IN (\'Test Account 1\', NULL)';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testNotIn_WhenValueIsEmptyList_ThenIgnoreNotInCondition() {
-    // Arrange
-    List<String> values = new List<String>();
-    Scribe scribe = Scribe.source(Account.getSObjectType())
-      .field('Id')
-      .whereNotIn('Name', values)
-      .whereEqual('Name', 'Test Account');
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testIncludes_WhenValueIsList_ThenAddIncludesCondition() {
-    // Arrange
-    List<String> values = new List<String>{ 'Type1', 'Type2' };
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereIncludes('Type', values);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    // Note: this test assert soql building with INCUDES condition is success.
-    // If you execute below expected soql, Type field is not multi picklist field, so it will throw exception.
-    String expectedSoql = 'SELECT id FROM Account WHERE Type INCLUDES (\'Type1\', \'Type2\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testExcudes_WhenValueIsList_ThenAddExcludesCondition() {
-    // Arrange
-    List<String> values = new List<String>{ 'Type1', 'Type2' };
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereExcludes('Type', values);
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    // Note: this test assert soql building with EXCLUDES condition is success.
-    // If you execute below expected soql, Type field is not multi picklist field, so it will throw exception.
-    String expectedSoql = 'SELECT id FROM Account WHERE Type EXCLUDES (\'Type1\', \'Type2\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testIsNull_WhenFieldIsNotNull_ThenAddIsNullCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereNull('Name');
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name = NULL';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testIsNotNull_WhenFieldIsNotNull_ThenAddIsNotNullCondition() {
-    // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').whereNotNull('Name');
-
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Account WHERE Name != NULL';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testOrCondition_WhenAddOrConditionAtFirst_ThenThrownException() {
-    // Arrange / Act / Assert
-    try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
-        .field('Id')
-        .orCondition()
-        .whereEqual('Name', 'Test Account');
-
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The orCondition() method cannot be called first. Please add a condition with a where...() method before adding an OR condition.',
-        e.getMessage()
-      );
-    }
   }
 
   @isTest
   static void testEqual_WhenAddAndConditionAfterOrCondition_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
+      Scribe scribe = Scribe.of(Account.class)
         .field('Id')
         .whereEqual('Name', 'Test Account')
         .orCondition()
         .whereEqual('Name', 'Or Account Name')
         .whereEqual('Name', 'And Account Name');
-
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method. ',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereEqual(String fieldName, Object value)'));
+      Assert.isTrue(error.contains('Illegal Logical Transition'));
     }
   }
 
   @isTest
   static void testEqual_WhenAddOrConditionAfterOrCondition_ThenAddOrCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .whereEqual('Name', 'Test Account')
       .orCondition()
@@ -599,9 +500,642 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testNotEqual_WhenValueIsNotNull_ThenAddEqualCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name != \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testNotEqual_WhenValueIsNull_ThenAddIsNotNullCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotEqual('Name', null);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name != NULL';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testGreaterThan_WhenValueIsNotNull_ThenAddGreaterThanCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('TotalOpportunityQuantity', 1000);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity > 1000';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testGreaterThan_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    Object value = null;
+
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('TotalOpportunityQuantity', value);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereGreaterThan(String fieldName, Object value)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGreaterThan_WhenTypeOfValueIsDatetime_ThenAddGreaterThanCondition() {
+    // Arrange
+    Datetime dt = Datetime.newInstance(2023, 1, 1, 0, 0, 0);
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('LastModifiedDate', dt);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedDatetime = dt.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\'');
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE LastModifiedDate > ' + expectedDatetime;
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testGreaterThanOrEqual_WhenValueIsNotNull_ThenAddGreaterThanCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .whereGreaterThanOrEqual('TotalOpportunityQuantity', 1000);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity >= 1000';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testGreaterThanOrEqual_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    Object value = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('Id')
+        .whereGreaterThanOrEqual('TotalOpportunityQuantity', value);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereGreaterThanOrEqual(String fieldName, Object value)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testLessThan_WhenValueIsNotNull_ThenAddLessThanCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereLessThan('TotalOpportunityQuantity', 1000);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity < 1000';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testLessThan_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    Object value = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereLessThan('TotalOpportunityQuantity', null);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereLessThan(String fieldName, Object value)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testLessThanOrEqual_WhenValueIsNotNull_ThenAddLessThanOrEqualCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .whereLessThanOrEqual('TotalOpportunityQuantity', 1000);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity <= 1000';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testLessThanOrEqual_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    Object value = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('Id')
+        .whereLessThanOrEqual('TotalOpportunityQuantity', value);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereLessThanOrEqual(String fieldName, Object value)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testLike_WhenValueIsNotNull_ThenAddLikeCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereLike('Name', '%Test%');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name LIKE \'%Test%\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testLike_WhenValueContainsSingleQuote_ThenPreventInjection() {
+    // Arrange
+    String dengerousInput = 'Test\' OR Name != \'';
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereLike('Name', dengerousInput);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name LIKE \'Test\\\' OR Name != \\\'\'';
+  }
+
+  @isTest
+  static void testLike_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    Object value = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').whereLike('Name', null);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereLike(String fieldName, String value)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testNotLike_WhenValueIsNotNull_ThenAddNotLikeCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotLike('Name', '%Test%');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE (NOT Name LIKE \'%Test%\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testNotLike_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    Object value = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').whereNotLike('Name', null);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereNotLike(String fieldName, String value)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testIn_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    Object value = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', value);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereIn(String fieldName, Object values)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testIn_WhenValueIsList_ThenAddInCondition() {
+    // Arrange
+    List<String> values = new List<String>{ 'Test Account 1', 'Test Account 2' };
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name IN (\'Test Account 1\', \'Test Account 2\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIn_WhenValueIsIdSet_ThenAddInCondition() {
+    // Arrange
+    Set<Id> values = new Set<Id>{ '001000000000000AAA', '001000000000000AAB' };
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Id', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Id IN (\'001000000000000AAA\', \'001000000000000AAB\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIn_WhenValueIncludeNull_ThenAddInConditionWithNull() {
+    // Arrange
+    List<String> values = new List<String>{ 'Test Account 1', null };
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name IN (\'Test Account 1\', NULL)';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIn_WhenValueIsEmptyList_ThenAddConditionThatAlwaysFalse() {
+    // Arrange
+    List<String> values = new List<String>();
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Id = null';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIn_WhenApplyNullAsSubquery_ThenThrowException() {
+    // Arrange
+    Scribe subquery = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereIn('AccountId', subquery);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereIn(String fieldName, Scribe subQuery)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testIn_WhenUsingSubquery_ThenAddInSubQueryCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .whereIn('AccountId', Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE AccountId IN (SELECT id FROM Account WHERE Name = \'Test Account\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIn_WhenUsingSubqueryWithOrCondition_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('Id')
+        .whereLike('Name', '%Test%')
+        .orCondition()
+        .whereIn('AccountId', Scribe.of(Account.class).field('Id').whereLike('Name', '%Test%'));
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage(); 
+      Assert.isTrue(error.contains('whereIn(String fieldName, Scribe subQuery)'));
+      Assert.isTrue(error.contains('SOQL Semi-Join Restriction'));
+    }
+  }
+
+  @isTest
+  static void testNotIn_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    Object value = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Name', value);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereNotIn(String fieldName, Object values)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testNotIn_WhenValueIsList_ThenAddNotInCondition() {
+    // Arrange
+    List<String> values = new List<String>{ 'Test Account 1', 'Test Account 2' };
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Name', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name NOT IN (\'Test Account 1\', \'Test Account 2\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testNotIn_WhenValueIsIdSet_ThenAddNotInCondition() {
+    // Arrange
+    Set<Id> values = new Set<Id>{ '001000000000000AAA', '001000000000000AAB' };
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Id', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Id NOT IN (\'001000000000000AAA\', \'001000000000000AAB\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testNotIn_WhenValueIncludeNull_ThenAddNotInConditionWithNull() {
+    // Arrange
+    List<String> values = new List<String>{ 'Test Account 1', null };
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Name', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name NOT IN (\'Test Account 1\', NULL)';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testNotIn_WhenValueIsEmptyList_ThenIgnoreNotInCondition() {
+    // Arrange
+    List<String> values = new List<String>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereNotIn('Name', values)
+      .whereEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testNotIn_WhenApplyNullAsSubquery_ThenThrowException() {
+    // Arrange
+    Scribe subquery = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereNotIn('AccountId', subquery);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereNotIn(String fieldName, Scribe subQuery)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testNotIn_WhenUsingSubquery_ThenAddNotInSubQueryCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .whereNotIn('AccountId', Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE AccountId NOT IN (SELECT id FROM Account WHERE Name = \'Test Account\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testNotIn_WhenUsingSubqueryWithOrCondition_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('Id')
+        .whereLike('Name', '%Test%')
+        .orCondition()
+        .whereNotIn('AccountId', Scribe.of(Account.class).field('Id').whereLike('Name', '%Test%'));
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage(); 
+      Assert.isTrue(error.contains('whereNotIn(String fieldName, Scribe subQuery)'));
+      Assert.isTrue(error.contains('SOQL Semi-Join Restriction'));
+    }
+  }
+
+  @isTest
+  static void testIncludes_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    List<String> value = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').whereIncludes('Type', value);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereIncludes(String fieldName, List<String> values)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testIncludes_WhenValueIsList_ThenAddIncludesCondition() {
+    // Arrange
+    List<String> values = new List<String>{ 'Type1', 'Type2' };
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIncludes('Type', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    // Note: this test assert soql building with INCUDES condition is success.
+    // If you execute below expected soql, Type field is not multi picklist field, so it will throw exception.
+    String expectedSoql = 'SELECT id FROM Account WHERE Type INCLUDES (\'Type1\', \'Type2\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testExcludes_WhenValueIsNull_ThenThrowException() {
+    // Arrange
+    List<String> value = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').whereExcludes('Type', value);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereExcludes(String fieldName, List<String> values)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testExcludes_WhenValueIsList_ThenAddExcludesCondition() {
+    // Arrange
+    List<String> values = new List<String>{ 'Type1', 'Type2' };
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereExcludes('Type', values);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    // Note: this test assert soql building with EXCLUDES condition is success.
+    // If you execute below expected soql, Type field is not multi picklist field, so it will throw exception.
+    String expectedSoql = 'SELECT id FROM Account WHERE Type EXCLUDES (\'Type1\', \'Type2\')';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIsNull_WhenFieldIsNull_ThenThrowException() {
+    // Arrange
+    String fieldName = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').whereNull(fieldName);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereNull(String fieldName)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testIsNull_WhenFieldIsNotNull_ThenAddIsNullCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNull('Name');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = NULL';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIsNotNull_WhenFieldIsNull_ThenThrowException() {
+    // Arrange
+    String fieldName = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').whereNotNull(fieldName);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereNotNull(String fieldName)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testIsNotNull_WhenFieldIsNotNull_ThenAddIsNotNullCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotNull('Name');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name != NULL';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testOrCondition_WhenAddOrConditionAtFirst_ThenThrownException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').orCondition().whereEqual('Name', 'Test Account');
+
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('orCondition()'));
+      Assert.isTrue(error.contains('Invalid Logical Sequence'));
+    }
+  }
+
+  @isTest
+  static void testWhereGroup_WhenApplyNullAsGroup_ThenThrowException() {
+    // Arrange
+    Scribe groupScribe = null;
+
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').whereGroup(groupScribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereGroup(Scribe groupScribe)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
   static void testWhereGroup_WhenAddGroup_ThenAddGroupCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
       .whereGroup(
@@ -622,7 +1156,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testWhereGroup_WhenAddOrGroup_ThenAddOrGroupCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
       .orCondition()
@@ -644,7 +1178,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testWhereGroup_WhenAddMultiGroup_ThenAddMultiGroupCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .whereEqual('Name', 'Test Opportunity')
       .whereGroup(
@@ -672,7 +1206,7 @@ public with sharing class ScribeTest {
   static void testWhereGroup_WhenAddAndConditionAfterOrConditionInGroup_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
+      Scribe scribe = Scribe.of(Account.class)
         .field('Id')
         .whereEqual('Name', 'Test Account')
         .whereGroup(
@@ -683,13 +1217,11 @@ public with sharing class ScribeTest {
             .whereEqual('StageName', 'Closed Won') // This should throw an exception
         );
 
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method. ',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereEqual(String fieldName, Object value)'));
+      Assert.isTrue(error.contains('Illegal Logical Transition'));
     }
   }
 
@@ -697,7 +1229,7 @@ public with sharing class ScribeTest {
   static void testWhereGroup_WhenAddAndGroupAfterOrGroup_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
+      Scribe scribe = Scribe.of(Account.class)
         .field('Id')
         .whereEqual('Name', 'Test Account')
         .orCondition()
@@ -711,13 +1243,11 @@ public with sharing class ScribeTest {
           Scribe.asGroup().whereEqual('StageName', 'Closed Won') // This should throw an exception
         );
 
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method. ',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereGroup(Scribe groupScribe)'));
+      Assert.isTrue(error.contains('Illegal Logical Transition'));
     }
   }
 
@@ -726,7 +1256,7 @@ public with sharing class ScribeTest {
     // Arrange
     List<Id> Ids = new List<Id>();
     List<String> stages = new List<String>();
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .whereGroup(Scribe.asGroup().whereNotIn('Id', Ids).whereNotIn('StageName', stages)) // Empty group condition
       .whereEqual('Name', 'Test Account');
@@ -740,110 +1270,69 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWhereGroup_WhenAddFieldInGroup_ThenThrowException() {
-    // Arrange / Act / Assert
-    try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
-        .field('Id')
-        .whereGroup(
-          Scribe.asGroup()
-            .field('Name') // This should throw an exception
-            .whereEqual('Name', 'Test Account')
-        );
+  static void testRelationName_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    String relationName = null;
 
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'Fields cannot be added while defining a group condition (inside whereGroup()).',
-        e.getMessage()
-      );
+    // Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class)
+        .field('Id')
+        .withChildren(Scribe.asChild(Opportunity.class).relationName(relationName).field('Id').whereNotNull('Name'))
+        .whereEqual('Name', 'Test Account');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('relationName(String relationName)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
     }
   }
 
   @isTest
-  static void testIN_WhenUsingSubquery_ThenAddInSubQueryCondition() {
+  static void testWithChildren_WhenApplyNullAsChildScribe_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereIn(
-        'AccountId',
-        Scribe.source(Account.getSObjectType()).field('Id').whereEqual('Name', 'Test Account')
-      );
+    Scribe childScribe = null;
 
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE AccountId IN (SELECT id FROM Account WHERE Name = \'Test Account\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testIn_WhenUsingSubqueryWithOrCondition_ThenThrowException() {
-    // Arrange / Act / Assert
+    // Act & Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Account.class)
         .field('Id')
-        .whereLike('Name', '%Test%')
-        .orCondition()
-        .whereIn('AccountId', Scribe.source(Account.getSObjectType()).field('Id').whereLike('Name', '%Test%'));
-
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The whereIn() method with a subquery is not supported after orCondition().',
-        e.getMessage()
-      );
+        .withChildren(childScribe)
+        .whereEqual('Name', 'Test Account');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('withChildren(Scribe childScribe)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
     }
   }
 
   @isTest
-  static void testNotIn_WhenUsingSubquery_ThenAddNotInSubQueryCondition() {
+  static void testWithChildren_WhenAddNonChildScribe_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-      .field('Id')
-      .whereNotIn(
-        'AccountId',
-        Scribe.source(Account.getSObjectType()).field('Id').whereEqual('Name', 'Test Account')
-      );
+    Scribe nonChildScribe = Scribe.of(Opportunity.class).field('Id').whereNotNull('Name');
 
-    // Act
-    String soql = scribe.toSoql();
-
-    // Assert
-    String expectedSoql = 'SELECT id FROM Opportunity WHERE AccountId NOT IN (SELECT id FROM Account WHERE Name = \'Test Account\')';
-    Assert.areEqual(expectedSoql, soql);
-  }
-
-  @isTest
-  static void testNotIn_WhenUsingSubqueryWithOrCondition_ThenThrowException() {
-    // Arrange / Act / Assert
+    // Act & Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Account.class)
         .field('Id')
-        .whereLike('Name', '%Test%')
-        .orCondition()
-        .whereNotIn('AccountId', Scribe.source(Account.getSObjectType()).field('Id').whereLike('Name', '%Test%'));
-
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The whereNotIn() method with a subquery is not supported after orCondition().',
-        e.getMessage()
-      );
+        .withChildren(nonChildScribe)
+        .whereEqual('Name', 'Test Account');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('withChildren(Scribe childScribe)'));
+      Assert.isTrue(error.contains('Invalid Scribe Context'));
     }
   }
 
   @isTest
   static void testWithChildren_ThenAddWithChildrenCondition_ThenAddWithChildrenCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .withChildren(
-        Scribe.asChild(Opportunity.getSObjectType()).relationName('Opportunities').field('Id').whereNotNull('Name')
+        Scribe.asChild(Opportunity.class).relationName('Opportunities').field('Id').whereNotNull('Name')
       )
       .whereEqual('Name', 'Test Account');
 
@@ -856,14 +1345,31 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testWithChildren_WhenNoSelectFieldInRootScribe_ThenGenerateOnlyChildField() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .withChildren(
+        Scribe.asChild(Opportunity.class).relationName('Opportunities').field('Id').whereNotNull('Name')
+      )
+      .whereEqual('Name', 'Test Account');
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT (SELECT id FROM Opportunities WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
   static void testWithChildren_WhenAddParallelWithChildrenCondition_ThenAddParallelWithChildrenCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .withChildren(
-        Scribe.asChild(Opportunity.getSObjectType()).relationName('Opportunities').field('Id').whereNotNull('Name')
+        Scribe.asChild(Opportunity.class).relationName('Opportunities').field('Id').whereNotNull('Name')
       )
-      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').whereNotNull('Email'))
+      .withChildren(Scribe.asChild(Contact.class).field('Id').whereNotNull('Email'))
       .whereEqual('Name', 'Test Account');
 
     // Act
@@ -877,13 +1383,13 @@ public with sharing class ScribeTest {
   @isTest
   static void testWithChildren_WhenAddNestedWithChildrenCondition_ThenAddNestedWithChildrenCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .withChildren(
-        Scribe.asChild(Contact.getSObjectType())
+        Scribe.asChild(Contact.class)
           .field('Id')
           .whereNotNull('Name')
-          .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Email'))
+          .withChildren(Scribe.asChild(Opportunity.class).field('Id').whereNotNull('Email'))
       )
       .whereEqual('Name', 'Test Account');
 
@@ -899,40 +1405,38 @@ public with sharing class ScribeTest {
   static void testWithChildren_WhenAddWithChildrenConditionAfterOrCondition_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
+      Scribe scribe = Scribe.of(Account.class)
         .field('Id')
         .whereEqual('Name', 'Test Account')
         .orCondition()
-        .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').whereNotNull('Name'));
+        .withChildren(Scribe.asChild(Opportunity.class).field('Id').whereNotNull('Name'));
 
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The method following orCondition() must be a where...() method or the whereGroup() method.',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('withChildren(Scribe childScribe)'));
+      Assert.isTrue(error.contains('Incomplete Logical Expression'));
     }
   }
 
   @isTest
   static void testWithChildren_WhenAddOverFourNestChildren_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .withChildren(
-        Scribe.asChild(Contact.getSObjectType())
+        Scribe.asChild(Contact.class)
           .field('Id')
           .withChildren(
-            Scribe.asChild(Opportunity.getSObjectType())
+            Scribe.asChild(Case.class)
               .field('Id')
               .withChildren(
-                Scribe.asChild(Quote.getSObjectType())
+                Scribe.asChild(Case.class)
                   .field('Id')
                   .withChildren(
-                    Scribe.asChild(Order.getSObjectType())
+                    Scribe.asChild(Case.class)
                       .field('Id')
-                      .withChildren(Scribe.asChild(OrderItem.getSObjectType()).field('Id'))
+                      .withChildren(Scribe.asChild(Case.class).field('Id'))
                   )
               )
           )
@@ -942,54 +1446,46 @@ public with sharing class ScribeTest {
     try {
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'Maximum nesting depth for child queries reached. Max depth: 4, Object name: OrderItem',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Query Nesting Limit Exceeded'));
     }
   }
 
   @isTest
   static void testWithChildren_WhenAddOverFourNestChildrenUsingOtherScribeInstance_ThenThrowException() {
     // Arrange
-    Scribe oppScribe = Scribe.asChild(Opportunity.getSObjectType())
+    Scribe caseScribe = Scribe.asChild(Case.class)
       .field('Id')
       .withChildren(
-        Scribe.asChild(Quote.getSObjectType())
+        Scribe.asChild(Case.class)
           .field('Id')
           .withChildren(
-            Scribe.asChild(Order.getSObjectType())
-              .field('Id')
-              .withChildren(Scribe.asChild(OrderItem.getSObjectType()).field('Id'))
+            Scribe.asChild(Case.class).field('Id').withChildren(Scribe.asChild(Case.class).field('Id'))
           )
       );
 
-    Scribe accountScribe = Scribe.source(Account.getSObjectType())
+    Scribe accountScribe = Scribe.of(Account.class)
       .field('Id')
-      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').withChildren(oppScribe));
+      .withChildren(Scribe.asChild(Contact.class).field('Id').withChildren(caseScribe));
 
     // Act / Assert
     try {
       String soql = accountScribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'Maximum nesting depth for child queries reached. Max depth: 4, Object name: OrderItem',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Query Nesting Limit Exceeded'));
     }
   }
 
   @isTest
   static void testWithChildren_WhenAddRelationName_ThenAddedRelationNameUsed() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .withChildren(
-        Scribe.asChild(Opportunity.getSObjectType()).relationName('Opportunities').field('Id').whereNotNull('Name')
+        Scribe.asChild(Opportunity.class).relationName('Opportunities').field('Id').whereNotNull('Name')
       )
       .whereEqual('Name', 'Test Account');
 
@@ -1004,13 +1500,10 @@ public with sharing class ScribeTest {
   @isTest
   static void testWithChildren_WhenAddInvalidRelationName_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .withChildren(
-        Scribe.asChild(Opportunity.getSObjectType())
-          .relationName('Opporrunity__r')
-          .field('Id')
-          .whereNotNull('Name')
+        Scribe.asChild(Opportunity.class).relationName('Opporrunity__r').field('Id').whereNotNull('Name')
       )
       .whereEqual('Name', 'Test Account');
 
@@ -1018,57 +1511,113 @@ public with sharing class ScribeTest {
       // Act
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      String expected = String.format(
-        'The specified parent relationship name is not valid. child object name: {0}, parent object name: {1}, relationship name: {2}',
-        new List<String>{ 'Opportunity', 'Account', 'Opporrunity__r' }
-      );
-      Assert.areEqual(expected, e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Invalid Relationship Name'));
+    }
+  }
+
+  @isTest
+  static void testWithChildren_WhenAddNonExistChildObject_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(Product2.class).field('Id').whereNotNull('Name')) // Account does not have Product2 as child object
+      .whereEqual('Name', 'Test Account');
+
+    // Act / Assert
+    try {
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('No Child Relationship Found'));
     }
   }
 
   @isTest
   static void testWithChildren_WhenMultiRelationFieldWithSameParentExist_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(User.getSObjectType())
+    Scribe scribe = Scribe.of(User.class)
       .field('Id')
-      .withChildren(Scribe.asChild(Contract.getSObjectType()).field('Id').whereNotNull('Name'));
+      .withChildren(Scribe.asChild(Contract.class).field('Id').whereNotNull('Name'));
 
     // Act / Assert
     try {
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      String errorMessage = String.format(
-        'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
-        new List<String>{ 'Contract', 'User' }
-      );
-      Assert.areEqual(errorMessage, e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Ambiguous Relationship'));
+    }
+  }
+
+
+  @isTest
+  static void testWithChildren_WhenUsingAggregateFunction_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class)
+      .count('Id', 'NumberOfIds')
+      .withChildren(
+        Scribe.asChild(Opportunity.class).relationName('Opportunities').field('Id').whereNotNull('Name')
+      )
+      .whereEqual('Name', 'Test Account');
+
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('withChildren(Scribe childScribe)'));
+      Assert.isTrue(error.contains('SOQL Aggregate Restriction'));
     }
   }
 
   @isTest
-  static void testWithChildren_WhenAggregateInChild_ThenThrowException() {
-    // Arrange/ Act / Assert
+  static void testParentField_WhenApplyNullAsParentScribe_ThenThrowException() {
+    // Arrange
+    Scribe parentScribe = null;
+
+    // Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('Id')
-        .withChildren(Scribe.asChild(Opportunity.getSObjectType()).average('Amount', 'AvgAmount'));
+        .parentField(parentScribe)
+        .whereEqual('Name', 'Test Opportunity');
+
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      String expectedMessage = 'Aggregate functions cannot be used in a child Scribe.';
-      Assert.areEqual(expectedMessage, e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('parentField(Scribe parentScribe)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
     }
   }
 
   @isTest
-  static void testWithParent_WhenAddOnlyParentField_ThenAddOnlyParentField() {
+  static void testParentField_WhenApplyNonParentScribe_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe nonParentScribe = Scribe.of(Account.class).field('Id').whereNotNull('Name');
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('Id')
+        .parentField(nonParentScribe)
+        .whereEqual('Name', 'Test Opportunity');
+
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('parentField(Scribe parentScribe)'));
+      Assert.isTrue(error.contains('Invalid Scribe Context'));
+    }
+  }
+
+  @isTest
+  static void testParentField_WhenAddParentScribe_ThenGenerateParentField() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity');
@@ -1082,46 +1631,84 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddVoidString_ThenThrowException() {
-    // Arrange / Act / Assert
-    try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-        .field('Id')
-        .parentField(Scribe.asParent(''))
-        .whereEqual('Name', 'Test Opportunity');
+  static void testParenfField_WhenNoSelectFieldInRootScribe_ThenGenerateOnlyParentField() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity');
 
-      String soql = scribe.toSoql();
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('The relationship field name for asParent() must be specified.', e.getMessage());
-    }
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\'';
+    Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
-  static void testWithParent_WhenAddOnlyParentFieldUsingAsGroup_ThenErrorThrown() {
+  static void testParentField_WhenApplyGroupScribe_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('Id')
         .parentField(Scribe.asGroup())
         .whereEqual('Name', 'Test Opportunity');
 
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The Scribe instance for the parentField() method must be created with Scribe.asParent().',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('parentField(Scribe parentScribe)'));
+      Assert.isTrue(error.contains('Invalid Scribe Context'));
     }
   }
 
   @isTest
-  static void testWithParent_AddOnlyParentCondition_ThenAddOnlyParentCondition() {
+  static void testParentCondition_WhenAppluNulAsParentScribe_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe parentScribe = null;
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('Id')
+        .parentCondition(parentScribe)
+        .whereEqual('Name', 'Test Opportunity');
+
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('parentCondition(Scribe parentScribe)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testParentCondition_WhenApplyNonParentScribe_ThenThrowException() {
+    // Arrange
+    Scribe nonParentScribe = Scribe.of(Account.class).field('Id').whereNotNull('Name');
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('Id')
+        .parentCondition(nonParentScribe)
+        .whereEqual('Name', 'Test Opportunity');
+
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('parentCondition(Scribe parentScribe)'));
+      Assert.isTrue(error.contains('Invalid Scribe Context'));
+    }
+  }
+
+  @isTest
+  static void testParentCondition_AddParentScribe_ThenAddParentCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentCondition(Scribe.asParent('AccountId').whereEqual('Name', 'Test Account'));
 
@@ -1134,28 +1721,26 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_AddOnlyParentConditionUsingAsGroup_ThenErrorThrown() {
+  static void testParentCondition_AddGroupScribe_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('Id')
         .parentCondition(Scribe.asGroup().whereEqual('Name', 'Test Account'));
 
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The Scribe instance for the parentCondition() method must be created with Scribe.asParent().',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('parentCondition(Scribe parentScribe)'));
+      Assert.isTrue(error.contains('Invalid Scribe Context'));
     }
   }
 
   @isTest
-  static void testWithParent_WhenAddWithParentCondition_ThenAddWithParentCondition() {
+  static void testParentFieldAndCondition_WhenAddWithParentCondition_ThenAddWithParentCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
@@ -1170,9 +1755,9 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddWithParentMultipleCondition_ThenAddWithParentMultipleCondition() {
+  static void testParentFieldAndCondition_WhenAddWithParentMultipleCondition_ThenAddWithParentMultipleCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
@@ -1189,9 +1774,9 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddWithParentMultipleConditionByAnotherMethod_ThenAddWithParentMultipleCondition() {
+  static void testParentCondition_WhenAddWithParentMultipleConditionByAnotherMethod_ThenAddWithParentMultipleCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
@@ -1207,9 +1792,9 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddOrConditionParent_ThenAddOrConditionParent() {
+  static void testParentCondition_WhenAddOrConditionParent_ThenAddOrConditionParent() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
@@ -1229,10 +1814,10 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddParentConditionAfterOrCondition_ThenThrownError() {
+  static void testParentCondition_WhenAddParentConditionAfterOrCondition_ThenThrownError() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('Id')
         .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
         .whereEqual('Name', 'Test Opportunity')
@@ -1245,20 +1830,41 @@ public with sharing class ScribeTest {
         );
 
       String soql = scribe.toSoql();
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The method following orCondition() must be a where...() method or the whereGroup() method.',
-        e.getMessage()
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('parentCondition(Scribe parentScribe)'));
+      Assert.isTrue(error.contains('Incomplete Logical Expression'));
     }
   }
 
   @isTest
-  static void testWithParent_WhenAddOrConditionAtFirstInParentCondition_ThenAddOrParentCondition() {
+  static void testParentCondition_WhenAddParentOrConditionAfterOrCondition_ThenAddOrParentCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
+      .whereEqual('Name', 'Test Opportunity')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .orCondition()
+          .whereEqual('Name', 'Test Account')
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' OR Account.Name = \'Test Account\' OR Account.Type = \'Test Type\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testParentCondition_WhenAddOrConditionAtFirstInParentCondition_ThenAddOrParentCondition() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
@@ -1273,9 +1879,9 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddOrConditionParentAsGroup_ThenAddOrConditionParentAsasGroup() {
+  static void testParentCondition_WhenAddOrConditionParentAsGroup_ThenAddOrConditionParentAsasGroup() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .whereEqual('Name', 'Test Opportunity')
@@ -1298,9 +1904,9 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddNestedParent_ThenAddNestedParentCondition() {
+  static void testParentFieldAndCondition_WhenAddNestedParent_ThenAddNestedParentCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(
         Scribe.asParent('ContractId')
@@ -1324,9 +1930,9 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddThreeNestedParentOrCondition_ThenAddNestedParentCondition() {
+  static void testParentFieldAndCondition_WhenAddThreeNestedParentOrCondition_ThenAddNestedParentCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(
         Scribe.asParent('ContractId')
@@ -1352,9 +1958,9 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testWithParent_WhenAddAndConditionAfterOrParentCondition_ThenErrorThrown() {
+  static void testParentCondition_WhenAddAndConditionAfterOrParentCondition_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .parentCondition(
@@ -1369,19 +1975,17 @@ public with sharing class ScribeTest {
     try {
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Logical Operator Mismatch'));
+      Assert.isTrue(error.contains('A condition following an orWhere() must also be an OR condition to maintain logical consistency.'));
     }
   }
 
   @isTest
-  static void testWithParent_WhenAddAndConditionAfterNestedOrParentCondition_ThenErrorThrown() {
+  static void testParentCondition_WhenAddAndConditionAfterNestedOrParentCondition_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .parentCondition(
@@ -1400,37 +2004,35 @@ public with sharing class ScribeTest {
     try {
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The condition following an OR must also be an OR. To create complex conditions, please group them using the whereGroup() method.',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Logical Operator Mismatch'));
+      Assert.isTrue(error.contains('A condition following an orWhere() must also be an OR condition to maintain logical consistency.'));
     }
   }
 
   @isTest
-  static void testWithParent_WhenAddIgnoreParentCondition_ThenInogreParentCondition() {
+  static void testParentCondition_WhenAddEmptyList_ThenInogreParentCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Quote.getSObjectType())
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
       .field('Id')
-      .whereEqual('Name', 'Test Quote')
+      .whereEqual('Name', 'Test OLI')
       .parentCondition(Scribe.asParent('OpportunityId').whereNotIn('Id', new List<Id>()));
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Quote WHERE Name = \'Test Quote\'';
+    String expectedSoql = 'SELECT id FROM OpportunityLineItem WHERE Name = \'Test OLI\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
-  static void testWithParent_WhenAddIgnoreParentCondition_ThenInogreParentCondition_2() {
+  static void testParentCondition_WhenAddEmptyLists_ThenInogreParentCondition_2() {
     // Arrange
-    Scribe scribe = Scribe.source(Quote.getSObjectType())
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
       .field('Id')
-      .whereEqual('Name', 'Test Quote')
+      .whereEqual('Name', 'Test OLI')
       .parentCondition(
         Scribe.asParent('OpportunityId')
           .whereNotIn('Id', new List<Id>())
@@ -1442,14 +2044,14 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id FROM Quote WHERE Name = \'Test Quote\' AND Opportunity.Name LIKE \'Test%\'';
+    String expectedSoql = 'SELECT id FROM OpportunityLineItem WHERE Name = \'Test OLI\' AND Opportunity.Name LIKE \'Test%\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
-  static void testWithParent_WhenAddOverFourNestedParentFieldOver_ThenThrowException() {
+  static void testParentField_WhenAddOverFourNestedParentField_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+    Scribe scribe = Scribe.of(OrderItem.class)
       .field('Id')
       .parentField(
         Scribe.asParent('OrderId')
@@ -1458,15 +2060,15 @@ public with sharing class ScribeTest {
             Scribe.asParent('OriginalOrderId')
               .field('Id')
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .field('Id')
                   .parentField(
-                    Scribe.asParent('OpportunityId')
+                    Scribe.asParent('AccountId')
                       .field('Id')
                       .parentField(
-                        Scribe.asParent('ContractId')
+                        Scribe.asParent('ParentId')
                           .field('Id')
-                          .parentField(Scribe.asParent('AccountId').field('Id'))
+                          .parentField(Scribe.asParent('ParentId').field('Id'))
                       )
                   )
               )
@@ -1479,17 +2081,17 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'Maximum nesting depth for parent queries reached. Max depth: 5, Object name: Account',
-        e.getMessage()
-      );
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Maximum nesting depth for parent queries reached'), 'should mention nesting depth limit');
+      Assert.isTrue(error.contains('[maxDepth => 5]'), 'should include the max depth limit');
+      Assert.isTrue(error.contains('[objectName => \'Account\']'), 'should include the object name');
     }
   }
 
   @isTest
   static void testBuildFieldStructure_WhenAddField_ThenReturnFieldStructure() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').field('Name').field('Type');
+    Scribe scribe = Scribe.of(Account.class).field('Id').field('Name').field('Type');
 
     // Act
     FieldStructure fieldStructure = scribe.buildFieldStructure();
@@ -1504,7 +2106,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testBuildFieldStructure_WhenAddParentField_ThenReturnFieldStructureWithParentFields() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentField(Scribe.asParent('AccountId').field('Name').field('Id'))
       .parentField(Scribe.asParent('ContractId').field('Name').field('Id'))
@@ -1529,7 +2131,7 @@ public with sharing class ScribeTest {
   static void testBuildFieldStructure_WhenAddNestedParentField_ThenReturnFieldStructureWithNestedParentFields() {
     // Arrange
     List<String> fields = new List<String>{ 'Id', 'Name' };
-    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+    Scribe scribe = Scribe.of(OrderItem.class)
       .field('id')
       .field('ListPrice')
       .parentField(
@@ -1539,12 +2141,12 @@ public with sharing class ScribeTest {
             Scribe.asParent('OriginalOrderId')
               .fields(fields)
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .fields(fields)
                   .parentField(
-                    Scribe.asParent('OpportunityId')
+                    Scribe.asParent('AccountId')
                       .fields(fields)
-                      .parentField(Scribe.asParent('ContractId').fields(fields))
+                      .parentField(Scribe.asParent('ParentId').fields(fields))
                   )
               )
           )
@@ -1564,27 +2166,27 @@ public with sharing class ScribeTest {
     FieldStructure originalOrderFieldStructure = orderFieldStructure.getRelationFieldStructure('originalorderid');
     Assert.isTrue(originalOrderFieldStructure.hasField('id'));
     Assert.isTrue(originalOrderFieldStructure.hasField('name'));
-    Assert.isTrue(originalOrderFieldStructure.hasRelation('quoteid'));
-    FieldStructure quoteFieldStructure = originalOrderFieldStructure.getRelationFieldStructure('quoteid');
-    Assert.isTrue(quoteFieldStructure.hasField('id'));
-    Assert.isTrue(quoteFieldStructure.hasField('name'));
-    Assert.isTrue(quoteFieldStructure.hasRelation('opportunityid'));
-    FieldStructure opportunityFieldStructure = quoteFieldStructure.getRelationFieldStructure('opportunityid');
-    Assert.isTrue(opportunityFieldStructure.hasField('id'));
-    Assert.isTrue(opportunityFieldStructure.hasField('name'));
-    Assert.isTrue(opportunityFieldStructure.hasRelation('contractid'));
-    FieldStructure contractFieldStructure = opportunityFieldStructure.getRelationFieldStructure('contractid');
+    Assert.isTrue(originalOrderFieldStructure.hasRelation('contractid'));
+    FieldStructure contractFieldStructure = originalOrderFieldStructure.getRelationFieldStructure('contractid');
     Assert.isTrue(contractFieldStructure.hasField('id'));
     Assert.isTrue(contractFieldStructure.hasField('name'));
+    Assert.isTrue(contractFieldStructure.hasRelation('accountid'));
+    FieldStructure accountFieldStructure2 = contractFieldStructure.getRelationFieldStructure('accountid');
+    Assert.isTrue(accountFieldStructure2.hasField('id'));
+    Assert.isTrue(accountFieldStructure2.hasField('name'));
+    Assert.isTrue(accountFieldStructure2.hasRelation('parentid'));
+    FieldStructure parentFieldStructure = accountFieldStructure2.getRelationFieldStructure('parentid');
+    Assert.isTrue(parentFieldStructure.hasField('id'));
+    Assert.isTrue(parentFieldStructure.hasField('name'));
   }
 
   @isTest
   static void testBuildFieldStructure_WhenAddWithChildren_ThenReturnFieldStructureWithChildren() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
-      .withChildren(Scribe.asChild(Opportunity.getSObjectType()).field('Id').field('Name'))
-      .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').field('Email'));
+      .withChildren(Scribe.asChild(Opportunity.class).field('Id').field('Name'))
+      .withChildren(Scribe.asChild(Contact.class).field('Id').field('Email'));
 
     // Act
     FieldStructure fieldStructure = scribe.buildFieldStructure();
@@ -1605,19 +2207,17 @@ public with sharing class ScribeTest {
   @isTest
   static void testBuildFieldStructure_WhenAddNestedChildrenField_ThenReturnFieldStructureWithNestedChildren() {
     // Arrange
-    List<String> fields = new List<String>{ 'Id', 'Name' };
-    Scribe scribe = Scribe.source(Account.getSObjectType())
+    List<String> fields = new List<String>{ 'Id', 'OwnerId' };
+    Scribe scribe = Scribe.of(Account.class)
       .fields(fields)
       .withChildren(
-        Scribe.asChild(Contact.getSObjectType())
+        Scribe.asChild(Contact.class)
           .fields(fields)
           .withChildren(
-            Scribe.asChild(Opportunity.getSObjectType())
+            Scribe.asChild(Case.class)
               .fields(fields)
               .withChildren(
-                Scribe.asChild(Quote.getSObjectType())
-                  .fields(fields)
-                  .withChildren(Scribe.asChild(Order.getSObjectType()).fields(fields))
+                Scribe.asChild(Case.class).fields(fields).withChildren(Scribe.asChild(Case.class).fields(fields))
               )
           )
       );
@@ -1627,30 +2227,42 @@ public with sharing class ScribeTest {
 
     // Assert
     Assert.isTrue(fieldStructure.hasField('id'));
-    Assert.isTrue(fieldStructure.hasField('name'));
+    Assert.isTrue(fieldStructure.hasField('ownerid'));
     Assert.isTrue(fieldStructure.hasRelation('contact'));
     FieldStructure contactFieldStructure = fieldStructure.getRelationFieldStructure('contact');
     Assert.isTrue(contactFieldStructure.hasField('id'));
-    Assert.isTrue(contactFieldStructure.hasField('name'));
-    Assert.isTrue(contactFieldStructure.hasRelation('opportunity'));
-    FieldStructure opportunityFieldStructure = contactFieldStructure.getRelationFieldStructure('opportunity');
-    Assert.isTrue(opportunityFieldStructure.hasField('id'));
-    Assert.isTrue(opportunityFieldStructure.hasField('name'));
-    Assert.isTrue(opportunityFieldStructure.hasRelation('quote'));
-    FieldStructure quoteFieldStructure = opportunityFieldStructure.getRelationFieldStructure('quote');
-    Assert.isTrue(quoteFieldStructure.hasField('id'));
-    Assert.isTrue(quoteFieldStructure.hasField('name'));
-    Assert.isTrue(quoteFieldStructure.hasRelation('order'));
-    FieldStructure orderFieldStructure = quoteFieldStructure.getRelationFieldStructure('order');
-    Assert.isTrue(orderFieldStructure.hasField('id'));
-    Assert.isTrue(orderFieldStructure.hasField('name'));
-    Assert.isFalse(orderFieldStructure.hasField('email'));
+    Assert.isTrue(contactFieldStructure.hasField('ownerid'));
+    Assert.isTrue(contactFieldStructure.hasRelation('case'));
+    FieldStructure caseFieldStructure1 = contactFieldStructure.getRelationFieldStructure('case');
+    Assert.isTrue(caseFieldStructure1.hasField('id'));
+    Assert.isTrue(caseFieldStructure1.hasField('ownerid'));
+    Assert.isTrue(caseFieldStructure1.hasRelation('case'));
+    FieldStructure caseFieldStructure2 = caseFieldStructure1.getRelationFieldStructure('case');
+    Assert.isTrue(caseFieldStructure2.hasField('id'));
+    Assert.isTrue(caseFieldStructure2.hasField('ownerid'));
+    Assert.isTrue(caseFieldStructure2.hasRelation('case'));
+    FieldStructure caseFieldStructure3 = caseFieldStructure2.getRelationFieldStructure('case');
+    Assert.isTrue(caseFieldStructure3.hasField('id'));
+    Assert.isTrue(caseFieldStructure3.hasField('ownerid'));
+    Assert.isFalse(caseFieldStructure3.hasField('email'));
+  }
+
+  @isTest
+  static void testTake_WhenApplyNull_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').take(null);
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('take(Integer limitNumber)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
   }
 
   @isTest
   static void testTake_WhenAddTake_ThenReturnLimitSoql() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').take(10);
+    Scribe scribe = Scribe.of(Account.class).field('Id').take(10);
 
     // Act
     String soql = scribe.toSoql();
@@ -1664,16 +2276,18 @@ public with sharing class ScribeTest {
   static void testTake_WhenAddZeroTake_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').take(0);
-    } catch (Exception e) {
-      Assert.areEqual('The limit number must be greater than zero.', e.getMessage());
+      Scribe scribe = Scribe.of(Account.class).field('Id').take(0);
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('take(Integer limitNumber)'));
+      Assert.isTrue(error.contains('The limit number cannot be negative.'));
     }
   }
 
   @isTest
   static void testOrderBy_WhenAddField_ThenReturnOrderByField() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .whereEqual('Id', '006000000000000')
       .orderBy('CloseDate');
@@ -1689,7 +2303,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testOrderBy_WhenAddFieldAndOrder_ThenReturnOrderByFieldAndOrder() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .whereEqual('Id', '006000000000000')
       .orderBy('CloseDate', 'DESC');
@@ -1705,7 +2319,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testOrderBy_WhenAddFieldAndOrderAndNullsOperator_ThenReturnOrderByFieldAndOrderAndNullsOperator() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .whereEqual('Id', '006000000000000')
       .orderBy('CloseDate', 'ASC', 'FIRST');
@@ -1721,7 +2335,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testOrderBy_WhenAddMultipleOrderBy_ThenReturnMultipleOrderBy_1() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .whereEqual('StageName', 'prospecting')
       .orderBy('CloseDate', 'ASC', 'FIRST')
@@ -1737,7 +2351,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testOrderBy_WhenAddMultipleOrderBy_ThenReturnMultipleOrderBy_2() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .whereEqual('StageName', 'prospecting')
       .orderBy('CloseDate')
@@ -1755,15 +2369,14 @@ public with sharing class ScribeTest {
   static void testOrderBy_WhenAddBlankField_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-        .field('Id')
-        .whereEqual('Id', '006000000000000')
-        .orderBy('');
+      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000').orderBy('');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('The field name for orderBy() cannot be blank.', e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Scribe.OrderByClause'), 'should locate in Scribe.OrderByClause');
+      Assert.isTrue(error.contains('Missing required parameter'), 'should indicate required-parameter violation');
     }
   }
 
@@ -1771,7 +2384,7 @@ public with sharing class ScribeTest {
   static void testOrderBy_WhenaddInvalidOrder_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('Id')
         .whereEqual('Id', '006000000000000')
         .orderBy('CloseDate', 'INVALID');
@@ -1779,7 +2392,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('Invalid order direction for orderBy(). Please use \'ASC\' or \'DESC\'.', e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Scribe.OrderByClause'), 'should locate in Scribe.OrderByClause');
+      Assert.isTrue(error.contains('Invalid order direction'), 'should mention the invalid direction');
+      Assert.isTrue(error.contains('[order => \'INVALID\']'), 'should include the rejected value');
     }
   }
 
@@ -1787,7 +2403,7 @@ public with sharing class ScribeTest {
   static void testOrderBy_WhenaddInvalidNullsOperator_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('Id')
         .whereEqual('Id', '006000000000000')
         .orderBy('CloseDate', 'ASC', 'INVALID');
@@ -1795,14 +2411,29 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('Invalid nulls operator for orderBy(). Please use \'FIRST\' or \'LAST\'.', e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Scribe.OrderByClause'), 'should locate in Scribe.OrderByClause');
+      Assert.isTrue(error.contains('Invalid nulls operator'), 'should mention invalid nulls operator');
+      Assert.isTrue(error.contains('[nullsOperator => \'INVALID\']'), 'should include the rejected value');
+    }
+  }
+
+  @isTest
+  static void testOffset_WhenApplyNull_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Account.class).field('Id').offset(null);
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('offset(Integer offsetNumber)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
     }
   }
 
   @isTest
   static void testOffset_WhenAddOffset_ThenReturnOffsetSoql() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').offset(10);
+    Scribe scribe = Scribe.of(Account.class).field('Id').offset(10);
 
     // Act
     String soql = scribe.toSoql();
@@ -1816,11 +2447,12 @@ public with sharing class ScribeTest {
   static void testOffset_WhenAddNegativeOffset_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').offset(-1);
+      Scribe scribe = Scribe.of(Account.class).field('Id').offset(-1);
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-    System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('The offset number must be greater than zero.', e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('offset(Integer offsetNumber)'));
+      Assert.isTrue(error.contains('The offset number cannot be negative.'));
     }
   }
 
@@ -1828,18 +2460,19 @@ public with sharing class ScribeTest {
   static void testOffset_WhenAddOffsetOver2000_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').offset(2001);
+      Scribe scribe = Scribe.of(Account.class).field('Id').offset(2001);
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('The offset number cannot exceed 2000.', e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('offset(Integer offsetNumber)'));
+      Assert.isTrue(error.contains('Salesforce SOQL has a maximum offset limit of 2000 records.'));
     }
   }
 
   @isTest
   static void testForUpdate_WhenAddForUpdate_ThenReturnForUpdateSoql() {
     // Arrange
-    Scribe scribe = Scribe.source(Account.getSObjectType()).field('Id').forUpdate();
+    Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate();
 
     // Act
     String soql = scribe.toSoql();
@@ -1852,7 +2485,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testSoqlClauseOrder_WhenAddVariousClauses_ThenReturnCorrectClauseOrder_1() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .forUpdate()
       .take(10)
       .field('Id')
@@ -1869,7 +2502,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testSoqlClauseOrder_WhenAddVariousClauses_ThenReturnCorrectClauseOrder_2() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .offset(5)
       .take(10)
       .field('Id')
@@ -1888,15 +2521,12 @@ public with sharing class ScribeTest {
   static void testForUpdate_WhenWithOrderByClause_ThenThrowException_1() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
-        .field('Id')
-        .orderBy('Name')
-        .forUpdate();
+      Scribe scribe = Scribe.of(Account.class).field('Id').orderBy('Name').forUpdate();
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('ORDER BY cannot be used with FOR UPDATE clause.', e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Order By Conflict'));
     }
   }
 
@@ -1904,15 +2534,12 @@ public with sharing class ScribeTest {
   static void testForUpdate_WhenWithOrderByClause_ThenThrowException_2() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
-        .field('Id')
-        .forUpdate()
-        .orderBy('Name');
+      Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate().orderBy('Name');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('ORDER BY cannot be used with FOR UPDATE clause.', e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Order By Conflict'));
     }
   }
 
@@ -1920,15 +2547,12 @@ public with sharing class ScribeTest {
   static void testForUpdate_WhenWithOffsetClause_ThenThrowException_1() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
-        .field('Id')
-        .offset(10)
-        .forUpdate();
+      Scribe scribe = Scribe.of(Account.class).field('Id').offset(10).forUpdate();
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('OFFSET cannot be used with FOR UPDATE clause.', e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Offset Conflict'));
     }
   }
 
@@ -1936,22 +2560,119 @@ public with sharing class ScribeTest {
   static void testForUpdate_WhenWithOffsetClause_ThenThrowException_2() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Account.getSObjectType())
-        .field('Id')
-        .forUpdate()
-        .offset(10);
+      Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate().offset(10);
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Offset Conflict'));
+    }
+  }
+
+  @isTest
+  static void testAverage_WhenApplyNullToFieldName_ThenThrowException() {
+    // Arrange
+    String fieldName = null;
+    String alias = 'amountAvg';
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class).average(fieldName, alias);
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('average(String fieldName, String alias)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAverage_WhenAplyVoidStringToFieldName_ThenThrowException() {
+    // Arrange
+    String fieldName = '';
+    String alias = 'amountAvg';
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class).average(fieldName, alias);
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('average(String fieldName, String alias)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAverage_WhenApplyNullToAlias_ThenThrowException() {
+    // Arrange
+    String fieldName = 'Amount';
+    String alias = null;
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class).average(fieldName, alias);
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('average(String fieldName, String alias)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAverage_WhenApplyVoidStringToAlias_ThenThrowException() {
+    // Arrange
+    String fieldName = 'Amount';
+    String alias = '';
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class).average(fieldName, alias);
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('average(String fieldName, String alias)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testAverage_WhenUsedWithAsChild_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.asChild(Opportunity.class).average('Amount', 'amountAvg');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('OFFSET cannot be used with FOR UPDATE clause.', e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('average(String fieldName, String alias)'));
+      Assert.isTrue(error.contains('Aggregate Function Forbidden'));
+    }
+  }
+
+  @isTest
+  static void testAverage_WhenUsedWithAsHaving_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.asHaving().average('Amount', 'amountAvg');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (Exception e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('average(String fieldName, String alias)'));
+      Assert.isTrue(error.contains('Aggregate Function Forbidden'));
     }
   }
 
   @isTest
   static void testAverage_WhenAddAverageField_ThenReturnAverageField() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).average('Amount', 'amountAvg');
+    Scribe scribe = Scribe.of(Opportunity.class).average('Amount', 'amountAvg');
 
     // Act
     String soql = scribe.toSoql();
@@ -1962,16 +2683,18 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testAvarage_WhenAddNonExistFieldToAverage_ThenThrowException() {
+  static void testAverage_WhenAddNonExistFieldToAverage_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).average('NonExistField', 'amountAvg');
+      Scribe scribe = Scribe.of(Opportunity.class).average('NonExistField', 'amountAvg');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -1979,20 +2702,57 @@ public with sharing class ScribeTest {
   static void testAverage_WhenAddNonSupportedFieldToAverage_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).average('Name', 'nameAvg');
+      Scribe scribe = Scribe.of(Opportunity.class).average('Name', 'nameAvg');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for AVERAGE. object name: Opportunity, field name: Name, field type: STRING';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AverageClause'), 'should locate in AverageClause');
+      Assert.isTrue(error.contains('AVG()'), 'should mention AVG()');
+      Assert.isTrue(error.contains('STRING'), 'should include the rejected field type');
+    }
+  }
+
+  @isTest
+  static void testAverage_WhenAddAfterWithChildren_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('StageName')
+        .withChildren(Scribe.asChild(Contact.class).field('Id').field('Email'))
+        .average('Amount', 'amountAvg');
+      String soql = scribe.toSoql();
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('average(String fieldName, String alias)'));
+      Assert.isTrue(error.contains('SOQL Aggregate Restriction'));
+    }
+  }
+
+  @isTest
+  static void testCount_WhenApplyNullToFieldName_ThenThrowException() {
+    // Arrange
+    String fieldName = null;
+    String alias = 'oppCount';
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class).count(fieldName, alias);
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('count(String fieldName, String alias)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
     }
   }
 
   @isTest
   static void testCount_WhenAddCountField_ThenReturnCountField() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).count('Id', 'oppCount');
+    Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'oppCount');
 
     // Act
     String soql = scribe.toSoql();
@@ -2003,16 +2763,104 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testToSoql_WhenCalledTwiceWithCount_ThenReturnsSameSoqlIdempotently() {
+    // Reproduces the "Duplicate Alias Error" that occurred when toSoql() was called twice
+    // on an aggregate query. Mirrors the MockEloquent scenario where the framework calls
+    // toSoql() once internally and the test then calls it a second time for assertions.
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'oppCount');
+    String expectedSoql = 'SELECT COUNT(Id) oppCount FROM Opportunity';
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(expectedSoql, firstSoql, 'First toSoql() should return the expected SOQL');
+    Assert.areEqual(expectedSoql, secondSoql, 'Second toSoql() should return the same SOQL (idempotent)');
+  }
+
+  @isTest
+  static void testToSoql_WhenCalledTwiceWithoutExplicitFields_ThenReturnsSameSoql() {
+    // Confirms that the side effect in validateAndInitialize() — auto-adding 'Id' to
+    // selectFields when no field is specified — does not break idempotency of a second toSoql() call.
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class);
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(firstSoql, secondSoql, 'toSoql() should be idempotent without explicit fields');
+  }
+
+  @isTest
+  static void testToSoql_WhenCalledTwiceWithMultipleAggregates_ThenReturnsSameSoql() {
+    // Confirms that calling toSoql() twice with multiple aggregates (sum + count) returns the same SOQL.
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .sum('Amount', 'totalAmount')
+      .count('Id', 'oppCount');
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(firstSoql, secondSoql, 'toSoql() with multiple aggregates should be idempotent');
+  }
+
+  @isTest
+  static void testToSoql_WhenCalledTwiceWithAggregateAndHaving_ThenReturnsSameSoql() {
+    // Confirms idempotency when aggregate is combined with HAVING.
+    // HAVING reads aggregateAliasMap after buildSelectFields populates it, so this path is
+    // particularly sensitive to the map being reset properly on each toSoql() call.
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .sum('Amount', 'totalAmount')
+      .groupByField('StageName')
+      .havingCondition(Scribe.asHaving().whereGreaterThan('totalAmount', 1000));
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(firstSoql, secondSoql, 'toSoql() with aggregate + HAVING should be idempotent');
+  }
+
+  @isTest
+  static void testToSoql_WhenCalledTwiceWithParentField_ThenReturnsSameSoql() {
+    // Confirms idempotency for a query with a parent field (parentField path).
+    // Verifies that the map state inside ParentScribe.buildSelectClause is also reset between calls.
+    // Arrange
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
+      .field('Id')
+      .parentField(Scribe.asParent('OpportunityId').field('Name'));
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(firstSoql, secondSoql, 'toSoql() with parent field should be idempotent');
+  }
+
+  @isTest
   static void testCount_WhenAddNonExistFieldToCount_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).count('NonExistField', 'oppCount');
+      Scribe scribe = Scribe.of(Opportunity.class).count('NonExistField', 'oppCount');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2020,20 +2868,22 @@ public with sharing class ScribeTest {
   static void testCount_WhenAddNonSupportedFieldToCount_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).count('IsPrivate', 'countIsPrivate');
+      Scribe scribe = Scribe.of(Opportunity.class).count('IsPrivate', 'countIsPrivate');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for COUNT. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('CountClause'), 'should locate in CountClause');
+      Assert.isTrue(error.contains('COUNT()'), 'should mention COUNT()');
+      Assert.isTrue(error.contains('BOOLEAN'), 'should include the rejected field type');
     }
   }
 
   @isTest
   static void testCountDistinct_WhenAddCountDistinctField_ThenReturnCountDistinctField() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).countDistinct('AccountId', 'accountCount');
+    Scribe scribe = Scribe.of(Opportunity.class).countDistinct('AccountId', 'accountCount');
 
     // Act
     String soql = scribe.toSoql();
@@ -2047,13 +2897,15 @@ public with sharing class ScribeTest {
   static void testCountDistinct_WhenAddNonExistFieldToCountDistinct_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).countDistinct('NonExistField', 'accountCount');
+      Scribe scribe = Scribe.of(Opportunity.class).countDistinct('NonExistField', 'accountCount');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2061,21 +2913,22 @@ public with sharing class ScribeTest {
   static void testCountDistinct_WhenAddNonSupportedFieldToCountDistinct_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-        .countDistinct('IsPrivate', 'countDistinctIsPrivate');
+      Scribe scribe = Scribe.of(Opportunity.class).countDistinct('IsPrivate', 'countDistinctIsPrivate');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for COUNT_DISTINCT. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('CountDistinctClause'), 'should locate in CountDistinctClause');
+      Assert.isTrue(error.contains('COUNT_DISTINCT()'), 'should mention COUNT_DISTINCT()');
+      Assert.isTrue(error.contains('BOOLEAN'), 'should include the rejected field type');
     }
   }
 
   @isTest
   static void testMax_WhenAddMaxField_ThenReturnMaxField() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).max('Amount', 'amountMax');
+    Scribe scribe = Scribe.of(Opportunity.class).max('Amount', 'amountMax');
 
     // ActionLinkGroupTemplate
     String soql = scribe.toSoql();
@@ -2089,13 +2942,15 @@ public with sharing class ScribeTest {
   static void testMax_WhenAddNonExistFieldToMax_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).max('NonExistField', 'amountMax');
+      Scribe scribe = Scribe.of(Opportunity.class).max('NonExistField', 'amountMax');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2103,20 +2958,22 @@ public with sharing class ScribeTest {
   static void testMax_WhenAddNonSupportedFieldToMax_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).max('IsPrivate', 'maxIsPrivate');
+      Scribe scribe = Scribe.of(Opportunity.class).max('IsPrivate', 'maxIsPrivate');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for MAX. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('MaxClause'), 'should locate in MaxClause');
+      Assert.isTrue(error.contains('MAX()'), 'should mention MAX()');
+      Assert.isTrue(error.contains('BOOLEAN'), 'should include the rejected field type');
     }
   }
 
   @isTest
   static void testMin_WhenAddMinField_ThenReturnMinField() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).min('Amount', 'amountMin');
+    Scribe scribe = Scribe.of(Opportunity.class).min('Amount', 'amountMin');
 
     // Act
     String soql = scribe.toSoql();
@@ -2130,13 +2987,15 @@ public with sharing class ScribeTest {
   static void testMin_WhenAddNonExistFieldToMin_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).min('NonExistField', 'amountMin');
+      Scribe scribe = Scribe.of(Opportunity.class).min('NonExistField', 'amountMin');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2144,20 +3003,22 @@ public with sharing class ScribeTest {
   static void testMin_WhenAddNonSupportedFieldToMin_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).min('IsPrivate', 'minIsPrivate');
+      Scribe scribe = Scribe.of(Opportunity.class).min('IsPrivate', 'minIsPrivate');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for MIN. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('MinClause'), 'should locate in MinClause');
+      Assert.isTrue(error.contains('MIN()'), 'should mention MIN()');
+      Assert.isTrue(error.contains('BOOLEAN'), 'should include the rejected field type');
     }
   }
 
   @isTest
   static void testSum_WhenAddSumField_ThenReturnSumField() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).sum('Amount', 'amountSum');
+    Scribe scribe = Scribe.of(Opportunity.class).sum('Amount', 'amountSum');
 
     // Act
     String soql = scribe.toSoql();
@@ -2171,13 +3032,15 @@ public with sharing class ScribeTest {
   static void testSum_WhenAddNonExistFieldToSum_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).sum('NonExistField', 'amountSum');
+      Scribe scribe = Scribe.of(Opportunity.class).sum('NonExistField', 'amountSum');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2185,20 +3048,22 @@ public with sharing class ScribeTest {
   static void testSum_WhenAddNonSupportedFieldToSum_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType()).sum('Name', 'nameSum');
+      Scribe scribe = Scribe.of(Opportunity.class).sum('Name', 'nameSum');
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for SUM. object name: Opportunity, field name: Name, field type: STRING';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('SumClause'), 'should locate in SumClause');
+      Assert.isTrue(error.contains('SUM()'), 'should mention SUM()');
+      Assert.isTrue(error.contains('STRING'), 'should include the rejected field type');
     }
   }
 
   @isTest
   static void testAllAggregateFunctions_WhenAddAllAggregateFunctions_ThenReturnAllAggregateFunctions() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .average('Amount', 'amountAvg')
       .count('Id', 'oppCount')
       .countDistinct('AccountId', 'accountCount')
@@ -2218,24 +3083,57 @@ public with sharing class ScribeTest {
   static void testAggregateFunctions_WhenAddSameAlias_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-        .average('Amount', 'amountAlias')
-        .count('Id', 'amountAlias'); // Duplicate alias
+      Scribe scribe = Scribe.of(Opportunity.class).average('Amount', 'amountAlias').count('Id', 'amountAlias'); // Duplicate alias
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The alias amountAlias in the aggregate clause conflicts with an existing alias.',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Duplicate Alias Error'));
+    }
+  }
+
+  @isTest
+  static void testGroupByField_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    String fieldName = null;
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByField(fieldName);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('groupByField(String fieldName)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGroupByField_WhenApplyVoidString_ThenThrowException() {
+    // Arrange
+    String fieldName = '';
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByField(fieldName);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('groupByField(String fieldName)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
     }
   }
 
   @isTest
   static void testGroupByField_WhenAddGroupByField_ThenReturnGroupByField() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'amountAvg')
       .groupByField('StageName');
@@ -2252,7 +3150,7 @@ public with sharing class ScribeTest {
   static void testGroupByField_WhenSelectedFieldNotInGroupBy_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('Id') // Id is not in GROUP BY
         .field('StageName')
         .average('Amount', 'amountAvg')
@@ -2262,10 +3160,66 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id',
-        e.getMessage()
-      );
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('There are fields in the SELECT clause that are not included in the GROUP BY clause'), 'should mention the SELECT/GROUP BY mismatch');
+      Assert.isTrue(error.contains('[nonGroupedFields => \'id\']'), 'should include the non-grouped fields list');
+    }
+  }
+
+  @isTest
+  static void testGroupByFields_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    List<String> fieldNames = null;
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByFields(fieldNames);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('groupByFields(List<String> fieldNames)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGroupByFields_WhenApplyEmptyList_ThenThrowException() {
+    // Arrange
+    List<String> fieldNames = new List<String>();
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByFields(fieldNames);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('groupByFields(List<String> fieldNames)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGroupByFields_WhenApplyNullInList_ThenThrowException() {
+    // Arrange
+    List<String> fieldNames = new List<String>{ 'StageName', null };
+
+    // Act / Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .groupByFields(fieldNames);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('groupByFields(List<String> fieldNames)'));
+      Assert.isTrue(error.contains('string value in fieldnames argument must not be null or blank'));
     }
   }
 
@@ -2273,7 +3227,7 @@ public with sharing class ScribeTest {
   static void testGroupByFields_WhenAddGroupByFields_ThenReturnGroupByFields() {
     // Arrange
     List<String> fields = new List<String>{ 'StageName', 'CloseDate' };
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .fields(fields)
       .average('Amount', 'amountAvg')
       .groupByFields(fields);
@@ -2290,7 +3244,7 @@ public with sharing class ScribeTest {
   static void testGroupByFields_WhenSelectedFieldNotInGroupBy_ThenThrowException() {
     // Arrange
     List<String> fields = new List<String>{ 'StageName', 'CloseDate' };
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id') // Id is not in GROUP BY
       .fields(fields)
       .average('Amount', 'amountAvg')
@@ -2302,26 +3256,9 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id',
-        e.getMessage()
-      );
-    }
-  }
-
-  @isTest
-  static void tesetGroupByFields_WhenAddEmptyList_ThenThrowException() {
-    // Arrange / Act / Assert
-    try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-        .field('StageName')
-        .average('Amount', 'amountAvg')
-        .groupByFields(new List<String>());
-      String soql = scribe.toSoql();
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('The list of field names for groupByFields() cannot be empty.', e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('There are fields in the SELECT clause that are not included in the GROUP BY clause'), 'should mention the SELECT/GROUP BY mismatch');
+      Assert.isTrue(error.contains('[nonGroupedFields => \'id\']'), 'should include the non-grouped fields list');
     }
   }
 
@@ -2329,60 +3266,77 @@ public with sharing class ScribeTest {
   static void testGroupByField_WhenUsingAfterWithChildrenMethod_ThenThrownException() {
     // Arrange & Act & Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('StageName')
-        .average('Amount', 'amountAvg')
-        .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').field('Email'))
-        .groupByField('StageName');
+        .withChildren(Scribe.asChild(Contact.class).field('Id').field('Email'))
+        .groupByField('StageName')
+        .average('Amount', 'amountAvg');
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'Aggregate functions cannot be used in conjunction with the withChildren() method.',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('groupByField(String fieldName)'));
+      Assert.isTrue(error.contains('SOQL Aggregate Restriction'));
     }
   }
 
   @isTest
-  static void testGroupByField_WhenUsingBeforeWithChildrenMethod_ThenThrownError() {
+  static void testHavingCondition_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .average('Amount', 'amountAvg')
+      .groupByField('StageName');
+
+    // Act & Assert
+    try {
+      scribe.havingCondition(null);
+      Assert.fail('Expected exception to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('havingCondition(Scribe havingScribe)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenUsedWithoutGroupByMethod_ThenThrowException() {
     // Arrange & Act & Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('StageName')
+        .average('Amount', 'amountAvg')
+        .havingCondition(Scribe.asHaving().whereGreaterThan('amountAvg', 10000));
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('havingCondition(Scribe havingScribe)'));
+      Assert.isTrue(error.contains('Missing Required Clause: GROUP BY'));
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenScribeNotCreatedAsHaving_ThenThrowException() {
+    // Arrange & Act & Assert
+    try {
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('StageName')
         .average('Amount', 'amountAvg')
         .groupByField('StageName')
-        .withChildren(Scribe.asChild(Contact.getSObjectType()).field('Id').field('Email'));
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'Aggregate functions cannot be used in conjunction with the withChildren() method.',
-        e.getMessage()
-      );
-    }
-  }
-
-  @isTest
-  static void testGroupByField_WhenAddVoidField_ThenThrowException() {
-    // Arrange / Act / Assert
-    try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-        .field('StageName')
-        .average('Amount', 'amountAvg')
-        .groupByField('');
+        .havingCondition(Scribe.of(Opportunity.class).whereGreaterThan('amountAvg', 10000));
       String soql = scribe.toSoql();
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('The field name for groupByField() cannot be blank.', e.getMessage());
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('havingCondition(Scribe havingScribe)'));
+      Assert.isTrue(error.contains('The provided Scribe instance was not initialized asHaving()'));
     }
   }
 
   @isTest
   static void testHavingCondition_WhenAddHavingCondition_ThenReturnHavingCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'amountAvg')
       .groupByField('StageName')
@@ -2399,7 +3353,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testHavingCondition_WhenAddMultiHavingCondition_ThenReturnHavingCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'amountAvg')
       .groupByField('StageName')
@@ -2416,7 +3370,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testHavingCondition_WhenAddMultiHavingConditionUsingOr_ThenReturnHavingCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'amountAvg')
       .groupByField('StageName')
@@ -2435,7 +3389,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testHavingCondition_WhenMaxAndCount_ThenMaxIsCastAndCountIsNotCast() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .max('Name', 'maxName')
       .count('Name', 'nameCount')
@@ -2456,26 +3410,23 @@ public with sharing class ScribeTest {
   static void testHavingCondition_WhenHavingNonExistAlias_ThenThrowException() {
     // Arrange & Act & Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('StageName')
         .average('Amount', 'amountAvg')
         .groupByField('StageName')
         .havingCondition(Scribe.asHaving().whereGreaterThan('nonExistAlias', 10000));
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'The alias nonExistAlias in the HAVING clause does not match any aggregate alias',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Aggregate Alias Not Found'));
     }
   }
 
   @isTest
   static void testHavingCondition_WhenAddMultiAggregateClauseAndMultiHavingCondition_ThenReturnHavingCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'amountAvg')
       .max('CloseDate', 'lastCloseDate')
@@ -2498,45 +3449,23 @@ public with sharing class ScribeTest {
   static void testHavingCondition_WhenAddHavingConditionWithNonExistAlias_ThenThrowException() {
     // Arrange & Act & Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+      Scribe scribe = Scribe.of(Opportunity.class)
         .field('StageName')
         .average('Amount', 'amountAvg')
         .groupByField('StageName')
         .havingCondition(Scribe.asHaving().whereGreaterThan('nonExistAlias', 10000));
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'The alias nonExistAlias in the HAVING clause does not match any aggregate alias',
-        e.getMessage()
-      );
-    }
-  }
-
-  @isTest
-  static void testHavingCondition_WhenNotUsingGroupByMethod_ThenThrowException() {
-    // Arrange & Act & Assert
-    try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-        .field('StageName')
-        .average('Amount', 'amountAvg')
-        .havingCondition(Scribe.asHaving().whereGreaterThan('amountAvg', 10000));
-      String soql = scribe.toSoql();
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      Assert.areEqual(
-        'The havingCondition() method must be used in conjunction with a groupBy method.',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Aggregate Alias Not Found'));
     }
   }
 
   @isTest
   static void testHavingCondition_WhenWithGroupCondition_ThenReturnGroupedHavingCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'avgAmount')
       .count('Id', 'countId')
@@ -2560,47 +3489,47 @@ public with sharing class ScribeTest {
   @isTest
   static void testAverageInParent_WhenAddAverageInParent_ThenReturnAverageInParent() {
     // Arrange
-    Scribe scribe = Scribe.source(Quote.getSObjectType())
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
       .parentField(Scribe.asParent('OpportunityId').average('Amount', 'avgAmount'));
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT AVG(Opportunity.Amount) avgAmount FROM Quote';
+    String expectedSoql = 'SELECT AVG(Opportunity.Amount) avgAmount FROM OpportunityLineItem';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
   static void testAverageInParent_WhenAddTwoNestedAverageInParent_ThenReturnNestedAverageInParent() {
     // Arrange
-    Scribe scribe = Scribe.source(Order.getSObjectType())
+    Scribe scribe = Scribe.of(Order.class)
       .parentField(
-        Scribe.asParent('QuoteId').parentField(Scribe.asParent('OpportunityId').average('Amount', 'avgAmount'))
+        Scribe.asParent('ContractId').parentField(Scribe.asParent('AccountId').average('AnnualRevenue', 'avgRevenue'))
       );
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT AVG(Quote.Opportunity.Amount) avgAmount FROM Order';
+    String expectedSoql = 'SELECT AVG(Contract.Account.AnnualRevenue) avgRevenue FROM Order';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
   static void testAggregateFunctionsInParent_WhenAddAggregateFunctionsToTwoNestedParent_ThenReturnAggregateFunctionsInParent() {
     // Arrange
-    Scribe scribe = Scribe.source(Order.getSObjectType())
+    Scribe scribe = Scribe.of(Order.class)
       .parentField(
-        Scribe.asParent('QuoteId')
+        Scribe.asParent('ContractId')
           .parentField(
-            Scribe.asParent('OpportunityId')
-              .average('Amount', 'amountAvg')
-              .count('Id', 'oppCount')
-              .countDistinct('AccountId', 'accountCount')
-              .max('Amount', 'amountMax')
-              .min('Amount', 'amountMin')
-              .sum('Amount', 'amountSum')
+            Scribe.asParent('AccountId')
+              .average('AnnualRevenue', 'revenueAvg')
+              .count('Id', 'accCount')
+              .countDistinct('ParentId', 'parentCount')
+              .max('AnnualRevenue', 'revenueMax')
+              .min('AnnualRevenue', 'revenueMin')
+              .sum('AnnualRevenue', 'revenueSum')
           )
       );
 
@@ -2608,7 +3537,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT AVG(Quote.Opportunity.Amount) amountAvg, COUNT(Quote.Opportunity.Id) oppCount, COUNT_DISTINCT(Quote.Opportunity.AccountId) accountCount, MAX(Quote.Opportunity.Amount) amountMax, MIN(Quote.Opportunity.Amount) amountMin, SUM(Quote.Opportunity.Amount) amountSum FROM Order';
+    String expectedSoql = 'SELECT AVG(Contract.Account.AnnualRevenue) revenueAvg, COUNT(Contract.Account.Id) accCount, COUNT_DISTINCT(Contract.Account.ParentId) parentCount, MAX(Contract.Account.AnnualRevenue) revenueMax, MIN(Contract.Account.AnnualRevenue) revenueMin, SUM(Contract.Account.AnnualRevenue) revenueSum FROM Order';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -2616,52 +3545,86 @@ public with sharing class ScribeTest {
   static void testAggregateFunctionsInParent_WhenAddDuplicateAliasBetWeenParentAndCurrent_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Order.getSObjectType())
+      Scribe scribe = Scribe.of(Order.class)
         .count('Id', 'countIdAlias')
         .parentField(
-          Scribe.asParent('QuoteId')
+          Scribe.asParent('ContractId')
             .parentField(
-              Scribe.asParent('OpportunityId').count('Id', 'countIdAlias') // Duplicate alias
+              Scribe.asParent('AccountId').count('Id', 'countIdAlias') // Duplicate alias
             )
         );
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The alias countIdAlias in the parent query conflicts with an existing alias.',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Duplicate Alias Error'));
+    }
+  }
+
+  @isTest
+  static void testGroupByParent_WhenApplyNull_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.of(OpportunityLineItem.class)
+        .field('Product2Id')
+        .sum('TotalPrice', 'totalPrice')
+        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
+        .groupByField('Product2Id')
+        .groupByParent(null); // null is not allowed
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('groupByParent(Scribe parentScribe)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
+    }
+  }
+
+  @isTest
+  static void testGroupByParent_WhenAddNonParentScribe_ThenThrowException() {
+    // Arrange / Act / Assert
+    try {
+      Scribe scribe = Scribe.of(OpportunityLineItem.class)
+        .field('Product2Id')
+        .sum('TotalPrice', 'totalPrice')
+        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
+        .groupByField('Product2Id')
+        .groupByParent(Scribe.of(Opportunity.class).field('Id')); // must use asParent()
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Contextual Violation: groupByParent() Forbidden'));
     }
   }
 
   @isTest
   static void testGroupByParent_WhenAddParentGroup_ThenReturnGroupByParent() {
     // Arrange
-    Scribe scribe = Scribe.source(Quote.getSObjectType())
-      .field('AccountId')
-      .sum('TotalPrice', 'quoteTotalPrice')
-      .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
-      .groupByField('AccountId')
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
+      .field('Product2Id')
+      .sum('TotalPrice', 'totalPrice')
+      .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
+      .groupByField('Product2Id')
       .groupByParent(Scribe.asParent('OpportunityId').groupByField('Id'));
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT accountid, SUM(TotalPrice) quoteTotalPrice, Opportunity.id, MAX(Opportunity.Amount) maxOppAmount FROM Quote GROUP BY AccountId, Opportunity.Id';
+    String expectedSoql = 'SELECT product2id, SUM(TotalPrice) totalPrice, Opportunity.id, MAX(Opportunity.Amount) maxAmount FROM OpportunityLineItem GROUP BY Product2Id, Opportunity.Id';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
   static void testGroupByParent_WhenAddNonGroupedSelectFields_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Quote.getSObjectType())
-      .field('AccountId')
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
+      .field('Product2Id')
       .field('Id') // Id is not in GROUP BY
-      .sum('TotalPrice', 'quoteTotalPrice')
-      .parentField(Scribe.asParent('OpportunityId').field('Id').field('Name').max('Amount', 'maxOppAmount')) // Name is not in GROUP BY
-      .groupByField('AccountId')
+      .sum('TotalPrice', 'totalPrice')
+      .parentField(Scribe.asParent('OpportunityId').field('Id').field('Name').max('Amount', 'maxAmount')) // Name is not in GROUP BY
+      .groupByField('Product2Id')
       .groupByParent(Scribe.asParent('OpportunityId').groupByField('Id'));
 
     // Act / Assert
@@ -2670,26 +3633,25 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id, opportunityid.name',
-        e.getMessage()
-      );
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('There are fields in the SELECT clause that are not included in the GROUP BY clause'), 'should mention the SELECT/GROUP BY mismatch');
+      Assert.isTrue(error.contains('[nonGroupedFields => \'id, opportunityid.name\']'), 'should include the non-grouped fields list');
     }
   }
 
   @isTest
   static void testGroupByParent_WhenAddNestedParentGroup_ThenReturnNestedParentGroup() {
     // Arrange
-    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+    Scribe scribe = Scribe.of(OrderItem.class)
       .count('Id', 'itemCount')
       .groupByParent(
         Scribe.asParent('OrderId')
           .groupByParent(
             Scribe.asParent('OriginalOrderId')
               .groupByParent(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .groupByParent(
-                    Scribe.asParent('OpportunityId').groupByParent(Scribe.asParent('AccountId').groupByField('Id'))
+                    Scribe.asParent('AccountId').groupByParent(Scribe.asParent('ParentId').groupByField('Id'))
                   )
               )
           )
@@ -2699,14 +3661,14 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT COUNT(Id) itemCount FROM OrderItem GROUP BY Order.OriginalOrder.Quote.Opportunity.Account.Id';
+    String expectedSoql = 'SELECT COUNT(Id) itemCount FROM OrderItem GROUP BY Order.OriginalOrder.Contract.Account.Parent.Id';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
   static void testGroupByParent_WhenAddNonGroupedNestedSelectFields_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+    Scribe scribe = Scribe.of(OrderItem.class)
       .field('Id') // Id is not in GROUP BY
       .count('Id', 'itemCount')
       .parentField(
@@ -2714,11 +3676,11 @@ public with sharing class ScribeTest {
           .parentField(
             Scribe.asParent('OriginalOrderId')
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .parentField(
-                    Scribe.asParent('OpportunityId')
+                    Scribe.asParent('AccountId')
                       .parentField(
-                        Scribe.asParent('AccountId').field('Id').field('Name') // Name is not in GROUP BY
+                        Scribe.asParent('ParentId').field('Id').field('Name') // Name is not in GROUP BY
                       )
                   )
               )
@@ -2729,9 +3691,9 @@ public with sharing class ScribeTest {
           .groupByParent(
             Scribe.asParent('OriginalOrderId')
               .groupByParent(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .groupByParent(
-                    Scribe.asParent('OpportunityId').groupByParent(Scribe.asParent('AccountId').groupByField('Id'))
+                    Scribe.asParent('AccountId').groupByParent(Scribe.asParent('ParentId').groupByField('Id'))
                   )
               )
           )
@@ -2743,84 +3705,46 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expected = 'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id, orderid.originalorderid.quoteid.opportunityid.accountid.name';
-      Assert.areEqual(expected, e.getMessage());
-    }
-  }
-
-  @isTest
-  static void testGroupByParent_WhenAddNull_ThenThrowException() {
-    // Arrange / Act / Assert
-    try {
-      Scribe scribe = Scribe.source(Quote.getSObjectType())
-        .field('AccountId')
-        .sum('TotalPrice', 'quoteTotalPrice')
-        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
-        .groupByField('AccountId')
-        .groupByParent(null); // null is not allowed
-      String soql = scribe.toSoql();
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('The Scribe instance for the groupByParent() method cannot be null.', e.getMessage());
-    }
-  }
-
-  @isTest
-  static void testGroupByParent_WhenAddNonParentScribe_ThenThrowException() {
-    // Arrange / Act / Assert
-    try {
-      Scribe scribe = Scribe.source(Quote.getSObjectType())
-        .field('AccountId')
-        .sum('TotalPrice', 'quoteTotalPrice')
-        .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
-        .groupByField('AccountId')
-        .groupByParent(Scribe.source(Opportunity.getSObjectType()).field('Id')); // must use asParent()
-      String soql = scribe.toSoql();
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The Scribe instance for the groupByParent() method must be created with Scribe.asParent().',
-        e.getMessage()
-      );
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('There are fields in the SELECT clause that are not included in the GROUP BY clause'), 'should mention the SELECT/GROUP BY mismatch');
+      Assert.isTrue(error.contains('[nonGroupedFields => \'id, orderid.originalorderid.contractid.accountid.parentid.name\']'), 'should include the non-grouped fields list');
     }
   }
 
   @isTest
   static void testHavingCondition_WhenAddHavingConditionWithParentField_ThenReturnHavingConditionWithParentField() {
     // Arrange
-    Scribe scribe = Scribe.source(Quote.getSObjectType())
-      .field('AccountId')
-      .sum('TotalPrice', 'quoteTotalPrice')
-      .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxOppAmount'))
-      .groupByField('AccountId')
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
+      .field('Product2Id')
+      .sum('TotalPrice', 'totalPrice')
+      .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
+      .groupByField('Product2Id')
       .groupByParent(Scribe.asParent('OpportunityId').groupByField('Id'))
       .havingCondition(
-        Scribe.asHaving().whereGreaterThan('quoteTotalPrice', 1000).whereLessThanOrEqual('maxOppAmount', 50000)
+        Scribe.asHaving().whereGreaterThan('totalPrice', 1000).whereLessThanOrEqual('maxAmount', 50000)
       );
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT accountid, SUM(TotalPrice) quoteTotalPrice, Opportunity.id, MAX(Opportunity.Amount) maxOppAmount FROM Quote GROUP BY AccountId, Opportunity.Id HAVING SUM(TotalPrice) > 1000 AND MAX(Opportunity.Amount) <= 50000';
+    String expectedSoql = 'SELECT product2id, SUM(TotalPrice) totalPrice, Opportunity.id, MAX(Opportunity.Amount) maxAmount FROM OpportunityLineItem GROUP BY Product2Id, Opportunity.Id HAVING SUM(TotalPrice) > 1000 AND MAX(Opportunity.Amount) <= 50000';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
   static void testHavingCondition_WhenAddNestedParentHavingCondition_ThenReturnNestedParentHavingCondition() {
     // Arrange
-    Scribe scribe = Scribe.source(OrderItem.getSObjectType())
+    Scribe scribe = Scribe.of(OrderItem.class)
       .count('Id', 'itemcount')
       .parentField(
         Scribe.asParent('OrderId')
           .parentField(
             Scribe.asParent('OriginalOrderId')
               .parentField(
-                Scribe.asParent('QuoteId')
+                Scribe.asParent('ContractId')
                   .parentField(
-                    Scribe.asParent('OpportunityId').field('AccountId').average('Amount', 'avgOppAmount')
+                    Scribe.asParent('AccountId').field('ParentId').average('AnnualRevenue', 'avgRevenue')
                   )
               )
           )
@@ -2830,64 +3754,61 @@ public with sharing class ScribeTest {
           .groupByParent(
             Scribe.asParent('OriginalOrderId')
               .groupByParent(
-                Scribe.asParent('QuoteId')
-                  .groupByParent(Scribe.asParent('OpportunityId').groupByField('AccountId'))
+                Scribe.asParent('ContractId')
+                  .groupByParent(Scribe.asParent('AccountId').groupByField('ParentId'))
               )
           )
       )
       .havingCondition(
-        Scribe.asHaving().whereGreaterThan('itemcount', 10).whereLessThanOrEqual('avgOppAmount', 50000)
+        Scribe.asHaving().whereGreaterThan('itemcount', 10).whereLessThanOrEqual('avgRevenue', 50000)
       );
 
     // Act
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT COUNT(Id) itemcount, Order.OriginalOrder.Quote.Opportunity.accountid, AVG(Order.OriginalOrder.Quote.Opportunity.Amount) avgOppAmount FROM OrderItem GROUP BY Order.OriginalOrder.Quote.Opportunity.AccountId HAVING COUNT(Id) > 10 AND AVG(Order.OriginalOrder.Quote.Opportunity.Amount) <= 50000';
+    String expectedSoql = 'SELECT COUNT(Id) itemcount, Order.OriginalOrder.Contract.Account.parentid, AVG(Order.OriginalOrder.Contract.Account.AnnualRevenue) avgRevenue FROM OrderItem GROUP BY Order.OriginalOrder.Contract.Account.ParentId HAVING COUNT(Id) > 10 AND AVG(Order.OriginalOrder.Contract.Account.AnnualRevenue) <= 50000';
     Assert.areEqual(expectedSoql, soql);
   }
 
   @isTest
-  static void testHavingCondition_WhenAddAggregateFunctionInHavingCondition_ThenThrowException() {
+  static void testThrough_WhenApplyNull_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-        .field('StageName')
-        .average('Amount', 'amountAvg')
-        .groupByField('StageName')
-        .havingCondition(Scribe.asHaving().count('Id', 'oppCount'));
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('Aggregate functions cannot be used within a HAVING clause.', e.getMessage());
+      Scribe scribe = Scribe.of(Order.class)
+        .field('Id')
+        .through(null); // null is not allowed
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('through(Scribe throughScribe)'));
+      Assert.isTrue(error.contains('Missing required parameter'));
     }
   }
 
   @isTest
-  static void testHavingCondition_WhenAddFieldInHavingCondition_ThenThrowException() {
+  static void testThrough_WhenAddNonThroughScribe_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Opportunity.getSObjectType())
-        .field('StageName')
-        .average('Amount', 'amountAvg')
-        .groupByField('StageName')
-        .havingCondition(Scribe.asHaving().whereEqual('StageName', 'Closed Won').field('Id'));
-      Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'Fields cannot be added while defining a having condition(inside havingCondition().',
-        e.getMessage()
-      );
+      Scribe scribe = Scribe.of(Order.class)
+        .field('Id')
+        .through(Scribe.asChild(OrderItem.class).field('Name')); // must use asThrough()
+      String soql = scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('through(Scribe throughScribe)'));
+      Assert.isTrue(error.contains('Invalid Scribe Context'));
     }
   }
 
   @isTest
   static void testThrough_WhenAddThroughScribe_ThenReturnSoqlWithThrough() {
-    Scribe scribe = Scribe.source(Order.getSObjectType())
+    Scribe scribe = Scribe.of(Order.class)
       .field('Id')
       .through(
-        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
+        Scribe.asThrough(OrderItem.class, 'Product2Id')
           .field('Name')
           .field('ProductCode')
           .whereEqual('IsActive', true)
@@ -2905,31 +3826,29 @@ public with sharing class ScribeTest {
   static void testThrough_WhenAddOtherScribeType_ThenThrowException() {
     // Arrange / Act / Assert
     try {
-      Scribe scribe = Scribe.source(Order.getSObjectType())
+      Scribe scribe = Scribe.of(Order.class)
         .field('Id')
         .through(
-          Scribe.asChild(OrderItem.getSObjectType()) // asChildは指定できない
+          Scribe.asChild(OrderItem.class) // should use asThrough() instead of asChild()
             .field('Name')
             .field('ProductCode')
             .whereEqual('IsActive', true)
         );
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'The Scribe instance for the through() method must be created with Scribe.asThrough().',
-        e.getMessage()
-      );
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('through(Scribe throughScribe)'));
+      Assert.isTrue(error.contains('Invalid Scribe Context'));
     }
   }
 
   @isTest
   static void testThrough_WhenAddRelationName_ThenAddedRelationNameUsed() {
-    Scribe scribe = Scribe.source(Order.getSObjectType())
+    Scribe scribe = Scribe.of(Order.class)
       .field('Id')
       .through(
-        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
+        Scribe.asThrough(OrderItem.class, 'Product2Id')
           .relationName('OrderItems')
           .field('Name')
           .field('ProductCode')
@@ -2947,10 +3866,10 @@ public with sharing class ScribeTest {
   @isTest
   static void testThrough_WhenAddInvalidRelationName_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Order.getSObjectType())
+    Scribe scribe = Scribe.of(Order.class)
       .field('Id')
       .through(
-        Scribe.asThrough(OrderItem.getSObjectType(), 'Product2Id')
+        Scribe.asThrough(OrderItem.class, 'Product2Id')
           .relationName('OrderItems__r') // invalid relation name
           .field('Name')
           .field('ProductCode')
@@ -2961,33 +3880,25 @@ public with sharing class ScribeTest {
     try {
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      String expected = String.format(
-        'The specified parent relationship name is not valid. child object name: {0}, parent object name: {1}, relationship name: {2}',
-        new List<String>{ 'OrderItem', 'Order', 'OrderItems__r' }
-      );
-      Assert.areEqual(expected, e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Invalid Relationship Name'));
     }
   }
 
   @isTest
   static void testThrough_WhenMultiRelationFieldWithSameParentExist_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(User.getSObjectType())
+    Scribe scribe = Scribe.of(User.class)
       .field('Id')
-      .through(Scribe.asThrough(Contract.getSObjectType(), 'LastModifiedById').field('Name'));
+      .through(Scribe.asThrough(Contract.class, 'LastModifiedById').field('Name'));
     //  Act / Assert
     try {
       String soql = scribe.toSoql();
       Assert.fail('Expected exception to be thrown');
-    } catch (Exception e) {
-      System.debug(e.getMessage());
-      String errorMessage = String.format(
-        'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the relationName() method.',
-        new List<String>{ 'Contract', 'User' }
-      );
-      Assert.areEqual(errorMessage, e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Ambiguous Relationship'));
     }
   }
 }

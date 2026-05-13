@@ -22,6 +22,8 @@
  * standard `SObject` records and `AggregateResult` records.
  */
 public abstract class AbstractEntry implements IEntry {
+  private static final String CLASS_NAME = 'AbstractEntry';
+
   protected final SObject record;
   protected final AggregateResult aggregateResult;
   protected final FieldStructure fieldStructure;
@@ -127,43 +129,79 @@ public abstract class AbstractEntry implements IEntry {
    *
    * @param childObjectName child object name
    * @return child relation name
-   * @throws QueryException if the child object name is not exist in the parent object's children relationships
-   *                        or if there are multiple relationships with the same child object name
+   * @throws ApexEloquentException if the child object name is not exist in the parent object's children relationships
+   *                               or if there are multiple relationships with the same child object name
    */
   protected String getChildrenRelationNameFromChildObjectName(String childObjectName) {
-    List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
+    List<Schema.ChildRelationship> childRelationships = this.describeResult.getChildRelationships();
+    Integer size = childRelationships.size();
 
-    Schema.ChildRelationship targetChildRelationShip;
-    for (Schema.ChildRelationship childRelationShip : childRelationShips) {
-      if (childRelationShip.getChildSObject().getDescribe().getName() == childObjectName) {
-        if (targetChildRelationShip != null) {
-          String error = String.format(
-            'The specified childObjectName has multiple relationships in the parent object\'s children relationships. Please specify the relationship name instead of the object name. parent object name: {0}, child object name: {1}',
-            new List<String>{ this.describeResult.getName(), childObjectName }
-          );
-          throw new QueryException(error);
-        }
-        targetChildRelationShip = childRelationShip;
+    Integer low = 0;
+    Integer high = size - 1;
+    Integer foundIndex = -1;
+
+    // 1. Find the first occurrence using Binary Search
+    while (low <= high) {
+      Integer mid = (low + high) / 2;
+      String midName = childRelationships[mid].getChildSObject().getDescribe().getName();
+      Integer res = childObjectName.compareTo(midName);
+
+      if (res == 0) {
+        foundIndex = mid;
+        break;
+      } else if (res > 0) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
       }
     }
-    if (targetChildRelationShip == null) {
-      String error = String.format(
-        'The specified childObjectName does not exist in the parent object\'s children relationships. parent object name: {0}, child object name: {1}',
-        new List<String>{ this.describeResult.getName(), childObjectName }
-      );
-      throw new QueryException(error);
+
+    if (foundIndex == -1) {
+      String reason = 'The specified child object name does not exist on Parent';
+      String action = 'Use a child SObject name that has a relationship with the parent';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childObjectName', childObjectName)
+        .param('parentObjectName', this.describeResult.getName())
+        .fire();
     }
 
-    String childRelationName = targetChildRelationShip.getRelationshipName();
+    // 2. Ambiguity Check: Verify adjacent elements only
+    // Since Salesforce returns child relationships sorted by name, 
+    // identical object names will always be positioned next to each other.
+    Schema.ChildRelationship targetRelation = childRelationships[foundIndex];
 
-    return childRelationName;
+    Boolean isAmbiguous = false;
+    // Check preceding element
+    if (
+      foundIndex > 0 &&
+      childRelationships[foundIndex - 1].getChildSObject().getDescribe().getName() == childObjectName
+    ) {
+      isAmbiguous = true;
+    }
+    // Check succeeding element
+    if (
+      !isAmbiguous &&
+      foundIndex < size - 1 &&
+      childRelationships[foundIndex + 1].getChildSObject().getDescribe().getName() == childObjectName
+    ) {
+      isAmbiguous = true;
+    }
+
+    if (isAmbiguous) {
+      String reason = 'The specified child object name is ambiguous because multiple relationships exist on Parent';
+      String action = 'Use getChildrenByRelationName() with the explicit relationship name instead';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childObjectName', childObjectName)
+        .param('parentObjectName', this.describeResult.getName())
+        .fire();
+    }
+
+    return targetRelation.getRelationshipName();
   }
 
   /**
    * validate the child relation name.
    *
    * @param childRelationName child relation name to be validated
-   * @throws QueryException if the child relation name is not exist in the parent object's children relationships
+   * @throws ApexEloquentException if the child relation name is not exist in the parent object's children relationships
    */
   protected void validateChildRelationName(String childRelationName) {
     List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
@@ -176,11 +214,11 @@ public abstract class AbstractEntry implements IEntry {
       }
     }
     if (!found) {
-      String error = String.format(
-        'The specified childRelationName does not exist in the parent object\'s children relationships. parent object name: {0}, child relation name: {1}',
-        new List<String>{ this.describeResult.getName(), childRelationName }
-      );
-      throw new QueryException(error);
+      String reason = 'The specified childRelationName does not exist in the parent object\'s children relationships';
+      String action = 'Pass a valid child relationship name (e.g. `Contacts` on Account)';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childRelationName', childRelationName)
+        .param('parentObjectName', this.describeResult.getName())
+        .fire();
     }
   }
 
@@ -189,6 +227,9 @@ public abstract class AbstractEntry implements IEntry {
   public abstract void put(String fieldName, Object value);
   public abstract IEntry getParent(String parentFieldName);
   public abstract List<IEntry> getChildren(String childObjectName);
+  /**
+   * @deprecated Use {@link #getChildren(String)} instead.
+   */
   public abstract List<IEntry> getChildrenByRelationName(String childRelationName);
   public abstract SObject getRecord();
   public abstract IEntry setRecord(SObject record);

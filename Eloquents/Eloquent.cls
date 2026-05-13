@@ -29,10 +29,21 @@
 public with sharing class Eloquent implements IEloquent {
   private final Integer MAX_DML_CHUNKING = 10;
 
+  private static final String CLASS_NAME = 'Eloquent';
+
   /**
    * @inheritDoc
    */
   public List<IEntry> get(Scribe scribe) {
+    String method = ('get(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
+    }
+
+    if (scribe.isAggregate()) {
+      return this.getAggregate(scribe);
+    }
+
     List<IEntry> entries = new List<IEntry>();
     for (SObject record : (List<SObject>) Database.query(scribe.toSoql())) {
       entries.add(new Entry(record));
@@ -41,15 +52,7 @@ public with sharing class Eloquent implements IEloquent {
     return entries;
   }
 
-  /**
-   * @inheritDoc
-   */
-  public List<IEntry> getAggregate(Scribe scribe) {
-    if (!scribe.isAggregate()) {
-      throw new QueryException(
-        'The provided Scribe instance does not represent an aggregate query: ' + scribe.toSoql()
-      );
-    }
+  private List<IEntry> getAggregate(Scribe scribe) {
     FieldStructure fieldStructure = null;
     List<IEntry> entries = new List<IEntry>();
     for (AggregateResult aggregateResult : (List<AggregateResult>) Database.query(scribe.toSoql())) {
@@ -62,7 +65,27 @@ public with sharing class Eloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public List<IEntry> rawSoql(String soql) {
+    String method = 'rawSoql(String soql)';
+    if (String.isBlank(soql)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'soql', soql).fire();
+    }
+    List<IEntry> entries = new List<IEntry>();
+    for (SObject record : (List<SObject>) Database.query(soql)) {
+      entries.add(new Entry(record));
+    }
+    return entries;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public List<SObject> getAsSObject(Scribe scribe) {
+    String method = ('getAsSObject(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     return (List<SObject>) Database.query(scribe.toSoql());
   }
 
@@ -70,6 +93,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry first(Scribe scribe) {
+    String method = ('first(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
     if (records.isEmpty()) {
       return null;
@@ -81,6 +109,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject firstAsSObject(Scribe scribe) {
+    String method = ('firstAsSObject(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
     if (records.isEmpty()) {
       return null;
@@ -92,9 +125,24 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry firstOrFail(Scribe scribe) {
+    String method = ('firstOrFail(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+
     if (records.isEmpty()) {
-      throw new QueryException('No records found for query: ' + scribe.toSoql());
+      String error = 'No records were found for the given criteria';
+      String reason = 'The query execution returned zero records';
+      String action = 'Ensure that the query criteria are correct and that relevant records exist in the database';
+      ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error(error)
+        .reason(reason)
+        .action(action)
+        .param('SOQL', scribe.toSoql())
+        .fire();
     }
     return new Entry(records[0]);
   }
@@ -103,9 +151,23 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject firstOrFailAsSObject(Scribe scribe) {
+    String method = ('firstOrFailAsSObject(Scribe scribe)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+
     List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
     if (records.isEmpty()) {
-      throw new QueryException('No records found for query: ' + scribe.toSoql());
+      String error = 'No records were found for the given criteria';
+      String reason = 'The query execution returned zero records';
+      String action = 'Ensure that the query criteria are correct and that relevant records exist in the database';
+      ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error(error)
+        .reason(reason)
+        .action(action)
+        .param('SOQL', scribe.toSoql())
+        .fire();
     }
     return records[0];
   }
@@ -114,7 +176,16 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doInsert(SObject record) {
-    insert record;
+    String method = ('doInsert(SObject record)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
+    }
+    try {
+      insert record;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('insert', e);
+      ex.method(method).param('record', record).fire();
+    }
     return record;
   }
 
@@ -122,8 +193,17 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doInsert(List<SObject> records) {
+    String method = ('doInsert(List<SObject> records)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
     sortToPreventChunkingErrors(records);
-    insert records;
+    try {
+      insert records;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('insert', e);
+      ex.method(method).param('records', records).fire();
+    }
     return records;
   }
 
@@ -131,7 +211,17 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doUpdate(SObject record) {
-    update record;
+    String method = ('doUpdate(SObject record)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
+    try {
+      update record;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('update', e);
+      ex.method(method).param('record', record).fire();
+    }
     return record;
   }
 
@@ -139,8 +229,17 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry doUpdate(IEntry entry) {
+    String method = ('doUpdate(IEntry entry)');
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
     SObject record = entry.getRecord();
-    update record;
+    try {
+      update record;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('update', e);
+      ex.method(method).param('entry', entry).fire();
+    }
     return new Entry(record);
   }
 
@@ -148,8 +247,17 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doUpdate(List<SObject> records) {
+    String method = ('doUpdate(List<SObject> records)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
     sortToPreventChunkingErrors(records);
-    update records;
+    try {
+      update records;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('update', e);
+      ex.method(method).param('records', records).fire();
+    }
     return records;
   }
 
@@ -157,6 +265,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> doUpdate(List<IEntry> entries) {
+    String method = ('doUpdate(List<IEntry> entries)');
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
     if (entries.isEmpty()) {
       return new List<IEntry>();
     }
@@ -165,7 +278,12 @@ public with sharing class Eloquent implements IEloquent {
       records.add(entry.getRecord());
     }
     sortToPreventChunkingErrors(records);
-    update records;
+    try {
+      update records;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('update', e);
+      ex.method(method).param('entries', entries).fire();
+    }
     List<IEntry> updatedEntries = new List<IEntry>();
     for (SObject record : records) {
       updatedEntries.add(new Entry(record));
@@ -177,7 +295,17 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doUpsert(SObject record) {
-    upsert record;
+    String method = ('doUpsert(SObject record)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
+    try {
+      upsert record;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('upsert', e);
+      ex.method(method).param('record', record).fire();
+    }
     return record;
   }
 
@@ -185,8 +313,18 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry doUpsert(IEntry entry) {
+    String method = ('doUpsert(IEntry entry)');
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
+
     SObject record = entry.getRecord();
-    upsert record;
+    try {
+      upsert record;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('upsert', e);
+      ex.method(method).param('entry', entry).fire();
+    }
     return new Entry(record);
   }
 
@@ -194,8 +332,18 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doUpsert(List<SObject> records) {
+    String method = ('doUpsert(List<SObject> records)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
+
     sortToPreventChunkingErrors(records);
-    upsert records;
+    try {
+      upsert records;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('upsert', e);
+      ex.method(method).param('records', records).fire();
+    }
     return records;
   }
 
@@ -203,6 +351,11 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> doUpsert(List<IEntry> entries) {
+    String method = ('doUpsert(List<IEntry> entries)');
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
     if (entries.isEmpty()) {
       return new List<IEntry>();
     }
@@ -211,7 +364,12 @@ public with sharing class Eloquent implements IEloquent {
       records.add(entry.getRecord());
     }
     sortToPreventChunkingErrors(records);
-    upsert records;
+    try {
+      upsert records;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('upsert', e);
+      ex.method(method).param('entries', entries).fire();
+    }
     List<IEntry> upsertedEntries = new List<IEntry>();
     for (SObject record : records) {
       upsertedEntries.add(new Entry(record));
@@ -223,27 +381,62 @@ public with sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(SObject record) {
-    delete record;
+    String method = ('doDelete(SObject record)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
+    try {
+      delete record;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('delete', e);
+      ex.method(method).param('record', record).fire();
+    }
   }
 
   /**
    * @inheritDoc
    */
   public void doDelete(IEntry entry) {
-    delete entry.getRecord();
+    String method = ('doDelete(IEntry entry)');
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
+
+    try {
+      delete entry.getRecord();
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('delete', e);
+      ex.method(method).param('entry', entry).fire();
+    }
   }
 
   /**
    * @inheritDoc
    */
   public void doDelete(List<SObject> records) {
-    delete records;
+    String method = ('doDelete(List<SObject> records)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
+
+    try {
+      delete records;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('delete', e);
+      ex.method(method).param('records', records).fire();
+    }
   }
 
   /**
    * @inheritDoc
    */
   public void doDelete(List<IEntry> entries) {
+    String method = ('doDelete(List<IEntry> entries)');
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
     if (entries.isEmpty()) {
       System.debug('No entries to delete.');
       return;
@@ -252,7 +445,23 @@ public with sharing class Eloquent implements IEloquent {
     for (IEntry entry : entries) {
       records.add(entry.getRecord());
     }
-    delete records;
+
+    try {
+      delete records;
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('delete', e);
+      ex.method(method).param('entries', entries).fire();
+    }
+  }
+
+  private ApexEloquentException createDMLException(String dmlType, Exception e) {
+    String error = 'Failed to ' + dmlType + ' operation';
+    String reason = 'DML failed with ' + e.getNumDml() + (e.getNumDml() == 1 ? ' error' : ' errors');
+    for (Integer i = 0; i < e.getNumDml(); i++) {
+      reason += ('\n- [' + e.getDmlType(i) + '] ' + e.getDmlMessage(i));
+    }
+
+    return ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).causedBy(e);
   }
 
   /**

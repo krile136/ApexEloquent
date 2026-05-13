@@ -20,11 +20,13 @@
  *
  * This class formats the provided string value with the necessary single quotes and
  * wraps the entire expression in parentheses (e.g., `(NOT Name LIKE '%Test%')`).
- * It throws a `QueryException` if the provided value is null.
+ * It throws an `ApexEloquentException` if the provided value is null.
  * @see IConditionClause
  * @see AbstractConditionClause
  */
 public with sharing class NotLikeConditionClause extends AbstractConditionClause {
+  private static final String CLASS_NAME = 'NotLikeConditionClause';
+
   private final Object value;
 
   /**
@@ -76,7 +78,9 @@ public with sharing class NotLikeConditionClause extends AbstractConditionClause
    */
   private String checkAndCast() {
     if (value == null) {
-      throw new QueryException('Value cannot be null for NOT LIKE condition. field: ' + field);
+      ApexEloquentException.required(CLASS_NAME, null, 'value', this.value)
+        .param('field', this.field)
+        .fire();
     }
 
     Schema.DisplayType fieldType = this.getFieldType(field);

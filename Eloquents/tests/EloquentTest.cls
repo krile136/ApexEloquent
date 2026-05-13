@@ -16,9 +16,25 @@
 @isTest
 public with sharing class EloquentTest {
   @isTest
-  static void testGet() {
+  static void testGet_WhenApplyNull_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).get(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testGet_WhenApplyScribe_ThenSuccess() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act
     List<IEntry> oppEntries = (new Eloquent()).get(scribe);
@@ -28,41 +44,62 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testGet_WhenScribeIsNotAggregate_ThenThrowException() {
+  static void testGet_WhenApplyAggregateScribe_ThenSuccess() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
-
-    // Act & Assert
-    try {
-      List<IEntry> oppEntries = (new Eloquent()).getAggregate(scribe);
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage().startsWith('The provided Scribe instance does not represent an aggregate query: ')
-      );
-    }
-  }
-
-  @isTest
-  static void testGetAggregate_WhenScriveIsAggregate() {
-    // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType())
+    Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
       .average('Amount', 'AvgAmount')
       .groupByField('StageName');
 
     // Act
-    List<IEntry> oppEntries = (new Eloquent()).getAggregate(scribe);
+    List<IEntry> oppEntries = (new Eloquent()).get(scribe);
 
     // Assert
     Assert.isTrue(oppEntries.isEmpty(), 'Expected no records to be returned');
   }
 
   @isTest
-  static void testGetAsSObject() {
+  static void testRawSoql_WhenSoqlIsBlank_ThenThrowException() {
+    // Note: Real-DML success path is intentionally not covered here — the same as the
+    // other Eloquent tests, organization-specific object permissions make execution
+    // assertions brittle. Only the input-validation contract is covered.
+    try {
+      (new Eloquent()).rawSoql(null);
+      Assert.fail('Expected ApexEloquentException when SOQL is null');
+    } catch (ApexEloquentException e) {
+      String msg = e.getMessage();
+      Assert.isTrue(msg.contains('rawSoql(String soql)'), 'should mention rawSoql method');
+      Assert.isTrue(msg.contains('argument is required'), 'should indicate required-parameter violation');
+    }
+
+    try {
+      (new Eloquent()).rawSoql('');
+      Assert.fail('Expected ApexEloquentException when SOQL is empty');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('rawSoql(String soql)'), 'should mention rawSoql method');
+    }
+  }
+
+  @isTest
+  static void testGetAsSObject_WhenApplyNull_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).getAsSObject(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('getAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testGetAsSObject_WhenApplyScribe_ThenSuccess() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act
     List<SObject> oppSObjects = (new Eloquent()).getAsSObject(scribe);
@@ -72,9 +109,25 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testFirst() {
+  static void testGetFirst_WhenApplyNull_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).first(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('first(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirst_WhenApplyScribe_ThenSuccess() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act
     IEntry oppEntry = (new Eloquent()).first(scribe);
@@ -84,9 +137,25 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testFirstAsSObject() {
+  static void testFirstAsSObject_WhenApplyNull_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).firstAsSObject(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirstAsSObject_WhenApplyScribe_ThenSuccess() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act
     SObject oppSObject = (new Eloquent()).firstAsSObject(scribe);
@@ -96,42 +165,84 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testFirstOrFail() {
+  static void testFirstOrFail_WhenApplyNull_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).firstOrFail(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstOrFail(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenApplyScribe_ThenSuccess() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
 
     // Act & Assert
     try {
       IEntry oppEntry = (new Eloquent()).firstOrFail(scribe);
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
       System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage().contains('No records found for query'),
-        'Expected QueryException with specific message'
-      );
+      Assert.isTrue(e.getMessage().contains('No records were found'));
     }
   }
 
   @isTest
-  static void testFirstOrFailAsSObject() {
+  static void testFirstOrFailAsSObject_WhenApplyNull_ThenThrowException() {
     // Arrange
-    Scribe scribe = Scribe.source(Opportunity.getSObjectType()).field('Id').whereEqual('Id', '006000000000000');
+    Scribe scribe = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).firstOrFailAsSObject(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('firstOrFailAsSObject(Scribe scribe)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testFirstOrFailAsSObject_WhenApplyScribe_ThenSuccess() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000');
     // Act & Assert
     try {
       SObject oppSObject = (new Eloquent()).firstOrFailAsSObject(scribe);
-      Assert.fail('Expected QueryException to be thrown');
-    } catch (QueryException e) {
-      System.debug(e.getMessage());
-      Assert.isTrue(
-        e.getMessage().contains('No records found for query'),
-        'Expected QueryException with specific message'
-      );
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('No records were found'));
     }
   }
 
   @isTest
-  static void testInsertSingleRecord() {
+  static void testDoInsert_WhenApplyNull_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doInsert(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doInsert(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenApplySingleRecord_ThenExcuteInsert() {
     // Arrange
     Opportunity opp = new Opportunity();
     opp.Name = 'Test';
@@ -139,13 +250,31 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opp = (Opportunity) (new Eloquent()).doInsert(opp);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to insert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testInsertMultipleRecords() {
+  static void testDoInsert_WhenApplyNullList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doInsert(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doInsert(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenApplyMultipleRecords_ThenExcuteInsert() {
     // Arrange
     Opportunity opp1 = new Opportunity(Name = 'Test1');
     Opportunity opp2 = new Opportunity(Name = 'Test2');
@@ -154,26 +283,62 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opps = (List<Opportunity>) (new Eloquent()).doInsert(opps);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to insert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testUpdateSingleRecord() {
+  static void testDoUpdate_WhenApplyNullSObject_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObject_ThenThrowException() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
 
     // Act & Assert
     try {
       opp = (Opportunity) (new Eloquent()).doUpdate(opp);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testUpdateSingleEntry() {
+  static void testDoUpdate_WhenApplyNullEntry_ThenThrowException() {
+    // Arrange
+    IEntry entry = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(entry);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(IEntry entry)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObject_ThenExcuteUpdate() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
     IEntry entry = new Entry(opp);
@@ -181,13 +346,31 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entry = (new Eloquent()).doUpdate(entry);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testUpdateMultipleRecords() {
+  static void testDoUpdate_WhenApplyNullSObjectList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObjectList_ThenExecuteUpdate() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
     Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
@@ -196,13 +379,31 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opps = (List<Opportunity>) (new Eloquent()).doUpdate(opps);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testUpdateMultipleEntries() {
+  static void testDoUpdate_WhenApplyNullEntryList_ThenThrowException() {
+    // Arrange
+    List<IEntry> entries = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<IEntry> entries)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEntryList_ThenExecuteUpdate() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
     Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
@@ -210,8 +411,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entries = (List<IEntry>) (new Eloquent()).doUpdate(entries);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
@@ -228,33 +431,85 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testUpsertSingleRecord() {
+  static void testDoUpsert_WhenApplyNullSObject_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsert(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenApplySObject_ThenExecuteUpsert() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
 
     // Act & Assert
     try {
       opp = (Opportunity) (new Eloquent()).doUpsert(opp);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testUpsertSingleEntry() {
+  static void testDoUpsert_WhenApplyNullEntry_ThenThrowException() {
+    // Arrange
+    IEntry entry = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsert(entry);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(IEntry entry)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenApplyEntry_ThenExecuteUpsert() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
     IEntry entry = new Entry(opp);
     // Act & Assert
     try {
       entry = (new Eloquent()).doUpsert(entry);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testUpsertMultipleRecords() {
+  static void testDoUpsert_WhenApplyNullSObjectList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsert(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenApplyMultipleSObjectList_ThenExecuteUpsert() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
     Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
@@ -262,28 +517,31 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opps = (List<Opportunity>) (new Eloquent()).doUpsert(opps);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testUpsertMultipleEntries() {
+  static void testDoUpsert_WhenApplyNullEntryList_ThenThrowException() {
     // Arrange
-    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
-    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
-    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+    List<IEntry> entries = null;
 
     // Act & Assert
     try {
-      entries = (List<IEntry>) (new Eloquent()).doUpsert(entries);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+      (new Eloquent()).doUpsert(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsert(List<IEntry> entries)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
     }
   }
 
   @isTest
-  static void testUpsertEmptyEntries() {
+  static void testUpser_WhenApplyEmptyEntryList_ThenReturnEmptyEntryList() {
     // Arrange
     List<IEntry> entries = new List<IEntry>();
     // Act
@@ -293,20 +551,71 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testDeleteSingleRecord() {
+  static void testDoUpsert_WhenApplyMultipleEntryList_ThenExecuteUpsert() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+
+    // Act & Assert
+    try {
+      entries = (List<IEntry>) (new Eloquent()).doUpsert(entries);
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplyNullSObject_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(SObject record)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplySObject_ThenExecuteDelete() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000');
 
     // Act & Assert
     try {
       (new Eloquent()).doDelete(opp);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to delete operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testDeleteSingleEntry() {
+  static void testDoDelete_WhenApplyNullEntry_ThenThrowException() {
+    // Arrange
+    IEntry entry = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(entry);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(IEntry entry)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplyEntry_ThenExecuteDelete() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000');
     IEntry entry = new Entry(opp);
@@ -314,13 +623,31 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(entry);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to delete operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testDeleteMultipleRecords() {
+  static void testDoDelete_WhenApplyNullSObjectList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(List<SObject> records)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplySObjectList_ThenExecuteDelete() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000');
     Opportunity opp2 = new Opportunity(Id = '006000000000001');
@@ -329,13 +656,31 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(opps);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to delete operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 
   @isTest
-  static void testDeleteMultipleEntries() {
+  static void testDoDelete_WhenApplyNullEntryList_ThenThrowException() {
+    // Arrange
+    List<IEntry> entries = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(entries);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doDelete(List<IEntry> entries)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenApplyEntryList_ThenExecuteDelete() {
     // Arrange
     Opportunity opp1 = new Opportunity(Id = '006000000000000');
     Opportunity opp2 = new Opportunity(Id = '006000000000001');
@@ -344,8 +689,10 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(entries);
-    } catch (DmlException e) {
-      System.debug(e.getMessage());
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to delete operation'));
+      Assert.isTrue(error.contains('DML failed with'));
     }
   }
 

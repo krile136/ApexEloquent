@@ -33,13 +33,22 @@
 public with sharing class MockEloquent implements IEloquent {
   private final List<IEntry> entries;
   private Integer insertCount;
-  private Boolean shouldThrowException = false;
+  private Map<String, List<ErrorConfig>> errorQueueMap = new Map<String, List<ErrorConfig>>();
+  private ErrorConfig lastConfig;
 
   @TestVisible
   private Scribe scribe;
 
-  @TestVisible
-  private List<SObject> upsertedRecords = new List<SObject>();
+  public List<SObject> upsertedRecords = new List<SObject>();
+  public Integer deletedCount = 0;
+
+  private String CLASS_NAME = 'MockEloquent';
+  private ApexEloquentException testException = ApexEloquentException.at(CLASS_NAME)
+    .error('Forced Exception for Testing')
+    .reason(
+      'MockEloquent was configured to throw this exception to verify the error handling logic in the calling class'
+    )
+    .action('If this was unexpected, check the \'failOnXxx\' method in your test setup');
 
   /**
    * constructor
@@ -48,7 +57,6 @@ public with sharing class MockEloquent implements IEloquent {
     this.entries = new List<IEntry>();
     this.insertCount = 0;
     this.scribe = null;
-    this.shouldThrowException = false;
   }
 
   /**
@@ -64,7 +72,6 @@ public with sharing class MockEloquent implements IEloquent {
     }
     this.insertCount = 0;
     this.scribe = null;
-    this.shouldThrowException = false;
   }
 
   /**
@@ -76,31 +83,23 @@ public with sharing class MockEloquent implements IEloquent {
     this.entries = entries;
     this.insertCount = 0;
     this.scribe = null;
-    this.shouldThrowException = false;
-  }
-
-  /**
-   * Constructor for forcing an exception
-   *
-   * @param shouldThrow Set to true to make methods throw an exception
-   */
-  public MockEloquent(Boolean shouldThrow) {
-    this.entries = new List<IEntry>();
-    this.insertCount = 0;
-    this.scribe = null;
-    this.shouldThrowException = shouldThrow;
   }
 
   /**
    * @inheritDoc
    */
   public List<IEntry> get(Scribe scribe) {
-    if (this.shouldThrowException) {
-      throw new QueryException('Test Exception from MockEloquent.get()');
+    String method = 'get(Scribe scribe)';
+    this.handleErrorQueue(method);
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
+
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
-    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    FieldStructure fieldStructure = scribe.isAggregate()
+      ? scribe.buildAggregateFieldStructure()
+      : scribe.buildFieldStructure();
     List<IEntry> result = new List<IEntry>();
     for (IEntry entry : this.entries) {
       result.add(entry.setFieldStructure(fieldStructure));
@@ -111,23 +110,23 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
-  public List<IEntry> getAggregate(Scribe scribe) {
-    if (this.shouldThrowException) {
-      throw new QueryException('Test Exception from MockEloquent.getAggregate()');
+  public List<IEntry> rawSoql(String soql) {
+    String method = 'rawSoql(String soql)';
+    this.handleErrorQueue(method);
+    if (String.isBlank(soql)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'soql', soql).fire();
     }
-
-    if (!scribe.isAggregate()) {
-      throw new QueryException(
-        'The provided Scribe instance does not represent an aggregate query: ' + scribe.toSoql()
-      );
-    }
-
-    this.scribe = scribe;
-    String soql = scribe.toSoql(); // for showing and validate SOQL
-    FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
+    // Raw SOQL bypasses the Scribe FieldStructure pipeline, so we cannot apply
+    // "select-forgotten detection" to the mocked rows. For MockEntry instances,
+    // turn off skipFieldValidation so callers can read any field; non-MockEntry
+    // entries pass through unchanged.
     List<IEntry> result = new List<IEntry>();
     for (IEntry entry : this.entries) {
-      result.add(entry.setFieldStructure(fieldStructure));
+      if (entry instanceof MockEntry) {
+        result.add(((MockEntry) entry).withoutFieldValidation());
+      } else {
+        result.add(entry);
+      }
     }
     return result;
   }
@@ -136,9 +135,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> getAsSObject(Scribe scribe) {
-    if (this.shouldThrowException) {
-      throw new QueryException('Test Exception from MockEloquent.getAsSObject()');
+    String method = 'getAsSObject(Scribe scribe)';
+    this.handleErrorQueue(method);
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
+
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     List<SObject> result = new List<SObject>();
@@ -152,9 +154,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry first(Scribe scribe) {
-    if (this.shouldThrowException) {
-      throw new QueryException('Test Exception from MockEloquent.first()');
+    String method = 'first(Scribe scribe)';
+    this.handleErrorQueue(method);
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
+
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
@@ -168,9 +173,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject firstAsSObject(Scribe scribe) {
-    if (this.shouldThrowException) {
-      throw new QueryException('Test Exception from MockEloquent.firstAsSObject()');
+    String method = 'firstAsSObject(Scribe scribe)';
+    this.handleErrorQueue(method);
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
+
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     if (this.entries.isEmpty()) {
@@ -183,14 +191,26 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry firstOrFail(Scribe scribe) {
-    if (this.shouldThrowException) {
-      throw new QueryException('Test Exception from MockEloquent.firstOrFail()');
+    String method = 'firstOrFail(Scribe scribe)';
+    this.handleErrorQueue(method);
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
+
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
     if (this.entries.isEmpty()) {
-      throw new QueryException('No records found for query: ' + scribe.toSoql());
+      String error = 'No records were found for the given criteria';
+      String reason = 'The query execution returned zero records';
+      String action = 'Ensure the test data is correctly registered in MockEloquent';
+      ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error(error)
+        .reason(reason)
+        .action(action)
+        .param('SOQL', scribe.toSoql())
+        .fire();
     }
     return this.entries[0].setFieldStructure(fieldStructure);
   }
@@ -199,13 +219,25 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject firstOrFailAsSObject(Scribe scribe) {
-    if (this.shouldThrowException) {
-      throw new QueryException('Test Exception from MockEloquent.firstOrFailAsSObject()');
+    String method = 'firstOrFailAsSObject(Scribe scribe)';
+    this.handleErrorQueue(method);
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
+
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     if (this.entries.isEmpty()) {
-      throw new QueryException('No records found for query: ' + scribe.toSoql());
+      String error = 'No records were found for the given criteria';
+      String reason = 'The query execution returned zero records';
+      String action = 'Ensure the test data is correctly registered in MockEloquent';
+      ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error(error)
+        .reason(reason)
+        .action(action)
+        .param('SOQL', scribe.toSoql())
+        .fire();
     }
     return this.entries[0].getRecord();
   }
@@ -214,12 +246,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doInsert(SObject record) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doInsert()');
-    }
+    String method = 'doInsert(SObject record)';
+    this.handleErrorQueue(method);
     if (record == null) {
-      throw new DmlException('Cannot insert null record');
+      ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
     }
+
     record.Id = this.generateId(record);
     this.upsertedRecords.add(record);
     return record;
@@ -229,56 +261,13 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doInsert(List<SObject> records) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doInsert()');
-    }
-    if (records == null || records.isEmpty()) {
-      throw new DmlException('Cannot insert null or empty records');
+    String method = 'doInsert(List<SObject> records)';
+    this.handleErrorQueue(method);
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
     for (SObject record : records) {
       record.Id = this.generateId(record);
-    }
-    this.upsertedRecords.addAll(records); 
-    return records;
-  }
-
-  /**
-   * @inheritDoc
-   */
-  public SObject doUpdate(SObject record) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doUpdate()');
-    }
-    if (record == null) {
-      throw new DmlException('Cannot update null record');
-    }
-    this.upsertedRecords.add(record);
-    return record;
-  }
-
-  /**
-   * @inheritDoc
-   */
-  public IEntry doUpdate(IEntry entry) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doUpdate()');
-    }
-    if (entry == null) {
-      throw new DmlException('Cannot update null entry');
-    }
-    this.upsertedRecords.add(entry.getRecord());
-    return entry;
-  }
-
-  /**
-   * @inheritDoc
-   */
-  public List<SObject> doUpdate(List<SObject> records) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doUpdate()');
-    }
-    if (records == null || records.isEmpty()) {
-      throw new DmlException('Cannot update null or empty records');
     }
     this.upsertedRecords.addAll(records);
     return records;
@@ -287,14 +276,55 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public SObject doUpdate(SObject record) {
+    String method = 'doUpdate(SObject record)';
+    this.handleErrorQueue(method);
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
+    this.upsertedRecords.add(record);
+    return record;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public IEntry doUpdate(IEntry entry) {
+    String method = 'doUpdate(IEntry entry)';
+    this.handleErrorQueue(method);
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
+
+    this.upsertedRecords.add(entry.getRecord());
+    return entry;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<SObject> doUpdate(List<SObject> records) {
+    String method = 'doUpdate(List<SObject> records)';
+    this.handleErrorQueue(method);
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
+
+    this.upsertedRecords.addAll(records);
+    return records;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public List<IEntry> doUpdate(List<IEntry> entries) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doUpdate()');
+    String method = 'doUpdate(List<IEntry> entries)';
+    this.handleErrorQueue(method);
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
     }
-    if (entries == null || entries.isEmpty()) {
-      return new List<IEntry>();
-    }
-    
+
     for (IEntry entry : entries) {
       this.upsertedRecords.add(entry.getRecord());
     }
@@ -306,12 +336,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doUpsert(SObject record) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doUpsert()');
-    }
+    String method = 'doUpsert(SObject record)';
+    this.handleErrorQueue(method);
     if (record == null) {
-      throw new DmlException('Cannot upsert null record');
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
     }
+
     if (record.Id == null) {
       record.Id = this.generateId(record);
     }
@@ -323,12 +353,12 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry doUpsert(IEntry entry) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doUpsert()');
+    String method = 'doUpsert(IEntry entry)';
+    this.handleErrorQueue(method);
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
     }
-    if (entry == null || entry.getRecord() == null) {
-      throw new DmlException('Cannot upsert null entry');
-    }
+
     SObject record = entry.getRecord();
     if (record.Id == null) {
       entry.put('Id', this.generateId(record));
@@ -341,13 +371,25 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doUpsert(List<SObject> records) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doUpsert()');
+    String method = 'doUpsert(List<SObject> records)';
+    this.handleErrorQueue(method);
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
-    if (records == null || records.isEmpty()) {
-      throw new DmlException('Cannot upsert null or empty records');
-    }
+
     for (SObject record : records) {
+      if (record == null) {
+        String error = 'Null record found in records list';
+        String reason = 'The list of records to upsert contains a null value, which is not allowed';
+        String action = 'Ensure that the list of records passed to doUpsert does not contain any null values';
+        ApexEloquentException.at(CLASS_NAME)
+          .method(method)
+          .error(error)
+          .reason(reason)
+          .action(action)
+          .param('records', records)
+          .fire();
+      }
       if (record.Id == null) {
         record.Id = this.generateId(record);
       }
@@ -360,15 +402,24 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> doUpsert(List<IEntry> entries) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doUpsert()');
+    String method = 'doUpsert(List<IEntry> entries)';
+    this.handleErrorQueue(method);
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
     }
-    if (entries == null || entries.isEmpty()) {
-      throw new DmlException('Cannot upsert null or empty entries');
-    }
+
     for (IEntry entry : entries) {
       if (entry == null || entry.getRecord() == null) {
-        throw new DmlException('Cannot upsert null entry or record');
+        String error = 'Null entry found in entries list';
+        String reason = 'The list of entries to upsert contains a null value, which is not allowed';
+        String action = 'Ensure that the list of entries passed to doUpsert does not contain any null values';
+        ApexEloquentException.at(CLASS_NAME)
+          .method(method)
+          .error(error)
+          .reason(reason)
+          .action(action)
+          .param('entries', entries)
+          .fire();
       }
       SObject record = entry.getRecord();
       if (record.Id == null) {
@@ -383,12 +434,13 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(SObject record) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doDelete()');
-    }
+    String method = 'doDelete(SObject record)';
+    this.handleErrorQueue(method);
     if (record == null) {
-      throw new DmlException('Cannot delete null record');
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
     }
+
+    this.deletedCount++;
     return;
   }
 
@@ -396,9 +448,13 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(IEntry entry) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doDelete()');
+    String method = 'doDelete(IEntry entry)';
+    this.handleErrorQueue(method);
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
     }
+
+    this.deletedCount++;
     return;
   }
 
@@ -406,12 +462,13 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(List<SObject> records) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doDelete()');
+    String method = 'doDelete(List<SObject> records)';
+    this.handleErrorQueue(method);
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
-    if (records == null || records.isEmpty()) {
-      throw new DmlException('Cannot delete null or empty records');
-    }
+
+    this.deletedCount += records.size();
     return;
   }
 
@@ -419,10 +476,144 @@ public with sharing class MockEloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(List<IEntry> entries) {
-    if (this.shouldThrowException) {
-      throw new DmlException('Test Exception from MockEloquent.doDelete()');
+    String method = 'doDelete(List<IEntry> entries)';
+    this.handleErrorQueue(method);
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
     }
+
+    this.deletedCount += entries.size();
     return;
+  }
+
+  public MockEloquent failOnGet() {
+    return this.failOnGet(this.testException);
+  }
+
+  public MockEloquent failOnGet(Exception e) {
+    return this.failOnMethod('get', e);
+  }
+
+  public MockEloquent failOnRawSoql() {
+    return this.failOnRawSoql(this.testException);
+  }
+
+  public MockEloquent failOnRawSoql(Exception e) {
+    return this.failOnMethod('rawSoql', e);
+  }
+
+  public MockEloquent failOnGetAsSObject() {
+    return this.failOnGetAsSObject(this.testException);
+  }
+
+  public MockEloquent failOnGetAsSObject(Exception e) {
+    return this.failOnMethod('getAsSObject', e);
+  }
+
+  public MockEloquent failOnFirst() {
+    return this.failOnFirst(this.testException);
+  }
+
+  public MockEloquent failOnFirst(Exception e) {
+    return this.failOnMethod('first', e);
+  }
+
+  public MockEloquent failOnFirstAsSObject() {
+    return this.failOnFirstAsSObject(this.testException);
+  }
+
+  public MockEloquent failOnFirstAsSObject(Exception e) {
+    return this.failOnMethod('firstAsSObject', e);
+  }
+
+  public MockEloquent failOnFirstOrFail() {
+    return this.failOnFirstOrFail(this.testException);
+  }
+
+  public MockEloquent failOnFirstOrFail(Exception e) {
+    return this.failOnMethod('firstOrFail', e);
+  }
+
+  public MockEloquent failOnFirstOrFailAsSObject() {
+    return this.failOnFirstOrFailAsSObject(this.testException);
+  }
+
+  public MockEloquent failOnFirstOrFailAsSObject(Exception e) {
+    return this.failOnMethod('firstOrFailAsSObject', e);
+  }
+
+  public MockEloquent failOnDoInsert() {
+    return this.failOnDoInsert(this.testException);
+  }
+
+  public MockEloquent failOnDoInsert(Exception e) {
+    return this.failOnMethod('doInsert', e);
+  }
+
+  public MockEloquent failOnDoUpdate() {
+    return this.failOnDoUpdate(this.testException);
+  }
+
+  public MockEloquent failOnDoUpdate(Exception e) {
+    return this.failOnMethod('doUpdate', e);
+  }
+
+  public MockEloquent failOnDoUpsert() {
+    return this.failOnDoUpsert(this.testException);
+  }
+
+  public MockEloquent failOnDoUpsert(Exception e) {
+    return this.failOnMethod('doUpsert', e);
+  }
+
+  public MockEloquent failOnDoDelete() {
+    return this.failOnDoDelete(this.testException);
+  }
+
+  public MockEloquent failOnDoDelete(Exception e) {
+    return this.failOnMethod('doDelete', e);
+  }
+
+  private MockEloquent failOnMethod(String method, Exception e) {
+    MockEloquent newMockEloquent = this.copy();
+    ErrorConfig config = new ErrorConfig(e, false);
+    if (!newMockEloquent.errorQueueMap.containsKey(method)) {
+      newMockEloquent.errorQueueMap.put(method, new List<ErrorConfig>{ config });
+    } else {
+      newMockEloquent.errorQueueMap.get(method).add(config);
+    }
+    newMockEloquent.lastConfig = config;
+
+    return newMockEloquent;
+  }
+
+  public MockEloquent repeat() {
+    String method = 'repeat()';
+    MockEloquent newMockEloquent = this.copy();
+    if (newMockEloquent.lastConfig == null) {
+      String error = 'No method call to repeat';
+      String reason = 'repeat() is designed to repeat the last configured exception. It cannot be used without first configuring an exception with a failOnXxx method';
+      String action = 'Call a failOnXxx method (e.g., failOnGet()) before calling repeat()';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+    }
+
+    newMockEloquent.lastConfig.isRepeat = true;
+
+    return newMockEloquent;
+  }
+
+  private void handleErrorQueue(String methodWithArguments) {
+    String method = methodWithArguments.split('\\(')[0];
+    if (this.errorQueueMap.containsKey(method) && !this.errorQueueMap.get(method).isEmpty()) {
+      ErrorConfig config = this.errorQueueMap.get(method).remove(0);
+      if (config.isRepeat) {
+        this.errorQueueMap.get(method).add(config);
+      }
+      if (config.ex instanceof ApexEloquentException) {
+        ((ApexEloquentException) config.ex).method(methodWithArguments).fire();
+      }
+      throw config.ex;
+    }
   }
 
   /**
@@ -436,5 +627,36 @@ public with sharing class MockEloquent implements IEloquent {
     String generatedId = prefix + String.valueOf(this.insertCount).leftPad(12, '0');
     this.insertCount++;
     return generatedId;
+  }
+
+  private MockEloquent copy() {
+    MockEloquent newMockEloquent = new MockEloquent(this.entries);
+    newMockEloquent.insertCount = this.insertCount;
+    newMockEloquent.scribe = this.scribe;
+    newMockEloquent.errorQueueMap = new Map<String, List<ErrorConfig>>();
+    newMockEloquent.lastConfig = null;
+    for (String method : this.errorQueueMap.keySet()) {
+      List<ErrorConfig> configs = this.errorQueueMap.get(method);
+      List<ErrorConfig> newConfigs = new List<ErrorConfig>();
+      for (ErrorConfig config : configs) {
+        ErrorConfig newConfig = new ErrorConfig(config.ex, config.isRepeat);
+        newConfigs.add(newConfig);
+        if (this.lastConfig == config) {
+          newMockEloquent.lastConfig = newConfig;
+        }
+      }
+      newMockEloquent.errorQueueMap.put(method, newConfigs);
+    }
+    return newMockEloquent;
+  }
+
+  private class ErrorConfig {
+    public Exception ex;
+    public Boolean isRepeat;
+
+    ErrorConfig(Exception ex, Boolean isRepeat) {
+      this.ex = ex;
+      this.isRepeat = isRepeat;
+    }
   }
 }

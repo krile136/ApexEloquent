@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
- /**
+/**
  * @description Defines the contract for a unified record wrapper, which represents a single result from an `ApexEloquent` query.
  *
  * This interface is the cornerstone of the framework's testability. It abstracts the
@@ -25,7 +25,7 @@
  * It provides methods to access field values and to navigate eager-loaded parent, child,
  * and many-to-many (`through`) relationships.
  */
-public Interface IEntry {
+public interface IEntry {
   /**
    * get SObject field value.
    *
@@ -40,26 +40,45 @@ public Interface IEntry {
    * @param fieldName field name
    * @param value field value
    */
-  void put(String fieldName, Object value); 
+  void put(String fieldName, Object value);
 
   /**
    * get parent SObject as Evaluator.
    *
    * @param parentFieldName parent relationId field name
-   * @return parent SObject as Entry 
+   * @return parent SObject as Entry
    */
   IEntry getParent(String parentIdFieldName);
 
   /**
-   * get child SObject list.
+   * Returns the list of child IEntry records for the given name.
    *
-   * @param childObjectName child SObject name
-   * @return child SObject list
+   * Name resolution:
+   *  1. First, treats `name` as a **child SObject name** (e.g., `Contact`, `Custom__c`).
+   *  2. If that fails, falls back to treating `name` as a **child relationship name**
+   *     (e.g., `Contacts`, `Custom__r`). This means callers can pass either form
+   *     without choosing a different method.
+   *  3. If neither resolves, `ApexEloquentException` is thrown.
+   *
+   * @param name Either a child SObject name or a child relationship name.
+   * @return The list of child IEntry records. Empty list when no children exist.
+   * @throws ApexEloquentException when `name` is null/blank, or when it matches
+   *         neither a child SObject name nor a child relationship name on the
+   *         parent. Also thrown for ambiguous SObject names (multiple
+   *         relationships with the same SObject); in that case, pass the
+   *         relationship name instead.
    */
-  List<IEntry> getChildren(String childObjectName);
+  List<IEntry> getChildren(String name);
 
   /**
-   * get child SObject list through relation name.
+   * @deprecated
+   * Use {@link #getChildren(String)} instead. `getChildren` now accepts both
+   * child SObject names and child relationship names (with object-name
+   * resolution attempted first, then falling back to relationship-name).
+   * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
+   * Get child SObject list by relationship name.
    *
    * @param childRelationName child relation name
    * @return child SObject list
@@ -67,14 +86,14 @@ public Interface IEntry {
   List<IEntry> getChildrenByRelationName(String childRelationName);
 
   /**
-  * get related SObject list through a junction object.
-  *
-  * @param junctionObjectName junction object Name
-  * @param relatedKey related SObject key field name in the junction object
-  * @return related SObject list
-  */
+   * get related SObject list through a junction object.
+   *
+   * @param junctionObjectName junction object Name
+   * @param relatedKey related SObject key field name in the junction object
+   * @return related SObject list
+   */
   List<IEntry> getThrough(String junctionObjectName, String relatedKey);
-  
+
   /**
    * get related SObject list through a junction object relation name.
    *

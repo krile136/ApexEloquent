@@ -18,9 +18,11 @@
  * @description A concrete implementation of `AbstractConditionClause` that builds a
  * SOQL `NOT IN` condition.
  *
- * This class handles both `List` and `Set<Id>` collections, formatting each value
- * into a comma-separated list suitable for the `NOT IN` clause. It correctly handles
- * null values within the collection by converting them to the `NULL` literal.
+ * This class handles both `List<X>` and `Set<X>` collections where X is any Apex
+ * primitive type (Id, String, Integer, Long, Decimal, Double, Boolean, Date, Datetime,
+ * Time), formatting each value into a comma-separated list suitable for the `NOT IN`
+ * clause. It correctly handles null values within the collection by converting them to
+ * the `NULL` literal.
  *
  * A key feature is its graceful handling of empty lists: instead of causing a SOQL
  * error, it returns an empty string, which causes the Scribe builder to ignore the
@@ -46,11 +48,7 @@ public with sharing class NotInConditionClause extends AbstractConditionClause {
     Object values
   ) {
     super(sObjectType, fieldMap, field);
-    if (values instanceof Set<Id>) {
-      this.values = new List<Id>((Set<Id>) values);
-    } else {
-      this.values = (List<Object>) values;
-    }
+    this.values = toListObject(values);
   }
 
   /**

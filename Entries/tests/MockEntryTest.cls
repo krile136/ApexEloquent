@@ -1282,6 +1282,136 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetRecord_WhenMutatedExternally_ThenInternalRecordIsUnchanged() {
+    // Defensive-copy regression: mutating the returned SObject must not leak into the cached internal record.
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Original')
+      .setFieldStructure(fieldStructure);
+
+    // Act
+    Account first = (Account) mockEntry.getRecord();
+    first.Name = 'Mutated By Caller';
+    Account second = (Account) mockEntry.getRecord();
+
+    // Assert
+    Assert.areEqual('Original', second.Name, 'Mutating the returned SObject must not affect a subsequent getRecord() call');
+    Assert.areNotEqual(first, second, 'Each getRecord() call should return a distinct SObject instance');
+  }
+
+  @isTest
+  static void testGetRecord_WhenCalledMultipleTimes_ThenInternalStateNotAccumulated() {
+    // Regression: MockEntry used to alias this.record and put() into it, so repeated calls
+    // accumulated fieldToValue overrides into the internal record. Verify that does not happen.
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Override Name')
+      .setFieldStructure(fieldStructure);
+
+    // Act — call multiple times, each from a clean internal state
+    Account first = (Account) mockEntry.getRecord();
+    Account second = (Account) mockEntry.getRecord();
+    Account third = (Account) mockEntry.getRecord();
+
+    // Assert — every call returns the same overridden value (Apex SObject equality is value-based,
+    // so identity-distinctness is not assertable here; we verify it indirectly via the mutation test above).
+    Assert.areEqual('Override Name', first.Name, 'first call should return overridden Name');
+    Assert.areEqual('Override Name', second.Name, 'second call should return the same overridden Name');
+    Assert.areEqual('Override Name', third.Name, 'third call should return the same overridden Name');
+  }
+
+  @isTest
+  static void testGetRecord_WhenSettingFormulaField_ThenFormulaValueIsApplied() {
+    // Regression: SObject.put() rejects formula fields. JSON round-trip should allow it.
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .fields(new List<String>{ 'id', 'name', 'isclosed' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .set('Name', 'Test Opp')
+      .set('IsClosed', true) // formula field — normally read-only via put()
+      .setFieldStructure(fieldStructure);
+
+    // Act
+    Opportunity opp = (Opportunity) mockEntry.getRecord();
+
+    // Assert
+    Assert.areEqual('Test Opp', opp.Name, 'Name should be set');
+    Assert.areEqual(true, opp.IsClosed, 'formula field IsClosed should be set via JSON round-trip');
+  }
+
+  @isTest
+  static void testGetRecord_WhenSettingAuditField_ThenAuditValueIsApplied() {
+    // Regression: SObject.put() rejects audit fields (CreatedDate etc.). JSON round-trip should allow it.
+    // Arrange
+    Datetime fixedCreated = Datetime.newInstanceGmt(2026, 1, 1, 0, 0, 0);
+    FieldStructure fieldStructure = Scribe.of(Account.class)
+      .fields(new List<String>{ 'id', 'name', 'createddate' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
+      .autoId(1)
+      .set('Name', 'Audit Test')
+      .set('CreatedDate', fixedCreated) // audit field — normally read-only via put()
+      .setFieldStructure(fieldStructure);
+
+    // Act
+    Account acc = (Account) mockEntry.getRecord();
+
+    // Assert
+    Assert.areEqual('Audit Test', acc.Name, 'Name should be set');
+    Assert.areEqual(fixedCreated, acc.CreatedDate, 'audit field CreatedDate should be set via JSON round-trip');
+  }
+
+  @isTest
+  static void testGetRecord_WhenSetParentOnly_ThenIdFieldStaysNull() {
+    // Relationship overrides (set via setParent) must NOT leak into the flat SObject.
+    // Callers expect to navigate via getParent() to access the parent IEntry.
+    // Arrange
+    MockEntry mockAccount = (MockEntry) MockEntry.of(Account.class).autoId(1).set('Name', 'Parent Acc');
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .fields(new List<String>{ 'id', 'name' })
+      .buildFieldStructure();
+    MockEntry mockOpp = (MockEntry) MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .set('Name', 'Test Opp')
+      .setParent('AccountId', mockAccount) // relationship — should not flatten into AccountId field
+      .setFieldStructure(fieldStructure);
+
+    // Act
+    Opportunity opp = (Opportunity) mockOpp.getRecord();
+
+    // Assert
+    Assert.areEqual('Test Opp', opp.Name, 'Name should be set');
+    Assert.isNull(opp.AccountId, 'AccountId should NOT be auto-populated from a setParent-only call');
+  }
+
+  @isTest
+  static void testGetRecord_WhenMockEntryIsAggregateResultMode_ThenThrowApexEloquentException() {
+    // Arrange: construct a MockEntry in AggregateResult mode (no SObject record).
+    MockEntry mockEntry = new MockEntry(new Map<String, Object>{ 'avgAmount' => 1500 });
+
+    // Act & Assert
+    try {
+      mockEntry.getRecord();
+      Assert.fail('Expected ApexEloquentException to be thrown for AggregateResult-mode MockEntry');
+    } catch (ApexEloquentException e) {
+      String msg = e.getMessage();
+      Assert.isTrue(msg.contains('MockEntry'), 'should contain class name');
+      Assert.isTrue(msg.contains('getRecord()'), 'should contain method name');
+      Assert.isTrue(msg.contains('AggregateResult'), 'should mention AggregateResult');
+    }
+  }
+
+  @isTest
   static void testSetRecord_WhenCalled_ThenReturnNewMockEntry() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');

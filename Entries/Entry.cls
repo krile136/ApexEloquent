@@ -242,7 +242,16 @@ public with sharing class Entry extends AbstractEntry {
    * @inheritDoc
    */
   public override SObject getRecord() {
-    return this.record;
+    if (this.hasAggregateResult) {
+      ApexEloquentException.invalidOperation(
+          CLASS_NAME,
+          'getRecord()',
+          'getRecord() is not supported on an Entry that represents an AggregateResult'
+        )
+        .fire();
+    }
+    // Return a defensive deep clone so callers cannot mutate the cached internal state.
+    return this.record.clone(true, true, true, true);
   }
 
   /**

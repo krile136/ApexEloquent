@@ -203,6 +203,41 @@ public with sharing class EntryTest {
   }
 
   @isTest
+  static void testGetRecord_WhenEntryIsAggregateResultMode_ThenThrowApexEloquentException() {
+    // Arrange: construct an Entry in AggregateResult mode (record == null).
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class).buildFieldStructure();
+    Entry entry = new Entry((AggregateResult) null, fieldStructure);
+
+    // Act & Assert
+    try {
+      entry.getRecord();
+      Assert.fail('Expected ApexEloquentException to be thrown for AggregateResult-mode Entry');
+    } catch (ApexEloquentException e) {
+      String msg = e.getMessage();
+      Assert.isTrue(msg.contains('Entry'), 'should contain class name');
+      Assert.isTrue(msg.contains('getRecord()'), 'should contain method name');
+      Assert.isTrue(msg.contains('AggregateResult'), 'should mention AggregateResult');
+    }
+  }
+
+  @isTest
+  static void testGetRecord_WhenMutatedExternally_ThenInternalRecordIsUnchanged() {
+    // Defensive-copy regression: mutating the returned SObject must not leak into the cached internal record.
+    // Arrange
+    SObject record = new Account(Id = '001000000000000', Name = 'Original');
+    Entry entry = new Entry(record);
+
+    // Act
+    Account first = (Account) entry.getRecord();
+    first.Name = 'Mutated By Caller';
+    Account second = (Account) entry.getRecord();
+
+    // Assert
+    Assert.areEqual('Original', second.Name, 'Mutating the returned SObject must not affect a subsequent getRecord() call');
+    Assert.areNotEqual(first, second, 'Each getRecord() call should return a distinct SObject instance');
+  }
+
+  @isTest
   static void testGetParent_WhenApplyNull_ThenThrowException() {
     // Arrange
     SObject record = new Opportunity(Name = 'Test Opportunity');

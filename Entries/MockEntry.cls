@@ -1042,20 +1042,75 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
-   * @inheritDoc
+   * Returns the underlying SObject with all scalar field overrides applied.
+   *
+   * Implementation notes:
+   *  - Uses JSON round-trip so formula / audit / rollup / other read-only fields
+   *    can also be populated for testing (SObject.put() rejects these).
+   *  - Relation overrides (set via setParent / setChildren) are NOT embedded in
+   *    the returned SObject. The returned SObject only contains scalar field values.
+   *
+   * Usage notes for callers:
+   *  - When you need related data, navigate via the IEntry API first
+   *    (getParent / getChildren / getChildrenByRelationName / getThrough / getThroughByRelationName)
+   *    and then call getRecord() on the resulting IEntry.
+   *  - Calling getRecord() on a MockEntry that represents an AggregateResult
+   *    throws ApexEloquentException — AggregateResult cannot be returned as a regular SObject.
+   *
+   * @return The SObject with scalar overrides applied (defensive clone, not aliasing internal state).
+   * @throws ApexEloquentException when called on an AggregateResult-mode MockEntry, or when the
+   *         JSON round-trip fails (e.g. value type does not match the target field type).
    */
   public override SObject getRecord() {
-    SObject returnRecord = this.record;
-    for (String fieldName : this.fieldToValue.keySet()) {
-      try {
-        returnRecord.put(fieldName, this.fieldToValue.get(fieldName));
-      } catch (Exception e) {
-        System.debug(
-          'MockEntry.getRecord: Skipped putting value into a field due to a constraint. Field: ' + fieldName
-        );
-      }
+    String method = 'getRecord()';
+
+    if (this.hasAggregateResult) {
+      ApexEloquentException.invalidOperation(
+          CLASS_NAME,
+          method,
+          'getRecord() is not supported on a MockEntry that represents an AggregateResult; AggregateResult cannot be returned as a regular SObject'
+        )
+        .fire();
     }
-    return returnRecord;
+
+    // 1. Defensive clone so the caller cannot mutate the cached internal state.
+    SObject baseRecord = this.record.clone(true, true, true, true);
+
+    // 2. Extract scalar overrides only. IEntry / List<IEntry> values stored via
+    //    setParent / setChildren are relationship data, not flat SObject fields.
+    Map<String, Object> scalarOverrides = new Map<String, Object>();
+    for (String fieldName : this.fieldToValue.keySet()) {
+      Object value = this.fieldToValue.get(fieldName);
+      if (value instanceof IEntry) {
+        continue;
+      }
+      if (value instanceof List<IEntry>) {
+        continue;
+      }
+      scalarOverrides.put(fieldName, value);
+    }
+
+    if (scalarOverrides.isEmpty()) {
+      return baseRecord;
+    }
+
+    // 3. JSON round-trip applies the overrides even on read-only fields
+    //    (formula / audit / rollup) which SObject.put() would reject.
+    try {
+      Map<String, Object> jsonMap = (Map<String, Object>) JSON.deserializeUntyped(JSON.serialize(baseRecord));
+      jsonMap.putAll(scalarOverrides);
+      Type apexType = Type.forName(this.record.getSObjectType().getDescribe().getName());
+      return (SObject) JSON.deserialize(JSON.serialize(jsonMap), apexType);
+    } catch (Exception e) {
+      String reason = 'Failed to apply scalar overrides to the SObject via JSON round-trip';
+      String action = 'Verify each scalar override value matches the target field type (Date/Datetime/Decimal/Boolean/etc.)';
+      ApexEloquentException.invalidOperation(CLASS_NAME, method, reason)
+        .param('scalarOverrides', scalarOverrides)
+        .action(action)
+        .causedBy(e)
+        .fire();
+      return null; // unreachable
+    }
   }
 
   /**

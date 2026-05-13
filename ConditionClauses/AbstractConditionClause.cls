@@ -126,4 +126,38 @@ public with sharing abstract class AbstractConditionClause implements ICondition
     }
     return String.escapeSingleQuotes(String.valueOf(value));
   }
+
+  /**
+   * Normalize a `List` or `Set` of primitive values into a `List<Object>`.
+   *
+   * Accepts:
+   *   - `List<X>` for any X — returned as-is via Apex's primitive-list covariance
+   *   - `Set<X>` where X is one of:
+   *     Id, String, Integer, Long, Decimal, Double, Boolean, Date, Datetime, Time
+   *
+   * Used by `InConditionClause` / `NotInConditionClause` to accept both List- and Set-
+   * shaped inputs without forcing the caller to cast to `Set<Id>` or pre-convert to a List.
+   *
+   * @param values A List or Set of primitive values.
+   * @return The values as a `List<Object>`.
+   * @throws ApexEloquentException when `values` is neither a List nor a supported Set type.
+   */
+  public static List<Object> toListObject(Object values) {
+    if (values instanceof List<Object>) return (List<Object>) values;
+    if (values instanceof Set<Id>) return new List<Id>((Set<Id>) values);
+    if (values instanceof Set<String>) return new List<String>((Set<String>) values);
+    if (values instanceof Set<Integer>) return new List<Integer>((Set<Integer>) values);
+    if (values instanceof Set<Long>) return new List<Long>((Set<Long>) values);
+    if (values instanceof Set<Decimal>) return new List<Decimal>((Set<Decimal>) values);
+    if (values instanceof Set<Double>) return new List<Double>((Set<Double>) values);
+    if (values instanceof Set<Boolean>) return new List<Boolean>((Set<Boolean>) values);
+    if (values instanceof Set<Date>) return new List<Date>((Set<Date>) values);
+    if (values instanceof Set<Datetime>) return new List<Datetime>((Set<Datetime>) values);
+    if (values instanceof Set<Time>) return new List<Time>((Set<Time>) values);
+
+    String reason = 'values must be a List or a Set of a primitive type (Id, String, Integer, Long, Decimal, Double, Boolean, Date, Datetime, Time)';
+    String action = 'Pass a List<X> or Set<X> where X is one of the supported primitive types';
+    ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'values', values).fire();
+    return null; // unreachable
+  }
 }

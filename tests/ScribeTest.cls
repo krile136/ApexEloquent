@@ -2763,6 +2763,90 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testToSoql_WhenCalledTwiceWithCount_ThenReturnsSameSoqlIdempotently() {
+    // 集計クエリで toSoql() を 2 回呼ぶと "Duplicate Alias Error" が出るバグの再現テスト。
+    // MockEloquent 内部で 1 回呼ばれた後、テストで 2 回目を呼ぶシナリオを直接的に検証する。
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'oppCount');
+    String expectedSoql = 'SELECT COUNT(Id) oppCount FROM Opportunity';
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(expectedSoql, firstSoql, 'First toSoql() should return the expected SOQL');
+    Assert.areEqual(expectedSoql, secondSoql, 'Second toSoql() should return the same SOQL (idempotent)');
+  }
+
+  @isTest
+  static void testToSoql_WhenCalledTwiceWithoutExplicitFields_ThenReturnsSameSoql() {
+    // validateAndInitialize() で selectFields に 'Id' を auto 追加する副作用が
+    // 2 回目の toSoql() に影響しないか確認する。
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class);
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(firstSoql, secondSoql, 'toSoql() should be idempotent without explicit fields');
+  }
+
+  @isTest
+  static void testToSoql_WhenCalledTwiceWithMultipleAggregates_ThenReturnsSameSoql() {
+    // 複数 aggregate (sum + count) で toSoql() 2 回呼びが同じ結果を返すか確認。
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .sum('Amount', 'totalAmount')
+      .count('Id', 'oppCount');
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(firstSoql, secondSoql, 'toSoql() with multiple aggregates should be idempotent');
+  }
+
+  @isTest
+  static void testToSoql_WhenCalledTwiceWithAggregateAndHaving_ThenReturnsSameSoql() {
+    // aggregate + HAVING の組合せで 2 回呼びが同じ結果を返すか確認。
+    // HAVING は buildSelectFields 後に aggregateAliasMap を読み出すので、map 再初期化の影響を受けやすい。
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .sum('Amount', 'totalAmount')
+      .groupByField('StageName')
+      .havingCondition(Scribe.asHaving().whereGreaterThan('totalAmount', 1000));
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(firstSoql, secondSoql, 'toSoql() with aggregate + HAVING should be idempotent');
+  }
+
+  @isTest
+  static void testToSoql_WhenCalledTwiceWithParentField_ThenReturnsSameSoql() {
+    // 親クエリ (parentField) で 2 回呼びの冪等性を確認。
+    // ParentScribe.buildSelectClause が呼ばれる経路でも map 状態が持ち越されないか検証する。
+    // Arrange
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
+      .field('Id')
+      .parentField(Scribe.asParent('OpportunityId').field('Name'));
+
+    // Act
+    String firstSoql = scribe.toSoql();
+    String secondSoql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(firstSoql, secondSoql, 'toSoql() with parent field should be idempotent');
+  }
+
+  @isTest
   static void testCount_WhenAddNonExistFieldToCount_ThenThrowException() {
     // Arrange / Act / Assert
     try {

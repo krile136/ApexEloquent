@@ -1412,6 +1412,10 @@ public with sharing class Scribe {
    * @return The complete, executable SOQL query string.
    */
   public String toSoql() {
+    // Reset accumulator state so toSoql() is idempotent across multiple calls
+    // (otherwise alias entries from the previous build trigger Duplicate Alias Error).
+    this.aggregateAliasMap = new Map<String, AliasStructure>();
+
     this.validateAndInitialize();
 
     Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
@@ -2349,6 +2353,10 @@ public with sharing class Scribe {
       String childObjectName,
       Integer upperNestingDepth
     ) {
+      // Reset the inner scribe's aggregate alias map so this method is idempotent
+      // across multiple top-level toSoql() invocations (mirrors Scribe.toSoql()).
+      this.scribe.aggregateAliasMap = new Map<String, AliasStructure>();
+
       ParentObjectData parentObjectData = this.validate(childFieldMap);
 
       Integer currentUpperNestingDepth = upperNestingDepth + 1;

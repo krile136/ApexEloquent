@@ -27,6 +27,8 @@
  * @see Scribe
  */
 public with sharing abstract class AbstractAggregateClause implements IAggregateClause {
+  private static final String CLASS_NAME = 'AbstractAggregateClause';
+
   protected final Schema.SObjectType sObjectType;
   protected final Map<String, Schema.SObjectField> fieldMap;
   protected final String fieldName;
@@ -47,10 +49,10 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
     String alias
   ) {
     if (String.isBlank(fieldName)) {
-      throw new IllegalArgumentException('fieldName must not be blank');
+      ApexEloquentException.required(CLASS_NAME, null, 'fieldName', fieldName).fire();
     }
     if (String.isBlank(alias)) {
-      throw new IllegalArgumentException('alias must not be blank');
+      ApexEloquentException.required(CLASS_NAME, null, 'alias', alias).fire();
     }
     this.sObjectType = sObjectType;
     this.fieldMap = fieldMap;
@@ -106,15 +108,15 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
    * Validates that the specified field name exists in the field map.
    *
    * @param fieldName The field name to validate.
-   * @throws QueryException if the field does not exist in the field map.
+   * @throws ApexEloquentException if the field does not exist in the field map.
    */
   protected void validateFieldName(String fieldName) {
     if (!fieldMap.containsKey(fieldName)) {
-      String error = String.format(
-        'The specified field does not exist in the object\'s fields. object name: {0}, field name: {1}',
-        new List<String>{ sObjectType.getDescribe().getName(), fieldName }
-      );
-      throw new QueryException(error);
+      String reason = 'The specified field does not exist in the object\'s fields';
+      String action = 'Ensure that the field exists on the SObject and is included in the field map';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'fieldName', fieldName)
+        .param('objectName', sObjectType.getDescribe().getName())
+        .fire();
     }
   }
 }

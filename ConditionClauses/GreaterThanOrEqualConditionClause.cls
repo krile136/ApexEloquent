@@ -19,12 +19,14 @@
  * SOQL "greater than or equal to" (`>=`) condition.
  *
  * This class formats the provided value based on the field's data type, correctly
- * applying quotes for strings, dates, etc. It throws a `QueryException` if the
- * provided value is null.
+ * applying quotes for strings, dates, etc. It throws an `ApexEloquentException`
+ * if the provided value is null.
  * @see IConditionClause
  * @see AbstractConditionClause
  */
 public with sharing class GreaterThanOrEqualConditionClause extends AbstractConditionClause {
+  private static final String CLASS_NAME = 'GreaterThanOrEqualConditionClause';
+
   private final Object value;
 
   /**
@@ -76,7 +78,9 @@ public with sharing class GreaterThanOrEqualConditionClause extends AbstractCond
    */
   private String checkAndCast() {
     if (value == null) {
-      throw new QueryException('Value cannot be null for GreaterThanOrEqual condition. field: ' + field);
+      ApexEloquentException.required(CLASS_NAME, null, 'value', this.value)
+        .param('field', this.field)
+        .fire();
     }
 
     Schema.DisplayType fieldType = this.getFieldType(field);

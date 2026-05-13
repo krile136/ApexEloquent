@@ -2081,10 +2081,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'Maximum nesting depth for parent queries reached. Max depth: 5, Object name: Account',
-        e.getMessage()
-      );
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Maximum nesting depth for parent queries reached'), 'should mention nesting depth limit');
+      Assert.isTrue(error.contains('[maxDepth => 5]'), 'should include the max depth limit');
+      Assert.isTrue(error.contains('[objectName => \'Account\']'), 'should include the object name');
     }
   }
 
@@ -2374,7 +2374,9 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('The field name for orderBy() cannot be blank.', e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Scribe.OrderByClause'), 'should locate in Scribe.OrderByClause');
+      Assert.isTrue(error.contains('Missing required parameter'), 'should indicate required-parameter violation');
     }
   }
 
@@ -2390,7 +2392,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('Invalid order direction for orderBy(). Please use \'ASC\' or \'DESC\'.', e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Scribe.OrderByClause'), 'should locate in Scribe.OrderByClause');
+      Assert.isTrue(error.contains('Invalid order direction'), 'should mention the invalid direction');
+      Assert.isTrue(error.contains('[order => \'INVALID\']'), 'should include the rejected value');
     }
   }
 
@@ -2406,7 +2411,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual('Invalid nulls operator for orderBy(). Please use \'FIRST\' or \'LAST\'.', e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Scribe.OrderByClause'), 'should locate in Scribe.OrderByClause');
+      Assert.isTrue(error.contains('Invalid nulls operator'), 'should mention invalid nulls operator');
+      Assert.isTrue(error.contains('[nullsOperator => \'INVALID\']'), 'should include the rejected value');
     }
   }
 
@@ -2683,8 +2691,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2697,8 +2707,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for AVERAGE. object name: Opportunity, field name: Name, field type: STRING';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AverageClause'), 'should locate in AverageClause');
+      Assert.isTrue(error.contains('AVG()'), 'should mention AVG()');
+      Assert.isTrue(error.contains('STRING'), 'should include the rejected field type');
     }
   }
 
@@ -2759,8 +2771,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2773,8 +2787,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for COUNT. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('CountClause'), 'should locate in CountClause');
+      Assert.isTrue(error.contains('COUNT()'), 'should mention COUNT()');
+      Assert.isTrue(error.contains('BOOLEAN'), 'should include the rejected field type');
     }
   }
 
@@ -2800,8 +2816,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2814,8 +2832,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for COUNT_DISTINCT. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('CountDistinctClause'), 'should locate in CountDistinctClause');
+      Assert.isTrue(error.contains('COUNT_DISTINCT()'), 'should mention COUNT_DISTINCT()');
+      Assert.isTrue(error.contains('BOOLEAN'), 'should include the rejected field type');
     }
   }
 
@@ -2841,8 +2861,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2855,8 +2877,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for MAX. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('MaxClause'), 'should locate in MaxClause');
+      Assert.isTrue(error.contains('MAX()'), 'should mention MAX()');
+      Assert.isTrue(error.contains('BOOLEAN'), 'should include the rejected field type');
     }
   }
 
@@ -2882,8 +2906,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2896,8 +2922,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for MIN. object name: Opportunity, field name: IsPrivate, field type: BOOLEAN';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('MinClause'), 'should locate in MinClause');
+      Assert.isTrue(error.contains('MIN()'), 'should mention MIN()');
+      Assert.isTrue(error.contains('BOOLEAN'), 'should include the rejected field type');
     }
   }
 
@@ -2923,8 +2951,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field does not exist in the object\'s fields. object name: Opportunity, field name: NonExistField';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('AbstractAggregateClause'), 'should locate in AbstractAggregateClause');
+      Assert.isTrue(error.contains('fieldName'), 'should mention fieldName param');
+      Assert.isTrue(error.contains('NonExistField'), 'should include the provided field name');
     }
   }
 
@@ -2937,8 +2967,10 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expectedMessage = 'The specified field type is not supported for SUM. object name: Opportunity, field name: Name, field type: STRING';
-      Assert.areEqual(expectedMessage, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('SumClause'), 'should locate in SumClause');
+      Assert.isTrue(error.contains('SUM()'), 'should mention SUM()');
+      Assert.isTrue(error.contains('STRING'), 'should include the rejected field type');
     }
   }
 
@@ -3042,10 +3074,9 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id',
-        e.getMessage()
-      );
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('There are fields in the SELECT clause that are not included in the GROUP BY clause'), 'should mention the SELECT/GROUP BY mismatch');
+      Assert.isTrue(error.contains('[nonGroupedFields => \'id\']'), 'should include the non-grouped fields list');
     }
   }
 
@@ -3139,10 +3170,9 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id',
-        e.getMessage()
-      );
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('There are fields in the SELECT clause that are not included in the GROUP BY clause'), 'should mention the SELECT/GROUP BY mismatch');
+      Assert.isTrue(error.contains('[nonGroupedFields => \'id\']'), 'should include the non-grouped fields list');
     }
   }
 
@@ -3517,10 +3547,9 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      Assert.areEqual(
-        'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id, opportunityid.name',
-        e.getMessage()
-      );
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('There are fields in the SELECT clause that are not included in the GROUP BY clause'), 'should mention the SELECT/GROUP BY mismatch');
+      Assert.isTrue(error.contains('[nonGroupedFields => \'id, opportunityid.name\']'), 'should include the non-grouped fields list');
     }
   }
 
@@ -3590,8 +3619,9 @@ public with sharing class ScribeTest {
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
-      String expected = 'There are fields in the SELECT clause that are not included in the GROUP BY clause. Non-grouped fields: id, orderid.originalorderid.contractid.accountid.parentid.name';
-      Assert.areEqual(expected, e.getMessage());
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('There are fields in the SELECT clause that are not included in the GROUP BY clause'), 'should mention the SELECT/GROUP BY mismatch');
+      Assert.isTrue(error.contains('[nonGroupedFields => \'id, orderid.originalorderid.contractid.accountid.parentid.name\']'), 'should include the non-grouped fields list');
     }
   }
 

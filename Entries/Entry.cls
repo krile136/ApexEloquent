@@ -283,9 +283,11 @@ public with sharing class Entry extends AbstractEntry {
     this.ensureDescribeResultIfNeeded();
     Map<String, Schema.SObjectField> fieldMap = this.describeResult.fields.getMap();
     if (!fieldMap.containsKey(fieldName)) {
-      String reason =
-        'The specified field does not exist in the object\'s fields. Object name:' + this.describeResult.getName();
-      throw new ApexEloquentException(reason);
+      String reason = 'The specified field does not exist in the object\'s fields';
+      String action = 'Ensure the field name is correct and exists on the SObject';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'fieldName', fieldName)
+        .param('objectName', this.describeResult.getName())
+        .fire();
     }
   }
 }

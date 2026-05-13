@@ -22,6 +22,8 @@
  * standard `SObject` records and `AggregateResult` records.
  */
 public abstract class AbstractEntry implements IEntry {
+  private static final String CLASS_NAME = 'AbstractEntry';
+
   protected final SObject record;
   protected final AggregateResult aggregateResult;
   protected final FieldStructure fieldStructure;
@@ -155,12 +157,11 @@ public abstract class AbstractEntry implements IEntry {
     }
 
     if (foundIndex == -1) {
-      throw new ApexEloquentException(
-        String.format(
-          'The specified child object name `{0}` does not exist on Parent: {1}',
-          new List<String>{ childObjectName, this.describeResult.getName() }
-        )
-      );
+      String reason = 'The specified child object name does not exist on Parent';
+      String action = 'Use a child SObject name that has a relationship with the parent';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childObjectName', childObjectName)
+        .param('parentObjectName', this.describeResult.getName())
+        .fire();
     }
 
     // 2. Ambiguity Check: Verify adjacent elements only
@@ -186,12 +187,11 @@ public abstract class AbstractEntry implements IEntry {
     }
 
     if (isAmbiguous) {
-      throw new ApexEloquentException(
-        String.format(
-          'The specified child object name `{0}` is ambiguous because multiple relationships exist on Parent: {1}',
-          new List<String>{ childObjectName, this.describeResult.getName() }
-        )
-      );
+      String reason = 'The specified child object name is ambiguous because multiple relationships exist on Parent';
+      String action = 'Use getChildrenByRelationName() with the explicit relationship name instead';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childObjectName', childObjectName)
+        .param('parentObjectName', this.describeResult.getName())
+        .fire();
     }
 
     return targetRelation.getRelationshipName();
@@ -214,11 +214,11 @@ public abstract class AbstractEntry implements IEntry {
       }
     }
     if (!found) {
-      String error = String.format(
-        'The specified childRelationName does not exist in the parent object\'s children relationships. parent object name: {0}',
-        new List<String>{ this.describeResult.getName() }
-      );
-      throw new ApexEloquentException(error);
+      String reason = 'The specified childRelationName does not exist in the parent object\'s children relationships';
+      String action = 'Pass a valid child relationship name (e.g. `Contacts` on Account)';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childRelationName', childRelationName)
+        .param('parentObjectName', this.describeResult.getName())
+        .fire();
     }
   }
 

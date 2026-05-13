@@ -1076,10 +1076,11 @@ public with sharing class MockEntry extends AbstractEntry {
       return;
     }
 
-    String reason =
-      'The specified field is not selected in Scribe. SObject: ' +
-      this.record.getSObjectType().getDescribe().getName();
-    throw new ApexEloquentException(reason);
+    String reason = 'The specified field is not selected in Scribe';
+    String action = 'Add the field to the Scribe definition (e.g. `.field(\'' + fieldName + '\')`) or call .withoutFieldValidation() when intentional';
+    ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'fieldName', fieldName)
+      .param('objectName', this.record.getSObjectType().getDescribe().getName())
+      .fire();
   }
 
   /**
@@ -1091,8 +1092,11 @@ public with sharing class MockEntry extends AbstractEntry {
   private void validateChildRelationInFieldStructure(String relation, String errorTemplate) {
     if (!this.skipFieldValidation && !this.fieldStructure.hasRelation(relation.toLowerCase())) {
       this.ensureDescribeResultIfNeeded();
-      String error = String.format(errorTemplate, new List<String>{ relation, this.describeResult.getName() });
-      throw new ApexEloquentException(error);
+      String reason = String.format(errorTemplate, new List<String>{ relation, this.describeResult.getName() });
+      String action = 'Add the relation to the Scribe definition (.withChildren(...)) or call .withoutFieldValidation() when intentional';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'relation', relation)
+        .param('parentObjectName', this.describeResult.getName())
+        .fire();
     }
   }
 
@@ -1111,8 +1115,8 @@ public with sharing class MockEntry extends AbstractEntry {
       entries = new List<IEntry>{ (IEntry) childObjects };
     } else {
       this.ensureDescribeResultIfNeeded();
-      String error = String.format(errorTemplate, new List<String>{ this.describeResult.getName() });
-      throw new ApexEloquentException(error);
+      String reason = String.format(errorTemplate, new List<String>{ this.describeResult.getName() });
+      ApexEloquentException.invalidOperation(CLASS_NAME, null, reason).fire();
     }
 
     List<IEntry> resultEntries = new List<IEntry>();

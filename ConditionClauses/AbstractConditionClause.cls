@@ -28,6 +28,8 @@
  * @see Scribe
  */
 public with sharing abstract class AbstractConditionClause implements IConditionClause {
+  private static final String CLASS_NAME = 'AbstractConditionClause';
+
   protected final Schema.SObjectType sObjectType;
   protected final Map<String, Schema.SObjectField> fieldMap;
   protected final String field;
@@ -90,7 +92,7 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    */
   protected Schema.DisplayType getFieldType(String field) {
     if (this.sObjectType == null) {
-      throw new QueryException('The source SObjectType has not been set.');
+      ApexEloquentException.invalidOperation(CLASS_NAME, null, 'source SObjectType is not set').fire();
     }
     if (!this.fieldMap.containsKey(field)) {
       // If the field doesn't exist in the describe map, default to String.

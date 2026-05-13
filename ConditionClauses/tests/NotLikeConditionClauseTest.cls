@@ -43,10 +43,12 @@ public class NotLikeConditionClauseTest {
     // Act & Assert
     try {
       clause.build();
-      Assert.fail('Expected a QueryException to be thrown for null value.');
-    } catch (QueryException e) {
-      String expectedMessage = 'Value cannot be null for NOT LIKE condition. field: Name';
-      Assert.areEqual(expectedMessage, e.getMessage(), 'The exception message should match.');
+      Assert.fail('Expected an ApexEloquentException to be thrown for null value.');
+    } catch (ApexEloquentException e) {
+      String msg = e.getMessage();
+      Assert.isTrue(msg.contains('NotLikeConditionClause'), 'Message should contain the class name.');
+      Assert.isTrue(msg.contains('value'), 'Message should mention the value parameter.');
+      Assert.isTrue(msg.contains('Missing required parameter'), 'Message should indicate a required-parameter violation.');
     }
   }
 

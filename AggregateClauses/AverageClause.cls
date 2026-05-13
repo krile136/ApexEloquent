@@ -24,6 +24,8 @@
  * @see AbstractAggregateClause
  */
 public with sharing class AverageClause extends AbstractAggregateClause {
+  private static final String CLASS_NAME = 'AverageClause';
+
   private List<DisplayType> supportedTypes = new List<DisplayType>{
     DisplayType.DOUBLE,
     DisplayType.INTEGER,
@@ -66,11 +68,12 @@ public with sharing class AverageClause extends AbstractAggregateClause {
     Schema.SObjectField field = fieldMap.get(fieldName);
     Schema.DisplayType type = field.getDescribe().getType();
     if (!supportedTypes.contains(type)) {
-      String error = String.format(
-        'The specified field type is not supported for AVERAGE. object name: {0}, field name: {1}, field type: {2}',
-        new List<String>{ sObjectType.getDescribe().getName(), fieldName, type.name() }
-      );
-      throw new QueryException(error);
+      String reason = 'AVG() does not support the specified field type';
+      String action = 'Use a field with a numeric type (Double, Integer, Currency, Percent)';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'fieldName', fieldName)
+        .param('objectName', sObjectType.getDescribe().getName())
+        .param('fieldType', type.name())
+        .fire();
     }
 
     return String.format('AVG({0}) {1}', new List<String>{ fieldName, alias });

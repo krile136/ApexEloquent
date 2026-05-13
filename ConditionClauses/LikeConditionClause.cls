@@ -19,11 +19,13 @@
  * SOQL `LIKE` condition for string pattern matching.
  *
  * This class formats the provided string value with the necessary single quotes.
- * It throws a `QueryException` if the provided value is null.
+ * It throws an `ApexEloquentException` if the provided value is null.
  * @see IConditionClause
  * @see AbstractConditionClause
  */
 public with sharing class LikeConditionClause extends AbstractConditionClause {
+  private static final String CLASS_NAME = 'LikeConditionClause';
+
   private final Object value;
 
   /**
@@ -75,7 +77,9 @@ public with sharing class LikeConditionClause extends AbstractConditionClause {
    */
   private String checkAndCast() {
     if (value == null) {
-      throw new QueryException('Value cannot be null for LIKE condition. field: ' + field);
+      ApexEloquentException.required(CLASS_NAME, null, 'value', this.value)
+        .param('field', this.field)
+        .fire();
     }
 
     Schema.DisplayType fieldType = this.getFieldType(field);

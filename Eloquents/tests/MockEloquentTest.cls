@@ -344,8 +344,8 @@ public with sharing class MockEloquentTest {
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
-      Assert.isTrue(error.contains('SObject: Opportunity'));
-      Assert.isTrue(error.contains('field: Name'));
+      Assert.isTrue(error.contains('[objectName => \'Opportunity\']'));
+      Assert.isTrue(error.contains('[fieldName => \'Name\']'));
     }
   }
 
@@ -392,8 +392,8 @@ public with sharing class MockEloquentTest {
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
-      Assert.isTrue(error.contains('SObject: Account'));
-      Assert.isTrue(error.contains('field: Name'));
+      Assert.isTrue(error.contains('[objectName => \'Account\']'));
+      Assert.isTrue(error.contains('[fieldName => \'Name\']'));
     }
   }
 
@@ -472,8 +472,8 @@ public with sharing class MockEloquentTest {
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
-      Assert.isTrue(error.contains('SObject: Account'));
-      Assert.isTrue(error.contains('field: Id'));
+      Assert.isTrue(error.contains('[objectName => \'Account\']'));
+      Assert.isTrue(error.contains('[fieldName => \'Id\']'));
     }
   }
 
@@ -525,8 +525,8 @@ public with sharing class MockEloquentTest {
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
-      Assert.isTrue(error.contains('SObject: Contact'));
-      Assert.isTrue(error.contains('field: Name'));
+      Assert.isTrue(error.contains('[objectName => \'Contact\']'));
+      Assert.isTrue(error.contains('[fieldName => \'Name\']'));
     }
   }
 
@@ -595,8 +595,8 @@ public with sharing class MockEloquentTest {
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
-      Assert.isTrue(error.contains('SObject: Case'));
-      Assert.isTrue(error.contains('field: Id'));
+      Assert.isTrue(error.contains('[objectName => \'Case\']'));
+      Assert.isTrue(error.contains('[fieldName => \'Id\']'));
     }
   }
 
@@ -1022,8 +1022,8 @@ public with sharing class MockEloquentTest {
       Assert.fail('Expected ApexEloquentException to be thrown for non-selected field');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('The specified field is not selected in Scribe'));
-      Assert.isTrue(e.getMessage().contains('SObject: Opportunity'));
-      Assert.isTrue(e.getMessage().contains('field: Name'));
+      Assert.isTrue(e.getMessage().contains('[objectName => \'Opportunity\']'));
+      Assert.isTrue(e.getMessage().contains('[fieldName => \'Name\']'));
     }
   }
 
@@ -1210,9 +1210,9 @@ public with sharing class MockEloquentTest {
       entry.getName(); // This field is not selected in the Scribe query
       Assert.fail('Expected ApexEloquentException to be thrown for non-selected field');
     } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('The specified field is not selected in Scribe.'));
-      Assert.isTrue(e.getMessage().contains('SObject: Opportunity'));
-      Assert.isTrue(e.getMessage().contains('field: Name'));
+      Assert.isTrue(e.getMessage().contains('The specified field is not selected in Scribe'));
+      Assert.isTrue(e.getMessage().contains('[objectName => \'Opportunity\']'));
+      Assert.isTrue(e.getMessage().contains('[fieldName => \'Name\']'));
     }
   }
 

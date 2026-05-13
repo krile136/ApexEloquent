@@ -733,8 +733,8 @@ public with sharing class MockEloquentTest {
       .groupByField('StageName');
     IEloquent eloquent = new MockEloquent(
       new List<IEntry>{
-        new MockEntry(new Map<String, Object>{ 'StageName' => 'Prospecting', 'avgAmount' => 5000 }),
-        new MockEntry(new Map<String, Object>{ 'StageName' => 'Closed Won', 'avgAmount' => 15000 })
+        MockEntry.asAggregateResult(new Map<String, Object>{ 'StageName' => 'Prospecting', 'avgAmount' => 5000 }),
+        MockEntry.asAggregateResult(new Map<String, Object>{ 'StageName' => 'Closed Won', 'avgAmount' => 15000 })
       }
     );
 
@@ -758,7 +758,7 @@ public with sharing class MockEloquentTest {
       .groupByField('StageName');
     IEloquent eloquent = new MockEloquent(
       new List<IEntry>{
-        new MockEntry(new Map<String, Object>{ 'StageName' => 'Prospecting', 'avgAmount' => 5000 })
+        MockEntry.asAggregateResult(new Map<String, Object>{ 'StageName' => 'Prospecting', 'avgAmount' => 5000 })
       }
     );
 
@@ -783,7 +783,7 @@ public with sharing class MockEloquentTest {
       .groupByField('StageName');
     IEloquent eloquent = new MockEloquent(
       new List<IEntry>{
-        new MockEntry(new Map<String, Object>{ 'StageName' => 'Prospecting', 'avgAmount' => 5000 })
+        MockEntry.asAggregateResult(new Map<String, Object>{ 'StageName' => 'Prospecting', 'avgAmount' => 5000 })
       }
     );
 
@@ -831,7 +831,7 @@ public with sharing class MockEloquentTest {
           )
       );
     IEloquent eloquent = new MockEloquent(
-      new MockEntry(new Map<String, Object>{ 'itemCount' => 10, 'accountCount' => 5, 'Type' => 'TestType1' })
+      MockEntry.asAggregateResult(new Map<String, Object>{ 'itemCount' => 10, 'accountCount' => 5, 'Type' => 'TestType1' })
     );
 
     // Act

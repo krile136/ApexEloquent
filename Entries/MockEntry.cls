@@ -79,6 +79,46 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
+   * Creates a new MockEntry that represents an `AggregateResult` row.
+   *
+   * This is the discoverable counterpart to {@link #of(System.Type)} for non-SObject
+   * results from aggregate SOQL queries (e.g., `SELECT COUNT(Id) total ...`).
+   * The returned MockEntry has no underlying SObject; values are supplied via
+   * `.set(fieldNameOrAlias, value)` and read via `.get(fieldNameOrAlias)`.
+   *
+   * @return A new empty MockEntry in AggregateResult mode.
+   */
+  public static MockEntry asAggregateResult() {
+    return new MockEntry(new Map<String, Object>());
+  }
+
+  /**
+   * Creates a new MockEntry that represents an `AggregateResult` row, pre-populated
+   * with the given field/alias values.
+   *
+   * Convenience overload for the common case of declaring an aggregate mock inline
+   * with multiple field values at once:
+   *
+   * <pre>
+   * MockEntry.asAggregateResult(new Map<String, Object>{
+   *   'StageName' => 'Closed Won',
+   *   'totalAmount' => 15000
+   * });
+   * </pre>
+   *
+   * @param fieldToValue A map of field names or aliases to their mock values.
+   * @return A new MockEntry in AggregateResult mode with the supplied values.
+   * @throws ApexEloquentException when {@code fieldToValue} is null.
+   */
+  public static MockEntry asAggregateResult(Map<String, Object> fieldToValue) {
+    String method = 'asAggregateResult(Map<String, Object> fieldToValue)';
+    if (fieldToValue == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'fieldToValue', fieldToValue).fire();
+    }
+    return new MockEntry(fieldToValue);
+  }
+
+  /**
    * Creates a new MockEntry instance with the specified alias.
    * The alias is used for retrieving the entry via `getByAlias` method.
    *
@@ -653,7 +693,14 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
-   * constructor for AggregateResult
+   * @deprecated
+   * Use {@link #asAggregateResult()} or {@link #asAggregateResult(Map)} instead.
+   * The static factories make the intent ("AggregateResult mode") obvious at the
+   * call site, aligning with the `MockEntry.of(...)` / `Scribe.asParent / asChild / asHaving`
+   * patterns elsewhere in ApexEloquent.
+   *
+   * This constructor is retained for backward compatibility but may be removed
+   * in a future major version.
    *
    * @param fieldToValue field to value map
    */

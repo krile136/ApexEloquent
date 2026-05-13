@@ -1394,10 +1394,58 @@ public class MockEntryTest {
     Assert.isNull(opp.AccountId, 'AccountId should NOT be auto-populated from a setParent-only call');
   }
 
+  // ====== asAggregateResult factory ======
+
+  @isTest
+  static void testAsAggregateResult_WhenNoArg_ThenReturnsEmptyAggregateResultModeMockEntry() {
+    // Arrange / Act
+    MockEntry agg = MockEntry.asAggregateResult();
+
+    // Assert
+    Assert.isTrue(agg.hasAggregateResult, 'should be in AggregateResult mode');
+    // Should support chaining via .set()
+    MockEntry filled = agg.set('avgAmount', 1500);
+    Assert.isTrue(filled.hasAggregateResult, 'chained MockEntry should also be in AggregateResult mode');
+  }
+
+  @isTest
+  static void testAsAggregateResult_WhenMap_ThenReturnsAggregateResultModeMockEntryWithValues() {
+    // Arrange
+    Map<String, Object> values = new Map<String, Object>{ 'avgAmount' => 1500, 'countId' => 10 };
+
+    // Act
+    MockEntry agg = MockEntry.asAggregateResult(values);
+
+    // Assert
+    Assert.isTrue(agg.hasAggregateResult, 'should be in AggregateResult mode');
+    // Use skipFieldValidation to bypass the FieldStructure check (mock without Scribe pipeline)
+    MockEntry skipped = agg.withoutFieldValidation();
+    Assert.areEqual(1500, skipped.get('avgAmount'), 'should return seeded value for avgAmount');
+    Assert.areEqual(10, skipped.get('countId'), 'should return seeded value for countId');
+  }
+
+  @isTest
+  static void testAsAggregateResult_WhenMapIsNull_ThenThrowApexEloquentException() {
+    // Arrange
+    Map<String, Object> values = null;
+
+    // Act & Assert
+    try {
+      MockEntry.asAggregateResult(values);
+      Assert.fail('Expected ApexEloquentException to be thrown for null fieldToValue');
+    } catch (ApexEloquentException e) {
+      String msg = e.getMessage();
+      Assert.isTrue(msg.contains('MockEntry'), 'should contain class name');
+      Assert.isTrue(msg.contains('asAggregateResult'), 'should contain method name');
+      Assert.isTrue(msg.contains('fieldToValue'), 'should mention fieldToValue parameter');
+      Assert.isTrue(msg.contains('Missing required parameter'), 'should indicate required-parameter violation');
+    }
+  }
+
   @isTest
   static void testGetRecord_WhenMockEntryIsAggregateResultMode_ThenThrowApexEloquentException() {
     // Arrange: construct a MockEntry in AggregateResult mode (no SObject record).
-    MockEntry mockEntry = new MockEntry(new Map<String, Object>{ 'avgAmount' => 1500 });
+    MockEntry mockEntry = MockEntry.asAggregateResult(new Map<String, Object>{ 'avgAmount' => 1500 });
 
     // Act & Assert
     try {

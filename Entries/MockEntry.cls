@@ -112,7 +112,7 @@ public with sharing class MockEntry extends AbstractEntry {
 
     if (this.alias == alias) {
       MockEntry returnEntry = new MockEntry(this.record, this.fieldStructure, this.fieldToValue);
-      returnEntry = (MockEntry) returnEntry.withoutFieldValidation();
+      returnEntry = returnEntry.withoutFieldValidation();
       return returnEntry;
     }
     List<MockEntry> relations = new List<MockEntry>();
@@ -126,7 +126,7 @@ public with sharing class MockEntry extends AbstractEntry {
     for (MockEntry relation : relations) {
       MockEntry returnEntry = relation.getByAliasFromRelation(alias);
       if (returnEntry != null) {
-        returnEntry = (MockEntry) returnEntry.withoutFieldValidation();
+        returnEntry = returnEntry.withoutFieldValidation();
         return returnEntry;
       }
     }
@@ -697,8 +697,8 @@ public with sharing class MockEntry extends AbstractEntry {
           Object value = this.fieldToValue.get(key);
           if (value instanceof IEntry) {
             IEntry entry = (IEntry) value;
-            if (this.skipFieldValidation) {
-              entry = entry.withoutFieldValidation();
+            if (this.skipFieldValidation && entry instanceof MockEntry) {
+              entry = ((MockEntry) entry).withoutFieldValidation();
             }
             FieldStructure relationFieldStructure = this.fieldStructure == null
               ? new FieldStructure(new List<String>())
@@ -735,8 +735,8 @@ public with sharing class MockEntry extends AbstractEntry {
         Object value = this.fieldToValue.get(key);
         if (value instanceof IEntry) {
           IEntry entry = (IEntry) value;
-          if (this.skipFieldValidation) {
-            entry = entry.withoutFieldValidation();
+          if (this.skipFieldValidation && entry instanceof MockEntry) {
+            entry = ((MockEntry) entry).withoutFieldValidation();
           }
           FieldStructure relationFieldStructure = this.fieldStructure == null
             ? new FieldStructure(new List<String>())
@@ -806,8 +806,8 @@ public with sharing class MockEntry extends AbstractEntry {
 
     if (this.fieldToValue.containsKey(parentIdFieldName)) {
       IEntry resultEntry = (IEntry) this.fieldToValue.get(parentIdFieldName);
-      if (this.skipFieldValidation) {
-        resultEntry = resultEntry.withoutFieldValidation();
+      if (this.skipFieldValidation && resultEntry instanceof MockEntry) {
+        resultEntry = ((MockEntry) resultEntry).withoutFieldValidation();
       }
       FieldStructure parentFieldStructure = this.fieldStructure == null
         ? new FieldStructure(new List<String>())
@@ -1022,7 +1022,19 @@ public with sharing class MockEntry extends AbstractEntry {
   /**
    * @inheritDoc
    */
-  public override IEntry withoutFieldValidation() {
+  /**
+   * Disable the "unselected field detection" feature for this MockEntry.
+   *
+   * NOTE: This is a MockEntry-only API. It is intentionally NOT exposed on IEntry
+   * because Entry (production) has no concept of skip-validation — defining it on
+   * the interface would force a LSP-violating throw on the Entry side.
+   *
+   * Use this when constructing mock data that intentionally omits some fields:
+   *   mockEntry.withoutFieldValidation()
+   *
+   * @return a new MockEntry instance with skipFieldValidation = true
+   */
+  public MockEntry withoutFieldValidation() {
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, this.fieldToValue);
     newEntry.inheritParameters(newEntry);
     newEntry.skipFieldValidation = true;
@@ -1124,8 +1136,8 @@ public with sharing class MockEntry extends AbstractEntry {
       ? new FieldStructure()
       : this.fieldStructure.getRelationFieldStructure(key.toLowerCase());
     for (IEntry entry : entries) {
-      if (this.skipFieldValidation) {
-        entry = entry.withoutFieldValidation();
+      if (this.skipFieldValidation && entry instanceof MockEntry) {
+        entry = ((MockEntry) entry).withoutFieldValidation();
       }
       resultEntries.add(entry.setFieldStructure(childFieldStructure));
     }

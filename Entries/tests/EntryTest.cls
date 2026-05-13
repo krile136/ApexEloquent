@@ -477,20 +477,4 @@ public with sharing class EntryTest {
     }
   }
 
-  @isTest
-  static void testWithoutFieldVladition_WhenCalled_ThenThrowException() {
-    // Arrange
-    SObject record = new Account(Name = 'Test Account');
-    Entry entry = new Entry(record);
-
-    // Act & Assert
-    try {
-      entry.withoutFieldValidation();
-      Assert.fail('Expected ApexEloquentException to be thrown.');
-    } catch (ApexEloquentException e) {
-      String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('withoutFieldValidation()'));
-      Assert.isTrue(errorMessage.contains('Invalid operation'));
-    }
-  }
 }

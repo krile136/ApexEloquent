@@ -114,31 +114,6 @@ public interface IEntry {
   IEntry setRecord(SObject record);
 
   /**
-   * Get IEntry without field validation.
-   *
-   * WARNING: This should ONLY be used when creating IEntry from SObject
-   * that was NOT retrieved via Scribe/SOQL (e.g., Trigger.new in beforeInsert).
-   *
-   * This method disables the "unselected field detection" feature, which is
-   * one of the core safety mechanisms of ApexEloquent.
-   *
-   * DO NOT use this for performance improvement. The field validation overhead
-   * is negligible and the safety it provides is invaluable.
-   *
-   * Valid use cases:
-   * - Creating Entry from Trigger.new/Trigger.newMap in beforeInsert (no ID yet)
-   * - Creating Entry from manually constructed SObject (not from DB)
-   *
-   * Invalid use cases:
-   * - ❌ "I want to skip validation for performance" - NO! Use Scribe properly.
-   * - ❌ "I forgot to select a field in Scribe" - NO! Fix your Scribe query.
-   * - ❌ "Field validation is annoying" - NO! It's protecting you from bugs.
-   *
-   * @return IEntry without field validation
-   */ 
-  IEntry withoutFieldValidation();
-
-  /**
    * set picked fields and relation fields.
    *
    * @param FieldStructure fieldStructure

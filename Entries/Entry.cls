@@ -245,15 +245,6 @@ public with sharing class Entry extends AbstractEntry {
     return this.record;
   }
 
-  public override IEntry withoutFieldValidation() {
-    String method = 'withoutFieldValidation()';
-    String reason = 'The withoutFieldValidation() method is not supported in Entry class because this class represents actual database records. If you need to bypass field validation in a test context, please ensure you are using a MockEntry instance instead.';
-    ApexEloquentException.invalidOperation(CLASS_NAME, method, reason).fire();
-
-    // This line will never be reached because the above method call will always throw an exception, but it is required to satisfy the method's return type.
-    return null;
-  }
-
   /**
    * @inheritDoc
    */

@@ -31,6 +31,26 @@ public abstract class AbstractEntry implements IEntry {
   @TestVisible
   protected Boolean hasAggregateResult = false;
 
+  // Schema.DescribeSObjectResult.fields.getMap() は呼出ごとに ~270μs かかる重い処理のため
+  // SObjectType ごとに 1 度だけ取得して使い回す
+  private static final Map<Schema.SObjectType, Map<String, Schema.SObjectField>> FIELD_MAP_CACHE = new Map<Schema.SObjectType, Map<String, Schema.SObjectField>>();
+
+  /**
+   * 当該 SObject の fieldMap をキャッシュ経由で取得する
+   *
+   * @return fieldName -> SObjectField の Map (Apex Map のため containsKey は case-insensitive)
+   */
+  protected Map<String, Schema.SObjectField> getCachedFieldMap() {
+    Schema.SObjectType sObjectType = this.record.getSObjectType();
+    Map<String, Schema.SObjectField> fieldMap = FIELD_MAP_CACHE.get(sObjectType);
+    if (fieldMap == null) {
+      this.ensureDescribeResultIfNeeded();
+      fieldMap = this.describeResult.fields.getMap();
+      FIELD_MAP_CACHE.put(sObjectType, fieldMap);
+    }
+    return fieldMap;
+  }
+
   /**
    * constructor
    *

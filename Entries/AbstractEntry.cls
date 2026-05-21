@@ -31,14 +31,14 @@ public abstract class AbstractEntry implements IEntry {
   @TestVisible
   protected Boolean hasAggregateResult = false;
 
-  // Schema.DescribeSObjectResult.fields.getMap() は呼出ごとに ~270μs かかる重い処理のため
-  // SObjectType ごとに 1 度だけ取得して使い回す
+  // Schema.DescribeSObjectResult.fields.getMap() costs ~270μs per call,
+  // so cache the returned map per SObjectType and reuse it.
   private static final Map<Schema.SObjectType, Map<String, Schema.SObjectField>> FIELD_MAP_CACHE = new Map<Schema.SObjectType, Map<String, Schema.SObjectField>>();
 
   /**
-   * 当該 SObject の fieldMap をキャッシュ経由で取得する
+   * @description Returns the field map for this SObject via the per-type cache.
    *
-   * @return fieldName -> SObjectField の Map (Apex Map のため containsKey は case-insensitive)
+   * @return Map of fieldName -> SObjectField (Apex Map, so containsKey is case-insensitive)
    */
   protected Map<String, Schema.SObjectField> getCachedFieldMap() {
     Schema.SObjectType sObjectType = this.record.getSObjectType();

@@ -297,8 +297,7 @@ public with sharing class Entry extends AbstractEntry {
    * @throws ApexEloquentException if the field is not exist in the SObject
    */
   private void validateFieldName(String fieldName) {
-    this.ensureDescribeResultIfNeeded();
-    Map<String, Schema.SObjectField> fieldMap = this.describeResult.fields.getMap();
+    Map<String, Schema.SObjectField> fieldMap = this.getCachedFieldMap();
     if (!fieldMap.containsKey(fieldName)) {
       String reason = 'The specified field does not exist in the object\'s fields';
       String action = 'Ensure the field name is correct and exists on the SObject';

@@ -31,6 +31,26 @@ public abstract class AbstractEntry implements IEntry {
   @TestVisible
   protected Boolean hasAggregateResult = false;
 
+  // Schema.DescribeSObjectResult.fields.getMap() costs ~270μs per call,
+  // so cache the returned map per SObjectType and reuse it.
+  private static final Map<Schema.SObjectType, Map<String, Schema.SObjectField>> FIELD_MAP_CACHE = new Map<Schema.SObjectType, Map<String, Schema.SObjectField>>();
+
+  /**
+   * @description Returns the field map for this SObject via the per-type cache.
+   *
+   * @return Map of fieldName -> SObjectField (Apex Map, so containsKey is case-insensitive)
+   */
+  protected Map<String, Schema.SObjectField> getCachedFieldMap() {
+    Schema.SObjectType sObjectType = this.record.getSObjectType();
+    Map<String, Schema.SObjectField> fieldMap = FIELD_MAP_CACHE.get(sObjectType);
+    if (fieldMap == null) {
+      this.ensureDescribeResultIfNeeded();
+      fieldMap = this.describeResult.fields.getMap();
+      FIELD_MAP_CACHE.put(sObjectType, fieldMap);
+    }
+    return fieldMap;
+  }
+
   /**
    * constructor
    *

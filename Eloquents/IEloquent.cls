@@ -125,12 +125,30 @@ public interface IEloquent {
   SObject doUpdate(SObject record);
 
   /**
+  * Updates a record and returns the updated record.
+  *
+  * @param record SObject to be Updated
+  * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.  
+  * @return SaveResult 
+  */
+  Database.SaveResult doUpdate(SObject record, Boolean allOrNone);
+
+  /**
   * Updates a record wrapped in an Entry and returns the updated Entry.
   *
   * @param entry Entry containing the SObject to be updated
   * @return Updated Entry
   */
   IEntry doUpdate(IEntry entry);
+
+  /**
+  * Updates a record wrapped in an Entry and returns the updated Entry.
+  *
+  * @param entry Entry containing the SObject to be updated
+  * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
+  * @return SaveResult
+  */
+  Database.SaveResult doUpdate(IEntry entry, Boolean allOrNone);
 
   /**
   * Updates a list of records and returns the updated records.
@@ -141,12 +159,30 @@ public interface IEloquent {
   List<SObject> doUpdate(List<SObject> records);
 
   /**
+  * Updates a list of records and returns the updated records.
+  *
+  * @param records List of SObjects to be updated
+  * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
+  * @return List of SaveResult
+  */
+  List<Database.SaveResult> doUpdate(List<SObject> records, Boolean allOrNone);
+
+  /**
   * Updates a list of Entries and returns the updated Entries.
   *
   * @param entries List of Entries containing the SObjects to be updated
   * @return List of updated Entries
   */
   List<IEntry> doUpdate(List<IEntry> entries);
+
+  /**
+  * Updates a list of Entries and returns the updated Entries.
+  *
+  * @param entries List of Entries containing the SObjects to be updated
+  * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
+  * @return List of SaveResult
+  */
+  List<Database.SaveResult> doUpdate(List<IEntry> entries, Boolean allOrNone);
 
   /**
   * Inserts or updates a record and returns the upserted record.
@@ -179,6 +215,46 @@ public interface IEloquent {
   * @return List of upserted Entries
   */
   List<IEntry> doUpsert(List<IEntry> entries);
+
+  /**
+  * Inserts or updates a record using the specified external Id field to match existing records.
+  *
+  * @param record SObject to be upserted
+  * @param externalIdField External Id field to use for matching existing records
+  * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
+  * @return UpsertResult
+  */
+  Database.UpsertResult doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone);
+
+  /**
+  * Inserts or updates a record wrapped in an Entry using the specified external Id field to match existing records.
+  *
+  * @param entry Entry containing the SObject to be upserted
+  * @param externalIdField External Id field to use for matching existing records
+  * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
+  * @return UpsertResult
+  */
+  Database.UpsertResult doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone);
+
+  /**
+  * Inserts or updates a list of records using the specified external Id field to match existing records.
+  *
+  * @param records List of SObjects to be upserted
+  * @param externalIdField External Id field to use for matching existing records
+  * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
+  * @return List of UpsertResult
+  */
+  List<Database.UpsertResult> doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone);
+
+  /**
+  * Inserts or updates a list of Entries using the specified external Id field to match existing records.
+  *
+  * @param entries List of Entries containing the SObjects to be upserted
+  * @param externalIdField External Id field to use for matching existing records
+  * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
+  * @return List of UpsertResult
+  */
+  List<Database.UpsertResult> doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone);
 
   /**
   * Deletes a record.

@@ -464,6 +464,92 @@ public with sharing class Eloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public Database.UpsertResult doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone) {
+    String method = ('doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
+    try {
+      return Database.upsert(record, externalIdField, allOrNone);
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('upsert', e);
+      ex.method(method).param('record', record).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
+    }
+
+    return null;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.UpsertResult doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone) {
+    String method = ('doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)');
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
+
+    SObject record = entry.getRecord();
+    try {
+      return Database.upsert(record, externalIdField, allOrNone);
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('upsert', e);
+      ex.method(method).param('entry', entry).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
+    }
+
+    return null;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.UpsertResult> doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone) {
+    String method = ('doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
+
+    sortToPreventChunkingErrors(records);
+    try {
+      return Database.upsert(records, externalIdField, allOrNone);
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('upsert', e);
+      ex.method(method).param('records', records).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
+    }
+
+    return null;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.UpsertResult> doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone) {
+    String method = ('doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)');
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
+    if (entries.isEmpty()) {
+      return new List<Database.UpsertResult>();
+    }
+    List<SObject> records = new List<SObject>();
+    for (IEntry entry : entries) {
+      records.add(entry.getRecord());
+    }
+    sortToPreventChunkingErrors(records);
+    try {
+      return Database.upsert(records, externalIdField, allOrNone);
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('upsert', e);
+      ex.method(method).param('entries', entries).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
+    }
+
+    return null;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public void doDelete(SObject record) {
     String method = ('doDelete(SObject record)');
     if (record == null) {

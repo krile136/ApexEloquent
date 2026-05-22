@@ -776,6 +776,210 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullSObject_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(opp, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplySObjectWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(opp, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplySObjectWithAllOrNoneIsFalse_ThenReturnFailedUpsertResult() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+
+    // Act
+    Database.UpsertResult result = (new Eloquent()).doUpsertByExternalId(opp, Opportunity.Id, false);
+
+    // Assert
+    Assert.isFalse(result.isSuccess(), 'Expected upsert to fail');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullEntry_ThenThrowException() {
+    // Arrange
+    IEntry entry = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(entry, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEntryWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+    IEntry entry = new Entry(opp);
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(entry, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEntryWithAllOrNoneIsFalse_ThenReturnFailedUpsertResult() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+    IEntry entry = new Entry(opp);
+
+    // Act
+    Database.UpsertResult result = (new Eloquent()).doUpsertByExternalId(entry, Opportunity.Id, false);
+
+    // Assert
+    Assert.isFalse(result.isSuccess(), 'Expected upsert to fail');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullSObjectList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(opps, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplySObjectListWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<Opportunity> opps = new List<Opportunity>{ opp1, opp2 };
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(opps, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplySObjectListWithAllOrNoneIsFalse_ThenReturnFailedUpsertResults() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<Opportunity> opps = new List<Opportunity>{ opp1, opp2 };
+
+    // Act
+    List<Database.UpsertResult> results = (new Eloquent()).doUpsertByExternalId(opps, Opportunity.Id, false);
+
+    // Assert
+    Assert.areEqual(2, results.size(), 'Expected 2 upsert results');
+    for (Database.UpsertResult r : results) {
+      Assert.isFalse(r.isSuccess(), 'Expected upsert to fail');
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullEntryList_ThenThrowException() {
+    // Arrange
+    List<IEntry> entries = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(entries, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEntryListWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(entries, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEntryListWithAllOrNoneIsFalse_ThenReturnFailedUpsertResults() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+
+    // Act
+    List<Database.UpsertResult> results = (new Eloquent()).doUpsertByExternalId(entries, Opportunity.Id, false);
+
+    // Assert
+    Assert.areEqual(2, results.size(), 'Expected 2 upsert results');
+    for (Database.UpsertResult r : results) {
+      Assert.isFalse(r.isSuccess(), 'Expected upsert to fail');
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEmptyEntryList_ThenReturnEmptyUpsertResults() {
+    // Arrange
+    List<IEntry> entries = new List<IEntry>();
+
+    // Act
+    List<Database.UpsertResult> results = (new Eloquent()).doUpsertByExternalId(entries, Opportunity.Id, false);
+
+    // Assert
+    Assert.isTrue(results.isEmpty(), 'Expected no upsert results');
+  }
+
+  @isTest
   static void testDoDelete_WhenApplyNullSObject_ThenThrowException() {
     // Arrange
     SObject opp = null;

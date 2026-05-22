@@ -505,6 +505,118 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public Database.UpsertResult doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone) {
+    String method = 'doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)';
+    this.handleErrorQueue(method);
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
+    Boolean isCreated = record.Id == null;
+    if (isCreated) {
+      record.Id = this.generateId(record);
+    }
+    this.upsertedRecords.add(record);
+    return buildSuccessUpsertResult(record.Id, isCreated);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.UpsertResult doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone) {
+    String method = 'doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)';
+    this.handleErrorQueue(method);
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
+
+    SObject record = entry.getRecord();
+    Boolean isCreated = record.Id == null;
+    if (isCreated) {
+      entry.put('Id', this.generateId(record));
+    }
+    this.upsertedRecords.add(record);
+    return buildSuccessUpsertResult(record.Id, isCreated);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.UpsertResult> doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone) {
+    String method = 'doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)';
+    this.handleErrorQueue(method);
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
+
+    List<Database.UpsertResult> results = new List<Database.UpsertResult>();
+    for (SObject record : records) {
+      if (record == null) {
+        String error = 'Null record found in records list';
+        String reason = 'The list of records to upsert contains a null value, which is not allowed';
+        String action = 'Ensure that the list of records passed to doUpsertByExternalId does not contain any null values';
+        ApexEloquentException.at(CLASS_NAME)
+          .method(method)
+          .error(error)
+          .reason(reason)
+          .action(action)
+          .param('records', records)
+          .fire();
+      }
+      Boolean isCreated = record.Id == null;
+      if (isCreated) {
+        record.Id = this.generateId(record);
+      }
+      this.upsertedRecords.add(record);
+      results.add(buildSuccessUpsertResult(record.Id, isCreated));
+    }
+    return results;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.UpsertResult> doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone) {
+    String method = 'doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)';
+    this.handleErrorQueue(method);
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
+    List<Database.UpsertResult> results = new List<Database.UpsertResult>();
+    for (IEntry entry : entries) {
+      if (entry == null || entry.getRecord() == null) {
+        String error = 'Null entry found in entries list';
+        String reason = 'The list of entries to upsert contains a null value, which is not allowed';
+        String action = 'Ensure that the list of entries passed to doUpsertByExternalId does not contain any null values';
+        ApexEloquentException.at(CLASS_NAME)
+          .method(method)
+          .error(error)
+          .reason(reason)
+          .action(action)
+          .param('entries', entries)
+          .fire();
+      }
+      SObject record = entry.getRecord();
+      Boolean isCreated = record.Id == null;
+      if (isCreated) {
+        entry.put('Id', this.generateId(record));
+      }
+      this.upsertedRecords.add(record);
+      results.add(buildSuccessUpsertResult(record.Id, isCreated));
+    }
+    return results;
+  }
+
+  private static Database.UpsertResult buildSuccessUpsertResult(Id recordId, Boolean isCreated) {
+    String idPart = recordId == null ? '' : '"id":"' + recordId + '",';
+    String payload = '{"success":true,"created":' + isCreated + ',' + idPart + '"errors":[]}';
+    return (Database.UpsertResult) JSON.deserialize(payload, Database.UpsertResult.class);
+  }
+
+  /**
+   * @inheritDoc
+   */
   public void doDelete(SObject record) {
     String method = 'doDelete(SObject record)';
     this.handleErrorQueue(method);
@@ -636,6 +748,14 @@ public with sharing class MockEloquent implements IEloquent {
 
   public MockEloquent failOnDoUpsert(Exception e) {
     return this.failOnMethod('doUpsert', e);
+  }
+
+  public MockEloquent failOnDoUpsertByExternalId() {
+    return this.failOnDoUpsertByExternalId(this.testException);
+  }
+
+  public MockEloquent failOnDoUpsertByExternalId(Exception e) {
+    return this.failOnMethod('doUpsertByExternalId', e);
   }
 
   public MockEloquent failOnDoDelete() {

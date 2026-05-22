@@ -1684,6 +1684,226 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testDoUpdate_WhenApplyNullAsSObjectWithAllOrNone_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    Opportunity opp = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(opp, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(SObject record, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObjectWithAllOrNone_ThenReturnSuccessSaveResult() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.SaveResult saveResult = eloquent.doUpdate(record, false);
+
+    // Assert
+    Assert.isTrue(saveResult.isSuccess(), 'Expected SaveResult to be success');
+    Assert.areEqual('006000000000001', saveResult.getId(), 'Expected SaveResult Id to match record Id');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenSObjectWithAllOrNoneAndSetFail_ThenThrowException() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    IEloquent eloquent = (new MockEloquent()).failOnDoUpdate();
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(record, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(SObject record, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullAsIEntryWithAllOrNone_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry entry = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(entry, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(IEntry entry, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEntryWithAllOrNone_ThenReturnSuccessSaveResult() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .fields(new List<String>{ 'Id', 'Name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .add('Name', 'Opportunity 1')
+      .setFieldStructure(fieldStructure);
+
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    mockEntry.put('Name', 'Updated Opportunity 1');
+    Database.SaveResult saveResult = eloquent.doUpdate(mockEntry, false);
+
+    // Assert
+    Assert.isTrue(saveResult.isSuccess(), 'Expected SaveResult to be success');
+    Assert.areEqual(mockEntry.getId(), saveResult.getId(), 'Expected SaveResult Id to match entry Id');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenIEntryWithAllOrNoneAndSetFail_ThenThrowException() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoUpdate();
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(mockEntry, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(IEntry entry, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullAsListOfSObjectWithAllOrNone_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<Opportunity> opps = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(opps, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<SObject> records, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyListOfSObjectWithAllOrNone_ThenReturnSuccessSaveResults() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity 1'),
+      new Opportunity(Id = '006000000000002', Name = 'Updated Opportunity 2')
+    };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.SaveResult> saveResults = eloquent.doUpdate(records, false);
+
+    // Assert
+    Assert.areEqual(2, saveResults.size(), 'Expected two SaveResults');
+    for (Database.SaveResult sr : saveResults) {
+      Assert.isTrue(sr.isSuccess(), 'Expected each SaveResult to be success');
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenListOfSObjectWithAllOrNoneAndSetFail_ThenThrowException() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity 1')
+    };
+    IEloquent eloquent = (new MockEloquent()).failOnDoUpdate();
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(records, false);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<SObject> records, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullAsListOfIEntryWithAllOrNone_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<MockEntry> entries = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(entries, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<IEntry> entries, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyListOfIEntryWithAllOrNone_ThenReturnSuccessSaveResults() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .fields(new List<String>{ 'Id', 'Name' })
+      .buildFieldStructure();
+    List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
+      .autoId('{#}')
+      .add('Name', 'Opportunity {#}')
+      .times(2);
+    List<MockEntry> updateEntries = new List<MockEntry>();
+    for (MockEntry entry : mockEntries) {
+      updateEntries.add((MockEntry) entry.setFieldStructure(fieldStructure));
+    }
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.SaveResult> saveResults = eloquent.doUpdate(updateEntries, false);
+
+    // Assert
+    Assert.areEqual(2, saveResults.size(), 'Expected two SaveResults');
+    for (Database.SaveResult sr : saveResults) {
+      Assert.isTrue(sr.isSuccess(), 'Expected each SaveResult to be success');
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenListOfIEntryWithAllOrNoneAndSetFail_ThenThrowException() {
+    // Arrange
+    List<MockEntry> entries = new List<MockEntry>{ MockEntry.of(Opportunity.class).autoId(1) };
+    IEloquent eloquent = (new MockEloquent()).failOnDoUpdate();
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(entries, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<IEntry> entries, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
   static void testDoUpsert_WhenAddNullRecord_ThenThrowException() {
     // Arrange
     IEloquent eloquent = new MockEloquent();

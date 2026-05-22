@@ -228,6 +228,25 @@ public with sharing class Eloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public Database.SaveResult doUpdate(SObject record, Boolean allOrNone) {
+    String method = ('doUpdate(SObject record, Boolean allOrNone)');
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
+    try {
+      return Database.update(record, allOrNone);
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('update', e);
+      ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
+    }
+
+    return null;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public IEntry doUpdate(IEntry entry) {
     String method = ('doUpdate(IEntry entry)');
     if (entry == null) {
@@ -246,6 +265,25 @@ public with sharing class Eloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public Database.SaveResult doUpdate(IEntry entry, Boolean allOrNone) {
+    String method = ('doUpdate(IEntry entry, Boolean allOrNone)');
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
+    SObject record = entry.getRecord();
+    try {
+      return Database.update(record, allOrNone);
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('update', e);
+      ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
+    }
+
+    return null;
+  }
+
+  /**
+   * @inheritDoc
+   */
   public List<SObject> doUpdate(List<SObject> records) {
     String method = ('doUpdate(List<SObject> records)');
     if (records == null) {
@@ -259,6 +297,25 @@ public with sharing class Eloquent implements IEloquent {
       ex.method(method).param('records', records).fire();
     }
     return records;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.SaveResult> doUpdate(List<SObject> records, Boolean allOrNone) {
+    String method = ('doUpdate(List<SObject> records, Boolean allOrNone)');
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
+    sortToPreventChunkingErrors(records);
+    try {
+      return Database.update(records, allOrNone);
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('update', e);
+      ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
+    }
+    
+    return null;
   }
 
   /**
@@ -289,6 +346,33 @@ public with sharing class Eloquent implements IEloquent {
       updatedEntries.add(new Entry(record));
     }
     return updatedEntries;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.SaveResult> doUpdate(List<IEntry> entries, Boolean allOrNone) {
+    String method = ('doUpdate(List<IEntry> entries, Boolean allOrNone)');
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
+    if (entries.isEmpty()) {
+      return new List<Database.SaveResult>();
+    }
+    List<SObject> records = new List<SObject>();
+    for (IEntry entry : entries) {
+      records.add(entry.getRecord());
+    }
+    sortToPreventChunkingErrors(records);
+    try {
+      return Database.update(records, allOrNone);
+    } catch (DmlException e) {
+      ApexEloquentException ex = createDMLException('update', e);
+      ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
+    }
+
+    return null;
   }
 
   /**

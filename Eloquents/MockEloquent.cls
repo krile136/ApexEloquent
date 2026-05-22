@@ -335,6 +335,78 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public Database.SaveResult doUpdate(SObject record, Boolean allOrNone) {
+    String method = 'doUpdate(SObject record, Boolean allOrNone)';
+    this.handleErrorQueue(method);
+    if (record == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+    }
+
+    this.upsertedRecords.add(record);
+    return buildSuccessSaveResult(record.Id);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.SaveResult doUpdate(IEntry entry, Boolean allOrNone) {
+    String method = 'doUpdate(IEntry entry, Boolean allOrNone)';
+    this.handleErrorQueue(method);
+    if (entry == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+    }
+
+    SObject record = entry.getRecord();
+    this.upsertedRecords.add(record);
+    return buildSuccessSaveResult(record.Id);
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.SaveResult> doUpdate(List<SObject> records, Boolean allOrNone) {
+    String method = 'doUpdate(List<SObject> records, Boolean allOrNone)';
+    this.handleErrorQueue(method);
+    if (records == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+    }
+
+    this.upsertedRecords.addAll(records);
+    List<Database.SaveResult> results = new List<Database.SaveResult>();
+    for (SObject record : records) {
+      results.add(buildSuccessSaveResult(record.Id));
+    }
+    return results;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.SaveResult> doUpdate(List<IEntry> entries, Boolean allOrNone) {
+    String method = 'doUpdate(List<IEntry> entries, Boolean allOrNone)';
+    this.handleErrorQueue(method);
+    if (entries == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+    }
+
+    List<Database.SaveResult> results = new List<Database.SaveResult>();
+    for (IEntry entry : entries) {
+      SObject record = entry.getRecord();
+      this.upsertedRecords.add(record);
+      results.add(buildSuccessSaveResult(record.Id));
+    }
+    return results;
+  }
+
+  private static Database.SaveResult buildSuccessSaveResult(Id recordId) {
+    String idPart = recordId == null ? '' : '"id":"' + recordId + '",';
+    String payload = '{"success":true,' + idPart + '"errors":[]}';
+    return (Database.SaveResult) JSON.deserialize(payload, Database.SaveResult.class);
+  }
+
+  /**
+   * @inheritDoc
+   */
   public SObject doUpsert(SObject record) {
     String method = 'doUpsert(SObject record)';
     this.handleErrorQueue(method);

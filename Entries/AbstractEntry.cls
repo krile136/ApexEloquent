@@ -52,6 +52,25 @@ public abstract class AbstractEntry implements IEntry {
   }
 
   /**
+   * @description Validates that the given fieldName exists on the underlying SObject's metadata.
+   * Uses the cached field map for performance. Intended to be called by subclasses (Entry, MockEntry)
+   * to surface typos in field names before they cause divergence between mock and production behavior.
+   *
+   * @param fieldName field name to validate
+   * @throws ApexEloquentException if the field does not exist on the SObject
+   */
+  protected void validateSObjectFieldName(String fieldName) {
+    Map<String, Schema.SObjectField> fieldMap = this.getCachedFieldMap();
+    if (!fieldMap.containsKey(fieldName)) {
+      String reason = 'The specified field does not exist in the object\'s fields';
+      String action = 'Ensure the field name is correct and exists on the SObject';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'fieldName', fieldName)
+        .param('objectName', this.describeResult.getName())
+        .fire();
+    }
+  }
+
+  /**
    * constructor
    *
    * @param record SObject

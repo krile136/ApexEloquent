@@ -1261,15 +1261,18 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void testGetRecord_WhenAddNonExistFieldValue_ThenIgnoreNonExistField() {
-    // Arrange
+  static void testGetRecord_WhenAddNonExistFieldValueWithoutSObjectFieldValidation_ThenIgnoreNonExistField() {
+    // Arrange: post-issue_40, set() of a non-existent field throws by default.
+    // To still document the "ignored at getRecord" behavior when the user has
+    // intentionally opted out, call withoutSObjectFieldValidation() first.
     FieldStructure fieldStructure = Scribe.of(Account.class)
       .fields(new List<String>{ 'id', 'name' })
       .buildFieldStructure();
     MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class)
+      .withoutSObjectFieldValidation()
       .autoId(1)
       .set('Name', 'Test Account')
-      .set('NonExistField', 'Some Value') // 'NonExistField' does not exist in Account
+      .set('NonExistField', 'Some Value') // 'NonExistField' does not exist on Account; allowed because opted out
       .setFieldStructure(fieldStructure);
 
     // Act
@@ -1278,7 +1281,7 @@ public class MockEntryTest {
     // Assert
     Assert.areEqual('001000000000001AAA', acc.Id, 'The Id should match the expected value.');
     Assert.areEqual('Test Account', acc.Name, 'The Name should match the expected value');
-    // NonExistField is ignored
+    // NonExistField is ignored at getRecord() time
   }
 
   @isTest
@@ -2583,6 +2586,191 @@ public class MockEntryTest {
       String errorMessage = e.getMessage();
       Assert.isTrue(errorMessage.contains('MockEntry.getAliasId(String alias)'));
       Assert.isTrue(errorMessage.contains('argument is Invalid'));
+    }
+  }
+
+  // ===========================================================================
+  // SObject field-name typo detection at write time (issue_40)
+  // ===========================================================================
+  //
+  // 設計メモ:
+  // - 本番経路は既に Scribe.buildFieldStructure / Entry.validateFieldName で
+  //   タイポが弾かれる。本物のバグはここではなく「MockEntry のセットアップで
+  //   タイポしたフィールド名が fieldToValue に静かに格納され、SUT が正しい
+  //   名前で get したら値が見つからず null 経路に流れて挙動が変わる」 という
+  //   silent な mock 不整合。
+  // - 対策として set / add / setParent / addParent の write 時点で
+  //   SObject metadata に照らして fieldName をチェックする。
+  // - エスケープは独立フラグ withoutSObjectFieldValidation()。既存の
+  //   withoutFieldValidation() (Scribe FieldStructure 用) と混ぜると
+  //   Scribe を緩めた瞬間にタイポも素通りするので、わざと別に分けている。
+
+  @isTest
+  static void testSet_WhenFieldNameIsTypo_ThenThrowException() {
+    // Arrange & Act & Assert: this is the core scenario — a typo in mock
+    // setup silently sat in fieldToValue before; now it surfaces immediately.
+    try {
+      MockEntry.of(Account.class).set('Naame', 'foo');
+      Assert.fail('Expected ApexEloquentException for typo field name on set.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('Naame'), 'Error should mention the typo: ' + errorMessage);
+      Assert.isTrue(errorMessage.contains('Account'), 'Error should mention the SObject: ' + errorMessage);
+      Assert.isTrue(
+        errorMessage.contains('set(String fieldName, Object value)'),
+        'Error should mention the set method: ' + errorMessage
+      );
+    }
+  }
+
+  @isTest
+  static void testSet_WhenFieldNameIsCorrect_ThenStoresValue() {
+    // Arrange & Act
+    MockEntry mock = (MockEntry) MockEntry.of(Account.class).set('Name', 'Acme').withoutFieldValidation();
+
+    // Assert: read it back through the (Scribe-relaxed) get path to confirm storage
+    Assert.areEqual('Acme', mock.get('Name'));
+  }
+
+  @isTest
+  static void testSet_WhenFieldNameIsCaseInsensitive_ThenStoresValue() {
+    // Arrange & Act: lowercase / uppercase / mixed all map to the same real field
+    MockEntry mock = (MockEntry) MockEntry.of(Account.class).set('NAME', 'Acme').withoutFieldValidation();
+
+    // Assert
+    Assert.areEqual('Acme', mock.get('NAME'));
+  }
+
+  @isTest
+  static void testSet_WhenFieldNameIsStandardLongField_ThenStoresValue() {
+    // Arrange & Act: confirms the fieldMap includes more than just Id/Name
+    MockEntry mock = (MockEntry) MockEntry.of(Account.class)
+      .set('Description', 'long description')
+      .withoutFieldValidation();
+
+    // Assert
+    Assert.areEqual('long description', mock.get('Description'));
+  }
+
+  @isTest
+  static void testAdd_WhenFieldNameIsTypo_ThenThrowException() {
+    try {
+      MockEntry.of(Account.class).add('Naame', 'foo');
+      Assert.fail('Expected ApexEloquentException for typo field name on add.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('Naame'), 'Error should mention the typo: ' + errorMessage);
+      Assert.isTrue(
+        errorMessage.contains('add(String fieldName, Object value)'),
+        'Error should mention the add method: ' + errorMessage
+      );
+    }
+  }
+
+  @isTest
+  static void testAdd_WhenFieldNameIsCorrect_ThenStoresValue() {
+    MockEntry mock = (MockEntry) MockEntry.of(Account.class).add('Name', 'Acme').withoutFieldValidation();
+    Assert.areEqual('Acme', mock.get('Name'));
+  }
+
+  @isTest
+  static void testSetParent_WhenParentIdFieldNameIsTypo_ThenThrowException() {
+    MockEntry parent = (MockEntry) MockEntry.of(Account.class).autoId(1).set('Name', 'Parent');
+    try {
+      MockEntry.of(Contact.class).setParent('AccountIddd', parent);
+      Assert.fail('Expected ApexEloquentException for typo parentIdFieldName.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('AccountIddd'), 'Error should mention the typo: ' + errorMessage);
+      Assert.isTrue(errorMessage.contains('Contact'), 'Error should mention the SObject: ' + errorMessage);
+    }
+  }
+
+  @isTest
+  static void testSetParent_WhenParentIdFieldNameIsCorrect_ThenStoresParent() {
+    MockEntry parent = (MockEntry) MockEntry.of(Account.class).autoId(1).set('Name', 'Parent Acme');
+    MockEntry child = (MockEntry) MockEntry.of(Contact.class)
+      .setParent('AccountId', parent)
+      .withoutFieldValidation();
+
+    Assert.areEqual('Parent Acme', child.getParent('AccountId').get('Name'));
+  }
+
+  @isTest
+  static void testAddParent_WhenParentIdFieldNameIsTypo_ThenThrowException() {
+    MockEntry parent = (MockEntry) MockEntry.of(Account.class).autoId(1).set('Name', 'Parent');
+    try {
+      MockEntry.of(Contact.class).addParent('AccountIddd', parent);
+      Assert.fail('Expected ApexEloquentException for typo parentIdFieldName.');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('AccountIddd'), 'Error should mention the typo: ' + errorMessage);
+      Assert.isTrue(
+        errorMessage.contains('addParent(String parentIdFieldName, MockEntry parent)'),
+        'Error should mention the addParent method: ' + errorMessage
+      );
+    }
+  }
+
+  @isTest
+  static void testSet_WhenWithoutSObjectFieldValidation_ThenAcceptsTypo() {
+    // Escape hatch: explicit opt-out must allow synthetic field names.
+    MockEntry mock = (MockEntry) MockEntry.of(Account.class)
+      .withoutSObjectFieldValidation()
+      .set('Naame', 'foo')
+      .withoutFieldValidation();
+
+    Assert.areEqual('foo', mock.get('Naame'));
+  }
+
+  @isTest
+  static void testSetParent_WhenWithoutSObjectFieldValidation_ThenAcceptsTypo() {
+    MockEntry parent = (MockEntry) MockEntry.of(Account.class).autoId(1).set('Name', 'Parent');
+    // Should NOT throw despite the typo
+    MockEntry child = (MockEntry) MockEntry.of(Contact.class)
+      .withoutSObjectFieldValidation()
+      .setParent('AccountIddd', parent);
+
+    Assert.areEqual('AccountIddd', 'AccountIddd', 'setup did not throw — escape hatch worked');
+    // (We cannot read back via getParent because that path also requires a
+    // FieldStructure with the typo'd relation; the storage step is what matters here.)
+  }
+
+  @isTest
+  static void testWithoutFieldValidationAlone_DoesNotSkipSObjectCheck() {
+    // Why this matters: the two flags are intentionally independent. Loosening
+    // the Scribe (FieldStructure) check via withoutFieldValidation() must NOT
+    // re-open the SObject typo hole this issue is closing.
+    try {
+      MockEntry.of(Account.class).withoutFieldValidation().set('Naame', 'foo');
+      Assert.fail('withoutFieldValidation() alone should NOT bypass SObject metadata check.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Naame'), 'Error should mention the typo.');
+    }
+  }
+
+  @isTest
+  static void testSet_WhenAggregateResultMode_ThenSkipSObjectCheck() {
+    // AggregateResult mode has record=null; there is no SObjectType to validate
+    // against, so set must remain lenient (no throw).
+    MockEntry mock = (MockEntry) new MockEntry(new Map<String, Object>{ 'aliasA' => 1 })
+      .set('aliasB', 2);
+
+    Assert.isNotNull(mock, 'set on AggregateResult-mode MockEntry should not throw.');
+  }
+
+  @isTest
+  static void testSet_WhenMultipleSObjectTypesUsedAcrossEntries_ThenEachValidatedAgainstOwnFieldMap() {
+    // Cache key isolation: same Email field is valid on Contact, invalid on Account
+    MockEntry contactMock = (MockEntry) MockEntry.of(Contact.class).set('Email', 'a@b.com');
+    Assert.isNotNull(contactMock, 'Contact.Email set should succeed.');
+
+    try {
+      MockEntry.of(Account.class).set('Email', 'will-fail');
+      Assert.fail('Account does not have an Email field — should have thrown.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Email'), 'Error should mention Email field.');
+      Assert.isTrue(e.getMessage().contains('Account'), 'Error should mention Account SObject.');
     }
   }
 }

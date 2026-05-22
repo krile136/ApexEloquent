@@ -35,6 +35,7 @@
 public with sharing class MockEntry extends AbstractEntry {
   private final Map<String, Object> fieldToValue;
   private Boolean skipFieldValidation = false;
+  private Boolean skipSObjectFieldValidation = false;
   private String alias;
 
   private static final String CLASS_NAME = 'MockEntry';
@@ -250,6 +251,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A new MockEntry instance with the updated field value.
    */
   public MockEntry add(String fieldName, Object value) {
+    this.enforceSObjectFieldNameOnWrite(fieldName, 'add(String fieldName, Object value)');
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(fieldName, value);
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
@@ -270,6 +272,7 @@ public with sharing class MockEntry extends AbstractEntry {
     if (fieldName == null || String.isBlank(fieldName)) {
       ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName).fire();
     }
+    this.enforceSObjectFieldNameOnWrite(fieldName, method);
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(fieldName, value);
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
@@ -364,6 +367,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return A new MockEntry instance with the parent record added.
    */
   public MockEntry addParent(String parentIdFieldName, MockEntry parent) {
+    this.enforceSObjectFieldNameOnWrite(parentIdFieldName, 'addParent(String parentIdFieldName, MockEntry parent)');
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(parentIdFieldName, parent);
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
@@ -383,6 +387,7 @@ public with sharing class MockEntry extends AbstractEntry {
     if (parentIdFieldName == null || String.isBlank(parentIdFieldName)) {
       ApexEloquentException.required(CLASS_NAME, method, 'parentIdFieldName', parentIdFieldName).fire();
     }
+    this.enforceSObjectFieldNameOnWrite(parentIdFieldName, method);
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(parentIdFieldName, parent);
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
@@ -1101,6 +1106,26 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
+   * Disables the SObject metadata field-name check on set / add / setParent / addParent.
+   *
+   * This is independent from withoutFieldValidation(): the latter relaxes the Scribe
+   * (FieldStructure) check used at read time, while this one relaxes the SObject
+   * metadata check used at write time. They are separate so that loosening the
+   * Scribe check does not silently re-introduce the typo-in-mock-setup bug class.
+   *
+   * Use this only when intentionally storing values under field names that do not
+   * exist on the SObject (e.g. synthetic keys, computed test fixtures).
+   *
+   * @return a new MockEntry instance with skipSObjectFieldValidation = true
+   */
+  public MockEntry withoutSObjectFieldValidation() {
+    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, this.fieldToValue);
+    newEntry.inheritParameters(newEntry);
+    newEntry.skipSObjectFieldValidation = true;
+    return newEntry;
+  }
+
+  /**
    * Returns the underlying SObject with all scalar field overrides applied.
    *
    * Implementation notes:
@@ -1258,8 +1283,38 @@ public with sharing class MockEntry extends AbstractEntry {
     return resultEntries;
   }
 
+  /**
+   * Validates that the given fieldName exists on the underlying SObject when used at write
+   * time (set / add / setParent / addParent). Skipped when SObjectType is unknown
+   * (AggregateResult mode) or when the test has opted out via withoutSObjectFieldValidation().
+   *
+   * @param fieldName field name to validate
+   * @param method enclosing method signature, used in the error message
+   */
+  private void enforceSObjectFieldNameOnWrite(String fieldName, String method) {
+    if (
+      this.skipSObjectFieldValidation ||
+      this.record == null ||
+      fieldName == null ||
+      String.isBlank(fieldName)
+    ) {
+      return;
+    }
+    try {
+      this.validateSObjectFieldName(fieldName);
+    } catch (ApexEloquentException e) {
+      String reason = e.getMessage();
+      String action =
+        'The field \'' +
+        fieldName +
+        '\' does not exist on the SObject. Fix the typo in your mock setup, or call withoutSObjectFieldValidation() if intentional.';
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'fieldName', fieldName, e).fire();
+    }
+  }
+
   private void inheritParameters(MockEntry entry) {
     entry.skipFieldValidation = this.skipFieldValidation;
+    entry.skipSObjectFieldValidation = this.skipSObjectFieldValidation;
     entry.alias = this.alias;
   }
 }

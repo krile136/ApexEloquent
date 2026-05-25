@@ -314,11 +314,56 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opp = (Opportunity) (new Eloquent()).doUpdate(opp);
+      Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('Failed to update operation'));
       Assert.isTrue(error.contains('DML failed with'));
     }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullSObjectWithAllOrNone_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(opp, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(SObject record, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObjectWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(opp, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObjectWithAllOrNoneIsFalse_ThenThrowException() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
+
+    // Act
+    Database.SaveResult saveResult = (new Eloquent()).doUpdate(opp, false);
+
+    // Assert
+    Assert.isFalse(saveResult.isSuccess(), 'Expected update to fail');
   }
 
   @isTest
@@ -338,7 +383,7 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testDoUpdate_WhenApplySObject_ThenExcuteUpdate() {
+  static void testDoUpdate_WhenApplyEntry_ThenExcuteUpdate() {
     // Arrange
     Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
     IEntry entry = new Entry(opp);
@@ -346,12 +391,60 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entry = (new Eloquent()).doUpdate(entry);
+      Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('Failed to update operation'));
       Assert.isTrue(error.contains('DML failed with'));
     }
   }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullAsEntryWithAllOrNone_ThenThrowException() {
+    // Arrange
+    IEntry entry = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(entry, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(IEntry entry, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEntryWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
+    IEntry entry = new Entry(opp);
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(entry, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEntryWithAllOrNoneIsFalse_ThenThrowException() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Updated Test');
+    IEntry entry = new Entry(opp);
+
+    // Act
+    Database.SaveResult saveResult = (new Eloquent()).doUpdate(entry, false);
+
+    // Assert
+    Assert.isFalse(saveResult.isSuccess(), 'Expected update to fail');
+  }
+
 
   @isTest
   static void testDoUpdate_WhenApplyNullSObjectList_ThenThrowException() {
@@ -379,6 +472,7 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opps = (List<Opportunity>) (new Eloquent()).doUpdate(opps);
+      Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('Failed to update operation'));
@@ -416,6 +510,120 @@ public with sharing class EloquentTest {
       Assert.isTrue(error.contains('Failed to update operation'));
       Assert.isTrue(error.contains('DML failed with'));
     }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullSObjectListWithAllOrNone_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(opps, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<SObject> records, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObjectListWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
+    List<Opportunity> opps = new List<Opportunity>{ opp1, opp2 };
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(opps, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObjectListWithAllOrNoneIsFalse_ThenReturnFailedSaveResults() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
+    List<Opportunity> opps = new List<Opportunity>{ opp1, opp2 };
+
+    // Act
+    List<Database.SaveResult> saveResults = (new Eloquent()).doUpdate(opps, false);
+
+    // Assert
+    Assert.areEqual(2, saveResults.size(), 'Expected 2 save results');
+    for (Database.SaveResult sr : saveResults) {
+      Assert.isFalse(sr.isSuccess(), 'Expected update to fail');
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullEntryListWithAllOrNone_ThenThrowException() {
+    // Arrange
+    List<IEntry> entries = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(entries, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<IEntry> entries, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEntryListWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpdate(entries, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to update operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEntryListWithAllOrNoneIsFalse_ThenReturnFailedSaveResults() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Updated Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Updated Test2');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+
+    // Act
+    List<Database.SaveResult> saveResults = (new Eloquent()).doUpdate(entries, false);
+
+    // Assert
+    Assert.areEqual(2, saveResults.size(), 'Expected 2 save results');
+    for (Database.SaveResult sr : saveResults) {
+      Assert.isFalse(sr.isSuccess(), 'Expected update to fail');
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEmptyEntryListWithAllOrNone_ThenReturnEmptySaveResults() {
+    // Arrange
+    List<IEntry> entries = new List<IEntry>();
+
+    // Act
+    List<Database.SaveResult> saveResults = (new Eloquent()).doUpdate(entries, false);
+
+    // Assert
+    Assert.isTrue(saveResults.isEmpty(), 'Expected no save results');
   }
 
   @isTest
@@ -568,6 +776,210 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullSObject_ThenThrowException() {
+    // Arrange
+    SObject opp = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(opp, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplySObjectWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(opp, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplySObjectWithAllOrNoneIsFalse_ThenReturnFailedUpsertResult() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+
+    // Act
+    Database.UpsertResult result = (new Eloquent()).doUpsertByExternalId(opp, Opportunity.Id, false);
+
+    // Assert
+    Assert.isFalse(result.isSuccess(), 'Expected upsert to fail');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullEntry_ThenThrowException() {
+    // Arrange
+    IEntry entry = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(entry, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEntryWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+    IEntry entry = new Entry(opp);
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(entry, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEntryWithAllOrNoneIsFalse_ThenReturnFailedUpsertResult() {
+    // Arrange
+    Opportunity opp = new Opportunity(Id = '006000000000000', Name = 'Upserted Test');
+    IEntry entry = new Entry(opp);
+
+    // Act
+    Database.UpsertResult result = (new Eloquent()).doUpsertByExternalId(entry, Opportunity.Id, false);
+
+    // Assert
+    Assert.isFalse(result.isSuccess(), 'Expected upsert to fail');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullSObjectList_ThenThrowException() {
+    // Arrange
+    List<SObject> opps = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(opps, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplySObjectListWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<Opportunity> opps = new List<Opportunity>{ opp1, opp2 };
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(opps, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplySObjectListWithAllOrNoneIsFalse_ThenReturnFailedUpsertResults() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<Opportunity> opps = new List<Opportunity>{ opp1, opp2 };
+
+    // Act
+    List<Database.UpsertResult> results = (new Eloquent()).doUpsertByExternalId(opps, Opportunity.Id, false);
+
+    // Assert
+    Assert.areEqual(2, results.size(), 'Expected 2 upsert results');
+    for (Database.UpsertResult r : results) {
+      Assert.isFalse(r.isSuccess(), 'Expected upsert to fail');
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullEntryList_ThenThrowException() {
+    // Arrange
+    List<IEntry> entries = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(entries, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEntryListWithAllOrNoneIsTrue_ThenThrowException() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(entries, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('Failed to upsert operation'));
+      Assert.isTrue(error.contains('DML failed with'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEntryListWithAllOrNoneIsFalse_ThenReturnFailedUpsertResults() {
+    // Arrange
+    Opportunity opp1 = new Opportunity(Id = '006000000000000', Name = 'Upserted Test1');
+    Opportunity opp2 = new Opportunity(Id = '006000000000001', Name = 'Upserted Test2');
+    List<IEntry> entries = new List<IEntry>{ new Entry(opp1), new Entry(opp2) };
+
+    // Act
+    List<Database.UpsertResult> results = (new Eloquent()).doUpsertByExternalId(entries, Opportunity.Id, false);
+
+    // Assert
+    Assert.areEqual(2, results.size(), 'Expected 2 upsert results');
+    for (Database.UpsertResult r : results) {
+      Assert.isFalse(r.isSuccess(), 'Expected upsert to fail');
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEmptyEntryList_ThenReturnEmptyUpsertResults() {
+    // Arrange
+    List<IEntry> entries = new List<IEntry>();
+
+    // Act
+    List<Database.UpsertResult> results = (new Eloquent()).doUpsertByExternalId(entries, Opportunity.Id, false);
+
+    // Assert
+    Assert.isTrue(results.isEmpty(), 'Expected no upsert results');
+  }
+
+  @isTest
   static void testDoDelete_WhenApplyNullSObject_ThenThrowException() {
     // Arrange
     SObject opp = null;
@@ -706,5 +1118,106 @@ public with sharing class EloquentTest {
 
     // Assert
     // No exception should be thrown
+  }
+
+  // ===========================================================================
+  // label() (issue_42)
+  // ===========================================================================
+
+  @isTest
+  static void testLabel_WhenChained_ThenReturnSelf() {
+    Eloquent eloquent = new Eloquent();
+    IEloquent result = eloquent.label('foo');
+    Assert.areEqual(eloquent, result, 'label() should return the same instance for chaining.');
+  }
+
+  @isTest
+  static void testLabel_WhenNull_ThenThrowException() {
+    try {
+      (new Eloquent()).label(null);
+      Assert.fail('Expected ApexEloquentException for null label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('label(String label)'));
+      Assert.isTrue(e.getMessage().contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testLabel_WhenBlank_ThenThrowException() {
+    try {
+      (new Eloquent()).label('   ');
+      Assert.fail('Expected ApexEloquentException for blank label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('label(String label)'));
+      Assert.isTrue(e.getMessage().contains('argument is required'));
+    }
+  }
+
+  // ===========================================================================
+  // strict mode (issue_39)
+  // ===========================================================================
+
+  @isTest
+  static void testLabel_AfterLabelCall_NoLabelOpThrows() {
+    // After the first .label() call the IEloquent enters strict mode. Subsequent
+    // ops without .label() must throw — even in production. We trigger a first
+    // op that fails with a normal DML error (invalid Id), then call again with
+    // no label — that must throw the strict-mode error, not the DML error.
+    Eloquent eloquent = new Eloquent();
+    try {
+      eloquent.label('first').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
+    } catch (ApexEloquentException e) {
+      // expected — invalid Id failure on the first op. 'first' is now consumed.
+    }
+    try {
+      eloquent.doUpdate(new Opportunity(Id = '006000000000001', Name = 'Y'));
+      Assert.fail('Expected strict-mode exception for label-less op after strict mode entered.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('strict mode required'),
+        'Expected the strict-mode message, got: ' + e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testLabel_AfterLabelCall_ReusingSameLabelThrows() {
+    Eloquent eloquent = new Eloquent();
+    try {
+      eloquent.label('dup').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
+    } catch (ApexEloquentException e) {
+      // expected — invalid Id. 'dup' is consumed.
+    }
+    try {
+      eloquent.label('dup').doUpdate(new Opportunity(Id = '006000000000001', Name = 'Y'));
+      Assert.fail('Expected consume-once exception when reusing label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('already been consumed'),
+        'Expected consume-once message, got: ' + e.getMessage()
+      );
+      Assert.isTrue(e.getMessage().contains('dup'), 'Should mention the label name.');
+    }
+  }
+
+  @isTest
+  static void testLabel_AfterLabelCall_NewLabelOk() {
+    Eloquent eloquent = new Eloquent();
+    try {
+      eloquent.label('a').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Failed to update operation'), 'First failure should be DML, not strict-mode.');
+    }
+    // Different label — should NOT throw strict-mode/consume-once; only the
+    // underlying DML failure.
+    try {
+      eloquent.label('b').doUpdate(new Opportunity(Id = '006000000000001', Name = 'Y'));
+      Assert.fail('Expected DML failure (invalid Id).');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('Failed to update operation'),
+        'Second failure should be the DML one, not strict-mode. Got: ' + e.getMessage()
+      );
+    }
   }
 }

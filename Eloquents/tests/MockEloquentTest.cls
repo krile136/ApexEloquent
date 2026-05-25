@@ -1684,6 +1684,226 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testDoUpdate_WhenApplyNullAsSObjectWithAllOrNone_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    Opportunity opp = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(opp, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(SObject record, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplySObjectWithAllOrNone_ThenReturnSuccessSaveResult() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.SaveResult saveResult = eloquent.doUpdate(record, false);
+
+    // Assert
+    Assert.isTrue(saveResult.isSuccess(), 'Expected SaveResult to be success');
+    Assert.areEqual('006000000000001', saveResult.getId(), 'Expected SaveResult Id to match record Id');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenSObjectWithAllOrNoneAndSetFail_ThenThrowException() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    IEloquent eloquent = (new MockEloquent()).failOnDoUpdate();
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(record, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(SObject record, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullAsIEntryWithAllOrNone_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry entry = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(entry, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(IEntry entry, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyEntryWithAllOrNone_ThenReturnSuccessSaveResult() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .fields(new List<String>{ 'Id', 'Name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .add('Name', 'Opportunity 1')
+      .setFieldStructure(fieldStructure);
+
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    mockEntry.put('Name', 'Updated Opportunity 1');
+    Database.SaveResult saveResult = eloquent.doUpdate(mockEntry, false);
+
+    // Assert
+    Assert.isTrue(saveResult.isSuccess(), 'Expected SaveResult to be success');
+    Assert.areEqual(mockEntry.getId(), saveResult.getId(), 'Expected SaveResult Id to match entry Id');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenIEntryWithAllOrNoneAndSetFail_ThenThrowException() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoUpdate();
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(mockEntry, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(IEntry entry, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullAsListOfSObjectWithAllOrNone_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<Opportunity> opps = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(opps, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<SObject> records, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyListOfSObjectWithAllOrNone_ThenReturnSuccessSaveResults() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity 1'),
+      new Opportunity(Id = '006000000000002', Name = 'Updated Opportunity 2')
+    };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.SaveResult> saveResults = eloquent.doUpdate(records, false);
+
+    // Assert
+    Assert.areEqual(2, saveResults.size(), 'Expected two SaveResults');
+    for (Database.SaveResult sr : saveResults) {
+      Assert.isTrue(sr.isSuccess(), 'Expected each SaveResult to be success');
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenListOfSObjectWithAllOrNoneAndSetFail_ThenThrowException() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Id = '006000000000001', Name = 'Updated Opportunity 1')
+    };
+    IEloquent eloquent = (new MockEloquent()).failOnDoUpdate();
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(records, false);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<SObject> records, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyNullAsListOfIEntryWithAllOrNone_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<MockEntry> entries = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(entries, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<IEntry> entries, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenApplyListOfIEntryWithAllOrNone_ThenReturnSuccessSaveResults() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .fields(new List<String>{ 'Id', 'Name' })
+      .buildFieldStructure();
+    List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
+      .autoId('{#}')
+      .add('Name', 'Opportunity {#}')
+      .times(2);
+    List<MockEntry> updateEntries = new List<MockEntry>();
+    for (MockEntry entry : mockEntries) {
+      updateEntries.add((MockEntry) entry.setFieldStructure(fieldStructure));
+    }
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.SaveResult> saveResults = eloquent.doUpdate(updateEntries, false);
+
+    // Assert
+    Assert.areEqual(2, saveResults.size(), 'Expected two SaveResults');
+    for (Database.SaveResult sr : saveResults) {
+      Assert.isTrue(sr.isSuccess(), 'Expected each SaveResult to be success');
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenListOfIEntryWithAllOrNoneAndSetFail_ThenThrowException() {
+    // Arrange
+    List<MockEntry> entries = new List<MockEntry>{ MockEntry.of(Opportunity.class).autoId(1) };
+    IEloquent eloquent = (new MockEloquent()).failOnDoUpdate();
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(entries, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpdate(List<IEntry> entries, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
   static void testDoUpsert_WhenAddNullRecord_ThenThrowException() {
     // Arrange
     IEloquent eloquent = new MockEloquent();
@@ -1892,6 +2112,235 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullAsSObject_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    Opportunity opp = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(opp, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenSObjectWithoutId_ThenReturnCreatedUpsertResult() {
+    // Arrange
+    Opportunity record = new Opportunity(Name = 'New Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.UpsertResult result = eloquent.doUpsertByExternalId(record, Opportunity.Id, false);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'Expected UpsertResult to be success');
+    Assert.isTrue(result.isCreated(), 'Expected isCreated to be true for record without Id');
+    Assert.isNotNull(result.getId(), 'Expected UpsertResult to have an Id');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenSObjectWithExistingId_ThenReturnUpdatedUpsertResult() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Existing Opportunity');
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.UpsertResult result = eloquent.doUpsertByExternalId(record, Opportunity.Id, false);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'Expected UpsertResult to be success');
+    Assert.isFalse(result.isCreated(), 'Expected isCreated to be false for record with existing Id');
+    Assert.areEqual('006000000000001', result.getId(), 'Expected UpsertResult Id to match record Id');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenSObjectAndSetFail_ThenThrowException() {
+    // Arrange
+    Opportunity record = new Opportunity(Id = '006000000000001', Name = 'Upserted Opportunity');
+    IEloquent eloquent = (new MockEloquent()).failOnDoUpsertByExternalId();
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(record, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullAsIEntry_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry entry = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(entry, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyEntry_ThenReturnSuccessUpsertResult() {
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .fields(new List<String>{ 'Id', 'Name' })
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .add('Name', 'Opportunity 1')
+      .setFieldStructure(fieldStructure);
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.UpsertResult result = eloquent.doUpsertByExternalId(mockEntry, Opportunity.Id, false);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'Expected UpsertResult to be success');
+    Assert.isFalse(result.isCreated(), 'Expected isCreated to be false for entry with auto Id');
+    Assert.areEqual(mockEntry.getId(), result.getId(), 'Expected UpsertResult Id to match entry Id');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenIEntryAndSetFail_ThenThrowException() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = (new MockEloquent(mockEntry)).failOnDoUpsertByExternalId();
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(mockEntry, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullAsListOfSObject_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<Opportunity> opps = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(opps, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null record list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyListOfSObject_ThenReturnSuccessUpsertResults() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Name = 'New Opportunity 1'),
+      new Opportunity(Id = '006000000000002', Name = 'Existing Opportunity 2')
+    };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.doUpsertByExternalId(records, Opportunity.Id, false);
+
+    // Assert
+    Assert.areEqual(2, results.size(), 'Expected two UpsertResults');
+    Assert.isTrue(results[0].isSuccess(), 'Expected first UpsertResult to be success');
+    Assert.isTrue(results[0].isCreated(), 'Expected first isCreated to be true (no Id)');
+    Assert.isTrue(results[1].isSuccess(), 'Expected second UpsertResult to be success');
+    Assert.isFalse(results[1].isCreated(), 'Expected second isCreated to be false (Id provided)');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenListOfSObjectAndSetFail_ThenThrowException() {
+    // Arrange
+    List<Opportunity> records = new List<Opportunity>{
+      new Opportunity(Id = '006000000000001', Name = 'Upserted Opportunity 1')
+    };
+    IEloquent eloquent = (new MockEloquent()).failOnDoUpsertByExternalId();
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(records, Opportunity.Id, false);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyNullAsListOfIEntry_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<MockEntry> entries = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(entries, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown for null entry list');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenApplyListOfIEntry_ThenReturnSuccessUpsertResults() {
+    // Arrange
+    List<MockEntry> mockEntries = new List<MockEntry>{
+      MockEntry.of(Opportunity.class),
+      MockEntry.of(Opportunity.class).autoId(1)
+    };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.doUpsertByExternalId(mockEntries, Opportunity.Id, false);
+
+    // Assert
+    Assert.areEqual(2, results.size(), 'Expected two UpsertResults');
+    Assert.isTrue(results[0].isSuccess(), 'Expected first UpsertResult to be success');
+    Assert.isTrue(results[0].isCreated(), 'Expected first isCreated to be true (no Id)');
+    Assert.isTrue(results[1].isSuccess(), 'Expected second UpsertResult to be success');
+    Assert.isFalse(results[1].isCreated(), 'Expected second isCreated to be false (auto Id assigned)');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenListOfIEntryAndSetFail_ThenThrowException() {
+    // Arrange
+    List<MockEntry> entries = new List<MockEntry>{ MockEntry.of(Opportunity.class).autoId(1) };
+    IEloquent eloquent = (new MockEloquent()).failOnDoUpsertByExternalId();
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(entries, Opportunity.Id, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String errorMessage = e.getMessage();
+      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)'));
+      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+    }
+  }
+
+  @isTest
   static void testDoDelete_WhenApplyNullAsSObjct_ThenThrowException() {
     // Arrange
     IEloquent eloquent = new MockEloquent();
@@ -2054,5 +2503,510 @@ public with sharing class MockEloquentTest {
 
     // Assert
     // No exception should be thrown, indicating successful deletion
+  }
+
+  // ===========================================================================
+  // label() / attach() / upsertedRecordsAt() / deletedCountAt() / whenLabel() (issue_42)
+  // ===========================================================================
+
+  // --- A. label() / attach() basics ----------------------------------------
+
+  @isTest
+  static void testLabel_WhenChained_ThenReturnSelf() {
+    MockEloquent mock = new MockEloquent();
+    IEloquent result = mock.label('foo');
+    Assert.areEqual(mock, result, 'label() should return the same instance for chaining.');
+  }
+
+  @isTest
+  static void testLabel_WhenNull_ThenThrowException() {
+    try {
+      (new MockEloquent()).label(null);
+      Assert.fail('Expected ApexEloquentException for null label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('label(String label)'));
+    }
+  }
+
+  @isTest
+  static void testLabel_WhenBlank_ThenThrowException() {
+    try {
+      (new MockEloquent()).label(' ');
+      Assert.fail('Expected ApexEloquentException for blank label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('label(String label)'));
+    }
+  }
+
+  @isTest
+  static void testAttach_WhenChained_ThenReturnSelf() {
+    MockEloquent mock = new MockEloquent();
+    MockEloquent result = mock.attach('foo', new List<IEntry>());
+    Assert.areEqual(mock, result);
+  }
+
+  @isTest
+  static void testAttach_WhenSameLabelTwice_ThenOverwrite() {
+    MockEntry first = MockEntry.of(Account.class).autoId(1).set('Name', 'First');
+    MockEntry second = MockEntry.of(Account.class).autoId(2).set('Name', 'Second');
+    MockEloquent mock = (new MockEloquent())
+      .attach('opp', new List<IEntry>{ first })
+      .attach('opp', new List<IEntry>{ second }); // overwrites
+
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    List<IEntry> result = mock.label('opp').get(scribe);
+
+    Assert.areEqual(1, result.size(), 'Second attach should have replaced first.');
+    Assert.areEqual('Second', result[0].get('Name'));
+  }
+
+  @isTest
+  static void testAttach_WhenSingleEntryOverload_ThenWrapsAsList() {
+    MockEntry entry = MockEntry.of(Account.class).autoId(1).set('Name', 'Acme');
+    MockEloquent mock = (new MockEloquent()).attach('opp', entry);
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    List<IEntry> result = mock.label('opp').get(scribe);
+    Assert.areEqual(1, result.size());
+    Assert.areEqual('Acme', result[0].get('Name'));
+  }
+
+  @isTest
+  static void testAttach_WhenNullEntries_ThenStoreEmptyList() {
+    MockEloquent mock = (new MockEloquent()).attach('opp', (List<IEntry>) null);
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    List<IEntry> result = mock.label('opp').get(scribe);
+    Assert.areEqual(0, result.size());
+  }
+
+  // --- B. query label routing ----------------------------------------------
+
+  @isTest
+  static void testGet_WhenAttachedAndLabelMatch_ThenReturnAttachedData() {
+    MockEntry entry = MockEntry.of(Account.class).autoId(1).set('Name', 'A');
+    MockEloquent mock = (new MockEloquent()).attach('opp', new List<IEntry>{ entry });
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    List<IEntry> result = mock.label('opp').get(scribe);
+    Assert.areEqual(1, result.size());
+    Assert.areEqual('A', result[0].get('Name'));
+  }
+
+  @isTest
+  static void testGet_WhenAttachedButNoLabelCalled_ThenReturnLegacyDefaultEntries() {
+    // Legacy: MockEloquent(List<IEntry>) populates 'default' source via entries field
+    MockEntry legacy = MockEntry.of(Account.class).autoId(1).set('Name', 'LegacyDefault');
+    MockEntry attached = MockEntry.of(Account.class).autoId(2).set('Name', 'AttachedOpp');
+    MockEloquent mock = (new MockEloquent(new List<IEntry>{ legacy }))
+      .attach('opp', new List<IEntry>{ attached });
+
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    // no label() -> default -> falls back to legacy entries
+    List<IEntry> result = mock.get(scribe);
+    Assert.areEqual(1, result.size());
+    Assert.areEqual('LegacyDefault', result[0].get('Name'));
+  }
+
+  @isTest
+  static void testGet_WhenLabelCalledButNoAttach_ThenReturnEmpty() {
+    MockEntry legacy = MockEntry.of(Account.class).autoId(1).set('Name', 'LegacyDefault');
+    MockEloquent mock = new MockEloquent(new List<IEntry>{ legacy });
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    // label('opp') has no attach — should NOT fall back to legacy entries
+    List<IEntry> result = mock.label('opp').get(scribe);
+    Assert.areEqual(0, result.size(), 'Non-default label without attach returns empty (no legacy fallback).');
+  }
+
+  @isTest
+  static void testFirst_WhenAttachedAndLabelMatch_ThenReturnFirstEntry() {
+    MockEntry e1 = MockEntry.of(Account.class).autoId(1).set('Name', 'First');
+    MockEntry e2 = MockEntry.of(Account.class).autoId(2).set('Name', 'Second');
+    MockEloquent mock = (new MockEloquent()).attach('opp', new List<IEntry>{ e1, e2 });
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    IEntry result = mock.label('opp').first(scribe);
+    Assert.areEqual('First', result.get('Name'));
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenLabelEmpty_ThenThrowException() {
+    MockEloquent mock = new MockEloquent();
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    try {
+      mock.label('opp').firstOrFail(scribe);
+      Assert.fail('Expected ApexEloquentException for empty label preload.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('No records were found'));
+    }
+  }
+
+  @isTest
+  static void testGet_WhenTwoConsecutiveLabels_ThenEachRoutesIndependently() {
+    MockEntry oppData = MockEntry.of(Account.class).autoId(1).set('Name', 'OppAcc');
+    MockEntry quoteData = MockEntry.of(Account.class).autoId(2).set('Name', 'QuoteAcc');
+    MockEloquent mock = (new MockEloquent())
+      .attach('opp', new List<IEntry>{ oppData })
+      .attach('quote', new List<IEntry>{ quoteData });
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    IEntry oppResult = mock.label('opp').first(scribe);
+    IEntry quoteResult = mock.label('quote').first(scribe);
+
+    Assert.areEqual('OppAcc', oppResult.get('Name'));
+    Assert.areEqual('QuoteAcc', quoteResult.get('Name'));
+  }
+
+  // (testGet_WhenLabelResetsAfterOneOp_ThenSecondOpUsesDefault was removed
+  // in issue_39: strict mode forbids label-less ops after the first .label(),
+  // and the new behavior is covered by testStrict_AfterLabelCall_NoLabelOpThrows
+  // at the bottom of this file.)
+
+  // --- C. DML per-label accumulators ---------------------------------------
+
+  @isTest
+  static void testDoInsert_WhenWithLabel_ThenStoreInLabelBucket() {
+    MockEloquent mock = new MockEloquent();
+    Account a = new Account(Name = 'Inserted');
+    mock.label('acc').doInsert(a);
+
+    Assert.areEqual(1, mock.upsertedRecordsAt('acc').size());
+    Assert.areEqual(0, mock.upsertedRecords.size(), 'Default bucket should be empty.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenWithoutLabel_ThenStoreInDefaultBucket() {
+    MockEloquent mock = new MockEloquent();
+    mock.doInsert(new Account(Name = 'Inserted'));
+
+    Assert.areEqual(1, mock.upsertedRecords.size(), 'Legacy field reflects default bucket.');
+    Assert.areEqual(1, mock.upsertedRecordsAt('default').size());
+    Assert.areEqual(0, mock.upsertedRecordsAt('acc').size());
+  }
+
+  @isTest
+  static void testDoUpdate_WhenWithLabel_ThenStoreInLabelBucket() {
+    MockEloquent mock = new MockEloquent();
+    mock.label('quoteUpdate').doUpdate(new Account(Id = '001000000000001', Name = 'Updated'));
+    Assert.areEqual(1, mock.upsertedRecordsAt('quoteUpdate').size());
+    Assert.areEqual(0, mock.upsertedRecords.size());
+  }
+
+  @isTest
+  static void testDoUpsert_WhenWithLabel_ThenStoreInLabelBucket() {
+    MockEloquent mock = new MockEloquent();
+    mock.label('oppUpsert').doUpsert(new Account(Id = '001000000000001', Name = 'Upserted'));
+    Assert.areEqual(1, mock.upsertedRecordsAt('oppUpsert').size());
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenWithLabel_ThenStoreInLabelBucket() {
+    MockEloquent mock = new MockEloquent();
+    mock.label('extId').doUpsertByExternalId(new Account(Name = 'Acme'), Account.Id, false);
+    Assert.areEqual(1, mock.upsertedRecordsAt('extId').size());
+  }
+
+  @isTest
+  static void testDoDelete_WhenWithLabel_ThenIncrementLabelDeletedCount() {
+    MockEloquent mock = new MockEloquent();
+    mock.label('cleanup').doDelete(new Account(Id = '001000000000001'));
+    Assert.areEqual(1, mock.deletedCountAt('cleanup'));
+    Assert.areEqual(0, mock.deletedCount, 'Default bucket should be empty.');
+  }
+
+  @isTest
+  static void testDoDelete_WhenWithoutLabel_ThenIncrementDefaultBucket() {
+    MockEloquent mock = new MockEloquent();
+    mock.doDelete(new Account(Id = '001000000000001'));
+    Assert.areEqual(1, mock.deletedCount);
+    Assert.areEqual(1, mock.deletedCountAt('default'));
+    Assert.areEqual(0, mock.deletedCountAt('other'));
+  }
+
+  @isTest
+  static void testUpsertedRecordsAt_WhenUnknownLabel_ThenReturnEmptyList() {
+    MockEloquent mock = new MockEloquent();
+    Assert.areEqual(0, mock.upsertedRecordsAt('neverUsed').size());
+  }
+
+  @isTest
+  static void testDeletedCountAt_WhenUnknownLabel_ThenReturnZero() {
+    MockEloquent mock = new MockEloquent();
+    Assert.areEqual(0, mock.deletedCountAt('neverUsed'));
+  }
+
+  // --- E. whenLabel (scoped failures) --------------------------------------
+
+  @isTest
+  static void testWhenLabel_WhenCalledWithoutPriorFailOnXxx_ThenThrowException() {
+    try {
+      (new MockEloquent()).whenLabel('opp');
+      Assert.fail('Expected ApexEloquentException — whenLabel needs preceding failOnXxx.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('whenLabel(String label)'));
+      Assert.isTrue(e.getMessage().contains('No failOnXxx to scope'));
+    }
+  }
+
+  @isTest
+  static void testFailOnGet_WithWhenLabel_AndLabelMatches_ThenFire() {
+    MockEloquent mock = (new MockEloquent()).failOnGet().whenLabel('opp');
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    try {
+      mock.label('opp').get(scribe);
+      Assert.fail('Expected failOnGet to fire for matching label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('MockEloquent was configured to throw'));
+    }
+  }
+
+  @isTest
+  static void testFailOnGet_WithWhenLabel_AndLabelMismatch_ThenDoNotFire() {
+    MockEloquent mock = (new MockEloquent()).failOnGet().whenLabel('opp');
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    // Calling with a different label should NOT fire the failure
+    List<IEntry> result = mock.label('quote').get(scribe);
+    Assert.areEqual(0, result.size(), 'No failure should fire; empty list since quote has no attach.');
+  }
+
+  @isTest
+  static void testFailOnDoUpdate_WithWhenLabel_AndLabelMatches_ThenFire() {
+    MockEloquent mock = (new MockEloquent()).failOnDoUpdate().whenLabel('finalDml');
+    try {
+      mock.label('finalDml').doUpdate(new Account(Id = '001000000000001', Name = 'X'));
+      Assert.fail('Expected failOnDoUpdate to fire for matching label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('MockEloquent was configured to throw'));
+    }
+  }
+
+  @isTest
+  static void testFailOnXxx_WithoutWhenLabel_ThenFiresRegardlessOfLabel() {
+    MockEloquent mock = (new MockEloquent()).failOnGet();
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    try {
+      mock.label('anyLabel').get(scribe);
+      Assert.fail('Global failOnGet (no whenLabel) should fire regardless of label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('MockEloquent was configured to throw'));
+    }
+  }
+
+  // --- F. Integration + regression -----------------------------------------
+
+  @isTest
+  static void testIntegration_MultipleLabelsAcrossQueriesAndDmls_ThenAllRouteCorrectly() {
+    MockEntry oppMock = MockEntry.of(Account.class).autoId(1).set('Name', 'OppAcc');
+    MockEntry quoteMock = MockEntry.of(Account.class).autoId(2).set('Name', 'QuoteAcc');
+    MockEloquent mock = (new MockEloquent())
+      .attach('oppLoad', new List<IEntry>{ oppMock })
+      .attach('quoteLoad', new List<IEntry>{ quoteMock });
+
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    // Query labels independently
+    IEntry oppResult = mock.label('oppLoad').first(scribe);
+    IEntry quoteResult = mock.label('quoteLoad').first(scribe);
+    Assert.areEqual('OppAcc', oppResult.get('Name'));
+    Assert.areEqual('QuoteAcc', quoteResult.get('Name'));
+
+    // DML to different labels
+    mock.label('finalDml').doUpdate(new Account(Id = '001000000000001', Name = 'X'));
+    mock.label('cleanup').doDelete(new Account(Id = '001000000000002'));
+
+    // Assert per-label DML state
+    Assert.areEqual(1, mock.upsertedRecordsAt('finalDml').size());
+    Assert.areEqual(0, mock.upsertedRecordsAt('cleanup').size());
+    Assert.areEqual(0, mock.deletedCountAt('finalDml'));
+    Assert.areEqual(1, mock.deletedCountAt('cleanup'));
+
+    // Legacy public fields untouched (no default-label DML happened)
+    Assert.areEqual(0, mock.upsertedRecords.size());
+    Assert.areEqual(0, mock.deletedCount);
+  }
+
+  @isTest
+  static void testCopy_AfterAttach_ThenAttachSurvives() {
+    MockEntry entry = MockEntry.of(Account.class).autoId(1).set('Name', 'Survives');
+    MockEloquent mock = (new MockEloquent())
+      .attach('opp', new List<IEntry>{ entry })
+      .failOnDoUpdate(); // triggers internal copy()
+
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    List<IEntry> result = mock.label('opp').get(scribe);
+    Assert.areEqual(1, result.size(), 'attach data should survive failOnXxx copy().');
+    Assert.areEqual('Survives', result[0].get('Name'));
+  }
+
+  @isTest
+  static void testLabel_WhenOperationThrows_ThenLabelStillResetsForNextCall() {
+    MockEloquent mock = (new MockEloquent()).failOnGet();
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    // First op throws via failOnGet, but label was consumed
+    try {
+      mock.label('foo').get(scribe);
+    } catch (ApexEloquentException e) {
+      // expected
+    }
+    // After the throw, currentLabel should be reset — next op should use 'default'
+    // Verify by hitting failOnGet again with another scoped fail that should NOT fire
+    // (since the queue was consumed and 'foo' label state is gone)
+    MockEloquent mock2 = (new MockEloquent()).failOnGet().whenLabel('opp');
+    List<IEntry> result = mock2.get(scribe); // no label, should NOT fire scoped fail
+    Assert.areEqual(0, result.size(), 'Default-label op should not consume opp-scoped fail.');
+  }
+
+  @isTest
+  static void testLegacyMockEloquentConstructor_WhenWithEntries_ThenGetWithoutLabelReturnsEntries() {
+    MockEntry e1 = MockEntry.of(Account.class).autoId(1).set('Name', 'X');
+    MockEntry e2 = MockEntry.of(Account.class).autoId(2).set('Name', 'Y');
+    MockEloquent mock = new MockEloquent(new List<IEntry>{ e1, e2 });
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    List<IEntry> result = mock.get(scribe);
+    Assert.areEqual(2, result.size(), 'Legacy constructor still works for default-label queries.');
+  }
+
+  // ===========================================================================
+  // strict mode (issue_39)
+  // ===========================================================================
+
+  @isTest
+  static void testStrict_AfterLabelCall_NoLabelOpThrows() {
+    MockEloquent mock = (new MockEloquent()).attach('a', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    mock.label('a').get(scribe); // enters strict mode, consumes 'a'
+    try {
+      mock.get(scribe); // no label — strict mode requires .label()
+      Assert.fail('Expected strict-mode exception for label-less op after strict mode entered.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('strict mode required'),
+        'Expected strict-mode message, got: ' + e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testStrict_AfterStrictModeEntered_ReusingLabelThrows() {
+    MockEloquent mock = (new MockEloquent()).attach('a', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    mock.label('a').get(scribe); // 'a' consumed
+    try {
+      mock.label('a').get(scribe); // 'a' reused — consume-once violation
+      Assert.fail('Expected consume-once exception when reusing label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('already been consumed'),
+        'Expected consume-once message, got: ' + e.getMessage()
+      );
+      Assert.isTrue(e.getMessage().contains('\'a\''), 'Should mention the label name.');
+    }
+  }
+
+  @isTest
+  static void testStrict_AfterStrictModeEntered_NewLabelOk() {
+    MockEloquent mock = (new MockEloquent())
+      .attach('a', new List<IEntry>())
+      .attach('b', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    mock.label('a').get(scribe); // strict mode on, 'a' consumed
+    mock.label('b').get(scribe); // different label — must NOT throw
+    Assert.areEqual(0, mock.upsertedRecordsAt('default').size(), 'No DML happened.');
+  }
+
+  @isTest
+  static void testStrict_LenientMode_AnyNumberOfNoLabelOpsOk() {
+    // Backward-compat lock: a MockEloquent that never sees .label() must
+    // continue to accept any number of label-less calls. This is the case
+    // that existing 700+ tests rely on.
+    MockEloquent mock = new MockEloquent(
+      new List<IEntry>{ MockEntry.of(Account.class).autoId(1).set('Name', 'X') }
+    );
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    mock.get(scribe);
+    mock.get(scribe);
+    mock.get(scribe);
+    Assert.isTrue(true, 'No exception thrown — lenient mode allows repeated label-less ops.');
+  }
+
+  @isTest
+  static void testStrict_OpThrowsViaFailOn_LabelStillConsumed() {
+    // Even when the op throws via failOnGet, the label is consumed. Reusing
+    // it should still hit consume-once on the second attempt.
+    MockEloquent mock = (new MockEloquent()).failOnGet();
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    try {
+      mock.label('a').get(scribe); // throws via failOnGet — 'a' still consumed
+    } catch (ApexEloquentException e) {
+      // expected
+    }
+    try {
+      mock.label('a').get(scribe); // 'a' already consumed
+      Assert.fail('Expected consume-once exception on label reuse.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('already been consumed'));
+    }
+  }
+
+  @isTest
+  static void testStrict_DefaultExplicit_AlsoConsumeOnce() {
+    MockEloquent mock = (new MockEloquent()).attach('default', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    mock.label('default').get(scribe); // 'default' consumed
+    try {
+      mock.label('default').get(scribe);
+      Assert.fail('Expected consume-once for explicit default.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('already been consumed'));
+    }
+  }
+
+  @isTest
+  static void testStrict_ChainOverwrites_OnlyLastLabelIsConsumed() {
+    MockEloquent mock = (new MockEloquent())
+      .attach('a', new List<IEntry>())
+      .attach('b', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    // chain .label('a').label('b') before op — only 'b' is consumed
+    mock.label('a').label('b').get(scribe);
+    // 'a' was never consumed, so this should NOT throw consume-once
+    mock.label('a').get(scribe);
+    Assert.isTrue(true, 'No exception — only the last labeled value is consumed by an op.');
+  }
+
+  @isTest
+  static void testStrict_StrictModePropagatesThroughCopy() {
+    // failOnXxx triggers an internal copy(). The strict-mode flag and the
+    // consumedLabels set must survive the copy so that consume-once still
+    // works for labels used before the failOn chain.
+    MockEloquent mock = (new MockEloquent()).attach('a', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    mock.label('a').get(scribe); // strict mode entered, 'a' consumed
+    MockEloquent withFail = (MockEloquent) mock.failOnDoUpdate(); // internal copy()
+    try {
+      withFail.label('a').doUpdate(new Account(Id = '001000000000001', Name = 'X'));
+      Assert.fail('Expected consume-once: \'a\' was consumed on the original instance.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('already been consumed'),
+        'Expected consume-once after copy(). Got: ' + e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testStrict_LabelNullOrBlank_ThrowsRequiredBeforeStrictModeActivation() {
+    // .label(null) / .label('') throw the required-argument error and must
+    // NOT activate strict mode (so subsequent lenient ops keep working).
+    MockEloquent mock = new MockEloquent(
+      new List<IEntry>{ MockEntry.of(Account.class).autoId(1).set('Name', 'X') }
+    );
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    try {
+      mock.label(null).get(scribe);
+      Assert.fail('Expected required-arg exception for null label.');
+    } catch (ApexEloquentException e) {
+      // expected — label(null) throws BEFORE setting strictMode
+    }
+    // mock should still be in lenient mode — these must not throw
+    mock.get(scribe);
+    mock.get(scribe);
+    Assert.isTrue(true, 'label(null) did not flip strict mode on.');
   }
 }

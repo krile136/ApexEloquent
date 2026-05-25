@@ -1119,4 +1119,105 @@ public with sharing class EloquentTest {
     // Assert
     // No exception should be thrown
   }
+
+  // ===========================================================================
+  // label() (issue_42)
+  // ===========================================================================
+
+  @isTest
+  static void testLabel_WhenChained_ThenReturnSelf() {
+    Eloquent eloquent = new Eloquent();
+    IEloquent result = eloquent.label('foo');
+    Assert.areEqual(eloquent, result, 'label() should return the same instance for chaining.');
+  }
+
+  @isTest
+  static void testLabel_WhenNull_ThenThrowException() {
+    try {
+      (new Eloquent()).label(null);
+      Assert.fail('Expected ApexEloquentException for null label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('label(String label)'));
+      Assert.isTrue(e.getMessage().contains('argument is required'));
+    }
+  }
+
+  @isTest
+  static void testLabel_WhenBlank_ThenThrowException() {
+    try {
+      (new Eloquent()).label('   ');
+      Assert.fail('Expected ApexEloquentException for blank label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('label(String label)'));
+      Assert.isTrue(e.getMessage().contains('argument is required'));
+    }
+  }
+
+  // ===========================================================================
+  // strict mode (issue_39)
+  // ===========================================================================
+
+  @isTest
+  static void testLabel_AfterLabelCall_NoLabelOpThrows() {
+    // After the first .label() call the IEloquent enters strict mode. Subsequent
+    // ops without .label() must throw — even in production. We trigger a first
+    // op that fails with a normal DML error (invalid Id), then call again with
+    // no label — that must throw the strict-mode error, not the DML error.
+    Eloquent eloquent = new Eloquent();
+    try {
+      eloquent.label('first').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
+    } catch (ApexEloquentException e) {
+      // expected — invalid Id failure on the first op. 'first' is now consumed.
+    }
+    try {
+      eloquent.doUpdate(new Opportunity(Id = '006000000000001', Name = 'Y'));
+      Assert.fail('Expected strict-mode exception for label-less op after strict mode entered.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('strict mode required'),
+        'Expected the strict-mode message, got: ' + e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testLabel_AfterLabelCall_ReusingSameLabelThrows() {
+    Eloquent eloquent = new Eloquent();
+    try {
+      eloquent.label('dup').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
+    } catch (ApexEloquentException e) {
+      // expected — invalid Id. 'dup' is consumed.
+    }
+    try {
+      eloquent.label('dup').doUpdate(new Opportunity(Id = '006000000000001', Name = 'Y'));
+      Assert.fail('Expected consume-once exception when reusing label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('already been consumed'),
+        'Expected consume-once message, got: ' + e.getMessage()
+      );
+      Assert.isTrue(e.getMessage().contains('dup'), 'Should mention the label name.');
+    }
+  }
+
+  @isTest
+  static void testLabel_AfterLabelCall_NewLabelOk() {
+    Eloquent eloquent = new Eloquent();
+    try {
+      eloquent.label('a').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Failed to update operation'), 'First failure should be DML, not strict-mode.');
+    }
+    // Different label — should NOT throw strict-mode/consume-once; only the
+    // underlying DML failure.
+    try {
+      eloquent.label('b').doUpdate(new Opportunity(Id = '006000000000001', Name = 'Y'));
+      Assert.fail('Expected DML failure (invalid Id).');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('Failed to update operation'),
+        'Second failure should be the DML one, not strict-mode. Got: ' + e.getMessage()
+      );
+    }
+  }
 }

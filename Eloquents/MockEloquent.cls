@@ -31,6 +31,8 @@
  * @see MockEntry
  */
 public with sharing class MockEloquent implements IEloquent {
+  private static final String DEFAULT_LABEL = 'default';
+
   private final List<IEntry> entries;
   private Integer insertCount;
   private Map<String, List<ErrorConfig>> errorQueueMap = new Map<String, List<ErrorConfig>>();
@@ -39,7 +41,24 @@ public with sharing class MockEloquent implements IEloquent {
   @TestVisible
   private Scribe scribe;
 
+  private String currentLabel = DEFAULT_LABEL;
+  private Boolean strictMode = false;
+  private Boolean labelSetForNextOp = false;
+  private Set<String> consumedLabels = new Set<String>();
+  private Map<String, List<IEntry>> attachedDataByLabel = new Map<String, List<IEntry>>();
+  private Map<String, List<SObject>> upsertedByLabel = new Map<String, List<SObject>>();
+  private Map<String, Integer> deletedCountByLabel = new Map<String, Integer>();
+
+  /**
+   * @deprecated Direct field access will be removed in a future major version.
+   * Use upsertedRecordsAt('default') instead. Reflects 'default' label only.
+   */
   public List<SObject> upsertedRecords = new List<SObject>();
+
+  /**
+   * @deprecated Direct field access will be removed in a future major version.
+   * Use deletedCountAt('default') instead. Reflects 'default' label only.
+   */
   public Integer deletedCount = 0;
 
   private String CLASS_NAME = 'MockEloquent';
@@ -85,12 +104,165 @@ public with sharing class MockEloquent implements IEloquent {
     this.scribe = null;
   }
 
+  // ===========================================================================
+  // label() + per-label routing (issue_42)
+  // ===========================================================================
+
+  /**
+   * @inheritDoc
+   */
+  public IEloquent label(String label) {
+    if (label == null || String.isBlank(label)) {
+      ApexEloquentException.required(CLASS_NAME, 'label(String label)', 'label', label).fire();
+    }
+    this.currentLabel = label;
+    this.labelSetForNextOp = true;
+    this.strictMode = true; // sticky — once on, stays on for this MockEloquent instance
+    return this;
+  }
+
+  /**
+   * Pre-load data for a label. Subsequent read calls tagged with that label
+   * will see this data as the query source. Overwrites prior attach.
+   */
+  public MockEloquent attach(String label, List<IEntry> entries) {
+    if (label == null || String.isBlank(label)) {
+      ApexEloquentException.required(CLASS_NAME, 'attach(String label, List<IEntry> entries)', 'label', label)
+        .fire();
+    }
+    this.attachedDataByLabel.put(label, entries == null ? new List<IEntry>() : entries);
+    return this;
+  }
+
+  /**
+   * Pre-load a single entry for a label.
+   */
+  public MockEloquent attach(String label, IEntry entry) {
+    return this.attach(label, entry == null ? new List<IEntry>() : new List<IEntry>{ entry });
+  }
+
+  /**
+   * Returns the records upserted (inserted / updated / upserted) under a given label.
+   * Returns empty list if no DML ran under that label.
+   */
+  public List<SObject> upsertedRecordsAt(String label) {
+    return this.upsertedByLabel.containsKey(label) ? this.upsertedByLabel.get(label) : new List<SObject>();
+  }
+
+  /**
+   * Returns the number of records deleted under a given label.
+   * Returns 0 if no doDelete ran under that label.
+   */
+  public Integer deletedCountAt(String label) {
+    return this.deletedCountByLabel.containsKey(label) ? this.deletedCountByLabel.get(label) : 0;
+  }
+
+  /**
+   * Scopes the most recently configured failOnXxx to a label. Reads as
+   * "fail on get when label is 'opp'". Same modifier pattern as repeat().
+   *
+   * @throws ApexEloquentException if called without a preceding failOnXxx()
+   */
+  public MockEloquent whenLabel(String label) {
+    if (this.lastConfig == null) {
+      String reason = 'No failOnXxx to scope. whenLabel() modifies the most recently configured failure.';
+      String action = 'Call failOnGet() / failOnDoInsert() / etc. before calling whenLabel(...).';
+      ApexEloquentException.invalidOperation(CLASS_NAME, 'whenLabel(String label)', reason).action(action).fire();
+    }
+    this.lastConfig.label = label;
+    return this;
+  }
+
+  /**
+   * Captures the current label for routing, resets the transient label state,
+   * and enforces strict-mode rules:
+   *   (1) once strict mode is active, every operation must be preceded by .label(...)
+   *   (2) each label can be consumed at most once per MockEloquent instance
+   */
+  private String consumeLabel() {
+    String label = this.currentLabel;
+    Boolean wasSet = this.labelSetForNextOp;
+
+    // reset transient state first so a caller that catches the exception
+    // starts the next operation from a clean slate
+    this.currentLabel = DEFAULT_LABEL;
+    this.labelSetForNextOp = false;
+
+    // lenient mode: anything goes — no enforcement, no consumed-label tracking
+    if (!this.strictMode) {
+      return label;
+    }
+
+    // strict mode: both rules apply
+    if (!wasSet) {
+      String reason = 'Strict mode is active on this MockEloquent: every operation must be preceded by .label(...).';
+      String action = 'Call .label(X) before this read/DML, or use a fresh MockEloquent instance if you want lenient mode.';
+      ApexEloquentException.invalidOperation(CLASS_NAME, 'label(String label) [strict mode required]', reason).action(action).fire();
+    }
+    if (this.consumedLabels.contains(label)) {
+      String reason = 'Label \'' + label + '\' has already been consumed on this MockEloquent instance.';
+      String action = 'Each label can be used at most once per MockEloquent. Use a different label name, or construct a fresh MockEloquent.';
+      ApexEloquentException.invalidOperation(CLASS_NAME, 'label(String label) [consume-once]', reason)
+        .action(action)
+        .param('label', label)
+        .fire();
+    }
+    this.consumedLabels.add(label);
+    return label;
+  }
+
+  /**
+   * Returns the list of entries that read operations should treat as the
+   * query source for the given label. Order of precedence:
+   *   1. preloaded via attach(label, ...)
+   *   2. legacy MockEloquent(List<IEntry>) entries — only when label == 'default'
+   *   3. empty list
+   */
+  private List<IEntry> activeEntries(String label) {
+    if (this.attachedDataByLabel.containsKey(label)) {
+      return this.attachedDataByLabel.get(label);
+    }
+    return label == DEFAULT_LABEL ? this.entries : new List<IEntry>();
+  }
+
+  private void recordUpsert(String label, SObject record) {
+    if (label == DEFAULT_LABEL) {
+      this.upsertedRecords.add(record);
+    }
+    if (!this.upsertedByLabel.containsKey(label)) {
+      this.upsertedByLabel.put(label, new List<SObject>());
+    }
+    this.upsertedByLabel.get(label).add(record);
+  }
+
+  private void recordUpsertAll(String label, List<SObject> records) {
+    if (records == null || records.isEmpty()) {
+      return;
+    }
+    if (label == DEFAULT_LABEL) {
+      this.upsertedRecords.addAll(records);
+    }
+    if (!this.upsertedByLabel.containsKey(label)) {
+      this.upsertedByLabel.put(label, new List<SObject>());
+    }
+    this.upsertedByLabel.get(label).addAll(records);
+  }
+
+  private void recordDelete(String label, Integer count) {
+    if (label == DEFAULT_LABEL) {
+      this.deletedCount += count;
+    }
+    Integer prev = this.deletedCountByLabel.containsKey(label) ? this.deletedCountByLabel.get(label) : 0;
+    this.deletedCountByLabel.put(label, prev + count);
+  }
+
   /**
    * @inheritDoc
    */
   public List<IEntry> get(Scribe scribe) {
     String method = 'get(Scribe scribe)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (scribe == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
@@ -101,7 +273,7 @@ public with sharing class MockEloquent implements IEloquent {
       ? scribe.buildAggregateFieldStructure()
       : scribe.buildFieldStructure();
     List<IEntry> result = new List<IEntry>();
-    for (IEntry entry : this.entries) {
+    for (IEntry entry : this.activeEntries(label)) {
       result.add(entry.setFieldStructure(fieldStructure));
     }
     return result;
@@ -112,7 +284,8 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public List<IEntry> rawSoql(String soql) {
     String method = 'rawSoql(String soql)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (String.isBlank(soql)) {
       ApexEloquentException.required(CLASS_NAME, method, 'soql', soql).fire();
     }
@@ -121,7 +294,7 @@ public with sharing class MockEloquent implements IEloquent {
     // turn off skipFieldValidation so callers can read any field; non-MockEntry
     // entries pass through unchanged.
     List<IEntry> result = new List<IEntry>();
-    for (IEntry entry : this.entries) {
+    for (IEntry entry : this.activeEntries(label)) {
       if (entry instanceof MockEntry) {
         result.add(((MockEntry) entry).withoutFieldValidation());
       } else {
@@ -136,7 +309,8 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public List<SObject> getAsSObject(Scribe scribe) {
     String method = 'getAsSObject(Scribe scribe)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (scribe == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
@@ -144,7 +318,7 @@ public with sharing class MockEloquent implements IEloquent {
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     List<SObject> result = new List<SObject>();
-    for (IEntry entry : this.entries) {
+    for (IEntry entry : this.activeEntries(label)) {
       result.add(entry.getRecord());
     }
     return result;
@@ -155,7 +329,8 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public IEntry first(Scribe scribe) {
     String method = 'first(Scribe scribe)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (scribe == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
@@ -163,10 +338,11 @@ public with sharing class MockEloquent implements IEloquent {
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
-    if (this.entries.isEmpty()) {
+    List<IEntry> source = this.activeEntries(label);
+    if (source.isEmpty()) {
       return null;
     }
-    return this.entries[0].setFieldStructure(fieldStructure);
+    return source[0].setFieldStructure(fieldStructure);
   }
 
   /**
@@ -174,17 +350,19 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public SObject firstAsSObject(Scribe scribe) {
     String method = 'firstAsSObject(Scribe scribe)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (scribe == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
 
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
-    if (this.entries.isEmpty()) {
+    List<IEntry> source = this.activeEntries(label);
+    if (source.isEmpty()) {
       return null;
     }
-    return this.entries[0].getRecord();
+    return source[0].getRecord();
   }
 
   /**
@@ -192,7 +370,8 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public IEntry firstOrFail(Scribe scribe) {
     String method = 'firstOrFail(Scribe scribe)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (scribe == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
@@ -200,7 +379,8 @@ public with sharing class MockEloquent implements IEloquent {
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
     FieldStructure fieldStructure = scribe.buildFieldStructure();
-    if (this.entries.isEmpty()) {
+    List<IEntry> source = this.activeEntries(label);
+    if (source.isEmpty()) {
       String error = 'No records were found for the given criteria';
       String reason = 'The query execution returned zero records';
       String action = 'Ensure the test data is correctly registered in MockEloquent';
@@ -212,7 +392,7 @@ public with sharing class MockEloquent implements IEloquent {
         .param('SOQL', scribe.toSoql())
         .fire();
     }
-    return this.entries[0].setFieldStructure(fieldStructure);
+    return source[0].setFieldStructure(fieldStructure);
   }
 
   /**
@@ -220,14 +400,16 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public SObject firstOrFailAsSObject(Scribe scribe) {
     String method = 'firstOrFailAsSObject(Scribe scribe)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (scribe == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
     }
 
     this.scribe = scribe;
     String soql = scribe.toSoql(); // for showing and validate SOQL
-    if (this.entries.isEmpty()) {
+    List<IEntry> source = this.activeEntries(label);
+    if (source.isEmpty()) {
       String error = 'No records were found for the given criteria';
       String reason = 'The query execution returned zero records';
       String action = 'Ensure the test data is correctly registered in MockEloquent';
@@ -239,7 +421,7 @@ public with sharing class MockEloquent implements IEloquent {
         .param('SOQL', scribe.toSoql())
         .fire();
     }
-    return this.entries[0].getRecord();
+    return source[0].getRecord();
   }
 
   /**
@@ -247,13 +429,14 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public SObject doInsert(SObject record) {
     String method = 'doInsert(SObject record)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (record == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
     }
 
     record.Id = this.generateId(record);
-    this.upsertedRecords.add(record);
+    this.recordUpsert(label, record);
     return record;
   }
 
@@ -262,14 +445,15 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public List<SObject> doInsert(List<SObject> records) {
     String method = 'doInsert(List<SObject> records)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (records == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
     for (SObject record : records) {
       record.Id = this.generateId(record);
     }
-    this.upsertedRecords.addAll(records);
+    this.recordUpsertAll(label, records);
     return records;
   }
 
@@ -278,12 +462,13 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public SObject doUpdate(SObject record) {
     String method = 'doUpdate(SObject record)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (record == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
     }
 
-    this.upsertedRecords.add(record);
+    this.recordUpsert(label, record);
     return record;
   }
 
@@ -292,12 +477,13 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public IEntry doUpdate(IEntry entry) {
     String method = 'doUpdate(IEntry entry)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entry == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
     }
 
-    this.upsertedRecords.add(entry.getRecord());
+    this.recordUpsert(label, entry.getRecord());
     return entry;
   }
 
@@ -306,12 +492,13 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public List<SObject> doUpdate(List<SObject> records) {
     String method = 'doUpdate(List<SObject> records)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (records == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
 
-    this.upsertedRecords.addAll(records);
+    this.recordUpsertAll(label, records);
     return records;
   }
 
@@ -320,13 +507,14 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public List<IEntry> doUpdate(List<IEntry> entries) {
     String method = 'doUpdate(List<IEntry> entries)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entries == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
     }
 
     for (IEntry entry : entries) {
-      this.upsertedRecords.add(entry.getRecord());
+      this.recordUpsert(label, entry.getRecord());
     }
 
     return entries;
@@ -337,12 +525,13 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public Database.SaveResult doUpdate(SObject record, Boolean allOrNone) {
     String method = 'doUpdate(SObject record, Boolean allOrNone)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (record == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
     }
 
-    this.upsertedRecords.add(record);
+    this.recordUpsert(label, record);
     return buildSuccessSaveResult(record.Id);
   }
 
@@ -351,13 +540,14 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public Database.SaveResult doUpdate(IEntry entry, Boolean allOrNone) {
     String method = 'doUpdate(IEntry entry, Boolean allOrNone)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entry == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
     }
 
     SObject record = entry.getRecord();
-    this.upsertedRecords.add(record);
+    this.recordUpsert(label, record);
     return buildSuccessSaveResult(record.Id);
   }
 
@@ -366,12 +556,13 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public List<Database.SaveResult> doUpdate(List<SObject> records, Boolean allOrNone) {
     String method = 'doUpdate(List<SObject> records, Boolean allOrNone)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (records == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
 
-    this.upsertedRecords.addAll(records);
+    this.recordUpsertAll(label, records);
     List<Database.SaveResult> results = new List<Database.SaveResult>();
     for (SObject record : records) {
       results.add(buildSuccessSaveResult(record.Id));
@@ -384,7 +575,8 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public List<Database.SaveResult> doUpdate(List<IEntry> entries, Boolean allOrNone) {
     String method = 'doUpdate(List<IEntry> entries, Boolean allOrNone)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entries == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
     }
@@ -392,7 +584,7 @@ public with sharing class MockEloquent implements IEloquent {
     List<Database.SaveResult> results = new List<Database.SaveResult>();
     for (IEntry entry : entries) {
       SObject record = entry.getRecord();
-      this.upsertedRecords.add(record);
+      this.recordUpsert(label, record);
       results.add(buildSuccessSaveResult(record.Id));
     }
     return results;
@@ -409,7 +601,8 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public SObject doUpsert(SObject record) {
     String method = 'doUpsert(SObject record)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (record == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
     }
@@ -417,7 +610,7 @@ public with sharing class MockEloquent implements IEloquent {
     if (record.Id == null) {
       record.Id = this.generateId(record);
     }
-    this.upsertedRecords.add(record);
+    this.recordUpsert(label, record);
     return record;
   }
 
@@ -426,7 +619,8 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public IEntry doUpsert(IEntry entry) {
     String method = 'doUpsert(IEntry entry)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entry == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
     }
@@ -435,7 +629,7 @@ public with sharing class MockEloquent implements IEloquent {
     if (record.Id == null) {
       entry.put('Id', this.generateId(record));
     }
-    this.upsertedRecords.add(record);
+    this.recordUpsert(label, record);
     return entry;
   }
 
@@ -444,7 +638,8 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public List<SObject> doUpsert(List<SObject> records) {
     String method = 'doUpsert(List<SObject> records)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (records == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
@@ -465,7 +660,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (record.Id == null) {
         record.Id = this.generateId(record);
       }
-      this.upsertedRecords.add(record);
+      this.recordUpsert(label, record);
     }
     return records;
   }
@@ -475,7 +670,8 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public List<IEntry> doUpsert(List<IEntry> entries) {
     String method = 'doUpsert(List<IEntry> entries)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entries == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
     }
@@ -497,7 +693,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (record.Id == null) {
         entry.put('Id', this.generateId(record));
       }
-      this.upsertedRecords.add(record);
+      this.recordUpsert(label, record);
     }
     return entries;
   }
@@ -505,9 +701,14 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
-  public Database.UpsertResult doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone) {
+  public Database.UpsertResult doUpsertByExternalId(
+    SObject record,
+    Schema.SObjectField externalIdField,
+    Boolean allOrNone
+  ) {
     String method = 'doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (record == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
     }
@@ -516,16 +717,21 @@ public with sharing class MockEloquent implements IEloquent {
     if (isCreated) {
       record.Id = this.generateId(record);
     }
-    this.upsertedRecords.add(record);
+    this.recordUpsert(label, record);
     return buildSuccessUpsertResult(record.Id, isCreated);
   }
 
   /**
    * @inheritDoc
    */
-  public Database.UpsertResult doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone) {
+  public Database.UpsertResult doUpsertByExternalId(
+    IEntry entry,
+    Schema.SObjectField externalIdField,
+    Boolean allOrNone
+  ) {
     String method = 'doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entry == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
     }
@@ -535,16 +741,21 @@ public with sharing class MockEloquent implements IEloquent {
     if (isCreated) {
       entry.put('Id', this.generateId(record));
     }
-    this.upsertedRecords.add(record);
+    this.recordUpsert(label, record);
     return buildSuccessUpsertResult(record.Id, isCreated);
   }
 
   /**
    * @inheritDoc
    */
-  public List<Database.UpsertResult> doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone) {
+  public List<Database.UpsertResult> doUpsertByExternalId(
+    List<SObject> records,
+    Schema.SObjectField externalIdField,
+    Boolean allOrNone
+  ) {
     String method = 'doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (records == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
@@ -567,7 +778,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (isCreated) {
         record.Id = this.generateId(record);
       }
-      this.upsertedRecords.add(record);
+      this.recordUpsert(label, record);
       results.add(buildSuccessUpsertResult(record.Id, isCreated));
     }
     return results;
@@ -576,9 +787,14 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
-  public List<Database.UpsertResult> doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone) {
+  public List<Database.UpsertResult> doUpsertByExternalId(
+    List<IEntry> entries,
+    Schema.SObjectField externalIdField,
+    Boolean allOrNone
+  ) {
     String method = 'doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entries == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
     }
@@ -602,7 +818,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (isCreated) {
         entry.put('Id', this.generateId(record));
       }
-      this.upsertedRecords.add(record);
+      this.recordUpsert(label, record);
       results.add(buildSuccessUpsertResult(record.Id, isCreated));
     }
     return results;
@@ -619,12 +835,13 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public void doDelete(SObject record) {
     String method = 'doDelete(SObject record)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (record == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
     }
 
-    this.deletedCount++;
+    this.recordDelete(label, 1);
     return;
   }
 
@@ -633,12 +850,13 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public void doDelete(IEntry entry) {
     String method = 'doDelete(IEntry entry)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entry == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
     }
 
-    this.deletedCount++;
+    this.recordDelete(label, 1);
     return;
   }
 
@@ -647,12 +865,13 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public void doDelete(List<SObject> records) {
     String method = 'doDelete(List<SObject> records)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (records == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
 
-    this.deletedCount += records.size();
+    this.recordDelete(label, records.size());
     return;
   }
 
@@ -661,12 +880,13 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public void doDelete(List<IEntry> entries) {
     String method = 'doDelete(List<IEntry> entries)';
-    this.handleErrorQueue(method);
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
     if (entries == null) {
       ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
     }
 
-    this.deletedCount += entries.size();
+    this.recordDelete(label, entries.size());
     return;
   }
 
@@ -794,18 +1014,25 @@ public with sharing class MockEloquent implements IEloquent {
     return newMockEloquent;
   }
 
-  private void handleErrorQueue(String methodWithArguments) {
+  private void handleErrorQueue(String methodWithArguments, String label) {
     String method = methodWithArguments.split('\\(')[0];
-    if (this.errorQueueMap.containsKey(method) && !this.errorQueueMap.get(method).isEmpty()) {
-      ErrorConfig config = this.errorQueueMap.get(method).remove(0);
-      if (config.isRepeat) {
-        this.errorQueueMap.get(method).add(config);
-      }
-      if (config.ex instanceof ApexEloquentException) {
-        ((ApexEloquentException) config.ex).method(methodWithArguments).fire();
-      }
-      throw config.ex;
+    if (!this.errorQueueMap.containsKey(method) || this.errorQueueMap.get(method).isEmpty()) {
+      return;
     }
+    ErrorConfig head = this.errorQueueMap.get(method).get(0);
+    if (head.label != null && head.label != label) {
+      // label-scoped config but the current call's label does not match — skip
+      // without dequeue so a later matching call can consume it.
+      return;
+    }
+    ErrorConfig config = this.errorQueueMap.get(method).remove(0);
+    if (config.isRepeat) {
+      this.errorQueueMap.get(method).add(config);
+    }
+    if (config.ex instanceof ApexEloquentException) {
+      ((ApexEloquentException) config.ex).method(methodWithArguments).fire();
+    }
+    throw config.ex;
   }
 
   /**
@@ -832,6 +1059,7 @@ public with sharing class MockEloquent implements IEloquent {
       List<ErrorConfig> newConfigs = new List<ErrorConfig>();
       for (ErrorConfig config : configs) {
         ErrorConfig newConfig = new ErrorConfig(config.ex, config.isRepeat);
+        newConfig.label = config.label;
         newConfigs.add(newConfig);
         if (this.lastConfig == config) {
           newMockEloquent.lastConfig = newConfig;
@@ -839,16 +1067,27 @@ public with sharing class MockEloquent implements IEloquent {
       }
       newMockEloquent.errorQueueMap.put(method, newConfigs);
     }
+    newMockEloquent.attachedDataByLabel = new Map<String, List<IEntry>>(this.attachedDataByLabel);
+    newMockEloquent.upsertedByLabel = new Map<String, List<SObject>>(this.upsertedByLabel);
+    newMockEloquent.deletedCountByLabel = new Map<String, Integer>(this.deletedCountByLabel);
+    // strict mode state must propagate so failOnXxx-induced copies still enforce
+    // consume-once across the original "intent boundary" (issue_39).
+    newMockEloquent.strictMode = this.strictMode;
+    newMockEloquent.consumedLabels = new Set<String>(this.consumedLabels);
+    newMockEloquent.currentLabel = DEFAULT_LABEL;  // transient
+    newMockEloquent.labelSetForNextOp = false;     // transient
     return newMockEloquent;
   }
 
   private class ErrorConfig {
     public Exception ex;
     public Boolean isRepeat;
+    public String label;
 
     ErrorConfig(Exception ex, Boolean isRepeat) {
       this.ex = ex;
       this.isRepeat = isRepeat;
+      this.label = null;
     }
   }
 }

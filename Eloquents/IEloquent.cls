@@ -27,6 +27,21 @@
  */
 public interface IEloquent {
   /**
+  * Tags the very next read/DML call with a label. The label is reset to
+  * the implicit 'default' label after that call (whether it succeeded or
+  * threw). Chainable.
+  *
+  * Usage:
+  *   this.eloquent.label('jobLoad').first(scribe);
+  *   this.eloquent.label('finalDml').doUpdate(records);
+  *
+  * @param label non-blank label string
+  * @return this IEloquent for chaining
+  * @throws ApexEloquentException if label is null or blank
+  */
+  IEloquent label(String label);
+
+  /**
   * Executes SOQL and retrieves the results.
   * If the number of retrieved records is 0, an empty list is returned.
   *

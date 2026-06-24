@@ -463,6 +463,103 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testIgnoreWhen_WhenTrue_ThenPrecedingConditionDropped() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'Test Account')
+      .ignoreWhen(true);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert: the preceding WHERE condition is dropped entirely
+    String expectedSoql = 'SELECT id FROM Account';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenFalse_ThenPrecedingConditionKept() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'Test Account')
+      .ignoreWhen(false);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenNoPrecedingCondition_ThenThrows() {
+    // Arrange & Act & Assert: ignoreWhen() before any where...() is a structural misuse
+    try {
+      Scribe.of(Account.class).field('Id').ignoreWhen(true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('ignoreWhen'));
+    }
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenNotDirectlyAfterWhere_ThenThrows() {
+    // Arrange & Act & Assert: a non-where builder (orderBy) between the where and ignoreWhen is misuse
+    try {
+      Scribe.of(Account.class)
+        .field('Id')
+        .whereEqual('Name', 'Test Account')
+        .orderBy('Name', 'ASC')
+        .ignoreWhen(true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('ignoreWhen'));
+    }
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenMultipleConditions_ThenOnlyLastDropped() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'Test Account')
+      .whereEqual('Industry', 'Tech')
+      .ignoreWhen(true);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert: only the last-added condition (Industry) is dropped
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenAfterWhereGroup_ThenGroupDropped() {
+    // Arrange: a grouped condition is also a valid target for ignoreWhen
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .whereEqual('Name', 'Test Opportunity')
+      .whereGroup(
+        Scribe.asGroup()
+          .whereGreaterThan('TotalOpportunityQuantity', 10000)
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
+      )
+      .ignoreWhen(true);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert: the whole group is dropped; the preceding condition remains
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE Name = \'Test Opportunity\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
   static void testEqual_WhenAddAndConditionAfterOrCondition_ThenThrowException() {
     // Arrange / Act / Assert
     try {

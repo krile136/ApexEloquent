@@ -26,7 +26,7 @@
  * @see Entry
  * @see MockEloquent
  */
-public with sharing class Eloquent implements IEloquent {
+public inherited sharing class Eloquent implements IEloquent {
   private final Integer MAX_DML_CHUNKING = 10;
 
   private static final String CLASS_NAME = 'Eloquent';
@@ -36,6 +36,12 @@ public with sharing class Eloquent implements IEloquent {
   private Boolean strictMode = false;
   private Boolean labelSetForNextOp = false;
   private Set<String> consumedLabels = new Set<String>();
+
+  // FLS/CRUD access mode for SOQL/DML. Defaults to USER_MODE (secure-by-default); opt out via systemMode().
+  // Note: record-level sharing is NOT controlled here — it follows this class's sharing declaration
+  // (inherited sharing -> the caller's context).
+  @TestVisible
+  private System.AccessLevel accessLevel = System.AccessLevel.USER_MODE;
 
   /**
    * @inheritDoc
@@ -47,6 +53,22 @@ public with sharing class Eloquent implements IEloquent {
     this.currentLabel = label;
     this.labelSetForNextOp = true;
     this.strictMode = true; // sticky — once on, stays on for this IEloquent instance
+    return this;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public IEloquent userMode() {
+    this.accessLevel = System.AccessLevel.USER_MODE;
+    return this;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public IEloquent systemMode() {
+    this.accessLevel = System.AccessLevel.SYSTEM_MODE;
     return this;
   }
 
@@ -106,7 +128,7 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     List<IEntry> entries = new List<IEntry>();
-    for (SObject record : (List<SObject>) Database.query(scribe.toSoql())) {
+    for (SObject record : (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel)) {
       entries.add(new Entry(record));
     }
 
@@ -116,7 +138,7 @@ public with sharing class Eloquent implements IEloquent {
   private List<IEntry> getAggregate(Scribe scribe) {
     FieldStructure fieldStructure = null;
     List<IEntry> entries = new List<IEntry>();
-    for (AggregateResult aggregateResult : (List<AggregateResult>) Database.query(scribe.toSoql())) {
+    for (AggregateResult aggregateResult : (List<AggregateResult>) Database.query(scribe.toSoql(), this.accessLevel)) {
       fieldStructure = fieldStructure == null ? scribe.buildAggregateFieldStructure() : fieldStructure;
       entries.add(new Entry(aggregateResult, fieldStructure));
     }
@@ -133,7 +155,7 @@ public with sharing class Eloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'soql', soql).fire();
     }
     List<IEntry> entries = new List<IEntry>();
-    for (SObject record : (List<SObject>) Database.query(soql)) {
+    for (SObject record : (List<SObject>) Database.query(soql, this.accessLevel)) {
       entries.add(new Entry(record));
     }
     return entries;
@@ -149,7 +171,7 @@ public with sharing class Eloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
     }
 
-    return (List<SObject>) Database.query(scribe.toSoql());
+    return (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
   }
 
   /**
@@ -162,7 +184,7 @@ public with sharing class Eloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
     }
 
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
     if (records.isEmpty()) {
       return null;
     }
@@ -179,7 +201,7 @@ public with sharing class Eloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
     }
 
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
     if (records.isEmpty()) {
       return null;
     }
@@ -196,7 +218,7 @@ public with sharing class Eloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
     }
 
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
 
     if (records.isEmpty()) {
       String error = 'No records were found for the given criteria';
@@ -223,7 +245,7 @@ public with sharing class Eloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
     }
 
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
     if (records.isEmpty()) {
       String error = 'No records were found for the given criteria';
       String reason = 'The query execution returned zero records';
@@ -249,7 +271,7 @@ public with sharing class Eloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
     }
     try {
-      insert record;
+      Database.insert(record, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('insert', e);
       ex.method(method).param('record', record).fire();
@@ -268,7 +290,7 @@ public with sharing class Eloquent implements IEloquent {
     }
     sortToPreventChunkingErrors(records);
     try {
-      insert records;
+      Database.insert(records, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('insert', e);
       ex.method(method).param('records', records).fire();
@@ -287,7 +309,7 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     try {
-      update record;
+      Database.update(record, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('update', e);
       ex.method(method).param('record', record).fire();
@@ -306,7 +328,7 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     try {
-      return Database.update(record, allOrNone);
+      return Database.update(record, allOrNone, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('update', e);
       ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
@@ -326,7 +348,7 @@ public with sharing class Eloquent implements IEloquent {
     }
     SObject record = entry.getRecord();
     try {
-      update record;
+      Database.update(record, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('update', e);
       ex.method(method).param('entry', entry).fire();
@@ -345,7 +367,7 @@ public with sharing class Eloquent implements IEloquent {
     }
     SObject record = entry.getRecord();
     try {
-      return Database.update(record, allOrNone);
+      return Database.update(record, allOrNone, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('update', e);
       ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
@@ -365,7 +387,7 @@ public with sharing class Eloquent implements IEloquent {
     }
     sortToPreventChunkingErrors(records);
     try {
-      update records;
+      Database.update(records, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('update', e);
       ex.method(method).param('records', records).fire();
@@ -384,7 +406,7 @@ public with sharing class Eloquent implements IEloquent {
     }
     sortToPreventChunkingErrors(records);
     try {
-      return Database.update(records, allOrNone);
+      return Database.update(records, allOrNone, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('update', e);
       ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
@@ -412,7 +434,7 @@ public with sharing class Eloquent implements IEloquent {
     }
     sortToPreventChunkingErrors(records);
     try {
-      update records;
+      Database.update(records, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('update', e);
       ex.method(method).param('entries', entries).fire();
@@ -443,7 +465,7 @@ public with sharing class Eloquent implements IEloquent {
     }
     sortToPreventChunkingErrors(records);
     try {
-      return Database.update(records, allOrNone);
+      return Database.update(records, allOrNone, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('update', e);
       ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
@@ -463,7 +485,7 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     try {
-      upsert record;
+      Database.upsert(record, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('upsert', e);
       ex.method(method).param('record', record).fire();
@@ -483,7 +505,7 @@ public with sharing class Eloquent implements IEloquent {
 
     SObject record = entry.getRecord();
     try {
-      upsert record;
+      Database.upsert(record, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('upsert', e);
       ex.method(method).param('entry', entry).fire();
@@ -503,7 +525,7 @@ public with sharing class Eloquent implements IEloquent {
 
     sortToPreventChunkingErrors(records);
     try {
-      upsert records;
+      Database.upsert(records, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('upsert', e);
       ex.method(method).param('records', records).fire();
@@ -530,7 +552,7 @@ public with sharing class Eloquent implements IEloquent {
     }
     sortToPreventChunkingErrors(records);
     try {
-      upsert records;
+      Database.upsert(records, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('upsert', e);
       ex.method(method).param('entries', entries).fire();
@@ -553,7 +575,7 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     try {
-      return Database.upsert(record, externalIdField, allOrNone);
+      return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('upsert', e);
       ex.method(method).param('record', record).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
@@ -574,7 +596,7 @@ public with sharing class Eloquent implements IEloquent {
 
     SObject record = entry.getRecord();
     try {
-      return Database.upsert(record, externalIdField, allOrNone);
+      return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('upsert', e);
       ex.method(method).param('entry', entry).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
@@ -595,7 +617,7 @@ public with sharing class Eloquent implements IEloquent {
 
     sortToPreventChunkingErrors(records);
     try {
-      return Database.upsert(records, externalIdField, allOrNone);
+      return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('upsert', e);
       ex.method(method).param('records', records).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
@@ -623,7 +645,7 @@ public with sharing class Eloquent implements IEloquent {
     }
     sortToPreventChunkingErrors(records);
     try {
-      return Database.upsert(records, externalIdField, allOrNone);
+      return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('upsert', e);
       ex.method(method).param('entries', entries).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
@@ -643,7 +665,7 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     try {
-      delete record;
+      Database.delete(record, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('delete', e);
       ex.method(method).param('record', record).fire();
@@ -661,7 +683,7 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     try {
-      delete entry.getRecord();
+      Database.delete(entry.getRecord(), this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('delete', e);
       ex.method(method).param('entry', entry).fire();
@@ -679,7 +701,7 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     try {
-      delete records;
+      Database.delete(records, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('delete', e);
       ex.method(method).param('records', records).fire();
@@ -706,7 +728,7 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     try {
-      delete records;
+      Database.delete(records, this.accessLevel);
     } catch (DmlException e) {
       ApexEloquentException ex = createDMLException('delete', e);
       ex.method(method).param('entries', entries).fire();

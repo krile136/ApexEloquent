@@ -16,6 +16,45 @@
 @isTest
 public with sharing class EloquentTest {
   @isTest
+  static void testUserModeSystemMode_WhenToggled_ThenAccessLevelSwitches() {
+    // Arrange
+    Eloquent eloquent = new Eloquent();
+
+    // Act & Assert: default is user mode (secure-by-default)
+    Assert.areEqual(
+      System.AccessLevel.USER_MODE,
+      eloquent.accessLevel,
+      'Default access mode should be USER_MODE'
+    );
+
+    // user -> system
+    IEloquent afterSystem = eloquent.systemMode();
+    Assert.areEqual(
+      System.AccessLevel.SYSTEM_MODE,
+      eloquent.accessLevel,
+      'systemMode() should switch the access mode to SYSTEM_MODE'
+    );
+    Assert.areEqual(eloquent, afterSystem, 'systemMode() should be chainable (return the same instance)');
+
+    // system -> user : must switch back
+    IEloquent afterUser = eloquent.userMode();
+    Assert.areEqual(
+      System.AccessLevel.USER_MODE,
+      eloquent.accessLevel,
+      'userMode() should switch the access mode back to USER_MODE'
+    );
+    Assert.areEqual(eloquent, afterUser, 'userMode() should be chainable (return the same instance)');
+
+    // toggle once more to confirm it stays re-switchable
+    eloquent.systemMode();
+    Assert.areEqual(
+      System.AccessLevel.SYSTEM_MODE,
+      eloquent.accessLevel,
+      'systemMode() should switch to SYSTEM_MODE again after a prior userMode()'
+    );
+  }
+
+  @isTest
   static void testGet_WhenApplyNull_ThenThrowException() {
     // Arrange
     Scribe scribe = null;

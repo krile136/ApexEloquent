@@ -2154,6 +2154,38 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetThrough_WhenRelationNameGiven_ThenReturnRelatedObject() {
+    // Arrange: getThrough now also accepts a junction RELATIONSHIP name
+    // (folded in from getThroughByRelationName, mirroring the getChildren consolidation).
+    Scribe scribe = Scribe.of(Order.class)
+      .field('Id')
+      .through(
+        Scribe.asThrough(OrderItem.class, 'Product2Id').relationName('OrderItems').field('Id').field('Name')
+      );
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    MockEntry mockEntry = MockEntry.of(Order.class)
+      .setChildren(
+        'OrderItems',
+        new List<MockEntry>{
+          MockEntry.of(OrderItem.class)
+            .setParent('Product2Id', MockEntry.of(Product2.class).autoId(1).set('Name', 'Last Modify 1')),
+          MockEntry.of(OrderItem.class)
+            .setParent('Product2Id', MockEntry.of(Product2.class).autoId(2).set('Name', 'Last Modify 2'))
+        }
+      );
+    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
+
+    // Act: pass the RELATION name 'OrderItems' to getThrough (not the object name 'OrderItem')
+    List<IEntry> relatedObjects = mockEntry.getThrough('OrderItems', 'Product2Id');
+
+    // Assert: resolves identically to getThroughByRelationName
+    Assert.isNotNull(relatedObjects, 'Related objects should not be null.');
+    Assert.areEqual(2, relatedObjects.size(), 'There should be two related objects.');
+    Assert.areEqual('Last Modify 1', relatedObjects[0].getName(), 'First related object name should match.');
+    Assert.areEqual('Last Modify 2', relatedObjects[1].getName(), 'Second related object name should match.');
+  }
+
+  @isTest
   static void testAlias_WhenSetAlias_ThenNoErrorThrown() {
     // Arrange / Act
     MockEntry mockEntry = MockEntry.of(Account.class).alias('mockAccount').autoId(1).set('Name', 'Test Account');

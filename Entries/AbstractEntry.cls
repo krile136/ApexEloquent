@@ -109,8 +109,10 @@ public abstract class AbstractEntry implements IEntry {
   /**
    * @inheritDoc
    */
-  public List<IEntry> getThrough(String junctionObjectName, String relatedKey) {
-    List<IEntry> junctionEntries = this.getChildren(junctionObjectName);
+  public List<IEntry> getThrough(String junctionName, String relatedKey) {
+    // junctionName accepts both a junction SObject name and a junction relationship name:
+    // getChildren resolves the object name first, then falls back to the relationship name.
+    List<IEntry> junctionEntries = this.getChildren(junctionName);
     if (junctionEntries.isEmpty()) {
       return new List<IEntry>();
     }
@@ -127,6 +129,12 @@ public abstract class AbstractEntry implements IEntry {
     return relatedEntries;
   }
 
+  /**
+   * @deprecated
+   * Use {@link #getThrough(String, String)} instead. `getThrough` now accepts both
+   * junction SObject names and junction relationship names. This method is maintained
+   * for backward compatibility but may be removed in a future version.
+   */
   public List<IEntry> getThroughByRelationName(String junctionRelationName, String relatedKey) {
     List<IEntry> junctionEntries = this.getChildrenByRelationName(junctionRelationName);
     if (junctionEntries.isEmpty()) {

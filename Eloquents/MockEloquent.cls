@@ -122,6 +122,22 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   /**
+   * @inheritDoc
+   * No-op in the mock: there is no real database, so access mode has no effect on captured data.
+   */
+  public IEloquent userMode() {
+    return this;
+  }
+
+  /**
+   * @inheritDoc
+   * No-op in the mock: there is no real database, so access mode has no effect on captured data.
+   */
+  public IEloquent systemMode() {
+    return this;
+  }
+
+  /**
    * Pre-load data for a label. Subsequent read calls tagged with that label
    * will see this data as the query source. Overwrites prior attach.
    */

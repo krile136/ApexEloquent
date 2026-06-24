@@ -86,16 +86,27 @@ public interface IEntry {
   List<IEntry> getChildrenByRelationName(String childRelationName);
 
   /**
-   * get related SObject list through a junction object.
+   * Get related SObject list through a junction object.
    *
-   * @param junctionObjectName junction object Name
+   * The junction is resolved by {@link #getChildren(String)}, so the first argument
+   * accepts BOTH a junction SObject name AND a junction relationship name (object-name
+   * resolution is attempted first, then falling back to relationship-name).
+   *
+   * @param junctionName junction SObject name or junction relationship name
    * @param relatedKey related SObject key field name in the junction object
    * @return related SObject list
    */
-  List<IEntry> getThrough(String junctionObjectName, String relatedKey);
+  List<IEntry> getThrough(String junctionName, String relatedKey);
 
   /**
-   * get related SObject list through a junction object relation name.
+   * @deprecated
+   * Use {@link #getThrough(String, String)} instead. `getThrough` now accepts both
+   * junction SObject names and junction relationship names, so a dedicated
+   * relation-name-only entry point is no longer necessary.
+   * * This method is maintained for backward compatibility but may be removed
+   * in a future version.
+   *
+   * Get related SObject list through a junction object relation name.
    *
    * @param junctionRelationName junction object relation Name
    * @param relatedKey related SObject key field name in the junction object

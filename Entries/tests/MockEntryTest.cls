@@ -308,6 +308,27 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testGetParent_WhenParentIsStagedNull_ThenReturnNull() {
+    // A parent explicitly staged as null (setParent(field, null)) means "the parent
+    // record does not exist". Entry.getParent() returns null in the same case, so
+    // MockEntry must behave the same — otherwise the production-side null branch
+    // (if (parent == null) { ... }) can never be covered by a unit test.
+    // Arrange
+    FieldStructure fieldStructure = Scribe.of(Opportunity.class)
+      .parentField(Scribe.asParent('AccountId').field('Name'))
+      .buildFieldStructure();
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
+      .setParent('AccountId', null)
+      .setFieldStructure(fieldStructure);
+
+    // Act
+    IEntry parent = mockEntry.getParent('AccountId');
+
+    // Assert
+    Assert.isNull(parent, 'A parent staged as null should be returned as null, matching Entry.getParent().');
+  }
+
+  @isTest
   static void testTemplate_WhenApplyNull_ThenThrowException() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();

@@ -671,7 +671,15 @@ public with sharing class Scribe {
   /**
    * Specifies that the next WHERE condition should be joined with an OR operator.
    *
-   * Cannot be the first condition. Subsequent conditions must also be OR unless grouped.
+   * Subsequent conditions must also be OR unless grouped.
+   *
+   * When no condition exists yet, this is a no-op: with ignoreWhen() dynamically
+   * retracting conditions, "A OR B where A may vanish" is a legitimate chain, and
+   * the surviving condition simply becomes the first (plain) condition:
+   *   scribe.whereIn('X', a).ignoreWhen(a.isEmpty())
+   *         .orCondition()
+   *         .whereIn('Y', b).ignoreWhen(b.isEmpty())
+   *
    * @return A new, immutable Scribe instance configured for an OR condition.
    */
   public Scribe orCondition() {
@@ -680,11 +688,10 @@ public with sharing class Scribe {
 
     Scribe clonedScribe = this.deepClone();
 
+    // No condition to attach to (either never added, or retracted by ignoreWhen):
+    // do not raise the OR marker — the next condition starts the WHERE clause.
     if (clonedScribe.conditionParts.isEmpty() && !clonedScribe.isParent) {
-      String error = 'Invalid Logical Sequence';
-      String reason = 'An OR condition cannot be the starting point of a WHERE clause. It must append to an existing condition.';
-      String action = 'Please call a where...() method (e.g., .whereEqual(), .whereIn()) before invoking .orCondition().';
-      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+      return clonedScribe;
     }
     clonedScribe.isNextConditionOr = true;
     clonedScribe.canOnlyAddOrCondition = true;

@@ -858,6 +858,13 @@ public with sharing class MockEntry extends AbstractEntry {
 
     if (this.fieldToValue.containsKey(parentIdFieldName)) {
       IEntry resultEntry = (IEntry) this.fieldToValue.get(parentIdFieldName);
+      // A parent explicitly staged as null (setParent(field, null)) means "the parent
+      // record does not exist". Return null to match Entry.getParent(), which returns
+      // null in the same case — without this guard, the production-side null branch
+      // cannot be verified in unit tests.
+      if (resultEntry == null) {
+        return null;
+      }
       if (this.skipFieldValidation && resultEntry instanceof MockEntry) {
         resultEntry = ((MockEntry) resultEntry).withoutFieldValidation();
       }

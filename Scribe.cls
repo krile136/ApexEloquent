@@ -725,6 +725,17 @@ public with sharing class Scribe {
     Scribe clonedScribe = this.deepClone();
     if (shouldIgnore == true) {
       clonedScribe.conditionParts.remove(clonedScribe.conditionParts.size() - 1);
+      // Recompute the OR-only mode from the remaining parts: when the retracted
+      // condition was the only OR, the chain must accept plain (AND) conditions
+      // again — otherwise the OR marker would outlive its retracted target.
+      Boolean hasOrPart = false;
+      for (ConditionPart part : clonedScribe.conditionParts) {
+        if (part.isOr == true) {
+          hasOrPart = true;
+          break;
+        }
+      }
+      clonedScribe.canOnlyAddOrCondition = hasOrPart;
     }
 
     return clonedScribe;

@@ -232,11 +232,32 @@ public with sharing class MockEloquent implements IEloquent {
    * query source for the given label. Order of precedence:
    *   1. preloaded via attach(label, ...)
    *   2. legacy MockEloquent(List<IEntry>) entries — only when label == 'default'
-   *   3. empty list
+   *
+   * A labeled read on a label that was never attached is a test-setup bug
+   * (a forgotten or typo'd attach): the query would silently return an empty
+   * list and the zero-row path would pass without verifying anything. In test
+   * context this therefore throws instead (mirroring ApexTrace's automatic
+   * Strict mode). An explicitly attached empty list remains the legitimate
+   * way to declare the zero-row path — "not attached" and "attached empty"
+   * are distinct states.
    */
   private List<IEntry> activeEntries(String label) {
     if (this.attachedDataByLabel.containsKey(label)) {
       return this.attachedDataByLabel.get(label);
+    }
+    if (label != DEFAULT_LABEL && Test.isRunningTest()) {
+      List<String> attachedLabels = new List<String>(this.attachedDataByLabel.keySet());
+      attachedLabels.sort();
+      String reason =
+        'label \'' + label + '\' has no attached entries.\n' +
+        'Attached labels: [' + String.join(attachedLabels, ', ') + ']';
+      String action =
+        'Attach the data for this label, or if you intend to test the zero-row path, ' +
+        'attach an empty list explicitly: .attach(label, new List<IEntry>())';
+      ApexEloquentException.invalidOperation(CLASS_NAME, 'activeEntries(String label)', reason)
+        .action(action)
+        .param('label', label)
+        .fire();
     }
     return label == DEFAULT_LABEL ? this.entries : new List<IEntry>();
   }

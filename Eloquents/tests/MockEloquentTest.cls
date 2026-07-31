@@ -2606,13 +2606,18 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGet_WhenLabelCalledButNoAttach_ThenReturnEmpty() {
+  static void testGet_WhenLabelCalledButNoAttach_ThenThrows() {
     MockEntry legacy = MockEntry.of(Account.class).autoId(1).set('Name', 'LegacyDefault');
     MockEloquent mock = new MockEloquent(new List<IEntry>{ legacy });
     Scribe scribe = Scribe.of(Account.class).field('Name');
-    // label('opp') has no attach — should NOT fall back to legacy entries
-    List<IEntry> result = mock.label('opp').get(scribe);
-    Assert.areEqual(0, result.size(), 'Non-default label without attach returns empty (no legacy fallback).');
+    // label('opp') has no attach — no legacy fallback, and in test context this is
+    // treated as a test-setup bug (forgotten attach) instead of a silent empty list
+    try {
+      mock.label('opp').get(scribe);
+      Assert.fail('Expected ApexEloquentException for unattached label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('has no attached entries'), e.getMessage());
+    }
   }
 
   @isTest
@@ -2627,7 +2632,8 @@ public with sharing class MockEloquentTest {
 
   @isTest
   static void testFirstOrFail_WhenLabelEmpty_ThenThrowException() {
-    MockEloquent mock = new MockEloquent();
+    // The zero-row path is declared explicitly with an attached empty list
+    MockEloquent mock = (new MockEloquent()).attach('opp', new List<IEntry>());
     Scribe scribe = Scribe.of(Account.class).field('Name');
     try {
       mock.label('opp').firstOrFail(scribe);
@@ -2758,11 +2764,14 @@ public with sharing class MockEloquentTest {
 
   @isTest
   static void testFailOnGet_WithWhenLabel_AndLabelMismatch_ThenDoNotFire() {
-    MockEloquent mock = (new MockEloquent()).failOnGet().whenLabel('opp');
+    MockEloquent mock = (new MockEloquent())
+      .attach('quote', new List<IEntry>())
+      .failOnGet()
+      .whenLabel('opp');
     Scribe scribe = Scribe.of(Account.class).field('Name');
     // Calling with a different label should NOT fire the failure
     List<IEntry> result = mock.label('quote').get(scribe);
-    Assert.areEqual(0, result.size(), 'No failure should fire; empty list since quote has no attach.');
+    Assert.areEqual(0, result.size(), 'No failure should fire; quote is attached empty.');
   }
 
   @isTest
@@ -3008,5 +3017,82 @@ public with sharing class MockEloquentTest {
     mock.get(scribe);
     mock.get(scribe);
     Assert.isTrue(true, 'label(null) did not flip strict mode on.');
+  }
+
+  // ===============================================================================
+  // Unattached-label guard (auto-strict in test context)
+  // ===============================================================================
+
+  @isTest
+  static void testGet_WhenLabelNotAttached_ThenThrowsWithAttachedLabelList() {
+    // Arrange - 'byPostal' is never attached (forgotten / typo'd attach)
+    Scribe scribe = Scribe.of(Account.class).field('Id');
+    MockEloquent mock = (new MockEloquent())
+      .attach('byName', new List<IEntry>{ MockEntry.of(Account.class).autoId(1) })
+      .attach('byCompanyId', new List<IEntry>());
+
+    // Act & Assert
+    try {
+      mock.label('byPostal').get(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('\'byPostal\' has no attached entries'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('byCompanyId, byName'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('.attach(label, new List<IEntry>())'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGet_WhenEmptyListAttached_ThenReturnsEmptyWithoutException() {
+    // Arrange - an explicitly attached empty list is the legitimate zero-row declaration
+    Scribe scribe = Scribe.of(Account.class).field('Id');
+    MockEloquent mock = (new MockEloquent()).attach('byName', new List<IEntry>());
+
+    // Act
+    List<IEntry> entries = mock.label('byName').get(scribe);
+
+    // Assert
+    Assert.areEqual(0, entries.size(), 'Attached empty list must stay a valid zero-row path');
+  }
+
+  @isTest
+  static void testFirst_WhenLabelNotAttached_ThenThrows() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class).field('Id');
+    MockEloquent mock = (new MockEloquent()).attach('byName', new List<IEntry>());
+
+    // Act & Assert - first() is guarded the same way as get()
+    try {
+      mock.label('byPostal').first(scribe);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('has no attached entries'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenLabelNotAttached_ThenNoException() {
+    // Arrange - DML does not consult attached data, so unattached labels stay legal
+    MockEloquent mock = (new MockEloquent()).attach('byName', new List<IEntry>());
+    Account acc = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'x');
+
+    // Act
+    mock.label('updateAccounts').doUpdate(acc);
+
+    // Assert
+    Assert.areEqual(1, mock.upsertedRecordsAt('updateAccounts').size());
+  }
+
+  @isTest
+  static void testGet_WhenLegacyUnlabeledMode_ThenConstructorEntriesUnchanged() {
+    // Arrange - label-free legacy mode is untouched by the guard
+    Scribe scribe = Scribe.of(Account.class).field('Id');
+    MockEloquent mock = new MockEloquent(new List<IEntry>{ MockEntry.of(Account.class).autoId(1) });
+
+    // Act
+    List<IEntry> entries = mock.get(scribe);
+
+    // Assert
+    Assert.areEqual(1, entries.size());
   }
 }

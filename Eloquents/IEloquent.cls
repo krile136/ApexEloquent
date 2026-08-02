@@ -109,6 +109,18 @@ public interface IEloquent {
   IEntry firstOrFail(Scribe scribe);
 
   /**
+  * Executes SOQL and returns the first record.
+  * If the number of retrieved records is 0, the given exception is thrown as-is —
+  * business-specific errors (e.g. UsecaseException with a user-facing message)
+  * no longer need the first() + null-check + throw boilerplate.
+  *
+  * @param Scribe scribe: Scribe instance containing the SOQL query
+  * @param Exception orFail: the exception to throw when zero records are found
+  * @return Retrieved result as an Entry object
+  */
+  IEntry firstOrFail(Scribe scribe, Exception orFail);
+
+  /**
   * Executes SOQL and returns the first record as SObject.
   * If the number of retrieved records is 0, an exception is thrown.
   *

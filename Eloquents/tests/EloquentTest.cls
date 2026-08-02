@@ -1462,4 +1462,48 @@ public with sharing class EloquentTest {
       Assert.isTrue(e.getMessage().contains('retrieved via SOQL'), e.getMessage());
     }
   }
+
+  private class RoundTripNotFoundException extends Exception {
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenCustomExceptionAndRowExists_ThenReturnsEntry() {
+    // Arrange
+    Group grp = buildGroup('fofCustomHit');
+    insert grp;
+
+    // Act
+    Scribe groupScribe = Scribe.of(Group.class).field('Id').whereEqual('Id', grp.Id);
+    IEntry entry = (new Eloquent()).firstOrFail(groupScribe, new RoundTripNotFoundException('not used'));
+
+    // Assert
+    Assert.areEqual(grp.Id, entry.getId());
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenCustomExceptionAndNoRow_ThenThrowsItAsIs() {
+    // Arrange - a query that matches nothing
+    Scribe groupScribe = Scribe.of(Group.class)
+      .field('Id')
+      .whereEqual('DeveloperName', 'EloquentRT_never_exists_' + Datetime.now().getTime());
+
+    // Act & Assert - the given exception is thrown as-is (type and message preserved)
+    try {
+      (new Eloquent()).firstOrFail(groupScribe, new RoundTripNotFoundException('business-facing message'));
+      Assert.fail('Expected RoundTripNotFoundException to be thrown');
+    } catch (RoundTripNotFoundException e) {
+      Assert.areEqual('business-facing message', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenCustomExceptionIsNull_ThenThrowsRequired() {
+    // Act & Assert
+    try {
+      (new Eloquent()).firstOrFail(Scribe.of(Group.class).field('Id'), null);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('The `orFail` argument is required'), e.getMessage());
+    }
+  }
 }

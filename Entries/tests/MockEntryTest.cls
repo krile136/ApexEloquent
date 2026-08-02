@@ -2794,4 +2794,77 @@ public class MockEntryTest {
       Assert.isTrue(e.getMessage().contains('Account'), 'Error should mention Account SObject.');
     }
   }
+
+  // ===============================================================================
+  // fetchedBy: bake a Scribe's SELECT contract into a directly-injected entry (issue #48)
+  // ===============================================================================
+
+  @isTest
+  static void testFetchedBy_WhenFieldInContract_ThenReadable() {
+    // Arrange - the same Scribe a Batchable's start() would use
+    Scribe scope = Scribe.of(Account.class).field('Id').field('Name');
+    MockEntry entry = MockEntry.of(Account.class).autoId(1).set('Name', 'Acme').fetchedBy(scope);
+
+    // Act & Assert
+    Assert.areEqual('Acme', entry.get('Name'));
+  }
+
+  @isTest
+  static void testFetchedBy_WhenFieldOutsideContract_ThenThrows() {
+    // Arrange - Industry is set on the mock but NOT selected by the Scribe
+    Scribe scope = Scribe.of(Account.class).field('Id').field('Name');
+    MockEntry entry = MockEntry.of(Account.class).autoId(1).set('Industry', 'Tech').fetchedBy(scope);
+
+    // Act & Assert - reads outside the contract fail like a real query result would
+    try {
+      entry.get('Industry');
+      Assert.fail('Expected ApexEloquentException for a field outside the SELECT contract');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Industry'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFetchedBy_WhenParentRelationInContract_ThenParentReadable() {
+    // Arrange - the contract includes the parent relation, so getParent round-trips
+    Scribe scope = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentField(Scribe.asParent('AccountId').field('Name'));
+    MockEntry entry = MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .setParent('AccountId', MockEntry.of(Account.class).set('Name', 'Parent Co.'))
+      .fetchedBy(scope);
+
+    // Act & Assert
+    Assert.areEqual('Parent Co.', entry.getParent('AccountId').get('Name'));
+  }
+
+  @isTest
+  static void testFetchedBy_WhenParentRelationOutsideContract_ThenThrows() {
+    // Arrange - the contract has no parent relation at all
+    Scribe scope = Scribe.of(Opportunity.class).field('Id');
+    MockEntry entry = MockEntry.of(Opportunity.class)
+      .autoId(1)
+      .setParent('AccountId', MockEntry.of(Account.class).set('Name', 'Parent Co.'))
+      .fetchedBy(scope);
+
+    // Act & Assert
+    try {
+      entry.getParent('AccountId');
+      Assert.fail('Expected ApexEloquentException for a relation outside the SELECT contract');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('AccountId'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFetchedBy_WhenScribeIsNull_ThenThrowsRequired() {
+    // Act & Assert
+    try {
+      MockEntry.of(Account.class).fetchedBy(null);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('The `scribe` argument is required'), e.getMessage());
+    }
+  }
 }

@@ -46,6 +46,8 @@ public with sharing class MockEloquent implements IEloquent {
   private Boolean labelSetForNextOp = false;
   private Set<String> consumedLabels = new Set<String>();
   private Map<String, List<IEntry>> attachedDataByLabel = new Map<String, List<IEntry>>();
+
+  private Map<Id, String> saveErrorsById = new Map<Id, String>();
   private Map<String, List<SObject>> upsertedByLabel = new Map<String, List<SObject>>();
   private Map<String, Integer> deletedCountByLabel = new Map<String, Integer>();
 
@@ -155,6 +157,29 @@ public with sharing class MockEloquent implements IEloquent {
    */
   public MockEloquent attach(String label, IEntry entry) {
     return this.attach(label, entry == null ? new List<IEntry>() : new List<IEntry>{ entry });
+  }
+
+  /**
+   * Registers a per-record save failure for SaveResult/UpsertResult-returning DML
+   * (doUpdate(..., allOrNone) / doUpsertByExternalId(..., allOrNone)).
+   *
+   * With allOrNone = false the record's result carries success = false and the
+   * given message, and the record is NOT added to the upsert spy (it was not saved).
+   * With allOrNone = true the whole operation throws before anything is recorded,
+   * mirroring real all-or-nothing DML.
+   *
+   * The target is identified by record Id — pair with MockEntry.autoId().
+   */
+  public MockEloquent failSave(Id recordId, String errorMessage) {
+    String method = 'failSave(Id recordId, String errorMessage)';
+    if (recordId == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'recordId', recordId).fire();
+    }
+    if (String.isBlank(errorMessage)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'errorMessage', errorMessage).fire();
+    }
+    this.saveErrorsById.put(recordId, errorMessage);
+    return this;
   }
 
   /**
@@ -592,8 +617,13 @@ public with sharing class MockEloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
     }
 
-    this.recordUpsert(label, record);
-    return buildSuccessSaveResult(record.Id);
+    if (allOrNone == true) {
+      this.enforceAllOrNone(method, record);
+    }
+    if (!this.isSaveFailure(record)) {
+      this.recordUpsert(label, record);
+    }
+    return this.buildSaveResult(record.Id);
   }
 
   /**
@@ -608,8 +638,13 @@ public with sharing class MockEloquent implements IEloquent {
     }
 
     SObject record = entry.getRecord();
-    this.recordUpsert(label, record);
-    return buildSuccessSaveResult(record.Id);
+    if (allOrNone == true) {
+      this.enforceAllOrNone(method, record);
+    }
+    if (!this.isSaveFailure(record)) {
+      this.recordUpsert(label, record);
+    }
+    return this.buildSaveResult(record.Id);
   }
 
   /**
@@ -623,10 +658,17 @@ public with sharing class MockEloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
     }
 
-    this.recordUpsertAll(label, records);
+    if (allOrNone == true) {
+      for (SObject record : records) {
+        this.enforceAllOrNone(method, record);
+      }
+    }
     List<Database.SaveResult> results = new List<Database.SaveResult>();
     for (SObject record : records) {
-      results.add(buildSuccessSaveResult(record.Id));
+      if (!this.isSaveFailure(record)) {
+        this.recordUpsert(label, record);
+      }
+      results.add(this.buildSaveResult(record.Id));
     }
     return results;
   }
@@ -642,13 +684,57 @@ public with sharing class MockEloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
     }
 
+    if (allOrNone == true) {
+      for (IEntry entry : entries) {
+        this.enforceAllOrNone(method, entry.getRecord());
+      }
+    }
     List<Database.SaveResult> results = new List<Database.SaveResult>();
     for (IEntry entry : entries) {
       SObject record = entry.getRecord();
-      this.recordUpsert(label, record);
-      results.add(buildSuccessSaveResult(record.Id));
+      if (!this.isSaveFailure(record)) {
+        this.recordUpsert(label, record);
+      }
+      results.add(this.buildSaveResult(record.Id));
     }
     return results;
+  }
+
+  private Boolean isSaveFailure(SObject record) {
+    return record != null && record.Id != null && this.saveErrorsById.containsKey(record.Id);
+  }
+
+  private void enforceAllOrNone(String method, SObject record) {
+    if (!this.isSaveFailure(record)) {
+      return;
+    }
+    String error = 'Failed to update operation';
+    String reason = 'DML failed with: ' + this.saveErrorsById.get(record.Id);
+    String action = 'This failure was registered via failSave(). With allOrNone = true the whole operation throws.';
+    ApexEloquentException.at(CLASS_NAME)
+      .method(method)
+      .error(error)
+      .reason(reason)
+      .action(action)
+      .param('recordId', record.Id)
+      .fire();
+  }
+
+  private Database.SaveResult buildSaveResult(Id recordId) {
+    if (recordId != null && this.saveErrorsById.containsKey(recordId)) {
+      Map<String, Object> payload = new Map<String, Object>{
+        'success' => false,
+        'id' => recordId,
+        'errors' => new List<Object>{
+          new Map<String, Object>{
+            'message' => this.saveErrorsById.get(recordId),
+            'statusCode' => 'FIELD_CUSTOM_VALIDATION_EXCEPTION'
+          }
+        }
+      };
+      return (Database.SaveResult) JSON.deserialize(JSON.serialize(payload), Database.SaveResult.class);
+    }
+    return buildSuccessSaveResult(recordId);
   }
 
   private static Database.SaveResult buildSuccessSaveResult(Id recordId) {
@@ -774,6 +860,12 @@ public with sharing class MockEloquent implements IEloquent {
       ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
     }
 
+    if (allOrNone == true) {
+      this.enforceAllOrNone(method, record);
+    }
+    if (this.isSaveFailure(record)) {
+      return this.buildFailedUpsertResult(record.Id);
+    }
     Boolean isCreated = record.Id == null;
     if (isCreated) {
       record.Id = this.generateId(record);
@@ -798,6 +890,12 @@ public with sharing class MockEloquent implements IEloquent {
     }
 
     SObject record = entry.getRecord();
+    if (allOrNone == true) {
+      this.enforceAllOrNone(method, record);
+    }
+    if (this.isSaveFailure(record)) {
+      return this.buildFailedUpsertResult(record.Id);
+    }
     Boolean isCreated = record.Id == null;
     if (isCreated) {
       entry.put('Id', this.generateId(record));
@@ -834,6 +932,13 @@ public with sharing class MockEloquent implements IEloquent {
           .action(action)
           .param('records', records)
           .fire();
+      }
+      if (allOrNone == true) {
+        this.enforceAllOrNone(method, record);
+      }
+      if (this.isSaveFailure(record)) {
+        results.add(this.buildFailedUpsertResult(record.Id));
+        continue;
       }
       Boolean isCreated = record.Id == null;
       if (isCreated) {
@@ -875,6 +980,13 @@ public with sharing class MockEloquent implements IEloquent {
           .fire();
       }
       SObject record = entry.getRecord();
+      if (allOrNone == true) {
+        this.enforceAllOrNone(method, record);
+      }
+      if (this.isSaveFailure(record)) {
+        results.add(this.buildFailedUpsertResult(record.Id));
+        continue;
+      }
       Boolean isCreated = record.Id == null;
       if (isCreated) {
         entry.put('Id', this.generateId(record));
@@ -883,6 +995,21 @@ public with sharing class MockEloquent implements IEloquent {
       results.add(buildSuccessUpsertResult(record.Id, isCreated));
     }
     return results;
+  }
+
+  private Database.UpsertResult buildFailedUpsertResult(Id recordId) {
+    Map<String, Object> payload = new Map<String, Object>{
+      'success' => false,
+      'created' => false,
+      'id' => recordId,
+      'errors' => new List<Object>{
+        new Map<String, Object>{
+          'message' => this.saveErrorsById.get(recordId),
+          'statusCode' => 'FIELD_CUSTOM_VALIDATION_EXCEPTION'
+        }
+      }
+    };
+    return (Database.UpsertResult) JSON.deserialize(JSON.serialize(payload), Database.UpsertResult.class);
   }
 
   private static Database.UpsertResult buildSuccessUpsertResult(Id recordId, Boolean isCreated) {

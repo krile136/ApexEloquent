@@ -1259,4 +1259,207 @@ public with sharing class EloquentTest {
       );
     }
   }
+
+  // ===============================================================================
+  // Real DML / SOQL success paths (issue #52)
+  // Group / GroupMember are platform-frozen (no triggers, validation rules, record
+  // types, or custom fields are possible), so these round-trips cannot be broken
+  // by consumer-org customization. Each test touches only setup objects, avoiding
+  // mixed DML with the rest of the suite.
+  // ===============================================================================
+
+  private static Group buildGroup(String seed) {
+    return new Group(
+      Name = 'EloquentRT ' + seed,
+      DeveloperName = 'EloquentRT_' + seed + '_' + Datetime.now().getTime()
+    );
+  }
+
+  @isTest
+  static void testDoInsert_WhenValidSingleRecord_ThenIdIsAssignedAndPersisted() {
+    // Act
+    Group grp = (Group) (new Eloquent()).doInsert(buildGroup('ins'));
+
+    // Assert
+    Assert.isNotNull(grp.Id, 'doInsert must return the record with its Id assigned');
+    Assert.areEqual('EloquentRT ins', [SELECT Name FROM Group WHERE Id = :grp.Id].Name);
+  }
+
+  @isTest
+  static void testDoInsert_WhenValidList_ThenAllPersisted() {
+    // Act
+    List<Group> groups = (List<Group>) (new Eloquent()).doInsert(
+      new List<Group>{ buildGroup('insA'), buildGroup('insB') }
+    );
+
+    // Assert
+    Assert.isNotNull(groups[0].Id);
+    Assert.isNotNull(groups[1].Id);
+    Assert.areEqual(2, [SELECT COUNT() FROM Group WHERE Id IN :new List<Id>{ groups[0].Id, groups[1].Id }]);
+  }
+
+  @isTest
+  static void testDoInsert_WhenEntryGiven_ThenReturnedEntryCarriesId() {
+    // Act
+    IEntry inserted = (new Eloquent()).doInsert(new Entry(buildGroup('insEntry')));
+
+    // Assert
+    Assert.isNotNull(inserted.getId(), 'IEntry round-trip must expose the assigned Id');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenValidRecord_ThenChangeIsPersisted() {
+    // Arrange
+    Group grp = buildGroup('upd');
+    insert grp;
+    grp.Name = 'EloquentRT upd changed';
+
+    // Act
+    (new Eloquent()).doUpdate(grp);
+
+    // Assert
+    Assert.areEqual('EloquentRT upd changed', [SELECT Name FROM Group WHERE Id = :grp.Id].Name);
+  }
+
+  @isTest
+  static void testDoUpsert_WhenNewThenExisting_ThenInsertsThenUpdates() {
+    // Act - upsert without Id inserts
+    Group grp = (Group) (new Eloquent()).doUpsert(buildGroup('ups'));
+    Assert.isNotNull(grp.Id);
+
+    // Act - upsert with Id updates the same row
+    grp.Name = 'EloquentRT ups changed';
+    (new Eloquent()).doUpsert(grp);
+
+    // Assert
+    Assert.areEqual('EloquentRT ups changed', [SELECT Name FROM Group WHERE Id = :grp.Id].Name);
+    Assert.areEqual(1, [SELECT COUNT() FROM Group WHERE Id = :grp.Id]);
+  }
+
+  @isTest
+  static void testDoDelete_WhenValidRecord_ThenRemoved() {
+    // Arrange
+    Group grp = buildGroup('del');
+    insert grp;
+
+    // Act
+    (new Eloquent()).doDelete(grp);
+
+    // Assert
+    Assert.areEqual(0, [SELECT COUNT() FROM Group WHERE Id = :grp.Id]);
+  }
+
+  @isTest
+  static void testGet_WhenRealQuery_ThenRowsAndValuesReturned() {
+    // Arrange
+    Group grp = buildGroup('get');
+    insert grp;
+    insert new GroupMember(GroupId = grp.Id, UserOrGroupId = UserInfo.getUserId());
+
+    // Act
+    Scribe memberScribe = Scribe.of(GroupMember.class)
+      .field('Id')
+      .field('UserOrGroupId')
+      .whereEqual('GroupId', grp.Id);
+    List<IEntry> members = (new Eloquent()).get(memberScribe);
+
+    // Assert
+    Assert.areEqual(1, members.size());
+    Assert.areEqual(UserInfo.getUserId(), (Id) members[0].get('UserOrGroupId'));
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenRowExists_ThenReturnsEntry() {
+    // Arrange
+    Group grp = buildGroup('fof');
+    insert grp;
+
+    // Act
+    Scribe groupScribe = Scribe.of(Group.class).field('Id').field('Name').whereEqual('Id', grp.Id);
+    IEntry entry = (new Eloquent()).firstOrFail(groupScribe);
+
+    // Assert
+    Assert.areEqual(grp.Id, entry.getId());
+    Assert.areEqual('EloquentRT fof', (String) entry.get('Name'));
+  }
+
+  @isTest
+  static void testGetParent_WhenParentFieldQueried_ThenParentValuesReadable() {
+    // Arrange
+    Group grp = buildGroup('parent');
+    insert grp;
+    insert new GroupMember(GroupId = grp.Id, UserOrGroupId = UserInfo.getUserId());
+
+    // Act
+    Scribe memberScribe = Scribe.of(GroupMember.class)
+      .field('Id')
+      .parentField(Scribe.asParent('GroupId').field('Name'))
+      .whereEqual('GroupId', grp.Id);
+    IEntry member = (new Eloquent()).firstOrFail(memberScribe);
+    IEntry parentGroup = member.getParent('GroupId');
+
+    // Assert
+    Assert.areEqual('EloquentRT parent', (String) parentGroup.get('Name'));
+  }
+
+  @isTest
+  static void testGetChildren_WhenSubqueryQueried_ThenChildrenReadable() {
+    // Arrange
+    Group grp = buildGroup('children');
+    insert grp;
+    insert new GroupMember(GroupId = grp.Id, UserOrGroupId = UserInfo.getUserId());
+
+    // Act
+    Scribe groupScribe = Scribe.of(Group.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(GroupMember.class).field('Id').field('UserOrGroupId'))
+      .whereEqual('Id', grp.Id);
+    IEntry groupEntry = (new Eloquent()).firstOrFail(groupScribe);
+    List<IEntry> members = groupEntry.getChildren('GroupMember');
+
+    // Assert
+    Assert.areEqual(1, members.size());
+    Assert.areEqual(UserInfo.getUserId(), (Id) members[0].get('UserOrGroupId'));
+  }
+
+  @isTest
+  static void testAggregate_WhenCountGroupBy_ThenCountsReturned() {
+    // Arrange
+    Group grp = buildGroup('agg');
+    insert grp;
+    insert new GroupMember(GroupId = grp.Id, UserOrGroupId = UserInfo.getUserId());
+
+    // Act
+    Scribe aggScribe = Scribe.of(GroupMember.class)
+      .field('GroupId')
+      .count('Id', 'memberCount')
+      .whereEqual('GroupId', grp.Id)
+      .groupByField('GroupId');
+    List<IEntry> results = (new Eloquent()).get(aggScribe);
+
+    // Assert
+    Assert.areEqual(1, results.size());
+    Assert.areEqual(grp.Id, (Id) results[0].get('GroupId'));
+    Assert.areEqual(1, ((Decimal) results[0].get('memberCount')).intValue());
+  }
+
+  @isTest
+  static void testGet_WhenFieldNotSelected_ThenRealRowThrowsSObjectException() {
+    // Arrange - a real SOQL row is strict by itself: reading an unqueried field throws.
+    // (This is why production Entry needs no FieldStructure — see MockEntry.fetchedBy for tests.)
+    Group grp = buildGroup('leak');
+    insert grp;
+
+    // Act
+    Scribe idOnlyScribe = Scribe.of(Group.class).field('Id').whereEqual('Id', grp.Id);
+    IEntry entry = (new Eloquent()).firstOrFail(idOnlyScribe);
+
+    // Assert
+    try {
+      entry.get('Name');
+      Assert.fail('Expected SObjectException for a field missing from the real SOQL row');
+    } catch (SObjectException e) {
+      Assert.isTrue(e.getMessage().contains('retrieved via SOQL'), e.getMessage());
+    }
+  }
 }

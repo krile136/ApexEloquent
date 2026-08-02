@@ -3141,4 +3141,94 @@ public with sharing class MockEloquentTest {
       Assert.isTrue(e.getMessage().contains('The `orFail` argument is required'), e.getMessage());
     }
   }
+
+  // ===============================================================================
+  // failSave: per-record failures for SaveResult/UpsertResult-returning DML (issue #49)
+  // ===============================================================================
+
+  @isTest
+  static void testFailSave_WhenPartialUpdate_ThenFailedResultAndSpyExcludesIt() {
+    // Arrange - the failing record is designated by its autoId
+    Account good = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'good');
+    Account bad = new Account(Id = MockEntry.of(Account.class).autoId(2).getId(), Name = 'bad');
+    MockEloquent mock = (new MockEloquent()).failSave(bad.Id, 'custom validation says no');
+
+    // Act
+    List<Database.SaveResult> results = mock.doUpdate(new List<SObject>{ good, bad }, false);
+
+    // Assert - per-record results mirror a real partial success
+    Assert.isTrue(results[0].isSuccess());
+    Assert.isFalse(results[1].isSuccess());
+    Assert.areEqual(bad.Id, results[1].getId());
+    Assert.areEqual('custom validation says no', results[1].getErrors()[0].getMessage());
+
+    // Assert - the failed record was not saved, so the spy excludes it
+    List<SObject> saved = mock.upsertedRecordsAt('default');
+    Assert.areEqual(1, saved.size());
+    Assert.areEqual(good.Id, saved[0].Id);
+  }
+
+  @isTest
+  static void testFailSave_WhenAllOrNoneTrue_ThenThrowsAndNothingRecorded() {
+    // Arrange
+    Account good = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'good');
+    Account bad = new Account(Id = MockEntry.of(Account.class).autoId(2).getId(), Name = 'bad');
+    MockEloquent mock = (new MockEloquent()).failSave(bad.Id, 'custom validation says no');
+
+    // Act & Assert - all-or-nothing semantics: the whole operation throws
+    try {
+      mock.doUpdate(new List<SObject>{ good, bad }, true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('DML failed with: custom validation says no'), e.getMessage());
+    }
+    Assert.areEqual(0, mock.upsertedRecordsAt('default').size(), 'Nothing may be recorded before the throw');
+  }
+
+  @isTest
+  static void testFailSave_WhenSingleUpdate_ThenFailedResult() {
+    // Arrange
+    Account bad = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'bad');
+    MockEloquent mock = (new MockEloquent()).failSave(bad.Id, 'no');
+
+    // Act
+    Database.SaveResult result = mock.doUpdate((SObject) bad, false);
+
+    // Assert
+    Assert.isFalse(result.isSuccess());
+    Assert.areEqual('no', result.getErrors()[0].getMessage());
+  }
+
+  @isTest
+  static void testFailSave_WhenUpsertByExternalId_ThenFailedResult() {
+    // Arrange
+    Account bad = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'bad');
+    MockEloquent mock = (new MockEloquent()).failSave(bad.Id, 'no upsert');
+
+    // Act
+    Database.UpsertResult result = mock.doUpsertByExternalId((SObject) bad, Account.Name, false);
+
+    // Assert
+    Assert.isFalse(result.isSuccess());
+    Assert.isFalse(result.isCreated());
+    Assert.areEqual('no upsert', result.getErrors()[0].getMessage());
+  }
+
+  @isTest
+  static void testFailSave_WhenGuardsViolated_ThenThrowRequired() {
+    // recordId null
+    try {
+      (new MockEloquent()).failSave(null, 'msg');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('The `recordId` argument is required'), e.getMessage());
+    }
+    // errorMessage blank
+    try {
+      (new MockEloquent()).failSave(MockEntry.of(Account.class).autoId(1).getId(), '');
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('The `errorMessage` argument is required'), e.getMessage());
+    }
+  }
 }

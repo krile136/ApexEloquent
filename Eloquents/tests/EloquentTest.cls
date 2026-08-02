@@ -1260,9 +1260,9 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testDoInsert_WhenEntryGiven_ThenReturnedEntryCarriesId() {
-    // Act
-    IEntry inserted = (new Eloquent()).doInsert(new Entry(buildGroup('insEntry')));
+  static void testDoUpsert_WhenEntryGiven_ThenReturnedEntryCarriesId() {
+    // Act - doUpsert is the IEntry-accepting insert path (doInsert has no IEntry overload)
+    IEntry inserted = (new Eloquent()).doUpsert(new Entry(buildGroup('insEntry')));
 
     // Assert
     Assert.isNotNull(inserted.getId(), 'IEntry round-trip must expose the assigned Id');
@@ -1371,12 +1371,16 @@ public with sharing class EloquentTest {
     insert new GroupMember(GroupId = grp.Id, UserOrGroupId = UserInfo.getUserId());
 
     // Act
+    // Group has two relationships to GroupMember (GroupId / UserOrGroupId), so the
+    // relationship name must be given explicitly on both the query and the getter
     Scribe groupScribe = Scribe.of(Group.class)
       .field('Id')
-      .withChildren(Scribe.asChild(GroupMember.class).field('Id').field('UserOrGroupId'))
+      .withChildren(
+        Scribe.asChild(GroupMember.class).relationName('GroupMembers').field('Id').field('UserOrGroupId')
+      )
       .whereEqual('Id', grp.Id);
     IEntry groupEntry = (new Eloquent()).firstOrFail(groupScribe);
-    List<IEntry> members = groupEntry.getChildren('GroupMember');
+    List<IEntry> members = groupEntry.getChildren('GroupMembers');
 
     // Assert
     Assert.areEqual(1, members.size());

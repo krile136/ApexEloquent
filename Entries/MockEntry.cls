@@ -1223,6 +1223,36 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
+   * Declares that this MockEntry represents a record fetched by the given Scribe:
+   * the Scribe's SELECT contract (fields and relations) is baked in, so any read
+   * outside the contract fails exactly as it would for a real query result.
+   *
+   * Designed for directly-injected entries — e.g. Batch usecases whose input is
+   * List<IEntry>. Share the same Scribe as the Batchable's start() (typically a
+   * @TestVisible static scope() method) so the SELECT truth has a single source:
+   *
+   * <pre>
+   * MockEntry card = MockEntry.of(BusinessCard__c.class)
+   *   .autoId(1)
+   *   .set('CompanyName__c', 'Acme')
+   *   .fetchedBy(CardSyncBatch.scope());
+   * </pre>
+   *
+   * FieldStructure is a mock-side strictness tool: production Entry needs none,
+   * because a real SOQL row already throws on unqueried field access.
+   *
+   * @param scribe The Scribe whose SELECT contract this entry was fetched under.
+   * @return A new MockEntry carrying the contract.
+   */
+  public MockEntry fetchedBy(Scribe scribe) {
+    String method = 'fetchedBy(Scribe scribe)';
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', scribe).fire();
+    }
+    return (MockEntry) this.setFieldStructure(scribe.buildFieldStructure());
+  }
+
+  /**
    * validate the field name.
    *
    * @param fieldName field name to be validated

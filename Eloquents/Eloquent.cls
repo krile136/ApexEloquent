@@ -238,6 +238,27 @@ public inherited sharing class Eloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public IEntry firstOrFail(Scribe scribe, Exception orFail) {
+    String label = this.consumeLabel();
+    String method = ('firstOrFail(Scribe scribe, Exception orFail)');
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+    if (orFail == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'orFail', null).fire();
+    }
+
+    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+
+    if (records.isEmpty()) {
+      throw orFail;
+    }
+    return new Entry(records[0]);
+  }
+
+  /**
+   * @inheritDoc
+   */
   public SObject firstOrFailAsSObject(Scribe scribe) {
     String label = this.consumeLabel();
     String method = ('firstOrFailAsSObject(Scribe scribe)');

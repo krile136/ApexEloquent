@@ -3095,4 +3095,50 @@ public with sharing class MockEloquentTest {
     // Assert
     Assert.areEqual(1, entries.size());
   }
+
+  private class MockNotFoundException extends Exception {
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenCustomExceptionAndEntryAttached_ThenReturnsEntry() {
+    // Arrange
+    MockEntry grpEntry = MockEntry.of(Account.class).autoId(1).set('Name', 'Hit');
+    MockEloquent mock = (new MockEloquent()).attach('fetch', new List<IEntry>{ grpEntry });
+    Scribe scribe = Scribe.of(Account.class).field('Id').field('Name');
+
+    // Act
+    IEntry result = mock.label('fetch').firstOrFail(scribe, new MockNotFoundException('not used'));
+
+    // Assert
+    Assert.areEqual('Hit', result.get('Name'));
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenCustomExceptionAndEmptyAttached_ThenThrowsItAsIs() {
+    // Arrange - the zero-row path is declared with an explicit empty attach
+    MockEloquent mock = (new MockEloquent()).attach('fetch', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Id');
+
+    // Act & Assert - the given exception is thrown as-is (type and message preserved)
+    try {
+      mock.label('fetch').firstOrFail(scribe, new MockNotFoundException('business-facing message'));
+      Assert.fail('Expected MockNotFoundException to be thrown');
+    } catch (MockNotFoundException e) {
+      Assert.areEqual('business-facing message', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenCustomExceptionIsNull_ThenThrowsRequired() {
+    // Arrange
+    MockEloquent mock = (new MockEloquent()).attach('fetch', new List<IEntry>());
+
+    // Act & Assert
+    try {
+      mock.label('fetch').firstOrFail(Scribe.of(Account.class).field('Id'), null);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('The `orFail` argument is required'), e.getMessage());
+    }
+  }
 }

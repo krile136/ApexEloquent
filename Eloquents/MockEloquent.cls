@@ -419,6 +419,30 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public IEntry firstOrFail(Scribe scribe, Exception orFail) {
+    String method = 'firstOrFail(Scribe scribe, Exception orFail)';
+    String label = this.consumeLabel();
+    this.handleErrorQueue(method, label);
+    if (scribe == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+    }
+    if (orFail == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'orFail', null).fire();
+    }
+
+    this.scribe = scribe;
+    String soql = scribe.toSoql(); // for showing and validate SOQL
+    FieldStructure fieldStructure = scribe.buildFieldStructure();
+    List<IEntry> source = this.activeEntries(label);
+    if (source.isEmpty()) {
+      throw orFail;
+    }
+    return source[0].setFieldStructure(fieldStructure);
+  }
+
+  /**
+   * @inheritDoc
+   */
   public SObject firstOrFailAsSObject(Scribe scribe) {
     String method = 'firstOrFailAsSObject(Scribe scribe)';
     String label = this.consumeLabel();

@@ -1103,17 +1103,241 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testOrCondition_WhenAddOrConditionAtFirst_ThenThrownException() {
-    // Arrange / Act / Assert
-    try {
-      Scribe scribe = Scribe.of(Account.class).field('Id').orCondition().whereEqual('Name', 'Test Account');
+  static void testIgnoreWhen_WhenTrue_ThenPrecedingConditionDropped() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'Test Account')
+      .ignoreWhen(true);
 
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert: the preceding WHERE condition is dropped entirely
+    String expectedSoql = 'SELECT id FROM Account';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenFalse_ThenPrecedingConditionKept() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'Test Account')
+      .ignoreWhen(false);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenOrConditionIgnored_ThenSoqlDropsIt() {
+    // Arrange: the OR condition itself is the ignoreWhen target
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'A')
+      .orCondition()
+      .whereEqual('Industry', 'B')
+      .ignoreWhen(true);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert: the ignored OR condition leaves no trace in the SOQL
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\'', soql);
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenOrConditionIgnored_ThenAndConditionCanFollow() {
+    // Arrange & Act: ignoring the only OR condition must also retract the OR-only mode,
+    // so a plain (AND) condition can follow — the query no longer contains any OR
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'A')
+      .orCondition()
+      .whereEqual('Industry', 'B')
+      .ignoreWhen(true)
+      .whereEqual('Phone', 'C');
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\' AND Phone = \'C\'', scribe.toSoql());
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenOrConditionIgnored_ThenExplicitOrStillWorks() {
+    // Arrange & Act: an explicit orCondition() after the ignore keeps working
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'A')
+      .orCondition()
+      .whereEqual('Industry', 'B')
+      .ignoreWhen(true)
+      .orCondition()
+      .whereEqual('Phone', 'C');
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\' OR Phone = \'C\'', scribe.toSoql());
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenOrConditionRemains_ThenOrOnlyModeIsKept() {
+    // Arrange & Act & Assert: A OR B OR C, ignoring C — an OR part still remains,
+    // so a plain (AND) condition must still be rejected
+    try {
+      Scribe.of(Account.class)
+        .field('Id')
+        .whereEqual('Name', 'A')
+        .orCondition()
+        .whereEqual('Industry', 'B')
+        .orCondition()
+        .whereEqual('Phone', 'C')
+        .ignoreWhen(true)
+        .whereEqual('Fax', 'D');
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('orCondition()'));
-      Assert.isTrue(error.contains('Invalid Logical Sequence'));
+      Assert.isTrue(e.getMessage().contains('orCondition'), e.getMessage());
     }
+  }
+
+  @isTest
+  static void testOrCondition_WhenFirstConditionIgnored_ThenSurvivorIsSoleCondition() {
+    // Arrange & Act: "A OR B" where A is dynamically retracted — the OR degrades
+    // to a no-op and B becomes the sole (plain) condition
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'A')
+      .ignoreWhen(true)
+      .orCondition()
+      .whereEqual('Industry', 'B');
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Account WHERE Industry = \'B\'', scribe.toSoql());
+  }
+
+  @isTest
+  static void testOrCondition_WhenBothSidesIgnored_ThenNoWhereClause() {
+    // Arrange & Act: both sides of the OR vanish — no WHERE clause at all
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'A')
+      .ignoreWhen(true)
+      .orCondition()
+      .whereEqual('Industry', 'B')
+      .ignoreWhen(true);
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Account', scribe.toSoql());
+  }
+
+  @isTest
+  static void testOrCondition_WhenBothSidesKept_ThenOrQuery() {
+    // Arrange & Act: the branch-free dynamic form with nothing retracted keeps the OR
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'A')
+      .ignoreWhen(false)
+      .orCondition()
+      .whereEqual('Industry', 'B')
+      .ignoreWhen(false);
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\' OR Industry = \'B\'', scribe.toSoql());
+  }
+
+  @isTest
+  static void testOrCondition_WhenNoOp_ThenPlainAndCanFollow() {
+    // Arrange & Act: a no-op orCondition() must not raise the OR-only mode —
+    // the survivor is a plain first condition and AND conditions may follow
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'A')
+      .ignoreWhen(true)
+      .orCondition()
+      .whereEqual('Industry', 'B')
+      .whereEqual('Phone', 'C');
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Account WHERE Industry = \'B\' AND Phone = \'C\'', scribe.toSoql());
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenNoPrecedingCondition_ThenThrows() {
+    // Arrange & Act & Assert: ignoreWhen() before any where...() is a structural misuse
+    try {
+      Scribe.of(Account.class).field('Id').ignoreWhen(true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('ignoreWhen'));
+    }
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenNotDirectlyAfterWhere_ThenThrows() {
+    // Arrange & Act & Assert: a non-where builder (orderBy) between the where and ignoreWhen is misuse
+    try {
+      Scribe.of(Account.class)
+        .field('Id')
+        .whereEqual('Name', 'Test Account')
+        .orderBy('Name', 'ASC')
+        .ignoreWhen(true);
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('ignoreWhen'));
+    }
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenMultipleConditions_ThenOnlyLastDropped() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'Test Account')
+      .whereEqual('Industry', 'Tech')
+      .ignoreWhen(true);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert: only the last-added condition (Industry) is dropped
+    String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenAfterWhereGroup_ThenGroupDropped() {
+    // Arrange: a grouped condition is also a valid target for ignoreWhen
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .whereEqual('Name', 'Test Opportunity')
+      .whereGroup(
+        Scribe.asGroup()
+          .whereGreaterThan('TotalOpportunityQuantity', 10000)
+          .orCondition()
+          .whereEqual('Type', 'Test Type')
+      )
+      .ignoreWhen(true);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert: the whole group is dropped; the preceding condition remains
+    String expectedSoql = 'SELECT id FROM Opportunity WHERE Name = \'Test Opportunity\'';
+    Assert.areEqual(expectedSoql, soql);
+  }
+
+  @isTest
+  static void testOrCondition_WhenAddOrConditionAtFirst_ThenNoOp() {
+    // Arrange / Act: since v2.2.0 a leading orCondition() is a no-op (conditions can
+    // vanish dynamically via ignoreWhen, so "no condition yet" is a legitimate state) —
+    // the following condition simply starts the WHERE clause
+    Scribe scribe = Scribe.of(Account.class).field('Id').orCondition().whereEqual('Name', 'Test Account');
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'Test Account\'', scribe.toSoql());
   }
 
   @isTest

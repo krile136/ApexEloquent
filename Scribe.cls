@@ -41,6 +41,9 @@ public with sharing class Scribe {
   private List<ConditionPart> conditionParts = new List<ConditionPart>();
   private Boolean isNextConditionOr = false;
   private Boolean canOnlyAddOrCondition = false;
+  // True only immediately after a where...() condition. Intentionally NOT copied in deepClone(),
+  // so it resets on every builder step — ignoreWhen() is therefore valid ONLY directly after a where...().
+  private Boolean isAfterWhereClause = false;
 
   // Relationship properties
   private List<ParentScribe> parents = new List<ParentScribe>();
@@ -668,7 +671,15 @@ public with sharing class Scribe {
   /**
    * Specifies that the next WHERE condition should be joined with an OR operator.
    *
-   * Cannot be the first condition. Subsequent conditions must also be OR unless grouped.
+   * Subsequent conditions must also be OR unless grouped.
+   *
+   * When no condition exists yet, this is a no-op: with ignoreWhen() dynamically
+   * retracting conditions, "A OR B where A may vanish" is a legitimate chain, and
+   * the surviving condition simply becomes the first (plain) condition:
+   *   scribe.whereIn('X', a).ignoreWhen(a.isEmpty())
+   *         .orCondition()
+   *         .whereIn('Y', b).ignoreWhen(b.isEmpty())
+   *
    * @return A new, immutable Scribe instance configured for an OR condition.
    */
   public Scribe orCondition() {
@@ -677,14 +688,62 @@ public with sharing class Scribe {
 
     Scribe clonedScribe = this.deepClone();
 
+    // No condition to attach to (either never added, or retracted by ignoreWhen):
+    // do not raise the OR marker — the next condition starts the WHERE clause.
     if (clonedScribe.conditionParts.isEmpty() && !clonedScribe.isParent) {
-      String error = 'Invalid Logical Sequence';
-      String reason = 'An OR condition cannot be the starting point of a WHERE clause. It must append to an existing condition.';
-      String action = 'Please call a where...() method (e.g., .whereEqual(), .whereIn()) before invoking .orCondition().';
-      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+      return clonedScribe;
     }
     clonedScribe.isNextConditionOr = true;
     clonedScribe.canOnlyAddOrCondition = true;
+
+    return clonedScribe;
+  }
+
+  /**
+   * Drops the immediately-preceding WHERE condition when `shouldIgnore` is true.
+   *
+   * Must be chained DIRECTLY onto a where...() call. Handy for building dynamic queries
+   * from optional inputs (e.g. search filters from an LWC):
+   *   scribe.whereIn('Id', ids).ignoreWhen(ids.isEmpty())
+   *   scribe.whereLike('Name', keyword).ignoreWhen(String.isBlank(keyword))
+   *
+   * When `shouldIgnore` is false, the condition is kept (query unchanged). When true, the
+   * preceding condition is removed — this also avoids the empty `IN ()` pitfall, which would
+   * otherwise match zero rows.
+   *
+   * If it is NOT chained immediately after a where...() (e.g. called first, after orderBy(),
+   * or twice in a row), an ApexEloquentException is thrown so the relationship between
+   * ignoreWhen() and its target condition stays unambiguous.
+   *
+   * @param shouldIgnore when true, the immediately-preceding WHERE condition is removed.
+   * @return A new, immutable Scribe instance.
+   */
+  public Scribe ignoreWhen(Boolean shouldIgnore) {
+    String method = 'ignoreWhen(Boolean shouldIgnore)';
+    if (this.isAfterWhereClause != true) {
+      String error = 'Invalid ignoreWhen() placement';
+      String reason = 'ignoreWhen() can only be chained immediately after a where...() condition.';
+      String action = 'Chain it directly onto a where...() call, e.g. whereIn(\'Id\', ids).ignoreWhen(ids.isEmpty()).';
+      ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+    }
+
+    // deepClone() does not copy isAfterWhereClause, so the result resets to false
+    // (a second ignoreWhen() in a row will therefore throw).
+    Scribe clonedScribe = this.deepClone();
+    if (shouldIgnore == true) {
+      clonedScribe.conditionParts.remove(clonedScribe.conditionParts.size() - 1);
+      // Recompute the OR-only mode from the remaining parts: when the retracted
+      // condition was the only OR, the chain must accept plain (AND) conditions
+      // again — otherwise the OR marker would outlive its retracted target.
+      Boolean hasOrPart = false;
+      for (ConditionPart part : clonedScribe.conditionParts) {
+        if (part.isOr == true) {
+          hasOrPart = true;
+          break;
+        }
+      }
+      clonedScribe.canOnlyAddOrCondition = hasOrPart;
+    }
 
     return clonedScribe;
   }
@@ -714,6 +773,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -739,6 +799,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -764,6 +825,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -789,6 +851,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -814,6 +877,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -839,6 +903,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -859,6 +924,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -884,6 +950,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -905,6 +972,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -940,6 +1008,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -961,6 +1030,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -996,6 +1066,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -1021,6 +1092,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -1046,6 +1118,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -1065,6 +1138,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -1084,6 +1158,7 @@ public with sharing class Scribe {
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -1142,6 +1217,7 @@ public with sharing class Scribe {
     clonedScribe.sObjectType = this.sObjectType;
     clonedScribe.conditionParts.add(groupConditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }
@@ -1231,6 +1307,7 @@ public with sharing class Scribe {
     );
     clonedScribe.conditionParts.add(parentConditionPart);
     clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
   }

@@ -76,7 +76,8 @@ public inherited sharing class Eloquent implements IEloquent {
    * Captures the current label for routing/logging, resets the transient
    * label state, and enforces strict-mode rules:
    *   (1) once strict mode is active, every operation must be preceded by .label(...)
-   *   (2) each label can be consumed at most once per IEloquent instance
+   *   (2) each label allows at most one SUCCESSFUL operation per IEloquent instance
+   *       (a failed operation releases its label so the attempt can be retried)
    */
   private String consumeLabel() {
     String label = this.currentLabel;
@@ -100,7 +101,7 @@ public inherited sharing class Eloquent implements IEloquent {
     }
     if (this.consumedLabels.contains(label)) {
       String reason = 'Label \'' + label + '\' has already been consumed on this IEloquent instance.';
-      String action = 'Each label can be used at most once per IEloquent. Use a different label name, or construct a fresh IEloquent.';
+      String action = 'A label allows at most one successful operation per IEloquent (failed attempts may be retried). Use a different label name, or construct a fresh IEloquent.';
       ApexEloquentException.invalidOperation(CLASS_NAME, 'label(String label) [consume-once]', reason)
         .action(action)
         .param('label', label)
@@ -114,25 +115,39 @@ public inherited sharing class Eloquent implements IEloquent {
   }
 
   /**
+   * Releases a label whose operation failed. consume-once guards one
+   * SUCCESSFUL operation per label — a failed attempt did not fulfill the
+   * label's intent, so the same label may be retried.
+   */
+  private void releaseLabel(String label) {
+    this.consumedLabels.remove(label);
+  }
+
+  /**
    * @inheritDoc
    */
   public List<IEntry> get(Scribe scribe) {
     String label = this.consumeLabel();
-    String method = ('get(Scribe scribe)');
-    if (scribe == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
-    }
+    try {
+      String method = ('get(Scribe scribe)');
+      if (scribe == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
+      }
 
-    if (scribe.isAggregate()) {
-      return this.getAggregate(scribe);
-    }
+      if (scribe.isAggregate()) {
+        return this.getAggregate(scribe);
+      }
 
-    List<IEntry> entries = new List<IEntry>();
-    for (SObject record : (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel)) {
-      entries.add(new Entry(record));
-    }
+      List<IEntry> entries = new List<IEntry>();
+      for (SObject record : (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel)) {
+        entries.add(new Entry(record));
+      }
 
-    return entries;
+      return entries;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   private List<IEntry> getAggregate(Scribe scribe) {
@@ -150,15 +165,20 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<IEntry> rawSoql(String soql) {
     String label = this.consumeLabel();
-    String method = 'rawSoql(String soql)';
-    if (String.isBlank(soql)) {
-      ApexEloquentException.required(CLASS_NAME, method, 'soql', soql).fire();
+    try {
+      String method = 'rawSoql(String soql)';
+      if (String.isBlank(soql)) {
+        ApexEloquentException.required(CLASS_NAME, method, 'soql', soql).fire();
+      }
+      List<IEntry> entries = new List<IEntry>();
+      for (SObject record : (List<SObject>) Database.query(soql, this.accessLevel)) {
+        entries.add(new Entry(record));
+      }
+      return entries;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    List<IEntry> entries = new List<IEntry>();
-    for (SObject record : (List<SObject>) Database.query(soql, this.accessLevel)) {
-      entries.add(new Entry(record));
-    }
-    return entries;
   }
 
   /**
@@ -166,12 +186,17 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<SObject> getAsSObject(Scribe scribe) {
     String label = this.consumeLabel();
-    String method = ('getAsSObject(Scribe scribe)');
-    if (scribe == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
-    }
+    try {
+      String method = ('getAsSObject(Scribe scribe)');
+      if (scribe == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+      }
 
-    return (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+      return (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   /**
@@ -179,16 +204,21 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public IEntry first(Scribe scribe) {
     String label = this.consumeLabel();
-    String method = ('first(Scribe scribe)');
-    if (scribe == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
-    }
+    try {
+      String method = ('first(Scribe scribe)');
+      if (scribe == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+      }
 
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
-    if (records.isEmpty()) {
-      return null;
+      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+      if (records.isEmpty()) {
+        return null;
+      }
+      return new Entry(records[0]);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return new Entry(records[0]);
   }
 
   /**
@@ -196,16 +226,21 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public SObject firstAsSObject(Scribe scribe) {
     String label = this.consumeLabel();
-    String method = ('firstAsSObject(Scribe scribe)');
-    if (scribe == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
-    }
+    try {
+      String method = ('firstAsSObject(Scribe scribe)');
+      if (scribe == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+      }
 
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
-    if (records.isEmpty()) {
-      return null;
+      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+      if (records.isEmpty()) {
+        return null;
+      }
+      return records[0];
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return records[0];
   }
 
   /**
@@ -213,26 +248,31 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public IEntry firstOrFail(Scribe scribe) {
     String label = this.consumeLabel();
-    String method = ('firstOrFail(Scribe scribe)');
-    if (scribe == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
-    }
+    try {
+      String method = ('firstOrFail(Scribe scribe)');
+      if (scribe == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+      }
 
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
 
-    if (records.isEmpty()) {
-      String error = 'No records were found for the given criteria';
-      String reason = 'The query execution returned zero records';
-      String action = 'Ensure that the query criteria are correct and that relevant records exist in the database';
-      ApexEloquentException.at(CLASS_NAME)
-        .method(method)
-        .error(error)
-        .reason(reason)
-        .action(action)
-        .param('SOQL', scribe.toSoql())
-        .fire();
+      if (records.isEmpty()) {
+        String error = 'No records were found for the given criteria';
+        String reason = 'The query execution returned zero records';
+        String action = 'Ensure that the query criteria are correct and that relevant records exist in the database';
+        ApexEloquentException.at(CLASS_NAME)
+          .method(method)
+          .error(error)
+          .reason(reason)
+          .action(action)
+          .param('SOQL', scribe.toSoql())
+          .fire();
+      }
+      return new Entry(records[0]);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return new Entry(records[0]);
   }
 
   /**
@@ -240,20 +280,25 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public IEntry firstOrFail(Scribe scribe, Exception orFail) {
     String label = this.consumeLabel();
-    String method = ('firstOrFail(Scribe scribe, Exception orFail)');
-    if (scribe == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
-    }
-    if (orFail == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'orFail', null).fire();
-    }
+    try {
+      String method = ('firstOrFail(Scribe scribe, Exception orFail)');
+      if (scribe == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+      }
+      if (orFail == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'orFail', null).fire();
+      }
 
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
 
-    if (records.isEmpty()) {
-      throw orFail;
+      if (records.isEmpty()) {
+        throw orFail;
+      }
+      return new Entry(records[0]);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return new Entry(records[0]);
   }
 
   /**
@@ -261,25 +306,30 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public SObject firstOrFailAsSObject(Scribe scribe) {
     String label = this.consumeLabel();
-    String method = ('firstOrFailAsSObject(Scribe scribe)');
-    if (scribe == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
-    }
+    try {
+      String method = ('firstOrFailAsSObject(Scribe scribe)');
+      if (scribe == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
+      }
 
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
-    if (records.isEmpty()) {
-      String error = 'No records were found for the given criteria';
-      String reason = 'The query execution returned zero records';
-      String action = 'Ensure that the query criteria are correct and that relevant records exist in the database';
-      ApexEloquentException.at(CLASS_NAME)
-        .method(method)
-        .error(error)
-        .reason(reason)
-        .action(action)
-        .param('SOQL', scribe.toSoql())
-        .fire();
+      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+      if (records.isEmpty()) {
+        String error = 'No records were found for the given criteria';
+        String reason = 'The query execution returned zero records';
+        String action = 'Ensure that the query criteria are correct and that relevant records exist in the database';
+        ApexEloquentException.at(CLASS_NAME)
+          .method(method)
+          .error(error)
+          .reason(reason)
+          .action(action)
+          .param('SOQL', scribe.toSoql())
+          .fire();
+      }
+      return records[0];
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return records[0];
   }
 
   /**
@@ -287,17 +337,22 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public SObject doInsert(SObject record) {
     String label = this.consumeLabel();
-    String method = ('doInsert(SObject record)');
-    if (record == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
-    }
     try {
-      Database.insert(record, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('insert', e);
-      ex.method(method).param('record', record).fire();
+      String method = ('doInsert(SObject record)');
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
+      }
+      try {
+        Database.insert(record, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('insert', e);
+        ex.method(method).param('record', record).fire();
+      }
+      return record;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return record;
   }
 
   /**
@@ -305,18 +360,23 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<SObject> doInsert(List<SObject> records) {
     String label = this.consumeLabel();
-    String method = ('doInsert(List<SObject> records)');
-    if (records == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
-    }
-    sortToPreventChunkingErrors(records);
     try {
-      Database.insert(records, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('insert', e);
-      ex.method(method).param('records', records).fire();
+      String method = ('doInsert(List<SObject> records)');
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      sortToPreventChunkingErrors(records);
+      try {
+        Database.insert(records, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('insert', e);
+        ex.method(method).param('records', records).fire();
+      }
+      return records;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return records;
   }
 
   /**
@@ -324,18 +384,23 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public SObject doUpdate(SObject record) {
     String label = this.consumeLabel();
-    String method = ('doUpdate(SObject record)');
-    if (record == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
-    }
-
     try {
-      Database.update(record, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('update', e);
-      ex.method(method).param('record', record).fire();
+      String method = ('doUpdate(SObject record)');
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+
+      try {
+        Database.update(record, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('update', e);
+        ex.method(method).param('record', record).fire();
+      }
+      return record;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return record;
   }
 
   /**
@@ -343,19 +408,24 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public Database.SaveResult doUpdate(SObject record, Boolean allOrNone) {
     String label = this.consumeLabel();
-    String method = ('doUpdate(SObject record, Boolean allOrNone)');
-    if (record == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
-    }
-
     try {
-      return Database.update(record, allOrNone, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('update', e);
-      ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
-    }
+      String method = ('doUpdate(SObject record, Boolean allOrNone)');
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
 
-    return null;
+      try {
+        return Database.update(record, allOrNone, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('update', e);
+        ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   /**
@@ -363,18 +433,23 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public IEntry doUpdate(IEntry entry) {
     String label = this.consumeLabel();
-    String method = ('doUpdate(IEntry entry)');
-    if (entry == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
-    }
-    SObject record = entry.getRecord();
     try {
-      Database.update(record, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('update', e);
-      ex.method(method).param('entry', entry).fire();
+      String method = ('doUpdate(IEntry entry)');
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+      SObject record = entry.getRecord();
+      try {
+        Database.update(record, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('update', e);
+        ex.method(method).param('entry', entry).fire();
+      }
+      return new Entry(record);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return new Entry(record);
   }
 
   /**
@@ -382,19 +457,24 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public Database.SaveResult doUpdate(IEntry entry, Boolean allOrNone) {
     String label = this.consumeLabel();
-    String method = ('doUpdate(IEntry entry, Boolean allOrNone)');
-    if (entry == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
-    }
-    SObject record = entry.getRecord();
     try {
-      return Database.update(record, allOrNone, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('update', e);
-      ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
-    }
+      String method = ('doUpdate(IEntry entry, Boolean allOrNone)');
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+      SObject record = entry.getRecord();
+      try {
+        return Database.update(record, allOrNone, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('update', e);
+        ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
+      }
 
-    return null;
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   /**
@@ -402,18 +482,23 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<SObject> doUpdate(List<SObject> records) {
     String label = this.consumeLabel();
-    String method = ('doUpdate(List<SObject> records)');
-    if (records == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
-    }
-    sortToPreventChunkingErrors(records);
     try {
-      Database.update(records, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('update', e);
-      ex.method(method).param('records', records).fire();
+      String method = ('doUpdate(List<SObject> records)');
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      sortToPreventChunkingErrors(records);
+      try {
+        Database.update(records, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('update', e);
+        ex.method(method).param('records', records).fire();
+      }
+      return records;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return records;
   }
 
   /**
@@ -421,19 +506,24 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<Database.SaveResult> doUpdate(List<SObject> records, Boolean allOrNone) {
     String label = this.consumeLabel();
-    String method = ('doUpdate(List<SObject> records, Boolean allOrNone)');
-    if (records == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
-    }
-    sortToPreventChunkingErrors(records);
     try {
-      return Database.update(records, allOrNone, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('update', e);
-      ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
-    }
+      String method = ('doUpdate(List<SObject> records, Boolean allOrNone)');
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      sortToPreventChunkingErrors(records);
+      try {
+        return Database.update(records, allOrNone, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('update', e);
+        ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
+      }
     
-    return null;
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   /**
@@ -441,30 +531,35 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<IEntry> doUpdate(List<IEntry> entries) {
     String label = this.consumeLabel();
-    String method = ('doUpdate(List<IEntry> entries)');
-    if (entries == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
-    }
-
-    if (entries.isEmpty()) {
-      return new List<IEntry>();
-    }
-    List<SObject> records = new List<SObject>();
-    for (IEntry entry : entries) {
-      records.add(entry.getRecord());
-    }
-    sortToPreventChunkingErrors(records);
     try {
-      Database.update(records, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('update', e);
-      ex.method(method).param('entries', entries).fire();
+      String method = ('doUpdate(List<IEntry> entries)');
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+
+      if (entries.isEmpty()) {
+        return new List<IEntry>();
+      }
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        records.add(entry.getRecord());
+      }
+      sortToPreventChunkingErrors(records);
+      try {
+        Database.update(records, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('update', e);
+        ex.method(method).param('entries', entries).fire();
+      }
+      List<IEntry> updatedEntries = new List<IEntry>();
+      for (SObject record : records) {
+        updatedEntries.add(new Entry(record));
+      }
+      return updatedEntries;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    List<IEntry> updatedEntries = new List<IEntry>();
-    for (SObject record : records) {
-      updatedEntries.add(new Entry(record));
-    }
-    return updatedEntries;
   }
 
   /**
@@ -472,27 +567,32 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<Database.SaveResult> doUpdate(List<IEntry> entries, Boolean allOrNone) {
     String label = this.consumeLabel();
-    String method = ('doUpdate(List<IEntry> entries, Boolean allOrNone)');
-    if (entries == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
-    }
-
-    if (entries.isEmpty()) {
-      return new List<Database.SaveResult>();
-    }
-    List<SObject> records = new List<SObject>();
-    for (IEntry entry : entries) {
-      records.add(entry.getRecord());
-    }
-    sortToPreventChunkingErrors(records);
     try {
-      return Database.update(records, allOrNone, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('update', e);
-      ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
-    }
+      String method = ('doUpdate(List<IEntry> entries, Boolean allOrNone)');
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
 
-    return null;
+      if (entries.isEmpty()) {
+        return new List<Database.SaveResult>();
+      }
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        records.add(entry.getRecord());
+      }
+      sortToPreventChunkingErrors(records);
+      try {
+        return Database.update(records, allOrNone, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('update', e);
+        ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   /**
@@ -500,18 +600,23 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public SObject doUpsert(SObject record) {
     String label = this.consumeLabel();
-    String method = ('doUpsert(SObject record)');
-    if (record == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
-    }
-
     try {
-      Database.upsert(record, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('upsert', e);
-      ex.method(method).param('record', record).fire();
+      String method = ('doUpsert(SObject record)');
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+
+      try {
+        Database.upsert(record, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('record', record).fire();
+      }
+      return record;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return record;
   }
 
   /**
@@ -519,19 +624,24 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public IEntry doUpsert(IEntry entry) {
     String label = this.consumeLabel();
-    String method = ('doUpsert(IEntry entry)');
-    if (entry == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
-    }
-
-    SObject record = entry.getRecord();
     try {
-      Database.upsert(record, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('upsert', e);
-      ex.method(method).param('entry', entry).fire();
+      String method = ('doUpsert(IEntry entry)');
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+
+      SObject record = entry.getRecord();
+      try {
+        Database.upsert(record, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('entry', entry).fire();
+      }
+      return new Entry(record);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return new Entry(record);
   }
 
   /**
@@ -539,19 +649,24 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<SObject> doUpsert(List<SObject> records) {
     String label = this.consumeLabel();
-    String method = ('doUpsert(List<SObject> records)');
-    if (records == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
-    }
-
-    sortToPreventChunkingErrors(records);
     try {
-      Database.upsert(records, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('upsert', e);
-      ex.method(method).param('records', records).fire();
+      String method = ('doUpsert(List<SObject> records)');
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+
+      sortToPreventChunkingErrors(records);
+      try {
+        Database.upsert(records, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('records', records).fire();
+      }
+      return records;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    return records;
   }
 
   /**
@@ -559,30 +674,35 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<IEntry> doUpsert(List<IEntry> entries) {
     String label = this.consumeLabel();
-    String method = ('doUpsert(List<IEntry> entries)');
-    if (entries == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
-    }
-
-    if (entries.isEmpty()) {
-      return new List<IEntry>();
-    }
-    List<SObject> records = new List<SObject>();
-    for (IEntry entry : entries) {
-      records.add(entry.getRecord());
-    }
-    sortToPreventChunkingErrors(records);
     try {
-      Database.upsert(records, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('upsert', e);
-      ex.method(method).param('entries', entries).fire();
+      String method = ('doUpsert(List<IEntry> entries)');
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+
+      if (entries.isEmpty()) {
+        return new List<IEntry>();
+      }
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        records.add(entry.getRecord());
+      }
+      sortToPreventChunkingErrors(records);
+      try {
+        Database.upsert(records, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('entries', entries).fire();
+      }
+      List<IEntry> upsertedEntries = new List<IEntry>();
+      for (SObject record : records) {
+        upsertedEntries.add(new Entry(record));
+      }
+      return upsertedEntries;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
-    List<IEntry> upsertedEntries = new List<IEntry>();
-    for (SObject record : records) {
-      upsertedEntries.add(new Entry(record));
-    }
-    return upsertedEntries;
   }
 
   /**
@@ -590,19 +710,24 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public Database.UpsertResult doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone) {
     String label = this.consumeLabel();
-    String method = ('doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)');
-    if (record == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
-    }
-
     try {
-      return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('upsert', e);
-      ex.method(method).param('record', record).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
-    }
+      String method = ('doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)');
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
 
-    return null;
+      try {
+        return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('record', record).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   /**
@@ -610,20 +735,25 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public Database.UpsertResult doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone) {
     String label = this.consumeLabel();
-    String method = ('doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)');
-    if (entry == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
-    }
-
-    SObject record = entry.getRecord();
     try {
-      return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('upsert', e);
-      ex.method(method).param('entry', entry).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
-    }
+      String method = ('doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)');
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
 
-    return null;
+      SObject record = entry.getRecord();
+      try {
+        return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('entry', entry).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   /**
@@ -631,20 +761,25 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<Database.UpsertResult> doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone) {
     String label = this.consumeLabel();
-    String method = ('doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)');
-    if (records == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
-    }
-
-    sortToPreventChunkingErrors(records);
     try {
-      return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('upsert', e);
-      ex.method(method).param('records', records).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
-    }
+      String method = ('doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)');
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
 
-    return null;
+      sortToPreventChunkingErrors(records);
+      try {
+        return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('records', records).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   /**
@@ -652,27 +787,32 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public List<Database.UpsertResult> doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone) {
     String label = this.consumeLabel();
-    String method = ('doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)');
-    if (entries == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
-    }
-
-    if (entries.isEmpty()) {
-      return new List<Database.UpsertResult>();
-    }
-    List<SObject> records = new List<SObject>();
-    for (IEntry entry : entries) {
-      records.add(entry.getRecord());
-    }
-    sortToPreventChunkingErrors(records);
     try {
-      return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('upsert', e);
-      ex.method(method).param('entries', entries).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
-    }
+      String method = ('doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)');
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
 
-    return null;
+      if (entries.isEmpty()) {
+        return new List<Database.UpsertResult>();
+      }
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        records.add(entry.getRecord());
+      }
+      sortToPreventChunkingErrors(records);
+      try {
+        return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('entries', entries).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
   }
 
   /**
@@ -680,16 +820,21 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public void doDelete(SObject record) {
     String label = this.consumeLabel();
-    String method = ('doDelete(SObject record)');
-    if (record == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
-    }
-
     try {
-      Database.delete(record, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('delete', e);
-      ex.method(method).param('record', record).fire();
+      String method = ('doDelete(SObject record)');
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+
+      try {
+        Database.delete(record, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('delete', e);
+        ex.method(method).param('record', record).fire();
+      }
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
   }
 
@@ -698,16 +843,21 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public void doDelete(IEntry entry) {
     String label = this.consumeLabel();
-    String method = ('doDelete(IEntry entry)');
-    if (entry == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
-    }
-
     try {
-      Database.delete(entry.getRecord(), this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('delete', e);
-      ex.method(method).param('entry', entry).fire();
+      String method = ('doDelete(IEntry entry)');
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+
+      try {
+        Database.delete(entry.getRecord(), this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('delete', e);
+        ex.method(method).param('entry', entry).fire();
+      }
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
   }
 
@@ -716,16 +866,21 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public void doDelete(List<SObject> records) {
     String label = this.consumeLabel();
-    String method = ('doDelete(List<SObject> records)');
-    if (records == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
-    }
-
     try {
-      Database.delete(records, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('delete', e);
-      ex.method(method).param('records', records).fire();
+      String method = ('doDelete(List<SObject> records)');
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+
+      try {
+        Database.delete(records, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('delete', e);
+        ex.method(method).param('records', records).fire();
+      }
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
   }
 
@@ -734,25 +889,30 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   public void doDelete(List<IEntry> entries) {
     String label = this.consumeLabel();
-    String method = ('doDelete(List<IEntry> entries)');
-    if (entries == null) {
-      ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
-    }
-
-    if (entries.isEmpty()) {
-      System.debug('No entries to delete.');
-      return;
-    }
-    List<SObject> records = new List<SObject>();
-    for (IEntry entry : entries) {
-      records.add(entry.getRecord());
-    }
-
     try {
-      Database.delete(records, this.accessLevel);
-    } catch (DmlException e) {
-      ApexEloquentException ex = createDMLException('delete', e);
-      ex.method(method).param('entries', entries).fire();
+      String method = ('doDelete(List<IEntry> entries)');
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+
+      if (entries.isEmpty()) {
+        System.debug('No entries to delete.');
+        return;
+      }
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        records.add(entry.getRecord());
+      }
+
+      try {
+        Database.delete(records, this.accessLevel);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('delete', e);
+        ex.method(method).param('entries', entries).fire();
+      }
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
     }
   }
 

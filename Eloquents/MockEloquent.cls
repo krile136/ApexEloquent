@@ -142,14 +142,18 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * Pre-load data for a label. Subsequent read calls tagged with that label
    * will see this data as the query source. Overwrites prior attach.
+   *
+   * Returns a new instance (the receiver is unmodified), like every test-setup
+   * builder on this class — always use the return value.
    */
   public MockEloquent attach(String label, List<IEntry> entries) {
     if (label == null || String.isBlank(label)) {
       ApexEloquentException.required(CLASS_NAME, 'attach(String label, List<IEntry> entries)', 'label', label)
         .fire();
     }
-    this.attachedDataByLabel.put(label, entries == null ? new List<IEntry>() : entries);
-    return this;
+    MockEloquent newMockEloquent = this.copy();
+    newMockEloquent.attachedDataByLabel.put(label, entries == null ? new List<IEntry>() : entries);
+    return newMockEloquent;
   }
 
   /**
@@ -169,6 +173,9 @@ public with sharing class MockEloquent implements IEloquent {
    * mirroring real all-or-nothing DML.
    *
    * The target is identified by record Id — pair with MockEntry.autoId().
+   *
+   * Returns a new instance (the receiver is unmodified), like every test-setup
+   * builder on this class — always use the return value.
    */
   public MockEloquent failSave(Id recordId, String errorMessage) {
     String method = 'failSave(Id recordId, String errorMessage)';
@@ -178,8 +185,9 @@ public with sharing class MockEloquent implements IEloquent {
     if (String.isBlank(errorMessage)) {
       ApexEloquentException.required(CLASS_NAME, method, 'errorMessage', errorMessage).fire();
     }
-    this.saveErrorsById.put(recordId, errorMessage);
-    return this;
+    MockEloquent newMockEloquent = this.copy();
+    newMockEloquent.saveErrorsById.put(recordId, errorMessage);
+    return newMockEloquent;
   }
 
   /**
@@ -202,6 +210,9 @@ public with sharing class MockEloquent implements IEloquent {
    * Scopes the most recently configured failOnXxx to a label. Reads as
    * "fail on get when label is 'opp'". Same modifier pattern as repeat().
    *
+   * Returns a new instance (the receiver is unmodified), like every test-setup
+   * builder on this class — always use the return value.
+   *
    * @throws ApexEloquentException if called without a preceding failOnXxx()
    */
   public MockEloquent whenLabel(String label) {
@@ -210,8 +221,10 @@ public with sharing class MockEloquent implements IEloquent {
       String action = 'Call failOnGet() / failOnDoInsert() / etc. before calling whenLabel(...).';
       ApexEloquentException.invalidOperation(CLASS_NAME, 'whenLabel(String label)', reason).action(action).fire();
     }
-    this.lastConfig.label = label;
-    return this;
+    // copy() maps this.lastConfig to its clone on the new instance
+    MockEloquent newMockEloquent = this.copy();
+    newMockEloquent.lastConfig.label = label;
+    return newMockEloquent;
   }
 
   /**

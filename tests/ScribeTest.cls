@@ -4397,6 +4397,45 @@ public with sharing class ScribeTest {
         'null subquery retracted',
         Scribe.of(Opportunity.class).field('Id').whereIn('AccountId', nullSubQuery).ignoreWhen(true),
         'SELECT id FROM Opportunity'
+      ),
+      // --- groups as OR members ---
+      new MatrixCase(
+        'group as OR member, kept',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereEqual('Industry', 'A')
+          .orCondition()
+          .whereGroup(Scribe.asGroup().whereEqual('Rating', 'B').whereEqual('Type', 'C')),
+        'SELECT id FROM Account WHERE Industry = \'A\' OR (Rating = \'B\' AND Type = \'C\')'
+      ),
+      new MatrixCase(
+        'group as OR member retracted → marker cleaned, AND can follow',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereEqual('Industry', 'A')
+          .orCondition()
+          .whereGroup(Scribe.asGroup().whereEqual('Rating', 'B'))
+          .ignoreWhen(true)
+          .whereEqual('Type', 'D'),
+        'SELECT id FROM Account WHERE Industry = \'A\' AND Type = \'D\''
+      ),
+      new MatrixCase(
+        'semantically empty group as OR member → no dangling OR',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereEqual('Industry', 'A')
+          .orCondition()
+          .whereGroup(Scribe.asGroup().whereNotIn('Name', new List<String>())),
+        'SELECT id FROM Account WHERE Industry = \'A\''
+      ),
+      new MatrixCase(
+        'retraction-emptied group as OR member → no dangling OR',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereEqual('Industry', 'A')
+          .orCondition()
+          .whereGroup(Scribe.asGroup().whereIn('Name', nullSet).ignoreWhen(true)),
+        'SELECT id FROM Account WHERE Industry = \'A\''
       )
     };
 
@@ -4424,6 +4463,15 @@ public with sharing class ScribeTest {
           .ignoreWhen(true)
           .whereNotIn('Name', nullSet),
         'whereNotIn(String fieldName, Object values)'
+      ),
+      new MatrixCase(
+        'null-IN surviving inside a group that is an OR member',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereEqual('Industry', 'A')
+          .orCondition()
+          .whereGroup(Scribe.asGroup().whereIn('Name', nullSet)),
+        'whereIn(String fieldName, Object values)'
       )
     };
 

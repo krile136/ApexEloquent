@@ -1487,4 +1487,64 @@ public with sharing class EloquentTest {
       Assert.isTrue(e.getMessage().contains('The `orFail` argument is required'), e.getMessage());
     }
   }
+
+  // ===============================================================================
+  // ignoreWhen combination matrix — real-count layer (issue #72).
+  // The empty/null semantics (whereIn empty = always false, whereNotIn empty =
+  // condition ignored, retraction = no filter) are invisible to SOQL-string
+  // comparison alone, so they are asserted here against real rows on the
+  // platform-frozen Group object.
+  // ===============================================================================
+
+  private class CountCase {
+    String name;
+    Scribe scribe;
+    Integer expected;
+    CountCase(String name, Scribe scribe, Integer expected) {
+      this.name = name;
+      this.scribe = scribe;
+      this.expected = expected;
+    }
+  }
+
+  @isTest
+  static void testIgnoreWhenMatrix_RealCounts_ThenSemanticsHold() {
+    // Arrange - three real rows to count against
+    insert new List<Group>{
+      new Group(Name = 'ScribeMx A', DeveloperName = 'ScribeMx_A_' + Datetime.now().getTime()),
+      new Group(Name = 'ScribeMx B', DeveloperName = 'ScribeMx_B_' + Datetime.now().getTime()),
+      new Group(Name = 'ScribeMx C', DeveloperName = 'ScribeMx_C_' + Datetime.now().getTime())
+    };
+
+    Set<String> emptySet = new Set<String>();
+    Set<String> nullSet = null;
+
+    List<CountCase> cases = new List<CountCase>{
+      new CountCase('baseline: all rows', base(), 3),
+      new CountCase('whereIn empty = always false', base().whereIn('Name', emptySet), 0),
+      new CountCase('whereNotIn empty = condition ignored', base().whereNotIn('Name', emptySet), 3),
+      new CountCase('whereIn empty retracted = no filter', base().whereIn('Name', emptySet).ignoreWhen(true), 3),
+      new CountCase('whereIn null retracted = no filter', base().whereIn('Name', nullSet).ignoreWhen(true), 3),
+      new CountCase('whereNotIn real value excludes', base().whereNotIn('Name', new Set<String>{ 'ScribeMx A' }), 2),
+      new CountCase(
+        'fully retracted group = no filter',
+        base().whereGroup(Scribe.asGroup().whereIn('Name', nullSet).ignoreWhen(true)),
+        3
+      ),
+      new CountCase(
+        'group survivor filters for real',
+        base().whereGroup(Scribe.asGroup().whereEqual('Name', 'ScribeMx B').whereIn('Name', nullSet).ignoreWhen(true)),
+        1
+      )
+    };
+
+    // Act & Assert
+    for (CountCase c : cases) {
+      Assert.areEqual(c.expected, (new Eloquent()).get(c.scribe).size(), c.name);
+    }
+  }
+
+  private static Scribe base() {
+    return Scribe.of(Group.class).field('Id').whereLike('Name', 'ScribeMx%');
+  }
 }

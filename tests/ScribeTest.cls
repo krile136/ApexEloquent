@@ -766,13 +766,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testGreaterThan_WhenValueIsNull_ThenThrowException() {
+  static void testGreaterThan_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     Object value = null;
 
     // Arrange & Act & Assert
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('TotalOpportunityQuantity', value);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('TotalOpportunityQuantity', value);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -812,15 +816,19 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testGreaterThanOrEqual_WhenValueIsNull_ThenThrowException() {
+  static void testGreaterThanOrEqual_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     Object value = null;
 
     // Act & Assert
-    try {
-      Scribe scribe = Scribe.of(Opportunity.class)
+    Scribe scribe = Scribe.of(Opportunity.class)
         .field('Id')
         .whereGreaterThanOrEqual('TotalOpportunityQuantity', value);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
+    try {
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -843,13 +851,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testLessThan_WhenValueIsNull_ThenThrowException() {
+  static void testLessThan_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     Object value = null;
 
     // Act & Assert
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereLessThan('TotalOpportunityQuantity', null);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereLessThan('TotalOpportunityQuantity', null);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -874,15 +886,19 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testLessThanOrEqual_WhenValueIsNull_ThenThrowException() {
+  static void testLessThanOrEqual_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     Object value = null;
 
     // Act & Assert
-    try {
-      Scribe scribe = Scribe.of(Opportunity.class)
+    Scribe scribe = Scribe.of(Opportunity.class)
         .field('Id')
         .whereLessThanOrEqual('TotalOpportunityQuantity', value);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
+    try {
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -918,13 +934,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testLike_WhenValueIsNull_ThenThrowException() {
+  static void testLike_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     Object value = null;
 
     // Act & Assert
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereLike('Name', null);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Account.class).field('Id').whereLike('Name', null);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -947,13 +967,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testNotLike_WhenValueIsNull_ThenThrowException() {
+  static void testNotLike_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     Object value = null;
 
     // Act & Assert
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotLike('Name', null);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Account.class).field('Id').whereNotLike('Name', null);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -963,13 +987,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testIn_WhenValueIsNull_ThenThrowException() {
+  static void testIn_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     Object value = null;
 
     // Act & Assert
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', value);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', value);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1035,13 +1063,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testIn_WhenApplyNullAsSubquery_ThenThrowException() {
+  static void testIn_WhenApplyNullAsSubquery_ThenThrowAtBuildTime() {
     // Arrange
     Scribe subquery = null;
 
     // Act & Assert
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereIn('AccountId', subquery);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereIn('AccountId', subquery);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1084,13 +1116,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testNotIn_WhenValueIsNull_ThenThrowException() {
+  static void testNotIn_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     Object value = null;
 
     // Act & Assert
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Name', value);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Name', value);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1159,13 +1195,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testNotIn_WhenApplyNullAsSubquery_ThenThrowException() {
+  static void testNotIn_WhenApplyNullAsSubquery_ThenThrowAtBuildTime() {
     // Arrange
     Scribe subquery = null;
 
     // Act & Assert
+    Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereNotIn('AccountId', subquery);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereNotIn('AccountId', subquery);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1208,13 +1248,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testIncludes_WhenValueIsNull_ThenThrowException() {
+  static void testIncludes_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     List<String> value = null;
 
     // Act & Assert
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIncludes('Type', value);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Account.class).field('Id').whereIncludes('Type', value);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1240,13 +1284,17 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testExcludes_WhenValueIsNull_ThenThrowException() {
+  static void testExcludes_WhenValueIsNull_ThenThrowAtBuildTime() {
     // Arrange
     List<String> value = null;
 
     // Act & Assert
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereExcludes('Type', value);
+
+    // null no longer throws at chain time — the error is deferred to build time,
+    // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      Scribe scribe = Scribe.of(Account.class).field('Id').whereExcludes('Type', value);
+      scribe.toSoql();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -4123,6 +4171,269 @@ public with sharing class ScribeTest {
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('Ambiguous Relationship'));
+    }
+  }
+
+  // ===============================================================================
+  // Deferred null-value validation (issue #71): a null value no longer throws at
+  // chain time — an InvalidConditionClause is recorded, so a following ignoreWhen()
+  // can retract it. If it survives to toSoql(), the original required-argument
+  // error fires, naming the originating method and field.
+  // ===============================================================================
+
+  @isTest
+  static void testIgnoreWhen_WhenWhereInValuesAreNull_ThenConditionDropped() {
+    // the motivating case: 「値が null なら絞り込まない」を1チェーンで書ける
+    Set<String> names = null;
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', names).ignoreWhen(names == null);
+
+    Assert.areEqual('SELECT id FROM Account', scribe.toSoql());
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenWhereNotInValuesAreNull_ThenConditionDropped() {
+    Set<String> names = null;
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Name', names).ignoreWhen(names == null);
+
+    Assert.areEqual('SELECT id FROM Account', scribe.toSoql());
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenComparisonValueIsNull_ThenConditionDropped() {
+    // representative of the comparison/LIKE family (all 12 null-rejecting sites share the mechanism)
+    Object amount = null;
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .whereGreaterThan('Amount', amount)
+      .ignoreWhen(amount == null);
+
+    Assert.areEqual('SELECT id FROM Opportunity', scribe.toSoql());
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenNullConditionDroppedAmongOthers_ThenSurvivorsKeepWorking() {
+    // retraction of the invalid condition must leave a clean chain behind
+    Set<String> names = null;
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Industry', 'Tech')
+      .whereIn('Name', names)
+      .ignoreWhen(names == null)
+      .whereLike('Phone', '03-%');
+
+    Assert.areEqual('SELECT id FROM Account WHERE Industry = \'Tech\' AND Phone LIKE \'03-%\'', scribe.toSoql());
+  }
+
+  @isTest
+  static void testIgnoreWhen_WhenNullConditionInsideGroupDropped_ThenGroupIgnored() {
+    // a group whose only condition was retracted is an empty group → ignored entirely
+    Set<String> names = null;
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereGroup(Scribe.asGroup().whereIn('Name', names).ignoreWhen(names == null));
+
+    Assert.areEqual('SELECT id FROM Account', scribe.toSoql());
+  }
+
+  @isTest
+  static void testWhereIn_WhenNullValuesSurviveInsideGroup_ThenThrowAtBuildTime() {
+    // an un-retracted invalid condition inside a group still fires the deferred error
+    Set<String> names = null;
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereGroup(Scribe.asGroup().whereIn('Name', names));
+
+    try {
+      scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('whereIn(String fieldName, Object values)'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testWhereIn_WhenNullValuesNotIgnored_ThenErrorNamesMethodAndField() {
+    // the deferred error must keep the offending where...() identifiable
+    Set<String> names = null;
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', names);
+
+    try {
+      scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      String error = e.getMessage();
+      Assert.isTrue(error.contains('whereIn(String fieldName, Object values)'), error);
+      Assert.isTrue(error.contains('Missing required parameter'), error);
+      Assert.isTrue(error.contains('Name'), 'Error must name the field: ' + error);
+      Assert.isTrue(error.contains('ignoreWhen'), 'Error must hint the retraction path: ' + error);
+    }
+  }
+
+  // ===============================================================================
+  // ignoreWhen combination matrix (issue #72): what remains after a retraction must
+  // stay a well-formed chain — across value states (normal/empty/null), groups,
+  // OR marks, and subqueries. Table-driven: one row per combination.
+  // ===============================================================================
+
+  private class MatrixCase {
+    String name;
+    Scribe scribe;
+    String expected;
+    MatrixCase(String name, Scribe scribe, String expected) {
+      this.name = name;
+      this.scribe = scribe;
+      this.expected = expected;
+    }
+  }
+
+  @isTest
+  static void testIgnoreWhenMatrix_CombinationRows_ThenExpectedSoql() {
+    Set<String> vals = new Set<String>{ 'A' };
+    Set<String> emptySet = new Set<String>();
+    Set<String> nullSet = null;
+    Scribe subQuery = Scribe.of(Account.class).field('Id').whereEqual('Name', 'X');
+    Scribe nullSubQuery = null;
+
+    List<MatrixCase> cases = new List<MatrixCase>{
+      // --- value states × whereIn/whereNotIn × ignoreWhen ---
+      new MatrixCase(
+        'in/normal/kept',
+        Scribe.of(Account.class).field('Id').whereIn('Name', vals),
+        'SELECT id FROM Account WHERE Name IN (\'A\')'
+      ),
+      new MatrixCase(
+        'in/normal/ignoreWhen(false) keeps',
+        Scribe.of(Account.class).field('Id').whereIn('Name', vals).ignoreWhen(false),
+        'SELECT id FROM Account WHERE Name IN (\'A\')'
+      ),
+      new MatrixCase(
+        'in/empty/kept = always false',
+        Scribe.of(Account.class).field('Id').whereIn('Name', emptySet),
+        'SELECT id FROM Account WHERE Id = null'
+      ),
+      new MatrixCase(
+        'notIn/empty/kept = condition ignored',
+        Scribe.of(Account.class).field('Id').whereNotIn('Name', emptySet),
+        'SELECT id FROM Account'
+      ),
+      new MatrixCase(
+        'in/empty/ignored',
+        Scribe.of(Account.class).field('Id').whereIn('Name', emptySet).ignoreWhen(true),
+        'SELECT id FROM Account'
+      ),
+      new MatrixCase(
+        'in/null/ignored',
+        Scribe.of(Account.class).field('Id').whereIn('Name', nullSet).ignoreWhen(true),
+        'SELECT id FROM Account'
+      ),
+      new MatrixCase(
+        'notIn/null/ignored',
+        Scribe.of(Account.class).field('Id').whereNotIn('Name', nullSet).ignoreWhen(true),
+        'SELECT id FROM Account'
+      ),
+      // --- OR interactions ---
+      new MatrixCase(
+        'or-mid retraction leaves A OR C',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereEqual('Industry', 'A')
+          .orCondition()
+          .whereEqual('Industry', 'B')
+          .ignoreWhen(true)
+          .orCondition()
+          .whereEqual('Industry', 'C'),
+        'SELECT id FROM Account WHERE Industry = \'A\' OR Industry = \'C\''
+      ),
+      new MatrixCase(
+        'empty-IN as OR member keeps always-false semantics',
+        Scribe.of(Account.class).field('Id').whereEqual('Industry', 'A').orCondition().whereIn('Name', emptySet),
+        'SELECT id FROM Account WHERE Industry = \'A\' OR Id = null'
+      ),
+      new MatrixCase(
+        'null-IN as OR member retracted → OR marker cleaned up',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereEqual('Industry', 'A')
+          .orCondition()
+          .whereIn('Name', nullSet)
+          .ignoreWhen(true),
+        'SELECT id FROM Account WHERE Industry = \'A\''
+      ),
+      // --- groups ---
+      new MatrixCase(
+        'group partial retraction keeps survivor',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereGroup(Scribe.asGroup().whereEqual('Industry', 'T').whereIn('Name', nullSet).ignoreWhen(true)),
+        'SELECT id FROM Account WHERE (Industry = \'T\')'
+      ),
+      new MatrixCase(
+        'group OR-member retraction → AND can follow inside group',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereGroup(
+            Scribe.asGroup()
+              .whereEqual('Industry', 'A')
+              .orCondition()
+              .whereEqual('Industry', 'B')
+              .ignoreWhen(true)
+              .whereEqual('Rating', 'C')
+          ),
+        'SELECT id FROM Account WHERE (Industry = \'A\' AND Rating = \'C\')'
+      ),
+      new MatrixCase(
+        'fully retracted group is ignored, later conditions still attach',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereGroup(Scribe.asGroup().whereIn('Name', nullSet).ignoreWhen(true))
+          .whereEqual('Industry', 'T'),
+        'SELECT id FROM Account WHERE Industry = \'T\''
+      ),
+      // --- subqueries ---
+      new MatrixCase(
+        'subquery condition retracted',
+        Scribe.of(Opportunity.class).field('Id').whereIn('AccountId', subQuery).ignoreWhen(true),
+        'SELECT id FROM Opportunity'
+      ),
+      new MatrixCase(
+        'null subquery retracted',
+        Scribe.of(Opportunity.class).field('Id').whereIn('AccountId', nullSubQuery).ignoreWhen(true),
+        'SELECT id FROM Opportunity'
+      )
+    };
+
+    for (MatrixCase c : cases) {
+      Assert.areEqual(c.expected, c.scribe.toSoql(), c.name);
+    }
+  }
+
+  @isTest
+  static void testIgnoreWhenMatrix_SurvivingInvalidRows_ThenThrowAtBuildTime() {
+    Set<String> nullSet = null;
+
+    // expected: the message names the originating method
+    List<MatrixCase> cases = new List<MatrixCase>{
+      new MatrixCase(
+        'null-IN as surviving OR member',
+        Scribe.of(Account.class).field('Id').whereEqual('Industry', 'A').orCondition().whereIn('Name', nullSet),
+        'whereIn(String fieldName, Object values)'
+      ),
+      new MatrixCase(
+        'null-NOT-IN surviving after another retraction',
+        Scribe.of(Account.class)
+          .field('Id')
+          .whereEqual('Industry', 'A')
+          .ignoreWhen(true)
+          .whereNotIn('Name', nullSet),
+        'whereNotIn(String fieldName, Object values)'
+      )
+    };
+
+    for (MatrixCase c : cases) {
+      try {
+        c.scribe.toSoql();
+        Assert.fail('Expected ApexEloquentException: ' + c.name);
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains(c.expected), c.name + ' / ' + e.getMessage());
+      }
     }
   }
 }

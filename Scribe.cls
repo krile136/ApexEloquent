@@ -761,7 +761,7 @@ public with sharing class Scribe {
    */
   public Scribe whereEqual(String fieldName, Object value) {
     String method = 'whereEqual(String fieldName, Object value)';
-    this.validateConditionClause(method, fieldName, value, true);
+    this.validateConditionClause(method, fieldName, value);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause;
@@ -787,7 +787,7 @@ public with sharing class Scribe {
    */
   public Scribe whereNotEqual(String fieldName, Object value) {
     String method = 'whereNotEqual(String fieldName, Object value)';
-    this.validateConditionClause(method, fieldName, value, true);
+    this.validateConditionClause(method, fieldName, value);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause;
@@ -813,15 +813,22 @@ public with sharing class Scribe {
    */
   public Scribe whereGreaterThan(String fieldName, Object value) {
     String method = 'whereGreaterThan(String fieldName, Object value)';
-    this.validateConditionClause(method, fieldName, value, false);
+    this.validateConditionClause(method, fieldName, value);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new GreaterThanConditionClause(
-      clonedScribe.sObjectType,
-      null,
-      fieldName,
-      value
-    );
+    IConditionClause conditionClause;
+    if (value == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new GreaterThanConditionClause(
+        clonedScribe.sObjectType,
+        null,
+        fieldName,
+        value
+      );
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -839,15 +846,22 @@ public with sharing class Scribe {
    */
   public Scribe whereGreaterThanOrEqual(String fieldName, Object value) {
     String method = 'whereGreaterThanOrEqual(String fieldName, Object value)';
-    this.validateConditionClause(method, fieldName, value, false);
+    this.validateConditionClause(method, fieldName, value);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new GreaterThanOrEqualConditionClause(
-      clonedScribe.sObjectType,
-      null,
-      fieldName,
-      value
-    );
+    IConditionClause conditionClause;
+    if (value == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new GreaterThanOrEqualConditionClause(
+        clonedScribe.sObjectType,
+        null,
+        fieldName,
+        value
+      );
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -865,15 +879,22 @@ public with sharing class Scribe {
    */
   public Scribe whereLessThan(String fieldName, Object value) {
     String method = 'whereLessThan(String fieldName, Object value)';
-    this.validateConditionClause(method, fieldName, value, false);
+    this.validateConditionClause(method, fieldName, value);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new LessThanConditionClause(
-      clonedScribe.sObjectType,
-      null,
-      fieldName,
-      value
-    );
+    IConditionClause conditionClause;
+    if (value == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new LessThanConditionClause(
+        clonedScribe.sObjectType,
+        null,
+        fieldName,
+        value
+      );
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -891,15 +912,22 @@ public with sharing class Scribe {
    */
   public Scribe whereLessThanOrEqual(String fieldName, Object value) {
     String method = 'whereLessThanOrEqual(String fieldName, Object value)';
-    this.validateConditionClause(method, fieldName, value, false);
+    this.validateConditionClause(method, fieldName, value);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new LessThanOrEqualConditionClause(
-      clonedScribe.sObjectType,
-      null,
-      fieldName,
-      value
-    );
+    IConditionClause conditionClause;
+    if (value == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new LessThanOrEqualConditionClause(
+        clonedScribe.sObjectType,
+        null,
+        fieldName,
+        value
+      );
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -917,10 +945,17 @@ public with sharing class Scribe {
    */
   public Scribe whereLike(String fieldName, String value) {
     String method = 'whereLike(String fieldName, String value)';
-    this.validateConditionClause(method, fieldName, value, false);
+    this.validateConditionClause(method, fieldName, value);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new LikeConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    IConditionClause conditionClause;
+    if (value == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new LikeConditionClause(clonedScribe.sObjectType, null, fieldName, value);
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -938,15 +973,22 @@ public with sharing class Scribe {
    */
   public Scribe whereNotLike(String fieldName, String value) {
     String method = 'whereNotLike(String fieldName, String value)';
-    this.validateConditionClause(method, fieldName, value, false);
+    this.validateConditionClause(method, fieldName, value);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new NotLikeConditionClause(
-      clonedScribe.sObjectType,
-      null,
-      fieldName,
-      value
-    );
+    IConditionClause conditionClause;
+    if (value == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new NotLikeConditionClause(
+        clonedScribe.sObjectType,
+        null,
+        fieldName,
+        value
+      );
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -965,10 +1007,17 @@ public with sharing class Scribe {
    */
   public Scribe whereIn(String fieldName, Object values) {
     String method = 'whereIn(String fieldName, Object values)';
-    this.validateConditionClause(method, fieldName, values, false);
+    this.validateConditionClause(method, fieldName, values);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new InConditionClause(clonedScribe.sObjectType, null, fieldName, values);
+    IConditionClause conditionClause;
+    if (values == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new InConditionClause(clonedScribe.sObjectType, null, fieldName, values);
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -986,7 +1035,7 @@ public with sharing class Scribe {
    */
   public Scribe whereIn(String fieldName, Scribe subQuery) {
     String method = 'whereIn(String fieldName, Scribe subQuery)';
-    this.validateConditionClause(method, fieldName, subQuery, false);
+    this.validateConditionClause(method, fieldName, subQuery);
 
     Scribe clonedScribe = this.deepClone();
     if (clonedScribe.isNextConditionOr) {
@@ -999,12 +1048,19 @@ public with sharing class Scribe {
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
-    IConditionClause conditionClause = new InSubQueryConditionClause(
-      clonedScribe.sObjectType,
-      null,
-      fieldName,
-      subQuery
-    );
+    IConditionClause conditionClause;
+    if (subQuery == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new InSubQueryConditionClause(
+        clonedScribe.sObjectType,
+        null,
+        fieldName,
+        subQuery
+      );
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -1023,10 +1079,17 @@ public with sharing class Scribe {
    */
   public Scribe whereNotIn(String fieldName, Object values) {
     String method = 'whereNotIn(String fieldName, Object values)';
-    this.validateConditionClause(method, fieldName, values, false);
+    this.validateConditionClause(method, fieldName, values);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new NotInConditionClause(clonedScribe.sObjectType, null, fieldName, values);
+    IConditionClause conditionClause;
+    if (values == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new NotInConditionClause(clonedScribe.sObjectType, null, fieldName, values);
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -1044,7 +1107,7 @@ public with sharing class Scribe {
    */
   public Scribe whereNotIn(String fieldName, Scribe subQuery) {
     String method = 'whereNotIn(String fieldName, Scribe subQuery)';
-    this.validateConditionClause(method, fieldName, subQuery, false);
+    this.validateConditionClause(method, fieldName, subQuery);
 
     Scribe clonedScribe = this.deepClone();
     if (clonedScribe.isNextConditionOr) {
@@ -1057,12 +1120,19 @@ public with sharing class Scribe {
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
-    IConditionClause conditionClause = new NotInSubQueryConditionClause(
-      clonedScribe.sObjectType,
-      null,
-      fieldName,
-      subQuery
-    );
+    IConditionClause conditionClause;
+    if (subQuery == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new NotInSubQueryConditionClause(
+        clonedScribe.sObjectType,
+        null,
+        fieldName,
+        subQuery
+      );
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -1080,15 +1150,22 @@ public with sharing class Scribe {
    */
   public Scribe whereIncludes(String fieldName, List<String> values) {
     String method = 'whereIncludes(String fieldName, List<String> values)';
-    this.validateConditionClause(method, fieldName, values, false);
+    this.validateConditionClause(method, fieldName, values);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new IncludesConditionClause(
-      clonedScribe.sObjectType,
-      null,
-      fieldName,
-      values
-    );
+    IConditionClause conditionClause;
+    if (values == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new IncludesConditionClause(
+        clonedScribe.sObjectType,
+        null,
+        fieldName,
+        values
+      );
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -1106,15 +1183,22 @@ public with sharing class Scribe {
    */
   public Scribe whereExcludes(String fieldName, List<String> values) {
     String method = 'whereExcludes(String fieldName, List<String> values)';
-    this.validateConditionClause(method, fieldName, values, false);
+    this.validateConditionClause(method, fieldName, values);
 
     Scribe clonedScribe = this.deepClone();
-    IConditionClause conditionClause = new ExcludeConditionClause(
-      clonedScribe.sObjectType,
-      null,
-      fieldName,
-      values
-    );
+    IConditionClause conditionClause;
+    if (values == null) {
+      // null at chain time: defer the error to build time so a following
+      // ignoreWhen() can retract the condition first (issue #71)
+      conditionClause = new InvalidConditionClause(method, fieldName);
+    } else {
+      conditionClause = new ExcludeConditionClause(
+        clonedScribe.sObjectType,
+        null,
+        fieldName,
+        values
+      );
+    }
     ConditionPart conditionPart = new ConditionPart(conditionClause, this.isNextConditionOr);
     clonedScribe.conditionParts.add(conditionPart);
     clonedScribe.isNextConditionOr = false;
@@ -1131,7 +1215,7 @@ public with sharing class Scribe {
    */
   public Scribe whereNull(String fieldName) {
     String method = 'whereNull(String fieldName)';
-    this.validateConditionClause(method, fieldName, null, true);
+    this.validateConditionClause(method, fieldName, null);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new IsNullConditionClause(clonedScribe.sObjectType, null, fieldName);
@@ -1151,7 +1235,7 @@ public with sharing class Scribe {
    */
   public Scribe whereNotNull(String fieldName) {
     String method = 'whereNotNull(String fieldName)';
-    this.validateConditionClause(method, fieldName, null, true);
+    this.validateConditionClause(method, fieldName, null);
 
     Scribe clonedScribe = this.deepClone();
     IConditionClause conditionClause = new IsNotNullConditionClause(clonedScribe.sObjectType, null, fieldName);
@@ -2203,13 +2287,13 @@ public with sharing class Scribe {
    *
    * @param fieldName The field name being added to a condition.
    */
-  private void validateConditionClause(String method, String fieldName, Object value, Boolean isAllowNullValue) {
+  private void validateConditionClause(String method, String fieldName, Object value) {
     if (fieldName == null || String.isBlank(fieldName)) {
       throw ApexEloquentException.required(CLASS_NAME, method, 'fieldName', fieldName).build();
     }
-    if (!isAllowNullValue && value == null) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'value', null).build();
-    }
+    // NOTE: a null value is NOT rejected here. Methods that cannot accept null record
+    // an InvalidConditionClause instead, deferring the error to SOQL build time so
+    // ignoreWhen() can retract the condition first (issue #71).
     this.validateConditionOperator(method, fieldName, value);
   }
 

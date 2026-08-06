@@ -528,4 +528,65 @@ public with sharing class EntryTest {
     }
   }
 
+  // ===============================================================================
+  // describeResult: transient serialization safety (issue #68) and the warm-cache
+  // NPE in the unknown-field diagnostic (issue #69).
+  // The Database.Stateful SerializationException itself cannot be reproduced in
+  // test context (synchronous executeBatch skips serialization — measured), so
+  // these tests cover the post-deserialization state (describeResult = null) and
+  // the diagnostic path; the batch behavior is verified on a real org run (#68).
+  // ===============================================================================
+
+  @isTest
+  static void testGet_WhenSecondEntryGivenUnknownField_ThenDiagnosisNotNpe() {
+    // issue #69: the field map comes from the warm per-type cache, so the second
+    // entry never populates describeResult — the unknown-field diagnostic must
+    // ensure it instead of dereferencing null
+    new Entry(new Account(Name = 'first')).get('Name'); // warms FIELD_MAP_CACHE(Account)
+    Entry second = new Entry(new Account(Name = 'second'));
+
+    try {
+      second.get('NoSuchField__c');
+      Assert.fail('Expected ApexEloquentException for the unknown field');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('NoSuchField__c'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('Account'), 'Error must name the SObject: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGet_WhenDescribeResultCleared_ThenFieldErrorStillReadable() {
+    // issue #68: simulates the post-deserialization state (transient field = null)
+    // with a warm cache — the diagnostic path must re-derive the describe
+    new Entry(new Account(Name = 'warm')).get('Name'); // warm FIELD_MAP_CACHE for Account
+    Entry entry = new Entry(new Account(Name = 'x'));
+    entry.setDescribeResult(null);
+
+    try {
+      entry.get('NoSuchField__c');
+      Assert.fail('Expected ApexEloquentException for the unknown field');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('NoSuchField__c'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('Account'), 'Error must name the SObject: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testGetChildren_WhenDescribeResultCleared_ThenRederivedOnDemand() {
+    // issue #68: post-deserialization state — relationship resolution must
+    // re-derive the describe on demand
+    Entry entry = new Entry(new Account(Name = 'x'));
+    entry.setDescribeResult(null);
+
+    Assert.areEqual(0, entry.getChildren('Contact').size(), 'Valid child lookup works with a cleared describe.');
+
+    entry.setDescribeResult(null);
+    try {
+      entry.getChildren('NoSuchChild__c');
+      Assert.fail('Expected ApexEloquentException for the unknown child object');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Account'), 'Error must name the parent SObject: ' + e.getMessage());
+    }
+  }
+
 }

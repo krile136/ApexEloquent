@@ -108,13 +108,13 @@ public with sharing class Entry extends AbstractEntry {
     }
 
     this.ensureDescribeResultIfNeeded();
-    Map<String, Schema.SObjectField> fieldMap = this.describeResult.fields.getMap();
+    Map<String, Schema.SObjectField> fieldMap = this.describe().fields.getMap();
 
     Schema.SObjectField field = fieldMap.get(parentIdFieldName);
     if (field == null) {
       String reason =
         'The specified parentIdFieldName does not exist in the object\'s fields. Object name:' +
-        this.describeResult.getName();
+        this.describe().getName();
       String action = 'Ensure that the parentIdFieldName is correct and exists in the object\'s fields.';
       ApexEloquentException.invalidArgument(
           CLASS_NAME,
@@ -130,7 +130,7 @@ public with sharing class Entry extends AbstractEntry {
     Schema.DescribeFieldResult fieldDescribe = field.getDescribe();
     if (fieldDescribe.getType() != Schema.DisplayType.Reference) {
       String reason =
-        'The specified parentIdFieldName is not a reference type. Object name:' + this.describeResult.getName();
+        'The specified parentIdFieldName is not a reference type. Object name:' + this.describe().getName();
       String action = 'Ensure that the parentIdFieldName is a reference type field.';
       ApexEloquentException.invalidArgument(
           CLASS_NAME,
@@ -302,7 +302,7 @@ public with sharing class Entry extends AbstractEntry {
       String reason = 'The specified field does not exist in the object\'s fields';
       String action = 'Ensure the field name is correct and exists on the SObject';
       ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'fieldName', fieldName)
-        .param('objectName', this.describeResult.getName())
+        .param('objectName', this.describe().getName())
         .fire();
     }
   }

@@ -27,7 +27,10 @@ public abstract class AbstractEntry implements IEntry {
   protected final SObject record;
   protected final AggregateResult aggregateResult;
   protected final FieldStructure fieldStructure;
-  protected Schema.DescribeSObjectResult describeResult;
+  // Schema.DescribeSObjectResult is not serializable, so keep it out of serialization
+  // (Database.Stateful batch state, Queueable/Schedulable, view state).
+  // Re-derived on demand by ensureDescribeResultIfNeeded() after deserialization.
+  protected transient Schema.DescribeSObjectResult describeResult;
   @TestVisible
   protected Boolean hasAggregateResult = false;
 
@@ -44,8 +47,7 @@ public abstract class AbstractEntry implements IEntry {
     Schema.SObjectType sObjectType = this.record.getSObjectType();
     Map<String, Schema.SObjectField> fieldMap = FIELD_MAP_CACHE.get(sObjectType);
     if (fieldMap == null) {
-      this.ensureDescribeResultIfNeeded();
-      fieldMap = this.describeResult.fields.getMap();
+      fieldMap = this.describe().fields.getMap();
       FIELD_MAP_CACHE.put(sObjectType, fieldMap);
     }
     return fieldMap;
@@ -65,7 +67,7 @@ public abstract class AbstractEntry implements IEntry {
       String reason = 'The specified field does not exist in the object\'s fields';
       String action = 'Ensure the field name is correct and exists on the SObject';
       ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'fieldName', fieldName)
-        .param('objectName', this.describeResult.getName())
+        .param('objectName', this.describe().getName())
         .fire();
     }
   }
@@ -146,6 +148,19 @@ public abstract class AbstractEntry implements IEntry {
   }
 
   /**
+   * Returns the describe result, deriving it first if it is not set.
+   * Always go through this instead of reading describeResult directly:
+   * the field is transient, so it is null after deserialization — and any
+   * instance other than the type's first cache-miss never had it populated.
+   *
+   * @return describe result of this record's SObject type
+   */
+  protected Schema.DescribeSObjectResult describe() {
+    this.ensureDescribeResultIfNeeded();
+    return this.describeResult;
+  }
+
+  /**
    * Ensure that describeResult is set.
    */
   protected void ensureDescribeResultIfNeeded() {
@@ -172,7 +187,7 @@ public abstract class AbstractEntry implements IEntry {
    *                               or if there are multiple relationships with the same child object name
    */
   protected String getChildrenRelationNameFromChildObjectName(String childObjectName) {
-    List<Schema.ChildRelationship> childRelationships = this.describeResult.getChildRelationships();
+    List<Schema.ChildRelationship> childRelationships = this.describe().getChildRelationships();
     Integer size = childRelationships.size();
 
     Integer low = 0;
@@ -199,7 +214,7 @@ public abstract class AbstractEntry implements IEntry {
       String reason = 'The specified child object name does not exist on Parent';
       String action = 'Use a child SObject name that has a relationship with the parent';
       ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childObjectName', childObjectName)
-        .param('parentObjectName', this.describeResult.getName())
+        .param('parentObjectName', this.describe().getName())
         .fire();
     }
 
@@ -229,7 +244,7 @@ public abstract class AbstractEntry implements IEntry {
       String reason = 'The specified child object name is ambiguous because multiple relationships exist on Parent';
       String action = 'Use getChildrenByRelationName() with the explicit relationship name instead';
       ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childObjectName', childObjectName)
-        .param('parentObjectName', this.describeResult.getName())
+        .param('parentObjectName', this.describe().getName())
         .fire();
     }
 
@@ -243,7 +258,7 @@ public abstract class AbstractEntry implements IEntry {
    * @throws ApexEloquentException if the child relation name is not exist in the parent object's children relationships
    */
   protected void validateChildRelationName(String childRelationName) {
-    List<Schema.ChildRelationship> childRelationShips = this.describeResult.getChildRelationships();
+    List<Schema.ChildRelationship> childRelationShips = this.describe().getChildRelationships();
 
     Boolean found = false;
     for (Schema.ChildRelationship childRelationShip : childRelationShips) {
@@ -256,7 +271,7 @@ public abstract class AbstractEntry implements IEntry {
       String reason = 'The specified childRelationName does not exist in the parent object\'s children relationships';
       String action = 'Pass a valid child relationship name (e.g. `Contacts` on Account)';
       ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childRelationName', childRelationName)
-        .param('parentObjectName', this.describeResult.getName())
+        .param('parentObjectName', this.describe().getName())
         .fire();
     }
   }

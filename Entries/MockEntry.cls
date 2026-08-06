@@ -840,7 +840,7 @@ public with sharing class MockEntry extends AbstractEntry {
     if (!this.skipFieldValidation && !this.fieldStructure.hasRelation(lowerCaseFieldName)) {
       String reason =
         'The specified parentIdFieldName is not defined as a relationship in Scribe. SObject: ' +
-        this.describeResult.getName();
+        this.describe().getName();
       String action =
         'Ensure that the parentIdFieldName \'' +
         parentIdFieldName +
@@ -1280,10 +1280,10 @@ public with sharing class MockEntry extends AbstractEntry {
   private void validateChildRelationInFieldStructure(String relation, String errorTemplate) {
     if (!this.skipFieldValidation && !this.fieldStructure.hasRelation(relation.toLowerCase())) {
       this.ensureDescribeResultIfNeeded();
-      String reason = String.format(errorTemplate, new List<String>{ relation, this.describeResult.getName() });
+      String reason = String.format(errorTemplate, new List<String>{ relation, this.describe().getName() });
       String action = 'Add the relation to the Scribe definition (.withChildren(...)) or call .withoutFieldValidation() when intentional';
       ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'relation', relation)
-        .param('parentObjectName', this.describeResult.getName())
+        .param('parentObjectName', this.describe().getName())
         .fire();
     }
   }
@@ -1303,7 +1303,7 @@ public with sharing class MockEntry extends AbstractEntry {
       entries = new List<IEntry>{ (IEntry) childObjects };
     } else {
       this.ensureDescribeResultIfNeeded();
-      String reason = String.format(errorTemplate, new List<String>{ this.describeResult.getName() });
+      String reason = String.format(errorTemplate, new List<String>{ this.describe().getName() });
       ApexEloquentException.invalidOperation(CLASS_NAME, null, reason).fire();
     }
 

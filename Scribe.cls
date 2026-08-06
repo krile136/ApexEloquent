@@ -1828,6 +1828,9 @@ public with sharing class Scribe {
 
     Boolean isFirstOperatorOr = null;
     Boolean isLastOperatorOr = false;
+    Integer renderedCount = 0;
+    Boolean usedAnd = false;
+    Boolean usedOr = false;
     for (ConditionPart conditionPart : this.conditionParts) {
       if (isLastOperatorOr && !conditionPart.isOr) {
         String error = 'Logical Operator Mismatch';
@@ -1856,25 +1859,62 @@ public with sharing class Scribe {
         if (String.isBlank(groupWhereClauseData.whereClauseString)) {
           continue;
         }
-        clause = String.format('({0})', new List<String>{ groupWhereClauseData.whereClauseString });
+        String groupBody = groupWhereClauseData.whereClauseString;
+        if (groupWhereClauseData.renderedCount == 1 && groupBody.startsWith('(') && groupBody.endsWith(')')) {
+          // the group holds exactly one already-parenthesized unit (a nested group or a
+          // multi-condition parent fragment) — wrapping again would render ((...))
+          clause = groupBody;
+        } else {
+          clause = String.format('({0})', new List<String>{ groupBody });
+        }
         isLastOperatorOr = conditionPart.isOr;
       } else if (conditionPart.parentScribe != null) {
         ParentScribe parentScribe = conditionPart.parentScribe;
         WhereClauseData parentWhereClauseData = parentScribe.buildWhereClause(fieldMap, childObjectName);
         clause = parentWhereClauseData.whereClauseString;
+        if (parentWhereClauseData.renderedCount > 1) {
+          // a multi-condition parent fragment is one structural unit — parenthesize
+          // it like a whereGroup, so it cannot create an unparenthesized AND/OR mix
+          // at this level (issue #75). SOQL rejects such a mix as invalid.
+          clause = String.format('({0})', new List<String>{ clause });
+        }
         isLastOperatorOr = parentWhereClauseData.isLastOperatorOr;
         conditionPart.isOr = parentWhereClauseData.isFirstOperatorOr;
       }
 
       if (String.isNotBlank(clause)) {
         if (String.isNotBlank(whereClauseString)) {
+          if (conditionPart.isOr) {
+            usedOr = true;
+          } else {
+            usedAnd = true;
+          }
+          if (usedAnd && usedOr) {
+            this.fireMixedOperatorError();
+          }
           whereClauseString += conditionPart.isOr ? ' OR ' : ' AND ';
         }
         whereClauseString += clause;
+        renderedCount++;
       }
     }
 
-    return new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
+    WhereClauseData result = new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
+    result.renderedCount = renderedCount;
+    return result;
+  }
+
+  /**
+   * SOQL rejects mixing AND and OR at one nesting level without parentheses
+   * (the query fails at run time with "unexpected token"). Checked at build
+   * time, not chain time: ignoreWhen() may retract conditions and legitimately
+   * resolve — or create — the mix only at build (issue #75).
+   */
+  private void fireMixedOperatorError() {
+    String error = 'Mixed AND and OR at the same level';
+    String reason = 'SOQL rejects mixing AND and OR at one nesting level without parentheses — the generated query would fail with "unexpected token".';
+    String action = 'Wrap one side in whereGroup(Scribe.asGroup()...) to make the grouping explicit.';
+    ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
   }
 
   /**
@@ -1892,6 +1932,8 @@ public with sharing class Scribe {
 
     Boolean isFirstOperatorOr = null;
     Boolean isLastOperatorOr = false;
+    Boolean usedAnd = false;
+    Boolean usedOr = false;
 
     for (ConditionPart conditionPart : this.conditionParts) {
       if (isLastOperatorOr && !conditionPart.isOr) {
@@ -1960,6 +2002,14 @@ public with sharing class Scribe {
 
       if (String.isNotBlank(clause)) {
         if (String.isNotBlank(whereClauseString)) {
+          if (conditionPart.isOr) {
+            usedOr = true;
+          } else {
+            usedAnd = true;
+          }
+          if (usedAnd && usedOr) {
+            this.fireMixedOperatorError();
+          }
           whereClauseString += conditionPart.isOr ? ' OR ' : ' AND ';
         }
         whereClauseString += clause;
@@ -2478,6 +2528,7 @@ public with sharing class Scribe {
     public String whereClauseString;
     public boolean isFirstOperatorOr;
     public boolean isLastOperatorOr;
+    public Integer renderedCount = 0;
 
     public WhereClauseData(String whereClauseString, boolean isFirstOperatorOr, boolean isLastOperatorOr) {
       this.whereClauseString = whereClauseString;

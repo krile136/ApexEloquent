@@ -1258,6 +1258,7 @@ public with sharing class MockEloquent implements IEloquent {
     newMockEloquent.attachedDataByLabel = new Map<String, List<IEntry>>(this.attachedDataByLabel);
     newMockEloquent.upsertedByLabel = new Map<String, List<SObject>>(this.upsertedByLabel);
     newMockEloquent.deletedCountByLabel = new Map<String, Integer>(this.deletedCountByLabel);
+    newMockEloquent.saveErrorsById = new Map<Id, String>(this.saveErrorsById);
     // strict mode state must propagate so failOnXxx-induced copies still enforce
     // consume-once across the original "intent boundary" (issue_39).
     newMockEloquent.strictMode = this.strictMode;

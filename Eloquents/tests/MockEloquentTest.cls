@@ -3231,4 +3231,37 @@ public with sharing class MockEloquentTest {
       Assert.isTrue(e.getMessage().contains('The `errorMessage` argument is required'), e.getMessage());
     }
   }
+
+  @isTest
+  static void testFailSave_ThenFailOn_ThenSaveErrorSurvives() {
+    // Arrange - failSave registered BEFORE a copy()-returning failOnXxx (issue #61):
+    // copy() must carry saveErrorsById, or the registration silently vanishes
+    Account bad = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'bad');
+    MockEloquent mock = (new MockEloquent())
+      .failSave(bad.Id, 'no')
+      .failOnGet(new QueryException('unrelated'));
+
+    // Act
+    Database.SaveResult result = mock.doUpdate((SObject) bad, false);
+
+    // Assert
+    Assert.isFalse(result.isSuccess(), 'failSave registration must survive the failOnXxx copy()');
+    Assert.areEqual('no', result.getErrors()[0].getMessage());
+  }
+
+  @isTest
+  static void testFailOn_ThenFailSave_ThenSaveErrorSurvives() {
+    // Arrange - reverse order: failSave mutates the instance returned by failOnXxx
+    Account bad = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'bad');
+    MockEloquent mock = (new MockEloquent())
+      .failOnGet(new QueryException('unrelated'))
+      .failSave(bad.Id, 'no');
+
+    // Act
+    Database.SaveResult result = mock.doUpdate((SObject) bad, false);
+
+    // Assert
+    Assert.isFalse(result.isSuccess());
+    Assert.areEqual('no', result.getErrors()[0].getMessage());
+  }
 }

@@ -2789,14 +2789,206 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testFailOnXxx_WithoutWhenLabel_ThenFiresRegardlessOfLabel() {
+  static void testFailOnXxx_WithoutWhenLabel_WhenLenientCall_ThenFires() {
+    MockEloquent mock = (new MockEloquent()).failOnGet();
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    try {
+      mock.get(scribe);
+      Assert.fail('Label-free failOnGet must fire for a label-free (default) call.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('MockEloquent was configured to throw'));
+    }
+  }
+
+  @isTest
+  static void testFailOnXxx_WithoutWhenLabel_WhenStrictCall_ThenThrowsUnreachableConfig() {
+    // strict mode never runs under 'default', so a label-free failOnGet can
+    // never fire — the mock diagnoses the dead config instead of staying silent
     MockEloquent mock = (new MockEloquent()).failOnGet();
     Scribe scribe = Scribe.of(Account.class).field('Name');
     try {
       mock.label('anyLabel').get(scribe);
-      Assert.fail('Global failOnGet (no whenLabel) should fire regardless of label.');
+      Assert.fail('Expected unreachable-config diagnostic.');
     } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('MockEloquent was configured to throw'));
+      Assert.isTrue(e.getMessage().contains('unreachable config'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('anyLabel'), 'Diagnostic should suggest the call label.');
+    }
+  }
+
+  @isTest
+  static void testWhenLabel_WhenNullOrBlank_ThenThrowRequired() {
+    try {
+      (new MockEloquent()).failOnGet().whenLabel(null);
+      Assert.fail('Expected required-argument exception for null label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('The `label` argument is required'), e.getMessage());
+    }
+    try {
+      (new MockEloquent()).failOnGet().whenLabel(' ');
+      Assert.fail('Expected required-argument exception for blank label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('The `label` argument is required'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testWhenLabel_WhenDefaultLabel_ThenThrowInvalidOperation() {
+    // registering without whenLabel(...) already targets 'default' — naming it is redundant
+    try {
+      (new MockEloquent()).failOnGet().whenLabel('default');
+      Assert.fail('Expected invalid-operation exception for the reserved default label.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('redundant'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFailOn_WhenTwoLabeledConfigsOnSameMethod_ThenEachFiresForItsLabel() {
+    // no head-of-line blocking: even with the 'X' config at the queue head,
+    // a 'Y' call must reach the 'Y' config
+    MockEloquent mock = (new MockEloquent())
+      .failOnGet(new QueryException('for X'))
+      .whenLabel('X')
+      .failOnGet(new QueryException('for Y'))
+      .whenLabel('Y');
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    try {
+      mock.label('Y').get(scribe);
+      Assert.fail('Y-scoped failure must fire.');
+    } catch (QueryException e) {
+      Assert.areEqual('for Y', e.getMessage());
+    }
+
+    try {
+      mock.label('X').get(scribe);
+      Assert.fail('X-scoped failure must fire.');
+    } catch (QueryException e) {
+      Assert.areEqual('for X', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFailOn_WhenLabelMismatch_ThenConfigSurvivesForLaterMatch() {
+    MockEloquent mock = (new MockEloquent())
+      .attach('quote', new List<IEntry>())
+      .failOnGet(new QueryException('boom'))
+      .whenLabel('opp');
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    // mismatch — must not fire, must not be consumed
+    Assert.areEqual(0, mock.label('quote').get(scribe).size());
+
+    try {
+      mock.label('opp').get(scribe);
+      Assert.fail('The surviving config must fire for its label.');
+    } catch (QueryException e) {
+      Assert.areEqual('boom', e.getMessage());
+    }
+  }
+
+  // ===========================================================================
+  // Error-injection semantics (issues #62 / #64): failures form a FIFO queue
+  // per label ('default' = label-free calls). A failed operation releases its
+  // label — consume-once guards one SUCCESSFUL operation per label — so the
+  // labeled scenarios below retry under the same label.
+  // ===========================================================================
+
+  @isTest
+  static void testScenario_TwoDefaultConfigs_ThenFifoThenSuccess() {
+    // 1回目A、2回目B、3回目成功
+    MockEloquent mock = (new MockEloquent())
+      .failOnGet(new QueryException('A'))
+      .failOnGet(new QueryException('B'));
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    try {
+      mock.get(scribe);
+      Assert.fail('1st call must fail with A.');
+    } catch (QueryException e) {
+      Assert.areEqual('A', e.getMessage());
+    }
+    try {
+      mock.get(scribe);
+      Assert.fail('2nd call must fail with B.');
+    } catch (QueryException e) {
+      Assert.areEqual('B', e.getMessage());
+    }
+    Assert.areEqual(0, mock.get(scribe).size(), '3rd call succeeds.');
+  }
+
+  @isTest
+  static void testScenario_DefaultRepeat_ThenFailsEveryTime() {
+    // 毎回失敗
+    MockEloquent mock = (new MockEloquent()).failOnGet(new QueryException('boom')).repeat();
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    for (Integer attempt = 1; attempt <= 3; attempt++) {
+      try {
+        mock.get(scribe);
+        Assert.fail('Attempt ' + attempt + ' must fail.');
+      } catch (QueryException e) {
+        Assert.areEqual('boom', e.getMessage());
+      }
+    }
+  }
+
+  @isTest
+  static void testScenario_LabeledConfig_ThenFailsOnceThenRetrySucceeds() {
+    // opp は1回失敗 → リトライされれば2回目は成功
+    MockEloquent mock = (new MockEloquent())
+      .attach('opp', new List<IEntry>{ MockEntry.of(Account.class).autoId(1).set('Name', 'X') })
+      .failOnGet(new QueryException('boom'))
+      .whenLabel('opp');
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    try {
+      mock.label('opp').get(scribe);
+      Assert.fail('1st attempt must fail.');
+    } catch (QueryException e) {
+      Assert.areEqual('boom', e.getMessage());
+    }
+    // the failure released 'opp' — the retry reaches the attached data
+    Assert.areEqual('X', mock.label('opp').get(scribe)[0].get('Name'));
+  }
+
+  @isTest
+  static void testScenario_TwoLabeledConfigsSameLabel_ThenFifoAcrossRetries() {
+    // opp は1回目A、2回目B、3回目成功
+    MockEloquent mock = (new MockEloquent())
+      .attach('opp', new List<IEntry>())
+      .failOnGet(new QueryException('A'))
+      .whenLabel('opp')
+      .failOnGet(new QueryException('B'))
+      .whenLabel('opp');
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    try {
+      mock.label('opp').get(scribe);
+      Assert.fail('1st attempt must fail with A.');
+    } catch (QueryException e) {
+      Assert.areEqual('A', e.getMessage());
+    }
+    try {
+      mock.label('opp').get(scribe);
+      Assert.fail('2nd attempt must fail with B.');
+    } catch (QueryException e) {
+      Assert.areEqual('B', e.getMessage());
+    }
+    Assert.areEqual(0, mock.label('opp').get(scribe).size(), '3rd attempt succeeds.');
+  }
+
+  @isTest
+  static void testScenario_LabeledRepeat_ThenFailsEveryAttempt() {
+    // opp でエラーが繰り返し起こる — the chain does what it reads
+    MockEloquent mock = (new MockEloquent()).failOnGet(new QueryException('boom')).whenLabel('opp').repeat();
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    for (Integer attempt = 1; attempt <= 3; attempt++) {
+      try {
+        mock.label('opp').get(scribe);
+        Assert.fail('Attempt ' + attempt + ' must fail.');
+      } catch (QueryException e) {
+        Assert.areEqual('boom', e.getMessage());
+      }
     }
   }
 
@@ -2938,22 +3130,22 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testStrict_OpThrowsViaFailOn_LabelStillConsumed() {
-    // Even when the op throws via failOnGet, the label is consumed. Reusing
-    // it should still hit consume-once on the second attempt.
-    MockEloquent mock = (new MockEloquent()).failOnGet();
+  static void testStrict_OpThrowsViaFailOn_LabelReleasedForRetry() {
+    // A failed op does not fulfill the label's intent: the label is released
+    // (consume-once = one SUCCESS per label), so a retry under the same label
+    // reaches the next outcome — here, the attached data.
+    MockEloquent mock = (new MockEloquent())
+      .attach('a', new List<IEntry>())
+      .failOnGet(new QueryException('boom'))
+      .whenLabel('a');
     Scribe scribe = Scribe.of(Account.class).field('Name');
     try {
-      mock.label('a').get(scribe); // throws via failOnGet — 'a' still consumed
-    } catch (ApexEloquentException e) {
-      // expected
+      mock.label('a').get(scribe);
+      Assert.fail('1st attempt must fail via failOnGet.');
+    } catch (QueryException e) {
+      Assert.areEqual('boom', e.getMessage());
     }
-    try {
-      mock.label('a').get(scribe); // 'a' already consumed
-      Assert.fail('Expected consume-once exception on label reuse.');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('already been consumed'));
-    }
+    Assert.areEqual(0, mock.label('a').get(scribe).size(), 'Retry under the released label succeeds.');
   }
 
   @isTest

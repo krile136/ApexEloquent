@@ -1181,13 +1181,11 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testLabel_AfterLabelCall_ReusingSameLabelThrows() {
+  static void testLabel_AfterSuccessfulOp_ReusingSameLabelThrows() {
+    // consume-once guards one SUCCESSFUL operation per label, so the first op
+    // must succeed for the reuse to be a violation (a failed op releases its label)
     Eloquent eloquent = new Eloquent();
-    try {
-      eloquent.label('dup').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
-    } catch (ApexEloquentException e) {
-      // expected — invalid Id. 'dup' is consumed.
-    }
+    eloquent.label('dup').doInsert(buildGroup('consumeOnce'));
     try {
       eloquent.label('dup').doUpdate(new Opportunity(Id = '006000000000001', Name = 'Y'));
       Assert.fail('Expected consume-once exception when reusing label.');
@@ -1197,6 +1195,24 @@ public with sharing class EloquentTest {
         'Expected consume-once message, got: ' + e.getMessage()
       );
       Assert.isTrue(e.getMessage().contains('dup'), 'Should mention the label name.');
+    }
+  }
+
+  @isTest
+  static void testLabel_WhenOpFails_ThenLabelReleasedForRetry() {
+    // a failed op releases its label, so a retry loop can reuse the same
+    // label — the 2nd attempt must fail with the DML error, not consume-once
+    Eloquent eloquent = new Eloquent();
+    for (Integer attempt = 1; attempt <= 2; attempt++) {
+      try {
+        eloquent.label('upd').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
+        Assert.fail('Expected DML failure (invalid Id) on attempt ' + attempt + '.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(
+          e.getMessage().contains('Failed to update operation'),
+          'Attempt ' + attempt + ' must fail with the DML error, not consume-once. Got: ' + e.getMessage()
+        );
+      }
     }
   }
 

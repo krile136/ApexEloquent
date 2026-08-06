@@ -2539,10 +2539,13 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testAttach_WhenChained_ThenReturnSelf() {
+  static void testAttach_WhenChained_ThenReturnCopyCarryingAttachment() {
+    // Since issue #63, attach() returns a new instance (builder immutability);
+    // the returned copy carries the attachment, the receiver stays untouched
     MockEloquent mock = new MockEloquent();
     MockEloquent result = mock.attach('foo', new List<IEntry>());
-    Assert.areEqual(mock, result);
+    Assert.areNotEqual(mock, result, 'attach() must return a copy, not the receiver');
+    Assert.areEqual(0, result.label('foo').get(Scribe.of(Account.class).field('Id')).size());
   }
 
   @isTest
@@ -3263,5 +3266,62 @@ public with sharing class MockEloquentTest {
     // Assert
     Assert.isFalse(result.isSuccess());
     Assert.areEqual('no', result.getErrors()[0].getMessage());
+  }
+
+  // ===============================================================================
+  // Builder immutability: attach / failSave / whenLabel return copies (issue #63)
+  // ===============================================================================
+
+  @isTest
+  static void testAttach_ReturnsCopy_AndReceiverIsUnmodified() {
+    // Arrange
+    MockEloquent original = new MockEloquent();
+    MockEloquent configured = original.attach(
+      'fetch',
+      new List<IEntry>{ MockEntry.of(Account.class).autoId(1) }
+    );
+    Scribe scribe = Scribe.of(Account.class).field('Id');
+
+    // Assert - the returned instance sees the attached data
+    Assert.areEqual(1, configured.label('fetch').get(scribe).size());
+
+    // Assert - the receiver never learned the label: strict unattached-label read throws
+    try {
+      original.label('fetch').get(scribe);
+      Assert.fail('Expected ApexEloquentException: label must not leak into the receiver');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('fetch'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFailSave_ReturnsCopy_AndReceiverIsUnmodified() {
+    // Arrange
+    Account bad = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'bad');
+    MockEloquent original = new MockEloquent();
+    MockEloquent configured = original.failSave(bad.Id, 'no');
+
+    // Assert - the returned instance fails the record, the receiver still succeeds
+    Assert.isFalse(configured.doUpdate((SObject) bad, false).isSuccess());
+    Assert.isTrue(original.doUpdate((SObject) bad, false).isSuccess());
+  }
+
+  @isTest
+  static void testWhenLabel_ReturnsCopy_AndReceiverIsUnmodified() {
+    // Arrange
+    MockEloquent withFail = (new MockEloquent()).failOnGet(new QueryException('boom'));
+    MockEloquent scoped = withFail.whenLabel('opp');
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    // Assert - on the scoped instance the config targets 'opp', so a plain get does not fire
+    Assert.areEqual(0, scoped.get(scribe).size());
+
+    // Assert - the receiver's config is still unscoped and fires on a plain get
+    try {
+      withFail.get(scribe);
+      Assert.fail('Expected QueryException: whenLabel must not leak into the receiver');
+    } catch (QueryException e) {
+      Assert.areEqual('boom', e.getMessage());
+    }
   }
 }

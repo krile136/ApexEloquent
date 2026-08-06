@@ -2041,7 +2041,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\' AND Account.Type = \'Test Type\'';
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Account.Name = \'Test Account\' AND Account.Type = \'Test Type\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -2081,7 +2081,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\' OR Account.Type = \'Test Type\'';
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Account.Name = \'Test Account\' OR Account.Type = \'Test Type\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -2129,7 +2129,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' OR Account.Name = \'Test Account\' OR Account.Type = \'Test Type\'';
+    String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' OR (Account.Name = \'Test Account\' OR Account.Type = \'Test Type\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -2197,7 +2197,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id, Contract.id, Contract.name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Contract.Name = \'Test Contract\' AND Contract.Account.Name = \'Test Account\'';
+    String expectedSoql = 'SELECT id, Contract.id, Contract.name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Contract.Name = \'Test Contract\' AND Contract.Account.Name = \'Test Account\')';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -2225,7 +2225,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id, Contract.id, Contract.name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Contract.Name = \'Test Contract\' AND Contract.Account.Name = \'Test Account\' AND Contract.Account.Type = \'Test Type\'';
+    String expectedSoql = 'SELECT id, Contract.id, Contract.name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Contract.Name = \'Test Contract\' AND (Contract.Account.Name = \'Test Account\' AND Contract.Account.Type = \'Test Type\'))';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -4483,5 +4483,75 @@ public with sharing class ScribeTest {
         Assert.isTrue(e.getMessage().contains(c.expected), c.name + ' / ' + e.getMessage());
       }
     }
+  }
+
+  // ===============================================================================
+  // Mixed AND/OR guard (issue #75): SOQL rejects an unparenthesized AND/OR mix at
+  // one nesting level ("unexpected token"), so a chain that would render one now
+  // fails at build time with guidance instead of a runtime QueryException.
+  // Retraction and semantic skips can legitimately resolve the mix — that is why
+  // the check runs at build time, not chain time.
+  // ===============================================================================
+
+  @isTest
+  static void testToSoql_WhenAndThenOrAtSameLevel_ThenThrowMixedOperatorError() {
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Type', 'X')
+      .whereEqual('Industry', 'A')
+      .orCondition()
+      .whereEqual('Rating', 'B');
+
+    try {
+      scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Mixed AND and OR'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('whereGroup'), 'Action must guide to whereGroup: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenAndThenOrInsideGroup_ThenThrowMixedOperatorError() {
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereGroup(
+        Scribe.asGroup().whereEqual('Type', 'X').whereEqual('Industry', 'A').orCondition().whereEqual('Rating', 'B')
+      );
+
+    try {
+      scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException to be thrown');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Mixed AND and OR'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenMixResolvedByRetraction_ThenValidSoql() {
+    // X AND A(retracted) OR B — the mix disappears at build time: X OR B
+    Set<String> nullSet = null;
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Type', 'X')
+      .whereIn('Industry', nullSet)
+      .ignoreWhen(true)
+      .orCondition()
+      .whereEqual('Rating', 'B');
+
+    Assert.areEqual('SELECT id FROM Account WHERE Type = \'X\' OR Rating = \'B\'', scribe.toSoql());
+  }
+
+  @isTest
+  static void testToSoql_WhenMixResolvedBySemanticSkip_ThenValidSoql() {
+    // X AND NotInEmpty(skipped at build) OR B — the skipped condition does not count: X OR B
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Type', 'X')
+      .whereNotIn('Industry', new List<String>())
+      .orCondition()
+      .whereEqual('Rating', 'B');
+
+    Assert.areEqual('SELECT id FROM Account WHERE Type = \'X\' OR Rating = \'B\'', scribe.toSoql());
   }
 }

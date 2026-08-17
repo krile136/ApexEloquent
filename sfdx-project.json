@@ -1,0 +1,20 @@
+{
+  "packageDirectories": [
+    {
+      "versionName": "v3.5.0",
+      "versionNumber": "3.5.0.NEXT",
+      "path": ".",
+      "default": true,
+      "package": "ApexEloquent",
+      "versionDescription": ""
+    }
+  ],
+  "name": "ApexEloquent",
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "64.0",
+  "packageAliases": {
+    "ApexEloquent": "0HogK0000004C93SAE",
+    "ApexEloquent@3.5.0-1": "04tgK000000HaGnQAK"
+  }
+}

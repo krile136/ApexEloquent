@@ -25,3 +25,6 @@ unlocked package のリリース手順。DevHub は **developer-dist** (krile136
 - 逆に手動の `sf org create scratch` は edition **必須** (`config/project-scratch-def.json` を使う)
 - 検証付き version create は **失敗しても日次6回の枠を消費する**。実験は `--skip-validation` (500/日) で
 - `sf package create` は sfdx-project.json の packageDirectories を上書きするので、実行後に要復元
+- **v2 保守リリースを作る時は `gh release create --latest=false` を付ける**。GitHub の latest release は作成順で
+  決まるため、v3 リリースの後に v2 を作ると latest が v2 に移り、krileworks.com の `versions.ts`
+  (build:versions が latest から解決) が v2 を「現行」と表示してしまう (2026-08-19 に実際に発生、v3.6.0/v2.5.0)

@@ -159,8 +159,13 @@ public interface IEloquent {
   /**
   * Inserts a list of records and returns the inserted records.
   *
+  * The returned list preserves the order of the input list.
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks.
+  *
   * @param records List of SObjects to be inserted
-  * @return List of inserted SObjects
+  * @return List of inserted SObjects, in the same order as the input
   */
   List<SObject> doInsert(List<SObject> records);
 
@@ -201,34 +206,54 @@ public interface IEloquent {
   /**
   * Updates a list of records and returns the updated records.
   *
+  * The returned list preserves the order of the input list.
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks.
+  *
   * @param records List of SObjects to be updated
-  * @return List of updated SObjects
+  * @return List of updated SObjects, in the same order as the input
   */
   List<SObject> doUpdate(List<SObject> records);
 
   /**
   * Updates a list of records and returns the updated records.
   *
+  * Results are returned in the same order as the input list: results[i] corresponds
+  * to records[i]. When mixing multiple SObject types in one list, group records of
+  * the same type together beforehand: Salesforce starts a new chunk at every type
+  * switch and a single DML operation fails with more than 10 chunks.
+  *
   * @param records List of SObjects to be updated
   * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
-  * @return List of SaveResult
+  * @return List of SaveResult, in the same order as the input
   */
   List<Database.SaveResult> doUpdate(List<SObject> records, Boolean allOrNone);
 
   /**
   * Updates a list of Entries and returns the updated Entries.
   *
+  * The returned list preserves the order of the input list.
+  * When mixing multiple SObject types in one list, group entries of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks.
+  *
   * @param entries List of Entries containing the SObjects to be updated
-  * @return List of updated Entries
+  * @return List of updated Entries, in the same order as the input
   */
   List<IEntry> doUpdate(List<IEntry> entries);
 
   /**
   * Updates a list of Entries and returns the updated Entries.
   *
+  * Results are returned in the same order as the input list: results[i] corresponds
+  * to entries[i]. When mixing multiple SObject types in one list, group entries of
+  * the same type together beforehand: Salesforce starts a new chunk at every type
+  * switch and a single DML operation fails with more than 10 chunks.
+  *
   * @param entries List of Entries containing the SObjects to be updated
   * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
-  * @return List of SaveResult
+  * @return List of SaveResult, in the same order as the input
   */
   List<Database.SaveResult> doUpdate(List<IEntry> entries, Boolean allOrNone);
 
@@ -251,16 +276,26 @@ public interface IEloquent {
   /**
   * Inserts or updates a list of records and returns the upserted records.
   *
+  * The returned list preserves the order of the input list.
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks.
+  *
   * @param records List of SObjects to be upserted
-  * @return List of upserted SObjects
+  * @return List of upserted SObjects, in the same order as the input
   */
   List<SObject> doUpsert(List<SObject> records);
 
   /**
   * Inserts or updates a list of Entries and returns the upserted Entries.
   *
+  * The returned list preserves the order of the input list.
+  * When mixing multiple SObject types in one list, group entries of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks.
+  *
   * @param entries List of Entries containing the SObjects to be upserted
-  * @return List of upserted Entries
+  * @return List of upserted Entries, in the same order as the input
   */
   List<IEntry> doUpsert(List<IEntry> entries);
 
@@ -287,20 +322,30 @@ public interface IEloquent {
   /**
   * Inserts or updates a list of records using the specified external Id field to match existing records.
   *
+  * Results are returned in the same order as the input list: results[i] corresponds
+  * to records[i]. When mixing multiple SObject types in one list, group records of
+  * the same type together beforehand: Salesforce starts a new chunk at every type
+  * switch and a single DML operation fails with more than 10 chunks.
+  *
   * @param records List of SObjects to be upserted
   * @param externalIdField External Id field to use for matching existing records
   * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
-  * @return List of UpsertResult
+  * @return List of UpsertResult, in the same order as the input
   */
   List<Database.UpsertResult> doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone);
 
   /**
   * Inserts or updates a list of Entries using the specified external Id field to match existing records.
   *
+  * Results are returned in the same order as the input list: results[i] corresponds
+  * to entries[i]. When mixing multiple SObject types in one list, group entries of
+  * the same type together beforehand: Salesforce starts a new chunk at every type
+  * switch and a single DML operation fails with more than 10 chunks.
+  *
   * @param entries List of Entries containing the SObjects to be upserted
   * @param externalIdField External Id field to use for matching existing records
   * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
-  * @return List of UpsertResult
+  * @return List of UpsertResult, in the same order as the input
   */
   List<Database.UpsertResult> doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone);
 

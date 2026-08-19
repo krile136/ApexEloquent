@@ -1365,6 +1365,99 @@ public with sharing class EloquentTest {
     Assert.areEqual(0, [SELECT COUNT() FROM Group WHERE Id = :grp.Id]);
   }
 
+  // -------------------------------------------------------------------------------
+  // Input-order preservation (issue #77)
+  // The removed sortToPreventChunkingErrors() silently reordered any list of 10+
+  // records, breaking the index correspondence between input, return value, and
+  // Database.SaveResult. These tests use 12 records in DESCENDING Name order —
+  // exactly the order an internal sort() would destroy — as a regression canary.
+  // -------------------------------------------------------------------------------
+
+  private static List<SObject> buildGroupsInDescendingNameOrder(String seed) {
+    List<SObject> records = new List<SObject>();
+    for (Integer i = 12; i >= 1; i--) {
+      records.add(buildGroup(seed + String.valueOf(i).leftPad(2, '0')));
+    }
+    return records;
+  }
+
+  @isTest
+  static void testDoInsert_WhenTwelveRecordsGiven_ThenInputOrderIsPreserved() {
+    // Arrange
+    List<SObject> records = buildGroupsInDescendingNameOrder('ordIns');
+    List<String> inputNames = new List<String>();
+    for (SObject record : records) {
+      inputNames.add((String) record.get('Name'));
+    }
+
+    // Act
+    List<SObject> inserted = (new Eloquent()).doInsert(records);
+
+    // Assert
+    Assert.areEqual(12, inserted.size());
+    for (Integer i = 0; i < inserted.size(); i++) {
+      Assert.areEqual(
+        inputNames[i],
+        (String) inserted[i].get('Name'),
+        'Returned order must match input order at index ' + i
+      );
+      Assert.isNotNull(inserted[i].Id, 'Every record must carry its assigned Id');
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenTwelveEntriesGiven_ThenReturnOrderMatchesInput() {
+    // Arrange
+    List<IEntry> entries = new List<IEntry>();
+    List<String> inputNames = new List<String>();
+    for (SObject record : buildGroupsInDescendingNameOrder('ordUps')) {
+      inputNames.add((String) record.get('Name'));
+      entries.add(new Entry(record));
+    }
+
+    // Act
+    List<IEntry> upserted = (new Eloquent()).doUpsert(entries);
+
+    // Assert
+    Assert.areEqual(12, upserted.size());
+    for (Integer i = 0; i < upserted.size(); i++) {
+      Assert.areEqual(
+        inputNames[i],
+        (String) upserted[i].get('Name'),
+        'entries[i] and the returned entry at [i] must be the same record'
+      );
+      Assert.isNotNull(upserted[i].getId(), 'Every returned entry must expose its assigned Id');
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenAllOrNoneFalseAndOneFails_ThenResultIndexMatchesInput() {
+    // Arrange - delete one record beforehand so its update fails; with 12 records
+    // the old sort() would have moved the failure to a different result index
+    List<SObject> records = buildGroupsInDescendingNameOrder('ordRes');
+    insert records;
+    Integer failedIndex = 2;
+    delete records[failedIndex];
+
+    // Act
+    List<Database.SaveResult> results = (new Eloquent()).doUpdate(records, false);
+
+    // Assert
+    Assert.areEqual(12, results.size());
+    for (Integer i = 0; i < results.size(); i++) {
+      if (i == failedIndex) {
+        Assert.isFalse(results[i].isSuccess(), 'The deleted record must fail at its own input index');
+      } else {
+        Assert.isTrue(results[i].isSuccess(), 'Record at index ' + i + ' must succeed');
+        Assert.areEqual(
+          records[i].Id,
+          results[i].getId(),
+          'SaveResult at index ' + i + ' must belong to the record at the same input index'
+        );
+      }
+    }
+  }
+
   @isTest
   static void testGet_WhenRealQuery_ThenRowsAndValuesReturned() {
     // Arrange

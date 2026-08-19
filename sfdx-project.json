@@ -1,8 +1,8 @@
 {
   "packageDirectories": [
     {
-      "versionName": "v3.5.0",
-      "versionNumber": "3.5.0.NEXT",
+      "versionName": "v3.6.0",
+      "versionNumber": "3.6.0.NEXT",
       "path": ".",
       "default": true,
       "package": "ApexEloquent",
@@ -15,6 +15,7 @@
   "sourceApiVersion": "64.0",
   "packageAliases": {
     "ApexEloquent": "0HogK0000004C93SAE",
-    "ApexEloquent@3.5.0-1": "04tgK000000HaGnQAK"
+    "ApexEloquent@3.5.0-1": "04tgK000000HaGnQAK",
+    "ApexEloquent@3.6.0-1": "04tgK000000Hp7lQAC"
   }
 }

@@ -46,6 +46,12 @@ jobs:
             --set-default \
             --alias developOrg
 
+      # The repo root is now an sfdx project (sfdx-project.json for unlocked
+      # packaging), so --set-default lands in the ROOT project's local config and
+      # is invisible to ./temporaryProject where make test runs. Set it globally.
+      - name: Set default org globally
+        run: sf config set target-org developOrg --global
+
       - name: Run all Apex tests
         working-directory: ./temporaryProject
         run: make test

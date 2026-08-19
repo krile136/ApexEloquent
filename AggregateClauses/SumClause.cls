@@ -22,6 +22,7 @@
  * Currency, or Percent) before building the clause.
  * @see IAggregateClause
  * @see AbstractAggregateClause
+ * @directory ApexEloquent/AggregateClauses
  */
 public with sharing class SumClause extends AbstractAggregateClause {
   private static final String CLASS_NAME = 'SumClause';

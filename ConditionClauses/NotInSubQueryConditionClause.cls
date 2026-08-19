@@ -24,6 +24,7 @@
  * @see IConditionClause
  * @see AbstractConditionClause
  * @see Scribe
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class NotInSubQueryConditionClause extends AbstractConditionClause {
   private final Scribe subQueryScribe;

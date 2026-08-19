@@ -25,6 +25,7 @@
  * the specific syntax for their respective aggregate functions (e.g., `SUM`, `AVG`, `COUNT`).
  * @see IAggregateClause
  * @see Scribe
+ * @directory ApexEloquent/AggregateClauses
  */
 public with sharing abstract class AbstractAggregateClause implements IAggregateClause {
   private static final String CLASS_NAME = 'AbstractAggregateClause';

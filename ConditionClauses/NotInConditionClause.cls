@@ -29,6 +29,7 @@
  * condition entirely.
  * @see IConditionClause
  * @see AbstractConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class NotInConditionClause extends AbstractConditionClause {
   private final List<Object> values;

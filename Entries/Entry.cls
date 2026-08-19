@@ -27,6 +27,7 @@
  * @see IEntry
  * @see AbstractEntry
  * @see MockEntry
+ * @directory ApexEloquent/Entries
  */
 public with sharing class Entry extends AbstractEntry {
   private static final String CLASS_NAME = 'Entry';

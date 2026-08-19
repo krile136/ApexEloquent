@@ -1,3 +1,6 @@
+/**
+ * @directory ApexEloquent
+ */
 public with sharing class ApexEloquentException extends Exception {
   private static final String LINE_1 = '====== APEX ELOQUENT EXCEPTION ======';
 

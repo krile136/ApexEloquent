@@ -22,6 +22,7 @@
  * It formats a list of string values into the required `('value1', 'value2')` syntax.
  * @see IConditionClause
  * @see AbstractConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class ExcludeConditionClause extends AbstractConditionClause {
   private final List<String> values;

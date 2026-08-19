@@ -29,6 +29,7 @@
  * @see IEloquent
  * @see Eloquent
  * @see MockEntry
+ * @directory ApexEloquent/Eloquents
  */
 public with sharing class MockEloquent implements IEloquent {
   private static final String DEFAULT_LABEL = 'default';

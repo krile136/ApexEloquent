@@ -22,6 +22,7 @@
  * handle various aggregate functions in a polymorphic and extensible way.
  * @see AbstractAggregateClause
  * @see Scribe
+ * @directory ApexEloquent/AggregateClauses
  */
 public interface IAggregateClause {
   /**

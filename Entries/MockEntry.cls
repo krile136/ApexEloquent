@@ -31,6 +31,7 @@
  * @see IEntry
  * @see AbstractEntry
  * @see Entry
+ * @directory ApexEloquent/Entries
  */
 public with sharing class MockEntry extends AbstractEntry {
   private final Map<String, Object> fieldToValue;

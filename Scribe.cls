@@ -19,6 +19,7 @@
  * Scribe allows developers to construct complex SOQL queries programmatically
  * without string concatenation, reducing errors and improving readability.
  * It is the core of the ApexEloquent ORM's query building capabilities.
+ * @directory ApexEloquent
  */
 public with sharing class Scribe {
   private static final String CLASS_NAME = 'Scribe';

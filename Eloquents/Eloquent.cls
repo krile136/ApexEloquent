@@ -27,8 +27,6 @@
  * @see MockEloquent
  */
 public with sharing class Eloquent implements IEloquent {
-  private final Integer MAX_DML_CHUNKING = 10;
-
   private static final String CLASS_NAME = 'Eloquent';
   private static final String DEFAULT_LABEL = 'default';
 
@@ -343,7 +341,6 @@ public with sharing class Eloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
-      sortToPreventChunkingErrors(records);
       try {
         insert records;
       } catch (DmlException e) {
@@ -465,7 +462,6 @@ public with sharing class Eloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
-      sortToPreventChunkingErrors(records);
       try {
         update records;
       } catch (DmlException e) {
@@ -489,7 +485,6 @@ public with sharing class Eloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
-      sortToPreventChunkingErrors(records);
       try {
         return Database.update(records, allOrNone);
       } catch (DmlException e) {
@@ -522,7 +517,6 @@ public with sharing class Eloquent implements IEloquent {
       for (IEntry entry : entries) {
         records.add(entry.getRecord());
       }
-      sortToPreventChunkingErrors(records);
       try {
         update records;
       } catch (DmlException e) {
@@ -558,7 +552,6 @@ public with sharing class Eloquent implements IEloquent {
       for (IEntry entry : entries) {
         records.add(entry.getRecord());
       }
-      sortToPreventChunkingErrors(records);
       try {
         return Database.update(records, allOrNone);
       } catch (DmlException e) {
@@ -633,7 +626,6 @@ public with sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
 
-      sortToPreventChunkingErrors(records);
       try {
         upsert records;
       } catch (DmlException e) {
@@ -665,7 +657,6 @@ public with sharing class Eloquent implements IEloquent {
       for (IEntry entry : entries) {
         records.add(entry.getRecord());
       }
-      sortToPreventChunkingErrors(records);
       try {
         upsert records;
       } catch (DmlException e) {
@@ -745,7 +736,6 @@ public with sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
 
-      sortToPreventChunkingErrors(records);
       try {
         return Database.upsert(records, externalIdField, allOrNone);
       } catch (DmlException e) {
@@ -778,7 +768,6 @@ public with sharing class Eloquent implements IEloquent {
       for (IEntry entry : entries) {
         records.add(entry.getRecord());
       }
-      sortToPreventChunkingErrors(records);
       try {
         return Database.upsert(records, externalIdField, allOrNone);
       } catch (DmlException e) {
@@ -902,14 +891,5 @@ public with sharing class Eloquent implements IEloquent {
     }
 
     return ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).causedBy(e);
-  }
-
-  /**
-   * @inheritDoc
-   */
-  private void sortToPreventChunkingErrors(List<SObject> records) {
-    if (records.size() >= MAX_DML_CHUNKING) {
-      records.sort();
-    }
   }
 }

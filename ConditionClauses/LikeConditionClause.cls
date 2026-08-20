@@ -22,6 +22,7 @@
  * It throws an `ApexEloquentException` if the provided value is null.
  * @see IConditionClause
  * @see AbstractConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class LikeConditionClause extends AbstractConditionClause {
   private static final String CLASS_NAME = 'LikeConditionClause';

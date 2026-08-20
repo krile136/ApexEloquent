@@ -23,6 +23,7 @@
  * if the provided value is null.
  * @see IConditionClause
  * @see AbstractConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class GreaterThanOrEqualConditionClause extends AbstractConditionClause {
   private static final String CLASS_NAME = 'GreaterThanOrEqualConditionClause';

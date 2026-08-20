@@ -24,6 +24,7 @@
  *
  * It provides methods to access field values and to navigate eager-loaded parent, child,
  * and many-to-many (`through`) relationships.
+ * @directory ApexEloquent/Entries
  */
 public interface IEntry {
   /**

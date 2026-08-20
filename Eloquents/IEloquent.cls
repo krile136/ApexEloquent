@@ -24,6 +24,7 @@
  * @see Scribe
  * @see Eloquent
  * @see MockEloquent
+ * @directory ApexEloquent/Eloquents
  */
 public interface IEloquent {
   /**

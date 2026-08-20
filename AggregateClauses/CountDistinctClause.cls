@@ -22,6 +22,7 @@
  * by the `COUNT_DISTINCT` function, preventing runtime query errors for unsupported types.
  * @see IAggregateClause
  * @see AbstractAggregateClause
+ * @directory ApexEloquent/AggregateClauses
  */
 public with sharing class CountDistinctClause extends AbstractAggregateClause {
   private static final String CLASS_NAME = 'CountDistinctClause';

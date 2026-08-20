@@ -26,6 +26,7 @@
  * It acts as a blueprint of the original query, allowing `MockEntry` to accurately
  * simulate the "select-forgotten" validation and ensure that tests are only accessing
  * data that would have been retrieved by the real query.
+ * @directory ApexEloquent
  */
 public with sharing class FieldStructure {
   private List<String> fields;

@@ -23,6 +23,7 @@
  * It throws an `ApexEloquentException` if the provided value is null.
  * @see IConditionClause
  * @see AbstractConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class NotLikeConditionClause extends AbstractConditionClause {
   private static final String CLASS_NAME = 'NotLikeConditionClause';

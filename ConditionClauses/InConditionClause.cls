@@ -29,6 +29,7 @@
  * query correctly returns zero results.
  * @see IConditionClause
  * @see AbstractConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class InConditionClause extends AbstractConditionClause {
   private final List<Object> values;

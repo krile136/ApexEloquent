@@ -22,6 +22,7 @@
  * provided field name.
  * @see IConditionClause
  * @see AbstractConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class IsNullConditionClause extends AbstractConditionClause {
   /**

@@ -23,6 +23,7 @@
  * an `IS NULL` condition (e.g., `FieldName = NULL`).
  * @see IConditionClause
  * @see AbstractConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class EqualConditionClause extends AbstractConditionClause {
   private final Object value;

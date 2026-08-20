@@ -23,6 +23,7 @@
  * an `IS NOT NULL` condition (e.g., `FieldName != NULL`).
  * @see IConditionClause
  * @see AbstractConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class NotEqualConditionClause extends AbstractConditionClause {
   private final Object value;

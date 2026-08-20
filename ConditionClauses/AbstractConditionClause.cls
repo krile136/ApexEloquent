@@ -26,6 +26,7 @@
  * specific syntax for their respective conditions (e.g., `=`, `LIKE`, `IN`).
  * @see IConditionClause
  * @see Scribe
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing abstract class AbstractConditionClause implements IConditionClause {
   private static final String CLASS_NAME = 'AbstractConditionClause';

@@ -26,6 +26,7 @@
  * method and field name so the offending where...() call is identifiable.
  * @see Scribe
  * @see IConditionClause
+ * @directory ApexEloquent/ConditionClauses
  */
 public with sharing class InvalidConditionClause implements IConditionClause {
   private static final String CLASS_NAME = 'Scribe';

@@ -22,6 +22,7 @@
  * Scribe builder to handle various condition types in a polymorphic way.
  * @see AbstractConditionClause
  * @see Scribe
+ * @directory ApexEloquent/ConditionClauses
  */
  public interface IConditionClause {
   /**

@@ -25,6 +25,7 @@
  * @see Scribe
  * @see Entry
  * @see MockEloquent
+ * @directory ApexEloquent/Eloquents
  */
 public inherited sharing class Eloquent implements IEloquent {
   private static final String CLASS_NAME = 'Eloquent';

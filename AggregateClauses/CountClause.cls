@@ -23,6 +23,7 @@
  * like Boolean.
  * @see IAggregateClause
  * @see AbstractAggregateClause
+ * @directory ApexEloquent/AggregateClauses
  */
 public with sharing class CountClause extends AbstractAggregateClause {
   private static final String CLASS_NAME = 'CountClause';

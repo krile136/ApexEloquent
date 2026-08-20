@@ -20,6 +20,7 @@
  * like `Entry` (for real SObjects) and `MockEntry` (for test data).
  * This class handles the dual nature of query results, capable of representing both
  * standard `SObject` records and `AggregateResult` records.
+ * @directory ApexEloquent/Entries
  */
 public abstract class AbstractEntry implements IEntry {
   private static final String CLASS_NAME = 'AbstractEntry';

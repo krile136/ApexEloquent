@@ -1165,7 +1165,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void testGetId_WhenIdFieldDoesNotSelected_ThenThrowException() {
+  static void testGetId_WhenIdFieldDoesNotSelected_ThenReturnIdWithoutScribeDeclaration() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.of(Account.class).fields(new List<String>{ 'name' });
@@ -1173,15 +1173,23 @@ public class MockEntryTest {
     Map<String, Object> fieldToValue = new Map<String, Object>();
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
+    // Act
+    Id id = mockEntry.getId();
+
+    // Assert
+    // Real SOQL always returns Id regardless of the SELECT clause, so the mock
+    // must not require declaring it in the Scribe.
+    Assert.areEqual('001000000000000', id, 'Id should be readable without a Scribe declaration.');
+  }
+
+  @isTest
+  static void testGetId_WhenAggregateResultEntry_ThenReturnNull() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.asAggregateResult(new Map<String, Object>{ 'total' => 5 });
+
     // Act & Assert
-    try {
-      mockEntry.getId();
-      Assert.fail('Expected ApexEloquentException to be thrown.');
-    } catch (ApexEloquentException e) {
-      String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('getId()'));
-      Assert.isTrue(errorMessage.contains('Add the Id field to the Scribe definition for this object'));
-    }
+    // Real aggregate rows carry no implicit Id, so null matches the platform behaviour.
+    Assert.isNull(mockEntry.getId(), 'Aggregate-based entries should return null Id like real aggregate rows.');
   }
 
   @isTest

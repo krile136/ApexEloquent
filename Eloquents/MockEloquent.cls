@@ -912,12 +912,15 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
 
+      // Mirror Eloquent: the caller's entry stays untouched and the Id is carried
+      // by the returned Entry, exactly as Database.upsert writes it back to the
+      // clone that Eloquent wraps into its return value.
       SObject record = entry.getRecord();
       if (record.Id == null) {
-        entry.put('Id', this.generateId(record));
+        record.Id = this.generateId(record);
       }
       this.recordUpsert(label, record);
-      return entry;
+      return new Entry(record);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -973,6 +976,9 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
 
+      // Mirror Eloquent: return fresh Entry instances carrying the Ids instead of
+      // mutating and aliasing the caller's entries.
+      List<IEntry> upsertedEntries = new List<IEntry>();
       for (IEntry entry : entries) {
         if (entry == null || entry.getRecord() == null) {
           String error = 'Null entry found in entries list';
@@ -988,11 +994,12 @@ public with sharing class MockEloquent implements IEloquent {
         }
         SObject record = entry.getRecord();
         if (record.Id == null) {
-          entry.put('Id', this.generateId(record));
+          record.Id = this.generateId(record);
         }
         this.recordUpsert(label, record);
+        upsertedEntries.add(new Entry(record));
       }
-      return entries;
+      return upsertedEntries;
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1058,7 +1065,9 @@ public with sharing class MockEloquent implements IEloquent {
       }
       Boolean isCreated = record.Id == null;
       if (isCreated) {
-        entry.put('Id', this.generateId(record));
+        // Mirror Eloquent: the Id is reported through the UpsertResult, never
+        // written back into the caller's entry (Database.upsert writes to the clone).
+        record.Id = this.generateId(record);
       }
       this.recordUpsert(label, record);
       return buildSuccessUpsertResult(record.Id, isCreated);
@@ -1159,7 +1168,9 @@ public with sharing class MockEloquent implements IEloquent {
         }
         Boolean isCreated = record.Id == null;
         if (isCreated) {
-          entry.put('Id', this.generateId(record));
+          // Mirror Eloquent: the Id is reported through the UpsertResult, never
+          // written back into the caller's entry (Database.upsert writes to the clone).
+          record.Id = this.generateId(record);
         }
         this.recordUpsert(label, record);
         results.add(buildSuccessUpsertResult(record.Id, isCreated));

@@ -1054,20 +1054,13 @@ public with sharing class MockEntry extends AbstractEntry {
    * @inheritDoc
    */
   public override Id getId() {
-    string method = 'getId()';
-    try {
-      this.validateFieldName('Id');
-    } catch (ApexEloquentException e) {
-      String reason = e.getMessage() + ', field: Id';
-      String action = 'Add the Id field to the Scribe definition for this object';
-      ApexEloquentException.message(CLASS_NAME, 'getId()', reason, action, e).fire();
-    }
-
     if (this.fieldToValue.containsKey('Id')) {
       return (Id) this.fieldToValue.get('Id');
     }
 
-    return (Id) this.record.get('Id');
+    // AggregateResult-based entries have no underlying record; real aggregate rows
+    // carry no implicit Id either, so null matches the platform behaviour.
+    return this.record == null ? null : (Id) this.record.get('Id');
   }
 
   /**
@@ -1260,7 +1253,9 @@ public with sharing class MockEntry extends AbstractEntry {
    */
   private void validateFieldName(String fieldName) {
     String lowerCaseFieldName = fieldName.toLowerCase();
-    if (this.skipFieldValidation || this.fieldStructure.hasField(lowerCaseFieldName)) {
+    // Real SOQL always returns Id regardless of the SELECT clause, so requiring a
+    // Scribe declaration for Id would make the mock stricter than the platform.
+    if (lowerCaseFieldName == 'id' || this.skipFieldValidation || this.fieldStructure.hasField(lowerCaseFieldName)) {
       return;
     }
 

@@ -3593,4 +3593,136 @@ public with sharing class MockEloquentTest {
       Assert.areEqual('boom', e.getMessage());
     }
   }
+
+  // ---- platform-fidelity guards: the mock must fail where real DML fails ----
+
+  @isTest
+  static void testDoInsert_WhenRecordHasId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    Account record = new Account(Id = '001000000000001AAA', Name = 'Test');
+
+    // Act & Assert
+    // Real Database.insert throws INVALID_FIELD_FOR_INSERT_UPDATE for records with an Id.
+    try {
+      eloquent.doInsert(record);
+      Assert.fail('Expected ApexEloquentException for insert with Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenListContainsRecordWithId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{
+      new Account(Name = 'Fresh'),
+      new Account(Id = '001000000000001AAA', Name = 'Stale')
+    };
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(records);
+      Assert.fail('Expected ApexEloquentException for insert with Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenRecordWithoutId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    // Real Database.update throws MISSING_ARGUMENT for records without an Id.
+    try {
+      eloquent.doUpdate(new Account(Name = 'no id'));
+      Assert.fail('Expected ApexEloquentException for update without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Id not specified in an update call'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenEntryWithoutId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(mockEntry);
+      Assert.fail('Expected ApexEloquentException for update without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Id not specified in an update call'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenAllOrNoneFalseAndRecordWithoutId_ThenRowLevelFailure() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{
+      new Account(Id = '001000000000001AAA', Name = 'good'),
+      new Account(Name = 'no id')
+    };
+
+    // Act
+    List<Database.SaveResult> results = eloquent.doUpdate(records, false);
+
+    // Assert
+    // Real Database.update with allOrNone=false reports a row-level MISSING_ARGUMENT
+    // failure for the Id-less record and still processes the other rows.
+    Assert.isTrue(results[0].isSuccess(), 'Row with Id must succeed.');
+    Assert.isFalse(results[1].isSuccess(), 'Row without Id must fail.');
+    Assert.areEqual(StatusCode.MISSING_ARGUMENT, results[1].getErrors()[0].getStatusCode());
+  }
+
+  @isTest
+  static void testDoUpdate_WhenAddEntryWithId_ThenReturnFreshEntryInstance() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry mockEntry = MockEntry.of(Account.class).autoId(1);
+
+    // Act
+    IEntry updatedEntry = eloquent.doUpdate(mockEntry);
+
+    // Assert
+    // Mirror Eloquent: a fresh Entry wrapping the updated clone comes back instead
+    // of the caller's entry instance.
+    Assert.isFalse(updatedEntry === mockEntry, 'Returned entry must not alias the input entry.');
+    Assert.areEqual(mockEntry.getId(), updatedEntry.getId(), 'Returned entry must carry the same Id.');
+  }
+
+  @isTest
+  static void testDoDelete_WhenRecordWithoutId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    // Real Database.delete throws for records without an Id.
+    try {
+      eloquent.doDelete(new Account(Name = 'no id'));
+      Assert.fail('Expected ApexEloquentException for delete without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenEntryWithoutId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+
+    // Act & Assert
+    try {
+      eloquent.doDelete(mockEntry);
+      Assert.fail('Expected ApexEloquentException for delete without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
+    }
+  }
 }

@@ -605,6 +605,9 @@ public with sharing class MockEloquent implements IEloquent {
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
       }
+      if (record.Id != null) {
+        this.fireInsertWithIdError(method, record.Id);
+      }
 
       record.Id = this.generateId(record);
       this.recordUpsert(label, record);
@@ -627,6 +630,9 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
       for (SObject record : records) {
+        if (record.Id != null) {
+          this.fireInsertWithIdError(method, record.Id);
+        }
         record.Id = this.generateId(record);
       }
       this.recordUpsertAll(label, records);
@@ -647,6 +653,9 @@ public with sharing class MockEloquent implements IEloquent {
       this.handleErrorQueue(method, label);
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+      if (record.Id == null) {
+        this.fireUpdateWithoutIdError(method);
       }
 
       this.recordUpsert(label, record);
@@ -669,8 +678,14 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
 
-      this.recordUpsert(label, entry.getRecord());
-      return entry;
+      SObject record = entry.getRecord();
+      if (record.Id == null) {
+        this.fireUpdateWithoutIdError(method);
+      }
+      this.recordUpsert(label, record);
+      // Mirror Eloquent: return a fresh Entry wrapping the updated clone instead of
+      // aliasing the caller's entry.
+      return new Entry(record);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -689,6 +704,11 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
 
+      for (SObject record : records) {
+        if (record.Id == null) {
+          this.fireUpdateWithoutIdError(method);
+        }
+      }
       this.recordUpsertAll(label, records);
       return records;
     } catch (Exception e) {
@@ -709,11 +729,19 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
 
+      // Mirror Eloquent: return fresh Entry instances wrapping the updated clones
+      // instead of aliasing the caller's entries.
+      List<IEntry> updatedEntries = new List<IEntry>();
       for (IEntry entry : entries) {
-        this.recordUpsert(label, entry.getRecord());
+        SObject record = entry.getRecord();
+        if (record.Id == null) {
+          this.fireUpdateWithoutIdError(method);
+        }
+        this.recordUpsert(label, record);
+        updatedEntries.add(new Entry(record));
       }
 
-      return entries;
+      return updatedEntries;
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -732,6 +760,14 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
 
+      if (record.Id == null) {
+        // Real Database.update throws for allOrNone=true and returns a row-level
+        // MISSING_ARGUMENT failure for allOrNone=false.
+        if (allOrNone == true) {
+          this.fireUpdateWithoutIdError(method);
+        }
+        return buildMissingIdSaveResult();
+      }
       if (allOrNone == true) {
         this.enforceAllOrNone(method, record);
       }
@@ -758,6 +794,14 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       SObject record = entry.getRecord();
+      if (record.Id == null) {
+        // Real Database.update throws for allOrNone=true and returns a row-level
+        // MISSING_ARGUMENT failure for allOrNone=false.
+        if (allOrNone == true) {
+          this.fireUpdateWithoutIdError(method);
+        }
+        return buildMissingIdSaveResult();
+      }
       if (allOrNone == true) {
         this.enforceAllOrNone(method, record);
       }
@@ -785,11 +829,20 @@ public with sharing class MockEloquent implements IEloquent {
 
       if (allOrNone == true) {
         for (SObject record : records) {
+          if (record.Id == null) {
+            this.fireUpdateWithoutIdError(method);
+          }
           this.enforceAllOrNone(method, record);
         }
       }
       List<Database.SaveResult> results = new List<Database.SaveResult>();
       for (SObject record : records) {
+        if (record.Id == null) {
+          // Reachable only with allOrNone=false: real Database.update reports a
+          // row-level MISSING_ARGUMENT failure and processes the other rows.
+          results.add(buildMissingIdSaveResult());
+          continue;
+        }
         if (!this.isSaveFailure(record)) {
           this.recordUpsert(label, record);
         }
@@ -816,12 +869,22 @@ public with sharing class MockEloquent implements IEloquent {
 
       if (allOrNone == true) {
         for (IEntry entry : entries) {
-          this.enforceAllOrNone(method, entry.getRecord());
+          SObject checked = entry.getRecord();
+          if (checked.Id == null) {
+            this.fireUpdateWithoutIdError(method);
+          }
+          this.enforceAllOrNone(method, checked);
         }
       }
       List<Database.SaveResult> results = new List<Database.SaveResult>();
       for (IEntry entry : entries) {
         SObject record = entry.getRecord();
+        if (record.Id == null) {
+          // Reachable only with allOrNone=false: real Database.update reports a
+          // row-level MISSING_ARGUMENT failure and processes the other rows.
+          results.add(buildMissingIdSaveResult());
+          continue;
+        }
         if (!this.isSaveFailure(record)) {
           this.recordUpsert(label, record);
         }
@@ -875,6 +938,63 @@ public with sharing class MockEloquent implements IEloquent {
     String idPart = recordId == null ? '' : '"id":"' + recordId + '",';
     String payload = '{"success":true,' + idPart + '"errors":[]}';
     return (Database.SaveResult) JSON.deserialize(payload, Database.SaveResult.class);
+  }
+
+  /**
+   * Build the failed SaveResult that real Database.update returns for a record
+   * without an Id when allOrNone is false (row-level MISSING_ARGUMENT error).
+   *
+   * @return failed SaveResult carrying the MISSING_ARGUMENT error
+   */
+  private static Database.SaveResult buildMissingIdSaveResult() {
+    String payload = '{"success":false,"errors":[{"message":"Id not specified in an update call","statusCode":"MISSING_ARGUMENT"}]}';
+    return (Database.SaveResult) JSON.deserialize(payload, Database.SaveResult.class);
+  }
+
+  /**
+   * Fire the mock counterpart of the platform error thrown when a record that
+   * already has an Id is passed to Database.insert (INVALID_FIELD_FOR_INSERT_UPDATE).
+   *
+   * @param method calling method signature
+   * @param recordId Id found on the record
+   */
+  private void fireInsertWithIdError(String method, Id recordId) {
+    String error = 'Failed to insert operation';
+    String reason = 'cannot specify Id in an insert call: real Database.insert throws INVALID_FIELD_FOR_INSERT_UPDATE for records that already have an Id';
+    String action = 'Remove the Id from the record, or use doUpdate / doUpsert instead';
+    ApexEloquentException.at(CLASS_NAME)
+      .method(method)
+      .error(error)
+      .reason(reason)
+      .action(action)
+      .param('recordId', recordId)
+      .fire();
+  }
+
+  /**
+   * Fire the mock counterpart of the platform error thrown when a record
+   * without an Id is passed to Database.update (MISSING_ARGUMENT).
+   *
+   * @param method calling method signature
+   */
+  private void fireUpdateWithoutIdError(String method) {
+    String error = 'Failed to update operation';
+    String reason = 'Id not specified in an update call: real Database.update throws MISSING_ARGUMENT for records without an Id';
+    String action = 'Set the Id on the record before updating, or use doInsert / doUpsert instead';
+    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+  }
+
+  /**
+   * Fire the mock counterpart of the platform error thrown when a record
+   * without an Id is passed to Database.delete (invalid ID: null).
+   *
+   * @param method calling method signature
+   */
+  private void fireDeleteWithoutIdError(String method) {
+    String error = 'Failed to delete operation';
+    String reason = 'invalid Id: null — real Database.delete throws for records without an Id';
+    String action = 'Set the Id on the record before deleting';
+    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
   }
 
   /**
@@ -1214,6 +1334,9 @@ public with sharing class MockEloquent implements IEloquent {
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
+      if (record.Id == null) {
+        this.fireDeleteWithoutIdError(method);
+      }
 
       this.recordDelete(label, 1);
       return;
@@ -1233,6 +1356,9 @@ public with sharing class MockEloquent implements IEloquent {
       this.handleErrorQueue(method, label);
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+      if (entry.getRecord() == null || entry.getRecord().Id == null) {
+        this.fireDeleteWithoutIdError(method);
       }
 
       this.recordDelete(label, 1);
@@ -1254,6 +1380,11 @@ public with sharing class MockEloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
+      for (SObject record : records) {
+        if (record == null || record.Id == null) {
+          this.fireDeleteWithoutIdError(method);
+        }
+      }
 
       this.recordDelete(label, records.size());
       return;
@@ -1273,6 +1404,11 @@ public with sharing class MockEloquent implements IEloquent {
       this.handleErrorQueue(method, label);
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+      for (IEntry entry : entries) {
+        if (entry == null || entry.getRecord() == null || entry.getRecord().Id == null) {
+          this.fireDeleteWithoutIdError(method);
+        }
       }
 
       this.recordDelete(label, entries.size());

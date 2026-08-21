@@ -473,7 +473,7 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGet_WhenEntryWithNestedParentGetNonSelectedField_ThenThrowException() {
+  static void testGet_WhenEntryWithNestedParentGetId_ThenReturnIdWithoutScribeDeclaration() {
     // Arrange
     SObject record = new OrderItem();
     FieldStructure FieldStructure = new FieldStructure(
@@ -541,15 +541,13 @@ public with sharing class MockEloquentTest {
     IEntry grandparentEntry = parentEntry.getParent('ParentId');
 
     // Assert
-    try {
-      grandparentEntry.getId(); // This field is not selected in the Scribe query
-      Assert.fail('Expected ApexEloquentException to be thrown for non-selected field in nested parent');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
-      Assert.isTrue(error.contains('[objectName => \'Account\']'));
-      Assert.isTrue(error.contains('[fieldName => \'Id\']'));
-    }
+    // Real SOQL returns the Id of a traversed parent even when it is not listed in
+    // the SELECT clause, so the mock must not require a Scribe declaration for it.
+    Assert.areEqual(
+      '001000000000000001',
+      grandparentEntry.getId(),
+      'Id of a nested parent should be readable without a Scribe declaration.'
+    );
   }
 
   @isTest
@@ -606,7 +604,7 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testGet_WhenEntryWithNestedChildrenGetNonSelectedField_ThenThrowException() {
+  static void testGet_WhenEntryWithNestedChildrenGetId_ThenReadableWithoutScribeDeclaration() {
     // Arrange
     List<String> nameFields = new List<String>{ 'Name' };
     List<String> caseFields = new List<String>{ 'Subject' };
@@ -662,16 +660,11 @@ public with sharing class MockEloquentTest {
     List<IEntry> grandchildCases1 = childCases1[0].getChildren('Case');
 
     // Assert
-    try {
-      for (IEntry grandchildCase : grandchildCases1) {
-        grandchildCase.getId(); // This field is not selected in the Scribe query
-        Assert.fail('Expected ApexEloquentException to be thrown for non-selected field in nested child');
-      }
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('The specified field is not selected in Scribe'));
-      Assert.isTrue(error.contains('[objectName => \'Case\']'));
-      Assert.isTrue(error.contains('[fieldName => \'Id\']'));
+    // Real SOQL returns the Id of subquery rows even when it is not listed in the
+    // SELECT clause, so reading Id must not require a Scribe declaration. The mock
+    // data sets no Id, so null comes back instead of an exception.
+    for (IEntry grandchildCase : grandchildCases1) {
+      Assert.isNull(grandchildCase.getId(), 'Id must be readable without a Scribe declaration.');
     }
   }
 
@@ -2039,6 +2032,22 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testDoUpsert_WhenAddEntryWithoutId_ThenInputEntryNotMutated() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    IEntry upsertedEntry = eloquent.doUpsert(mockEntry);
+
+    // Assert
+    // Mirror Eloquent: Database.upsert writes the Id back to the internal clone, so
+    // the caller's entry stays untouched and the Id is carried by the returned Entry.
+    Assert.isNull(mockEntry.getId(), 'Input entry must not be mutated by the mock.');
+    Assert.isNotNull(upsertedEntry.getId(), 'Returned entry must carry the generated Id.');
+  }
+
+  @isTest
   static void testDoUpsert_WhenAddNullListOfSObject_ThenThrowException() {
     // Arrange
     IEloquent eloquent = new MockEloquent();
@@ -2110,6 +2119,31 @@ public with sharing class MockEloquentTest {
       IEntry entry = upsertedEntries[i];
       Assert.isNotNull(entry.getId(), 'Expected each entry to have an Id after upsert');
     }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAddEntriesWithoutId_ThenReturnNewEntriesAndInputNotMutated() {
+    // Arrange
+    List<MockEntry> mockEntries = new List<MockEntry>{
+      MockEntry.of(Opportunity.class),
+      MockEntry.of(Opportunity.class)
+    };
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<IEntry> upsertedEntries = eloquent.doUpsert(mockEntries);
+
+    // Assert
+    // Mirror Eloquent: fresh Entry instances carry the Ids; the caller's entries stay untouched.
+    for (Integer i = 0; i < mockEntries.size(); i++) {
+      Assert.isNull(mockEntries[i].getId(), 'Input entries must not be mutated by the mock.');
+      Assert.isNotNull(upsertedEntries[i].getId(), 'Returned entries must carry the generated Ids.');
+    }
+    Assert.areNotEqual(
+      upsertedEntries[0].getId(),
+      upsertedEntries[1].getId(),
+      'Each created record must receive a distinct Id.'
+    );
   }
 
   @isTest
@@ -2322,6 +2356,48 @@ public with sharing class MockEloquentTest {
     Assert.isTrue(results[0].isCreated(), 'Expected first isCreated to be true (no Id)');
     Assert.isTrue(results[1].isSuccess(), 'Expected second UpsertResult to be success');
     Assert.isFalse(results[1].isCreated(), 'Expected second isCreated to be false (auto Id assigned)');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenEntryWithoutId_ThenResultCarriesIdAndEntryNotMutated() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.UpsertResult result = eloquent.doUpsertByExternalId(mockEntry, Opportunity.Id, false);
+
+    // Assert
+    // Mirror Eloquent: Database.upsert reports the Id through the UpsertResult and
+    // never writes it back into the caller's entry (it lands on the internal clone).
+    Assert.isTrue(result.isCreated(), 'Expected isCreated to be true for entry without Id');
+    Assert.isNotNull(result.getId(), 'UpsertResult must carry the generated Id.');
+    Assert.isNull(mockEntry.getId(), 'Input entry must not be mutated by the mock.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenEntriesWithoutId_ThenResultsAndRecordsCarryIds() {
+    // Arrange
+    List<MockEntry> mockEntries = new List<MockEntry>{
+      MockEntry.of(Opportunity.class),
+      MockEntry.of(Opportunity.class)
+    };
+    MockEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.label('upsert')
+      .doUpsertByExternalId(mockEntries, Opportunity.Id, false);
+
+    // Assert
+    for (Database.UpsertResult result : results) {
+      Assert.isNotNull(result.getId(), 'Each UpsertResult must carry the generated Id.');
+    }
+    for (MockEntry mockEntry : mockEntries) {
+      Assert.isNull(mockEntry.getId(), 'Input entries must not be mutated by the mock.');
+    }
+    for (SObject recorded : eloquent.upsertedRecordsAt('upsert')) {
+      Assert.isNotNull(recorded.Id, 'Recorded records must carry the generated Ids.');
+    }
   }
 
   @isTest
@@ -3515,6 +3591,138 @@ public with sharing class MockEloquentTest {
       Assert.fail('Expected QueryException: whenLabel must not leak into the receiver');
     } catch (QueryException e) {
       Assert.areEqual('boom', e.getMessage());
+    }
+  }
+
+  // ---- platform-fidelity guards: the mock must fail where real DML fails ----
+
+  @isTest
+  static void testDoInsert_WhenRecordHasId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    Account record = new Account(Id = '001000000000001AAA', Name = 'Test');
+
+    // Act & Assert
+    // Real Database.insert throws INVALID_FIELD_FOR_INSERT_UPDATE for records with an Id.
+    try {
+      eloquent.doInsert(record);
+      Assert.fail('Expected ApexEloquentException for insert with Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenListContainsRecordWithId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{
+      new Account(Name = 'Fresh'),
+      new Account(Id = '001000000000001AAA', Name = 'Stale')
+    };
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(records);
+      Assert.fail('Expected ApexEloquentException for insert with Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenRecordWithoutId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    // Real Database.update throws MISSING_ARGUMENT for records without an Id.
+    try {
+      eloquent.doUpdate(new Account(Name = 'no id'));
+      Assert.fail('Expected ApexEloquentException for update without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Id not specified in an update call'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenEntryWithoutId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+
+    // Act & Assert
+    try {
+      eloquent.doUpdate(mockEntry);
+      Assert.fail('Expected ApexEloquentException for update without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Id not specified in an update call'));
+    }
+  }
+
+  @isTest
+  static void testDoUpdate_WhenAllOrNoneFalseAndRecordWithoutId_ThenRowLevelFailure() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{
+      new Account(Id = '001000000000001AAA', Name = 'good'),
+      new Account(Name = 'no id')
+    };
+
+    // Act
+    List<Database.SaveResult> results = eloquent.doUpdate(records, false);
+
+    // Assert
+    // Real Database.update with allOrNone=false reports a row-level MISSING_ARGUMENT
+    // failure for the Id-less record and still processes the other rows.
+    Assert.isTrue(results[0].isSuccess(), 'Row with Id must succeed.');
+    Assert.isFalse(results[1].isSuccess(), 'Row without Id must fail.');
+    Assert.areEqual(StatusCode.MISSING_ARGUMENT, results[1].getErrors()[0].getStatusCode());
+  }
+
+  @isTest
+  static void testDoUpdate_WhenAddEntryWithId_ThenReturnFreshEntryInstance() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry mockEntry = MockEntry.of(Account.class).autoId(1);
+
+    // Act
+    IEntry updatedEntry = eloquent.doUpdate(mockEntry);
+
+    // Assert
+    // Mirror Eloquent: a fresh Entry wrapping the updated clone comes back instead
+    // of the caller's entry instance.
+    Assert.isFalse(updatedEntry === mockEntry, 'Returned entry must not alias the input entry.');
+    Assert.areEqual(mockEntry.getId(), updatedEntry.getId(), 'Returned entry must carry the same Id.');
+  }
+
+  @isTest
+  static void testDoDelete_WhenRecordWithoutId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert
+    // Real Database.delete throws for records without an Id.
+    try {
+      eloquent.doDelete(new Account(Name = 'no id'));
+      Assert.fail('Expected ApexEloquentException for delete without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenEntryWithoutId_ThenThrowException() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    MockEntry mockEntry = MockEntry.of(Account.class);
+
+    // Act & Assert
+    try {
+      eloquent.doDelete(mockEntry);
+      Assert.fail('Expected ApexEloquentException for delete without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
     }
   }
 }

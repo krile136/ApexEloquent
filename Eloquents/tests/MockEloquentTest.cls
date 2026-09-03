@@ -1486,7 +1486,8 @@ public with sharing class MockEloquentTest {
     // Assert
     Assert.isNotNull(insertedRecord.Id, 'Expected record to have an Id after insertion');
     Assert.areEqual('Test Opportunity', insertedRecord.Name, 'Expected record Name to match');
-    Assert.areEqual('006000000000000', insertedRecord.Id, 'Expected record Id to be generated');
+    // the '9' marker keeps generated Ids disjoint from MockEntry.autoId(n)
+    Assert.areEqual('006900000000000', insertedRecord.Id, 'Expected record Id to be generated');
   }
 
   @isTest
@@ -1504,7 +1505,8 @@ public with sharing class MockEloquentTest {
     for (Integer i = 0; i < insertedRecords.size(); i++) {
       Opportunity record = insertedRecords[i];
       Assert.isNotNull(record.Id, 'Expected each record to have an Id after insertion');
-      String generatedId = '00600000000000' + String.valueOf(i);
+      // the '9' marker keeps generated Ids disjoint from MockEntry.autoId(n)
+      String generatedId = '00690000000000' + String.valueOf(i);
       Assert.areEqual(generatedId, record.Id, 'Expected each record Id to be generated');
     }
   }
@@ -1957,7 +1959,7 @@ public with sharing class MockEloquentTest {
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('doUpsert(List<SObject> records)'));
-      Assert.isTrue(error.contains('Null record found in records list'));
+      Assert.isTrue(error.contains('A null record was passed'), 'Unified null-element message. Got: ' + error);
     }
   }
 
@@ -2044,7 +2046,7 @@ public with sharing class MockEloquentTest {
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
       Assert.isTrue(error.contains('doUpsert(List<IEntry> entries)'));
-      Assert.isTrue(error.contains('Null entry found in entries list'));
+      Assert.isTrue(error.contains('A null record was passed'), 'Unified null-element message. Got: ' + error);
     }
   }
 
@@ -3512,7 +3514,7 @@ public with sharing class MockEloquentTest {
     MockEloquent mock = (new MockEloquent()).failSave(bad.Id, 'no upsert');
 
     // Act
-    Database.UpsertResult result = mock.doUpsertByExternalId((SObject) bad, Account.Name, false);
+    Database.UpsertResult result = mock.doUpsertByExternalId((SObject) bad, Account.Id, false);
 
     // Assert
     Assert.isFalse(result.isSuccess());
@@ -3658,10 +3660,10 @@ public with sharing class MockEloquentTest {
     // Act
     List<Database.UpsertResult> results = mock.doUpsertByExternalId(
       new List<SObject>{
-        new Product2(Name = 'failing card', ProductCode = 'CARD-1'),
-        new Product2(Name = 'ok card', ProductCode = 'CARD-2')
+        new Product2(Name = 'CARD-1'),
+        new Product2(Name = 'CARD-2')
       },
-      Product2.ProductCode,
+      Product2.Name,
       false
     );
 
@@ -3676,13 +3678,13 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testFailSaveByExternalId_WhenEntryWithoutId_ThenPartialFailureReported() {
     // Arrange
-    MockEntry card = MockEntry.of(Product2.class).set('ProductCode', 'CARD-1');
+    MockEntry card = MockEntry.of(Product2.class).set('Name', 'CARD-1');
     MockEloquent mock = (new MockEloquent()).failSaveByExternalId('CARD-1', 'validation failed');
 
     // Act
     List<Database.UpsertResult> results = mock.doUpsertByExternalId(
       new List<IEntry>{ card },
-      Product2.ProductCode,
+      Product2.Name,
       false
     );
 
@@ -3699,7 +3701,7 @@ public with sharing class MockEloquentTest {
     // Act & Assert - allOrNone = true throws instead of returning a failed result,
     // mirroring real all-or-nothing DML
     try {
-      mock.doUpsertByExternalId(new Product2(Name = 'card', ProductCode = 'CARD-1'), Product2.ProductCode, true);
+      mock.doUpsertByExternalId(new Product2(Name = 'CARD-1'), Product2.Name, true);
       Assert.fail('Expected all-or-none failure to throw.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('validation failed'), 'Should carry the registered message. Got: ' + e.getMessage());
@@ -3836,5 +3838,824 @@ public with sharing class MockEloquentTest {
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
     }
+  }
+
+  // ---- issue #80: DML symmetry (insert 8 shapes, upsert/delete allOrNone) ----
+
+  @isTest
+  static void testDoInsert_WhenAddEntry_ThenInputNotMutatedAndReturnedEntryHasId() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    IEntry insertedEntry = eloquent.doInsert(mockEntry);
+
+    // Assert - mirror Eloquent: the Id lands on the clone and travels via the return value
+    Assert.isNull(mockEntry.getId(), 'Input entry must not be mutated by the mock.');
+    Assert.isNotNull(insertedEntry.getId(), 'Returned entry must carry the generated Id.');
+    Assert.isFalse(insertedEntry === mockEntry, 'Returned entry must not alias the input entry.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenAddEntries_ThenReturnFreshEntriesWithDistinctIds() {
+    // Arrange
+    List<MockEntry> mockEntries = new List<MockEntry>{
+      MockEntry.of(Opportunity.class),
+      MockEntry.of(Opportunity.class)
+    };
+    MockEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<IEntry> insertedEntries = eloquent.label('ins').doInsert(mockEntries);
+
+    // Assert
+    Assert.areEqual(2, insertedEntries.size(), 'Expected two inserted entries.');
+    for (Integer i = 0; i < mockEntries.size(); i++) {
+      Assert.isNull(mockEntries[i].getId(), 'Input entries must not be mutated by the mock.');
+      Assert.isNotNull(insertedEntries[i].getId(), 'Returned entries must carry the generated Ids.');
+    }
+    Assert.areNotEqual(insertedEntries[0].getId(), insertedEntries[1].getId(), 'Each record must receive a distinct Id.');
+    Assert.areEqual(2, eloquent.upsertedRecordsAt('ins').size(), 'Both records must land in the spy.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenEntryHasId_ThenThrowException() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Opportunity.class).autoId(1);
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert - real Database.insert rejects records that already have an Id
+    try {
+      eloquent.doInsert(mockEntry);
+      Assert.fail('Expected ApexEloquentException for insert with Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenAllOrNoneFalseAndRecordSucceeds_ThenSaveResultCarriesId() {
+    // Arrange
+    Account record = new Account(Name = 'fresh');
+    MockEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.SaveResult result = eloquent.label('ins').doInsert(record, false);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'Insert without an Id must succeed.');
+    Assert.isNotNull(result.getId(), 'SaveResult must carry the generated Id.');
+    Assert.areEqual(record.Id, result.getId(), 'Real Database.insert writes the Id back to the passed SObject.');
+    Assert.areEqual(1, eloquent.upsertedRecordsAt('ins').size(), 'The record must land in the spy.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenAllOrNoneFalseAndRecordHasId_ThenRowLevelFailure() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{
+      new Account(Name = 'good'),
+      new Account(Id = '001000000000001AAA', Name = 'stale')
+    };
+
+    // Act
+    List<Database.SaveResult> results = eloquent.label('ins').doInsert(records, false);
+
+    // Assert - measured on API v67.0: row-level INVALID_FIELD_FOR_INSERT_UPDATE,
+    // the other rows keep processing
+    Assert.isTrue(results[0].isSuccess(), 'Row without Id must succeed.');
+    Assert.isFalse(results[1].isSuccess(), 'Row with Id must fail.');
+    Assert.areEqual(StatusCode.INVALID_FIELD_FOR_INSERT_UPDATE, results[1].getErrors()[0].getStatusCode());
+    Assert.isNull(results[1].getId(), 'Real insert reports no Id for the rejected row (measured).');
+    Assert.areEqual(1, eloquent.upsertedRecordsAt('ins').size(), 'Only the successful row lands in the spy.');
+    Assert.areEqual('good', (String) eloquent.upsertedRecordsAt('ins')[0].get('Name'), 'The SUCCESSFUL row must be the one recorded.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenAllOrNoneTrueAndRecordHasId_ThenThrow() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{ new Account(Id = '001000000000001AAA', Name = 'stale') };
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(records, true);
+      Assert.fail('Expected ApexEloquentException for all-or-none insert with Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
+    }
+  }
+
+  @isTest
+  static void testFailSaveWhen_WhenInsertPartial_ThenRowFailsWithoutIdAssigned() {
+    // Arrange - insert rows carry no Id and no external Id, so failSaveWhen is the
+    // only way to target them (issue #80, same class of hole as #89)
+    MockEloquent eloquent = (new MockEloquent()).failSaveWhen(Account.Name, 'doomed', 'insert rejected');
+    List<MockEntry> mockEntries = new List<MockEntry>{
+      (MockEntry) MockEntry.of(Account.class).set('Name', 'doomed'),
+      (MockEntry) MockEntry.of(Account.class).set('Name', 'fine')
+    };
+
+    // Act
+    List<Database.SaveResult> results = eloquent.label('ins').doInsert(mockEntries, false);
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'Matched row must fail.');
+    Assert.areEqual('insert rejected', results[0].getErrors()[0].getMessage());
+    Assert.isNull(results[0].getId(), 'A failed insert row must not receive an Id.');
+    Assert.isTrue(results[1].isSuccess(), 'Unmatched row must succeed.');
+    Assert.areEqual(1, eloquent.upsertedRecordsAt('ins').size(), 'Only the successful row lands in the spy.');
+    Assert.areEqual('fine', (String) eloquent.upsertedRecordsAt('ins')[0].get('Name'), 'The SUCCESSFUL row must be the one recorded.');
+  }
+
+  @isTest
+  static void testFailSaveWhen_WhenInsertAllOrNoneTrue_ThenThrow() {
+    // Arrange
+    MockEloquent eloquent = (new MockEloquent()).failSaveWhen(Account.Name, 'doomed', 'insert rejected');
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(new Account(Name = 'doomed'), true);
+      Assert.fail('Expected all-or-none failure to throw.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('insert rejected'), 'Should carry the registered message.');
+      Assert.isTrue(e.getMessage().contains('Failed to insert operation'), 'Headline should name the verb.');
+    }
+  }
+
+  @isTest
+  static void testFailSaveWhen_WhenFieldOfDifferentObject_ThenNoMatchAndNoException() {
+    // Arrange - a matcher registered for another SObjectType must simply not match
+    MockEloquent eloquent = (new MockEloquent()).failSaveWhen(Opportunity.StageName, 'X', 'never fires');
+
+    // Act
+    Database.SaveResult result = eloquent.doInsert(new Account(Name = 'ok'), false);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'A matcher for a different SObjectType must not match.');
+  }
+
+  @isTest
+  static void testFailSaveWhen_WhenUpdatePartial_ThenRowFails() {
+    // Arrange - failSaveWhen applies uniformly to every result-returning DML
+    MockEloquent eloquent = (new MockEloquent()).failSaveWhen(Account.Name, 'doomed', 'update rejected');
+    Account record = new Account(Id = '001000000000001AAA', Name = 'doomed');
+
+    // Act
+    Database.SaveResult result = eloquent.doUpdate(record, false);
+
+    // Assert
+    Assert.isFalse(result.isSuccess(), 'Matched row must fail in doUpdate too.');
+    Assert.areEqual('update rejected', result.getErrors()[0].getMessage());
+  }
+
+  @isTest
+  static void testFailSaveWhen_WhenChainedWithFailSave_ThenBothRetained() {
+    // Arrange - builders copy the instance; registrations must survive chaining
+    MockEloquent eloquent = (new MockEloquent())
+      .failSave('001000000000009AAA', 'by id')
+      .failSaveWhen(Account.Name, 'doomed', 'by field');
+
+    // Act
+    Database.SaveResult byId = eloquent.doUpdate(new Account(Id = '001000000000009AAA', Name = 'x'), false);
+    Database.SaveResult byField = eloquent.doInsert(new Account(Name = 'doomed'), false);
+
+    // Assert
+    Assert.areEqual('by id', byId.getErrors()[0].getMessage(), 'failSave registration must survive the chain.');
+    Assert.areEqual('by field', byField.getErrors()[0].getMessage(), 'failSaveWhen registration must survive the chain.');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAllOrNoneFalseAndEntryWithoutId_ThenResultCarriesIdAndEntryNotMutated() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Opportunity.class);
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.UpsertResult result = eloquent.doUpsert(mockEntry, false);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'Upsert of a fresh entry must succeed.');
+    Assert.isTrue(result.isCreated(), 'A row without Id is created.');
+    Assert.isNotNull(result.getId(), 'UpsertResult must carry the generated Id.');
+    Assert.isNull(mockEntry.getId(), 'Input entry must not be mutated by the mock.');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAllOrNoneFalseAndFailSaveWhenMatches_ThenRowLevelFailure() {
+    // Arrange - the create path of an Id-based upsert has no Id either, so
+    // failSaveWhen is the targeting mechanism here too
+    MockEloquent eloquent = (new MockEloquent()).failSaveWhen(Opportunity.Name, 'doomed', 'upsert rejected');
+    List<MockEntry> mockEntries = new List<MockEntry>{
+      (MockEntry) MockEntry.of(Opportunity.class).set('Name', 'doomed'),
+      (MockEntry) MockEntry.of(Opportunity.class).set('Name', 'fine')
+    };
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.label('ups').doUpsert(mockEntries, false);
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'Matched row must fail.');
+    Assert.areEqual('upsert rejected', results[0].getErrors()[0].getMessage());
+    Assert.isTrue(results[1].isSuccess(), 'Unmatched row must succeed.');
+    Assert.areEqual(1, eloquent.upsertedRecordsAt('ups').size(), 'Only the successful row lands in the spy.');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAllOrNoneTrueAndFailSaveMatches_ThenThrow() {
+    // Arrange
+    MockEloquent eloquent = (new MockEloquent()).failSave('006000000000001AAA', 'validation failed');
+    Opportunity record = new Opportunity(Id = '006000000000001AAA', Name = 'x');
+
+    // Act & Assert
+    try {
+      eloquent.doUpsert(record, true);
+      Assert.fail('Expected all-or-none failure to throw.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('validation failed'));
+      Assert.isTrue(e.getMessage().contains('Failed to upsert operation'), 'Headline should name the verb.');
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenAllOrNoneFalseAndRecordWithoutId_ThenThrow() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act & Assert - measured on API v67.0: real Database.delete throws a
+    // ListException for null Ids even with allOrNone=false (no row-level failure)
+    try {
+      eloquent.doDelete(new Account(Name = 'no id'), false);
+      Assert.fail('Expected ApexEloquentException for delete without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenAllOrNoneFalseAndFailSaveMatches_ThenRowLevelFailure() {
+    // Arrange - delete rows always carry an Id, so failSave targets them directly
+    MockEloquent eloquent = (new MockEloquent()).failSave('001000000000009AAA', 'delete blocked');
+    List<SObject> records = new List<SObject>{
+      new Account(Id = '001000000000009AAA', Name = 'blocked'),
+      new Account(Id = '001000000000008AAA', Name = 'fine')
+    };
+
+    // Act
+    List<Database.DeleteResult> results = eloquent.label('del').doDelete(records, false);
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'Registered row must fail.');
+    Assert.areEqual('delete blocked', results[0].getErrors()[0].getMessage());
+    Assert.isTrue(results[1].isSuccess(), 'Unregistered row must succeed.');
+    Assert.isNotNull(results[1].getId(), 'DeleteResult must carry the record Id.');
+    Assert.areEqual(1, eloquent.deletedCountAt('del'), 'Only the successful row counts as deleted.');
+  }
+
+  @isTest
+  static void testDoDelete_WhenAllOrNoneTrueAndFailSaveMatches_ThenThrow() {
+    // Arrange
+    MockEloquent eloquent = (new MockEloquent()).failSave('001000000000009AAA', 'delete blocked');
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Account.class).set('Id', '001000000000009AAA');
+
+    // Act & Assert
+    try {
+      eloquent.doDelete(mockEntry, true);
+      Assert.fail('Expected all-or-none failure to throw.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('delete blocked'));
+      Assert.isTrue(e.getMessage().contains('Failed to delete operation'), 'Headline should name the verb.');
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenAllOrNoneFalseAndEntrySucceeds_ThenResultCarriesId() {
+    // Arrange
+    MockEntry mockEntry = MockEntry.of(Account.class).autoId(1);
+    MockEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.DeleteResult result = eloquent.label('del').doDelete(mockEntry, false);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'Delete of an entry with Id must succeed.');
+    Assert.areEqual(mockEntry.getId(), result.getId(), 'DeleteResult must carry the record Id.');
+    Assert.areEqual(1, eloquent.deletedCountAt('del'), 'The deletion must be counted.');
+  }
+
+  // ---- review round 1: all-or-none rollback, resolution order, guards ----
+
+  @isTest
+  static void testDoUpsert_WhenAllOrNoneTrueListWithFailingRow_ThenThrowBeforeAnythingRecorded() {
+    // Arrange - real all-or-nothing DML rolls everything back: nothing may be
+    // recorded and no Id may be assigned before the throw
+    MockEloquent eloquent = (new MockEloquent()).failSaveWhen(Account.Name, 'doomed', 'x');
+    Account good = new Account(Name = 'good');
+    List<SObject> records = new List<SObject>{ good, new Account(Name = 'doomed') };
+
+    // Act & Assert
+    try {
+      eloquent.label('ups').doUpsert(records, true);
+      Assert.fail('Expected all-or-none failure to throw.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('x'), 'Should carry the registered message.');
+    }
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'Nothing may be recorded before the throw.');
+    Assert.isNull(good.Id, 'No Id may be assigned to earlier rows before the throw.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenAllOrNoneTrueListWithFailingRow_ThenThrowBeforeAnythingRecorded() {
+    // Arrange
+    MockEloquent eloquent = (new MockEloquent()).failSaveByExternalId('CARD-2', 'x');
+    Product2 good = new Product2(Name = 'CARD-1');
+    List<SObject> records = new List<SObject>{ good, new Product2(Name = 'CARD-2') };
+
+    // Act & Assert
+    try {
+      eloquent.label('ups').doUpsertByExternalId(records, Product2.Name, true);
+      Assert.fail('Expected all-or-none failure to throw.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('x'), 'Should carry the registered message.');
+    }
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'Nothing may be recorded before the throw.');
+    Assert.isNull(good.Id, 'No Id may be assigned to earlier rows before the throw.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenExternalIdUnregistered_ThenFailSaveWhenStillApplies() {
+    // Arrange - the external-Id map does not know this value; resolution must
+    // fall through to the failSaveWhen matchers (Id → externalId → when)
+    MockEloquent eloquent = (new MockEloquent()).failSaveWhen(Product2.Name, 'doomed', 'matched by when');
+    Product2 record = new Product2(Name = 'doomed');
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.doUpsertByExternalId(
+      new List<SObject>{ record }, Product2.Name, false);
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'failSaveWhen must apply when the external-Id map has no entry.');
+    Assert.areEqual('matched by when', results[0].getErrors()[0].getMessage());
+  }
+
+  @isTest
+  static void testDoInsert_WhenAllOrNoneNull_ThenThrowRequired() {
+    // Arrange - real Database.insert NPEs on a null Boolean (measured); the mock
+    // rejects it with a diagnosable exception instead of silently treating it as false
+    IEloquent eloquent = new MockEloquent();
+    Boolean aon = null;
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(new Account(Name = 'x'), aon);
+      Assert.fail('Expected ApexEloquentException for null allOrNone.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('allOrNone'), 'Should name the missing argument.');
+    }
+  }
+
+  @isTest
+  static void testFailSaveWhen_WhenTwoMatchersMatchSameRow_ThenFirstRegisteredWins() {
+    // Arrange
+    MockEloquent eloquent = (new MockEloquent())
+      .failSaveWhen(Account.Name, 'doomed', 'first message')
+      .failSaveWhen(Account.Name, 'doomed', 'second message');
+
+    // Act
+    Database.SaveResult result = eloquent.doInsert(new Account(Name = 'doomed'), false);
+
+    // Assert
+    Assert.areEqual('first message', result.getErrors()[0].getMessage(), 'The first registered matcher must win.');
+  }
+
+  @isTest
+  static void testDoDelete_WhenEntriesAllOrNoneFalseMixed_ThenRowLevelResults() {
+    // Arrange - direct coverage of doDelete(List<IEntry>, allOrNone)
+    MockEloquent eloquent = (new MockEloquent()).failSave('001000000000009AAA', 'blocked');
+    List<MockEntry> mockEntries = new List<MockEntry>{
+      (MockEntry) MockEntry.of(Account.class).set('Id', '001000000000009AAA'),
+      (MockEntry) MockEntry.of(Account.class).set('Id', '001000000000008AAA')
+    };
+
+    // Act
+    List<Database.DeleteResult> results = eloquent.label('del').doDelete(mockEntries, false);
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'Registered row must fail.');
+    Assert.isTrue(results[1].isSuccess(), 'Unregistered row must succeed.');
+    Assert.areEqual(1, eloquent.deletedCountAt('del'), 'Only the successful row counts.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenEntryAllOrNoneFalse_ThenSaveResultCarriesIdAndEntryNotMutated() {
+    // Arrange - direct coverage of doInsert(IEntry, allOrNone)
+    MockEntry mockEntry = MockEntry.of(Account.class);
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    Database.SaveResult result = eloquent.doInsert(mockEntry, false);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'Insert of a fresh entry must succeed.');
+    Assert.isNotNull(result.getId(), 'SaveResult must carry the generated Id.');
+    Assert.isNull(mockEntry.getId(), 'Input entry must not be mutated by the mock.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenListContainsNullElement_ThenThrow() {
+    // Arrange - real Database DML rejects null elements with a ListException (measured)
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{ new Account(Name = 'ok'), null };
+
+    // Act & Assert
+    try {
+      eloquent.doInsert(records, false);
+      Assert.fail('Expected ApexEloquentException for a null list element.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('A null record was passed'), 'Should name the null element.');
+    }
+  }
+
+  // ---- review round 2: default all-or-none list DML must not record before throwing ----
+
+  @isTest
+  static void testDoInsert_WhenEntriesListRejectedMidway_ThenNothingRecorded() {
+    // Arrange - doInsert(List<IEntry>) takes no allOrNone argument, so it runs
+    // all-or-nothing by default: a mid-list rejection must leave no trace
+    MockEloquent eloquent = new MockEloquent();
+    List<MockEntry> entries = new List<MockEntry>{
+      MockEntry.of(Account.class),
+      MockEntry.of(Account.class).autoId(1)
+    };
+
+    // Act & Assert
+    try {
+      eloquent.label('ins').doInsert(entries);
+      Assert.fail('Expected rejection of the Id-carrying entry.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('cannot specify Id'));
+    }
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('ins').size(), 'Real DML rolls the whole call back — nothing may be recorded.');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenEntriesListContainsNull_ThenNothingRecordedAndNoIdAssigned() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent();
+    MockEntry valid = MockEntry.of(Account.class);
+    List<IEntry> entries = new List<IEntry>{ valid, null };
+
+    // Act & Assert
+    try {
+      eloquent.label('ups').doUpsert(entries);
+      Assert.fail('Expected rejection of the null element.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('A null record was passed'));
+    }
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'Nothing may be recorded before the throw.');
+    Assert.isNull(valid.getId(), 'No Id may be assigned before the throw.');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenEntriesListRejectedMidway_ThenNothingRecorded() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent();
+    List<MockEntry> entries = new List<MockEntry>{
+      MockEntry.of(Account.class).autoId(1),
+      MockEntry.of(Account.class)
+    };
+
+    // Act & Assert
+    try {
+      eloquent.label('upd').doUpdate(entries);
+      Assert.fail('Expected rejection of the Id-less entry.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Id not specified'));
+    }
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('upd').size(), 'Real DML rolls the whole call back — nothing may be recorded.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenRecordsListRejectedMidway_ThenNoIdBurnedOnEarlierRows() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent();
+    Account clean = new Account(Name = 'clean');
+    List<SObject> records = new List<SObject>{ clean, new Account(Id = '001000000000001AAA', Name = 'stale') };
+
+    // Act & Assert
+    try {
+      eloquent.label('ins').doInsert(records);
+      Assert.fail('Expected rejection of the Id-carrying record.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('cannot specify Id'));
+    }
+    Assert.isNull(clean.Id, 'Real DML rolls back — no Id may be burned onto earlier rows.');
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('ins').size(), 'Nothing may be recorded.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenListContainsNullElement_ThenThrowUnifiedError() {
+    // Arrange - the production side previously leaked a raw ListException here;
+    // both sides now throw the unified ApexEloquentException
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{ new Product2(Name = 'ok'), null };
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(records, Product2.Name, false);
+      Assert.fail('Expected ApexEloquentException for a null list element.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('A null record was passed'));
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenExternalIdFieldNull_ThenThrowRequired() {
+    // Arrange - real Database.upsert NPEs on a null field token
+    // ("Argument 2 cannot be null", measured); the mock used to succeed silently
+    IEloquent eloquent = new MockEloquent();
+    Schema.SObjectField externalIdField = null;
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(new List<SObject>{ new Product2(Name = 'x') }, externalIdField, false);
+      Assert.fail('Expected ApexEloquentException for null externalIdField.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('externalIdField'), 'Should name the missing argument.');
+    }
+  }
+
+  // ---- review round 3: external-Id key validity, delete null elements ----
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenFieldIsNotUsableAsKey_ThenThrow() {
+    // Arrange - measured on API v67.0: a field that is neither an external Id nor
+    // a standard indexed field is rejected by real Database.upsert
+    // ("Invalid field for upsert..."), while the mock used to succeed silently
+    IEloquent eloquent = new MockEloquent();
+    Schema.SObjectField plainField = Product2.Description;
+
+    // Act & Assert
+    try {
+      eloquent.doUpsertByExternalId(
+        new List<SObject>{ new Product2(Name = 'x', Description = 'D1') },
+        plainField,
+        false
+      );
+      Assert.fail('Expected ApexEloquentException for a field unusable as an upsert key.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('Invalid field for upsert'),
+        'Should carry the measured platform wording. Got: ' + e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenFieldIsIdLookup_ThenAccepted() {
+    // Arrange - the platform accepts standard indexed (idLookup) fields dynamically
+    // even though the compiler rejects them as literals, so the guard must not
+    // over-reject: Product2.Name is isIdLookup = true (measured)
+    MockEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.label('ups')
+      .doUpsertByExternalId(new List<SObject>{ new Product2(Name = 'ok') }, Product2.Name, false);
+
+    // Assert
+    Assert.isTrue(results[0].isSuccess(), 'An idLookup field is a valid upsert key.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenFieldBelongsToOtherObject_ThenRowLevelFailure() {
+    // Arrange - measured on API v67.0: a token from another SObjectType whose flags
+    // still qualify it as a key is NOT an exception — the platform reports a
+    // row-level CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY failure
+    MockEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.label('ups')
+      .doUpsertByExternalId(new List<SObject>{ new Account(Name = 'x') }, Product2.Name, false);
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'A token of another SObjectType must fail the row.');
+    Assert.areEqual(
+      'Expected field from SObject type Account but found Name from Product2',
+      results[0].getErrors()[0].getMessage(),
+      'Should mirror the measured platform message.'
+    );
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'The failed row must not be recorded.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenDuplicateExternalIds_ThenBothRowsFail() {
+    // Arrange - measured: rows sharing an external Id value inside one call all fail
+    // with DUPLICATE_VALUE, while rows with unique values still succeed
+    MockEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{
+      new Product2(Name = 'UNIQUE-1'),
+      new Product2(Name = 'DUP-1'),
+      new Product2(Name = 'DUP-1')
+    };
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.label('ups')
+      .doUpsertByExternalId(records, Product2.Name, false);
+
+    // Assert
+    Assert.isTrue(results[0].isSuccess(), 'A row with a unique key must still succeed.');
+    Assert.isFalse(results[1].isSuccess(), 'Both rows sharing a key must fail.');
+    Assert.isFalse(results[2].isSuccess(), 'Both rows sharing a key must fail.');
+    Assert.areEqual('Duplicate external id specified: DUP-1', results[1].getErrors()[0].getMessage());
+    Assert.areEqual(StatusCode.DUPLICATE_VALUE, results[1].getErrors()[0].getStatusCode());
+    Assert.areEqual(1, eloquent.upsertedRecordsAt('ups').size(), 'Only the unique row lands in the spy.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenDuplicateExternalIdsAllOrNoneTrue_ThenThrow() {
+    // Arrange - measured: with allOrNone = true the duplicate makes the whole call throw
+    MockEloquent eloquent = new MockEloquent();
+    Product2 first = new Product2(Name = 'DUP-1');
+    List<SObject> records = new List<SObject>{ first, new Product2(Name = 'DUP-1') };
+
+    // Act & Assert
+    try {
+      eloquent.label('ups').doUpsertByExternalId(records, Product2.Name, true);
+      Assert.fail('Expected all-or-none failure for duplicate external Ids.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Duplicate external id specified'), 'Got: ' + e.getMessage());
+    }
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'Nothing may be recorded before the throw.');
+    Assert.isNull(first.Id, 'No Id may be assigned before the throw.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenKeysDifferOnlyByCase_ThenBothSucceed() {
+    // Arrange - measured on API v67.0: key matching is case-SENSITIVE, so rows named
+    // 'DUP-1' and 'dup-1' are different keys and both succeed
+    MockEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{ new Product2(Name = 'DUP-1'), new Product2(Name = 'dup-1') };
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.doUpsertByExternalId(records, Product2.Name, false);
+
+    // Assert
+    Assert.isTrue(results[0].isSuccess(), 'Case-differing keys are not duplicates.');
+    Assert.isTrue(results[1].isSuccess(), 'Case-differing keys are not duplicates.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenKeyValueMissing_ThenRowFails() {
+    // Arrange - measured: a row whose key field is empty fails with MISSING_ARGUMENT
+    // "<Field> not specified"
+    MockEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.label('ups')
+      .doUpsertByExternalId(new List<SObject>{ new Product2() }, Product2.Name, false);
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'A row without a key value must fail.');
+    Assert.areEqual('Name not specified', results[0].getErrors()[0].getMessage());
+    Assert.areEqual(StatusCode.MISSING_ARGUMENT, results[0].getErrors()[0].getStatusCode());
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'The failed row must not be recorded.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenKeyIsIdAndMissing_ThenRowSucceeds() {
+    // Arrange - upserting BY Id is the exception: a null Id is the create path and
+    // must stay a success, unlike every other key field
+    MockEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.doUpsertByExternalId(
+      new List<SObject>{ new Product2(Name = 'fresh') },
+      Product2.Id,
+      false
+    );
+
+    // Assert
+    Assert.isTrue(results[0].isSuccess(), 'A null Id means "create", not a missing key.');
+    Assert.isTrue(results[0].isCreated(), 'The row is created.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenTypeMismatch_ThenStatusCodeMatchesPlatform() {
+    // Arrange
+    IEloquent eloquent = new MockEloquent();
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.doUpsertByExternalId(
+      new List<SObject>{ new Account(Name = 'x') },
+      Product2.Name,
+      false
+    );
+
+    // Assert - code branching on getStatusCode() must behave as in production
+    Assert.areEqual(
+      StatusCode.CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY,
+      results[0].getErrors()[0].getStatusCode(),
+      'Should carry the measured platform status code.'
+    );
+  }
+
+  @isTest
+  static void testFailSaveByExternalId_WhenValueAppearsInAnotherField_ThenOnlyKeyFieldMatches() {
+    // Arrange - a decoy row carries the registered value in a NON-key field: an
+    // implementation that ignored externalIdField and scanned every field would
+    // fail the decoy too
+    MockEloquent eloquent = (new MockEloquent()).failSaveByExternalId('CARD-1', 'validation failed');
+    List<SObject> records = new List<SObject>{
+      new Product2(Name = 'CARD-1'),
+      new Product2(Name = 'CARD-2', Description = 'CARD-1')
+    };
+
+    // Act
+    List<Database.UpsertResult> results = eloquent.doUpsertByExternalId(records, Product2.Name, false);
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'The row whose KEY matches must fail.');
+    Assert.isTrue(results[1].isSuccess(), 'A match in a non-key field must not fail the row.');
+  }
+
+  @isTest
+  static void testDoDelete_WhenListContainsNullElement_ThenThrowUnifiedError() {
+    // Arrange - this guard was found by tabulating every list method rather than
+    // by working through the review list, so it gets its own regression test
+    IEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{ new Account(Id = '001000000000009AAA'), null };
+
+    // Act & Assert
+    try {
+      eloquent.doDelete(records);
+      Assert.fail('Expected ApexEloquentException for a null list element.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('A null record was passed'), 'Should be the unified null-element error.');
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenListWithoutIdRejectedMidway_ThenNothingCounted() {
+    // Arrange - default all-or-none: a mid-list rejection must leave no trace
+    MockEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{ new Account(Id = '001000000000009AAA'), new Account(Name = 'no id') };
+
+    // Act & Assert
+    try {
+      eloquent.label('del').doDelete(records);
+      Assert.fail('Expected rejection of the Id-less record.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
+    }
+    Assert.areEqual(0, eloquent.deletedCountAt('del'), 'Nothing may be counted before the throw.');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenRecordsListRejectedMidway_ThenNothingRecorded() {
+    // Arrange - doUpsert(List<SObject>) has no allOrNone argument
+    MockEloquent eloquent = new MockEloquent();
+    Account clean = new Account(Name = 'clean');
+    List<SObject> records = new List<SObject>{ clean, null };
+
+    // Act & Assert
+    try {
+      eloquent.label('ups').doUpsert(records);
+      Assert.fail('Expected rejection of the null element.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('A null record was passed'));
+    }
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'Nothing may be recorded before the throw.');
+    Assert.isNull(clean.Id, 'No Id may be assigned before the throw.');
+  }
+
+  @isTest
+  static void testDoUpdate_WhenRecordsListRejectedMidway_ThenNothingRecorded() {
+    // Arrange
+    MockEloquent eloquent = new MockEloquent();
+    List<SObject> records = new List<SObject>{ new Account(Id = '001000000000009AAA'), new Account(Name = 'no id') };
+
+    // Act & Assert
+    try {
+      eloquent.label('upd').doUpdate(records);
+      Assert.fail('Expected rejection of the Id-less record.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Id not specified'));
+    }
+    Assert.areEqual(0, eloquent.upsertedRecordsAt('upd').size(), 'Nothing may be recorded before the throw.');
+  }
+
+  @isTest
+  static void testFailSaveWhen_WhenSameNameFieldOfOtherObject_ThenNoMatch() {
+    // Arrange - Contact also has a Name field, but the matcher holds the Account.Name
+    // TOKEN, which carries its owning type (measured: "does not belong to SObject
+    // type Contact") — so it must not misfire on Contact rows
+    MockEloquent eloquent = (new MockEloquent()).failSaveWhen(Account.Name, 'yamada', 'never fires');
+
+    // Act
+    Database.SaveResult result = eloquent.doInsert(new Contact(LastName = 'yamada'), false);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'A matcher token of another SObjectType must not match.');
   }
 }

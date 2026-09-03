@@ -34,7 +34,7 @@ public inherited sharing class Eloquent implements IEloquent {
   private String currentLabel = DEFAULT_LABEL;
   private Boolean strictMode = false;
   private Boolean labelSetForNextOp = false;
-  private Set<String> consumedLabels = new Set<String>();
+  private Map<String, String> consumedLabelToMethod = new Map<String, String>();
 
   // FLS/CRUD access mode for SOQL/DML. Defaults to USER_MODE (secure-by-default); opt out via systemMode().
   // Note: record-level sharing is NOT controlled here — it follows this class's sharing declaration
@@ -77,8 +77,11 @@ public inherited sharing class Eloquent implements IEloquent {
    *   (1) once strict mode is active, every operation must be preceded by .label(...)
    *   (2) each label allows at most one SUCCESSFUL operation per IEloquent instance
    *       (a failed operation releases its label so the attempt can be retried)
+   *
+   * @param method the operation consuming the label; recorded so a consume-once
+   *        violation can name what consumed the label first
    */
-  private String consumeLabel() {
+  private String consumeLabel(String method) {
     String label = this.currentLabel;
     Boolean wasSet = this.labelSetForNextOp;
 
@@ -98,15 +101,20 @@ public inherited sharing class Eloquent implements IEloquent {
       String action = 'Call .label(X) before this read/DML, or use a fresh IEloquent instance if you want lenient mode.';
       ApexEloquentException.invalidOperation(CLASS_NAME, 'label(String label) [strict mode required]', reason).action(action).fire();
     }
-    if (this.consumedLabels.contains(label)) {
-      String reason = 'Label \'' + label + '\' has already been consumed on this IEloquent instance.';
+    if (this.consumedLabelToMethod.containsKey(label)) {
+      String reason =
+        'Label \'' +
+        label +
+        '\' was already consumed by ' +
+        this.consumedLabelToMethod.get(label) +
+        ' on this IEloquent instance.';
       String action = 'A label allows at most one successful operation per IEloquent (failed attempts may be retried). Use a different label name, or construct a fresh IEloquent.';
       ApexEloquentException.invalidOperation(CLASS_NAME, 'label(String label) [consume-once]', reason)
         .action(action)
         .param('label', label)
         .fire();
     }
-    this.consumedLabels.add(label);
+    this.consumedLabelToMethod.put(label, method);
     if (label != DEFAULT_LABEL) {
       System.debug('[Eloquent:' + label + ']');
     }
@@ -119,16 +127,16 @@ public inherited sharing class Eloquent implements IEloquent {
    * label's intent, so the same label may be retried.
    */
   private void releaseLabel(String label) {
-    this.consumedLabels.remove(label);
+    this.consumedLabelToMethod.remove(label);
   }
 
   /**
    * @inheritDoc
    */
   public List<IEntry> get(Scribe scribe) {
-    String label = this.consumeLabel();
+    String method = 'get(Scribe scribe)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('get(Scribe scribe)');
       if (scribe == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
       }
@@ -163,9 +171,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> rawSoql(String soql) {
-    String label = this.consumeLabel();
+    String method = 'rawSoql(String soql)';
+    String label = this.consumeLabel(method);
     try {
-      String method = 'rawSoql(String soql)';
       if (String.isBlank(soql)) {
         ApexEloquentException.required(CLASS_NAME, method, 'soql', soql).fire();
       }
@@ -184,9 +192,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> getAsSObject(Scribe scribe) {
-    String label = this.consumeLabel();
+    String method = 'getAsSObject(Scribe scribe)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('getAsSObject(Scribe scribe)');
       if (scribe == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
@@ -202,9 +210,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry first(Scribe scribe) {
-    String label = this.consumeLabel();
+    String method = 'first(Scribe scribe)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('first(Scribe scribe)');
       if (scribe == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
@@ -224,9 +232,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject firstAsSObject(Scribe scribe) {
-    String label = this.consumeLabel();
+    String method = 'firstAsSObject(Scribe scribe)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('firstAsSObject(Scribe scribe)');
       if (scribe == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
@@ -246,9 +254,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry firstOrFail(Scribe scribe) {
-    String label = this.consumeLabel();
+    String method = 'firstOrFail(Scribe scribe)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('firstOrFail(Scribe scribe)');
       if (scribe == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
@@ -278,9 +286,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry firstOrFail(Scribe scribe, Exception orFail) {
-    String label = this.consumeLabel();
+    String method = 'firstOrFail(Scribe scribe, Exception orFail)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('firstOrFail(Scribe scribe, Exception orFail)');
       if (scribe == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
@@ -304,9 +312,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject firstOrFailAsSObject(Scribe scribe) {
-    String label = this.consumeLabel();
+    String method = 'firstOrFailAsSObject(Scribe scribe)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('firstOrFailAsSObject(Scribe scribe)');
       if (scribe == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
@@ -335,9 +343,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doInsert(SObject record) {
-    String label = this.consumeLabel();
+    String method = 'doInsert(SObject record)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doInsert(SObject record)');
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
       }
@@ -358,9 +366,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doInsert(List<SObject> records) {
-    String label = this.consumeLabel();
+    String method = 'doInsert(List<SObject> records)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doInsert(List<SObject> records)');
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
@@ -381,9 +389,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doUpdate(SObject record) {
-    String label = this.consumeLabel();
+    String method = 'doUpdate(SObject record)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpdate(SObject record)');
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
@@ -405,9 +413,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public Database.SaveResult doUpdate(SObject record, Boolean allOrNone) {
-    String label = this.consumeLabel();
+    String method = 'doUpdate(SObject record, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpdate(SObject record, Boolean allOrNone)');
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
@@ -430,9 +438,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry doUpdate(IEntry entry) {
-    String label = this.consumeLabel();
+    String method = 'doUpdate(IEntry entry)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpdate(IEntry entry)');
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
@@ -454,9 +462,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public Database.SaveResult doUpdate(IEntry entry, Boolean allOrNone) {
-    String label = this.consumeLabel();
+    String method = 'doUpdate(IEntry entry, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpdate(IEntry entry, Boolean allOrNone)');
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
@@ -479,9 +487,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doUpdate(List<SObject> records) {
-    String label = this.consumeLabel();
+    String method = 'doUpdate(List<SObject> records)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpdate(List<SObject> records)');
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
@@ -502,9 +510,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<Database.SaveResult> doUpdate(List<SObject> records, Boolean allOrNone) {
-    String label = this.consumeLabel();
+    String method = 'doUpdate(List<SObject> records, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpdate(List<SObject> records, Boolean allOrNone)');
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
@@ -526,9 +534,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> doUpdate(List<IEntry> entries) {
-    String label = this.consumeLabel();
+    String method = 'doUpdate(List<IEntry> entries)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpdate(List<IEntry> entries)');
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
@@ -561,9 +569,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<Database.SaveResult> doUpdate(List<IEntry> entries, Boolean allOrNone) {
-    String label = this.consumeLabel();
+    String method = 'doUpdate(List<IEntry> entries, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpdate(List<IEntry> entries, Boolean allOrNone)');
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
@@ -593,9 +601,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public SObject doUpsert(SObject record) {
-    String label = this.consumeLabel();
+    String method = 'doUpsert(SObject record)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpsert(SObject record)');
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
@@ -617,9 +625,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public IEntry doUpsert(IEntry entry) {
-    String label = this.consumeLabel();
+    String method = 'doUpsert(IEntry entry)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpsert(IEntry entry)');
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
@@ -642,9 +650,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<SObject> doUpsert(List<SObject> records) {
-    String label = this.consumeLabel();
+    String method = 'doUpsert(List<SObject> records)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpsert(List<SObject> records)');
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
@@ -666,9 +674,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<IEntry> doUpsert(List<IEntry> entries) {
-    String label = this.consumeLabel();
+    String method = 'doUpsert(List<IEntry> entries)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpsert(List<IEntry> entries)');
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
@@ -701,9 +709,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public Database.UpsertResult doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone) {
-    String label = this.consumeLabel();
+    String method = 'doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)');
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
@@ -726,9 +734,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public Database.UpsertResult doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone) {
-    String label = this.consumeLabel();
+    String method = 'doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)');
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
@@ -752,9 +760,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<Database.UpsertResult> doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone) {
-    String label = this.consumeLabel();
+    String method = 'doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)');
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
@@ -777,9 +785,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public List<Database.UpsertResult> doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone) {
-    String label = this.consumeLabel();
+    String method = 'doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)');
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
@@ -809,9 +817,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(SObject record) {
-    String label = this.consumeLabel();
+    String method = 'doDelete(SObject record)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doDelete(SObject record)');
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
@@ -832,9 +840,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(IEntry entry) {
-    String label = this.consumeLabel();
+    String method = 'doDelete(IEntry entry)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doDelete(IEntry entry)');
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
@@ -855,9 +863,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(List<SObject> records) {
-    String label = this.consumeLabel();
+    String method = 'doDelete(List<SObject> records)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doDelete(List<SObject> records)');
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
@@ -878,9 +886,9 @@ public inherited sharing class Eloquent implements IEloquent {
    * @inheritDoc
    */
   public void doDelete(List<IEntry> entries) {
-    String label = this.consumeLabel();
+    String method = 'doDelete(List<IEntry> entries)';
+    String label = this.consumeLabel(method);
     try {
-      String method = ('doDelete(List<IEntry> entries)');
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }

@@ -817,6 +817,36 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testFirst_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'existingCount');
+    IEloquent eloquent = new MockEloquent(
+      MockEntry.asAggregateResult(new Map<String, Object>{ 'existingCount' => 3 })
+    );
+
+    // Act
+    IEntry entry = eloquent.first(scribe);
+
+    // Assert
+    Assert.areEqual(3, entry.get('existingCount'), 'Alias must resolve through first() as it does through get() (issue #85).');
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'existingCount');
+    IEloquent eloquent = new MockEloquent(
+      MockEntry.asAggregateResult(new Map<String, Object>{ 'existingCount' => 3 })
+    );
+
+    // Act
+    IEntry entry = eloquent.firstOrFail(scribe);
+
+    // Assert
+    Assert.areEqual(3, entry.get('existingCount'), 'Alias must resolve through firstOrFail() as it does through get() (issue #85).');
+  }
+
+  @isTest
   static void testGet_WhenApplyAggregateScribeAndAccessNonSelectedField_ThenThrowException() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)

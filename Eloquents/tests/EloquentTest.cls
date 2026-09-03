@@ -1522,6 +1522,35 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testFirst_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange - count + first() is the natural "count rows, read one scalar" shape (issue #85)
+    Group grp = buildGroup('aggFirst');
+    insert grp;
+    insert new GroupMember(GroupId = grp.Id, UserOrGroupId = UserInfo.getUserId());
+
+    // Act
+    Scribe countScribe = Scribe.of(GroupMember.class).count('Id', 'memberCount').whereEqual('GroupId', grp.Id);
+    IEntry entry = (new Eloquent()).first(countScribe);
+
+    // Assert
+    Assert.areEqual(1, ((Decimal) entry.get('memberCount')).intValue(), 'Alias must resolve through first() as it does through get().');
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange - an ungrouped aggregate query always returns one row, so firstOrFail succeeds
+    Group grp = buildGroup('aggFirstOrFail');
+    insert grp;
+
+    // Act
+    Scribe countScribe = Scribe.of(GroupMember.class).count('Id', 'memberCount').whereEqual('GroupId', grp.Id);
+    IEntry entry = (new Eloquent()).firstOrFail(countScribe);
+
+    // Assert
+    Assert.areEqual(0, ((Decimal) entry.get('memberCount')).intValue(), 'Zero members still yields one aggregate row with a zero count.');
+  }
+
+  @isTest
   static void testGet_WhenFieldNotSelected_ThenRealRowThrowsSObjectException() {
     // Arrange - a real SOQL row is strict by itself: reading an unqueried field throws.
     // (This is why production Entry needs no FieldStructure — see MockEntry.fetchedBy for tests.)

@@ -194,15 +194,31 @@ public with sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
 
-      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
-      if (records.isEmpty()) {
-        return null;
-      }
-      return new Entry(records[0]);
+      return this.queryFirstEntry(scribe);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
     }
+  }
+
+  /**
+   * Executes the query and wraps the first row as an IEntry, or returns null
+   * when the query matches nothing. Aggregate Scribes get the aggregate
+   * FieldStructure so aliases resolve, exactly as get() does — without this
+   * shared branch, an AggregateResult row would be wrapped as a plain Entry
+   * and alias reads would fail with a misleading "field does not exist"
+   * error (issue #85).
+   *
+   * @param scribe query definition
+   * @return the first row as an IEntry, or null when the query matches nothing
+   */
+  private IEntry queryFirstEntry(Scribe scribe) {
+    if (scribe.isAggregate()) {
+      List<AggregateResult> aggregateResults = (List<AggregateResult>) Database.query(scribe.toSoql());
+      return aggregateResults.isEmpty() ? null : new Entry(aggregateResults[0], scribe.buildAggregateFieldStructure());
+    }
+    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+    return records.isEmpty() ? null : new Entry(records[0]);
   }
 
   /**
@@ -238,9 +254,9 @@ public with sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
 
-      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+      IEntry entry = this.queryFirstEntry(scribe);
 
-      if (records.isEmpty()) {
+      if (entry == null) {
         String error = 'No records were found for the given criteria';
         String reason = 'The query execution returned zero records';
         String action = 'Ensure that the query criteria are correct and that relevant records exist in the database';
@@ -252,7 +268,7 @@ public with sharing class Eloquent implements IEloquent {
           .param('SOQL', scribe.toSoql())
           .fire();
       }
-      return new Entry(records[0]);
+      return entry;
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -273,12 +289,12 @@ public with sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'orFail', null).fire();
       }
 
-      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql());
+      IEntry entry = this.queryFirstEntry(scribe);
 
-      if (records.isEmpty()) {
+      if (entry == null) {
         throw orFail;
       }
-      return new Entry(records[0]);
+      return entry;
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;

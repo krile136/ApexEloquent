@@ -3627,6 +3627,27 @@ public with sharing class MockEloquentTest {
     }
   }
 
+  @isTest
+  static void testUpsertedEntriesAt_WhenDmlRan_ThenReturnEntries() {
+    // Arrange
+    MockEloquent mock = new MockEloquent();
+    MockEntry input = MockEntry.of(Opportunity.class);
+
+    // Act
+    mock.label('save').doUpsert(new List<IEntry>{ input });
+
+    // Assert - what goes in as IEntry can be asserted as IEntry (issue #86)
+    List<IEntry> saved = mock.upsertedEntriesAt('save');
+    Assert.areEqual(1, saved.size(), 'Expected one recorded entry.');
+    Assert.isNotNull(saved[0].getId(), 'Recorded entry must carry the generated Id.');
+  }
+
+  @isTest
+  static void testUpsertedEntriesAt_WhenUnknownLabel_ThenReturnEmptyList() {
+    // Act & Assert
+    Assert.areEqual(0, new MockEloquent().upsertedEntriesAt('nothing').size(), 'Unknown label must yield an empty list.');
+  }
+
   // ---- platform-fidelity guards: the mock must fail where real DML fails ----
 
   @isTest

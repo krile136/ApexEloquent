@@ -102,6 +102,7 @@ public with sharing class Eloquent implements IEloquent {
    * Releases a label whose operation failed. consume-once guards one
    * SUCCESSFUL operation per label — a failed attempt did not fulfill the
    * label's intent, so the same label may be retried.
+   *
    */
   private void releaseLabel(String label) {
     this.consumedLabelToMethod.remove(label);
@@ -365,6 +366,11 @@ public with sharing class Eloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+      }
       try {
         insert records;
       } catch (DmlException e) {
@@ -372,6 +378,211 @@ public with sharing class Eloquent implements IEloquent {
         ex.method(method).param('records', records).fire();
       }
       return records;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.SaveResult doInsert(SObject record, Boolean allOrNone) {
+    String method = 'doInsert(SObject record, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      try {
+        return Database.insert(record, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('insert', e);
+        ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.SaveResult doInsert(IEntry entry, Boolean allOrNone) {
+    String method = 'doInsert(IEntry entry, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'insert');
+      }
+      try {
+        return Database.insert(record, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('insert', e);
+        ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.SaveResult> doInsert(List<SObject> records, Boolean allOrNone) {
+    String method = 'doInsert(List<SObject> records, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+      }
+      try {
+        return Database.insert(records, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('insert', e);
+        ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.SaveResult> doInsert(List<IEntry> entries, Boolean allOrNone) {
+    String method = 'doInsert(List<IEntry> entries, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      if (entries.isEmpty()) {
+        return new List<Database.SaveResult>();
+      }
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+        records.add(record);
+      }
+      try {
+        return Database.insert(records, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('insert', e);
+        ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public IEntry doInsert(IEntry entry) {
+    String method = 'doInsert(IEntry entry)';
+    String label = this.consumeLabel(method);
+    try {
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+
+      SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'insert');
+      }
+      try {
+        Database.insert(record);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('insert', e);
+        ex.method(method).param('entry', entry).fire();
+      }
+      return new Entry(record);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<IEntry> doInsert(List<IEntry> entries) {
+    String method = 'doInsert(List<IEntry> entries)';
+    String label = this.consumeLabel(method);
+    try {
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+
+      if (entries.isEmpty()) {
+        return new List<IEntry>();
+      }
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+        records.add(record);
+      }
+      try {
+        Database.insert(records);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('insert', e);
+        ex.method(method).param('entries', entries).fire();
+      }
+      List<IEntry> insertedEntries = new List<IEntry>();
+      for (SObject record : records) {
+        insertedEntries.add(new Entry(record));
+      }
+      return insertedEntries;
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -412,6 +623,9 @@ public with sharing class Eloquent implements IEloquent {
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
 
       try {
         return Database.update(record, allOrNone);
@@ -438,6 +652,9 @@ public with sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
       SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'update');
+      }
       try {
         update record;
       } catch (DmlException e) {
@@ -461,7 +678,13 @@ public with sharing class Eloquent implements IEloquent {
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
       SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'update');
+      }
       try {
         return Database.update(record, allOrNone);
       } catch (DmlException e) {
@@ -486,6 +709,11 @@ public with sharing class Eloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'update');
+        }
+      }
       try {
         update records;
       } catch (DmlException e) {
@@ -508,6 +736,14 @@ public with sharing class Eloquent implements IEloquent {
     try {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'update');
+        }
       }
       try {
         return Database.update(records, allOrNone);
@@ -539,7 +775,14 @@ public with sharing class Eloquent implements IEloquent {
       }
       List<SObject> records = new List<SObject>();
       for (IEntry entry : entries) {
-        records.add(entry.getRecord());
+        if (entry == null) {
+          this.fireNullElementError(method, 'update');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'update');
+        }
+        records.add(record);
       }
       try {
         update records;
@@ -568,13 +811,23 @@ public with sharing class Eloquent implements IEloquent {
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
 
       if (entries.isEmpty()) {
         return new List<Database.SaveResult>();
       }
       List<SObject> records = new List<SObject>();
       for (IEntry entry : entries) {
-        records.add(entry.getRecord());
+        if (entry == null) {
+          this.fireNullElementError(method, 'update');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'update');
+        }
+        records.add(record);
       }
       try {
         return Database.update(records, allOrNone);
@@ -626,6 +879,9 @@ public with sharing class Eloquent implements IEloquent {
       }
 
       SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'upsert');
+      }
       try {
         upsert record;
       } catch (DmlException e) {
@@ -650,6 +906,11 @@ public with sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
 
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+      }
       try {
         upsert records;
       } catch (DmlException e) {
@@ -679,7 +940,14 @@ public with sharing class Eloquent implements IEloquent {
       }
       List<SObject> records = new List<SObject>();
       for (IEntry entry : entries) {
-        records.add(entry.getRecord());
+        if (entry == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        records.add(record);
       }
       try {
         upsert records;
@@ -701,6 +969,141 @@ public with sharing class Eloquent implements IEloquent {
   /**
    * @inheritDoc
    */
+  public Database.UpsertResult doUpsert(SObject record, Boolean allOrNone) {
+    String method = 'doUpsert(SObject record, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      try {
+        return Database.upsert(record, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.UpsertResult doUpsert(IEntry entry, Boolean allOrNone) {
+    String method = 'doUpsert(IEntry entry, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'upsert');
+      }
+      try {
+        return Database.upsert(record, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.UpsertResult> doUpsert(List<SObject> records, Boolean allOrNone) {
+    String method = 'doUpsert(List<SObject> records, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+      }
+      try {
+        return Database.upsert(records, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.UpsertResult> doUpsert(List<IEntry> entries, Boolean allOrNone) {
+    String method = 'doUpsert(List<IEntry> entries, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      if (entries.isEmpty()) {
+        return new List<Database.UpsertResult>();
+      }
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        records.add(record);
+      }
+      try {
+        return Database.upsert(records, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('upsert', e);
+        ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
   public Database.UpsertResult doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone) {
     String method = 'doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)';
     String label = this.consumeLabel(method);
@@ -708,6 +1111,13 @@ public with sharing class Eloquent implements IEloquent {
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      if (externalIdField == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'externalIdField', null).fire();
+      }
+      this.validateExternalIdField(method, externalIdField);
 
       try {
         return Database.upsert(record, externalIdField, allOrNone);
@@ -733,8 +1143,18 @@ public with sharing class Eloquent implements IEloquent {
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      if (externalIdField == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'externalIdField', null).fire();
+      }
+      this.validateExternalIdField(method, externalIdField);
 
       SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'upsert');
+      }
       try {
         return Database.upsert(record, externalIdField, allOrNone);
       } catch (DmlException e) {
@@ -759,7 +1179,19 @@ public with sharing class Eloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      if (externalIdField == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'externalIdField', null).fire();
+      }
+      this.validateExternalIdField(method, externalIdField);
 
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+      }
       try {
         return Database.upsert(records, externalIdField, allOrNone);
       } catch (DmlException e) {
@@ -784,13 +1216,27 @@ public with sharing class Eloquent implements IEloquent {
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      if (externalIdField == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'externalIdField', null).fire();
+      }
+      this.validateExternalIdField(method, externalIdField);
 
       if (entries.isEmpty()) {
         return new List<Database.UpsertResult>();
       }
       List<SObject> records = new List<SObject>();
       for (IEntry entry : entries) {
-        records.add(entry.getRecord());
+        if (entry == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        records.add(record);
       }
       try {
         return Database.upsert(records, externalIdField, allOrNone);
@@ -822,6 +1268,8 @@ public with sharing class Eloquent implements IEloquent {
       } catch (DmlException e) {
         ApexEloquentException ex = createDMLException('delete', e);
         ex.method(method).param('record', record).fire();
+      } catch (ListException le) {
+        this.fireListRejectionError(method, 'delete', le);
       }
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -840,11 +1288,17 @@ public with sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
 
+      SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'delete');
+      }
       try {
-        delete entry.getRecord();
+        delete record;
       } catch (DmlException e) {
         ApexEloquentException ex = createDMLException('delete', e);
         ex.method(method).param('entry', entry).fire();
+      } catch (ListException le) {
+        this.fireListRejectionError(method, 'delete', le);
       }
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -863,11 +1317,18 @@ public with sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
 
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+      }
       try {
         delete records;
       } catch (DmlException e) {
         ApexEloquentException ex = createDMLException('delete', e);
         ex.method(method).param('records', records).fire();
+      } catch (ListException le) {
+        this.fireListRejectionError(method, 'delete', le);
       }
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -892,7 +1353,14 @@ public with sharing class Eloquent implements IEloquent {
       }
       List<SObject> records = new List<SObject>();
       for (IEntry entry : entries) {
-        records.add(entry.getRecord());
+        if (entry == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        records.add(record);
       }
 
       try {
@@ -900,11 +1368,225 @@ public with sharing class Eloquent implements IEloquent {
       } catch (DmlException e) {
         ApexEloquentException ex = createDMLException('delete', e);
         ex.method(method).param('entries', entries).fire();
+      } catch (ListException le) {
+        this.fireListRejectionError(method, 'delete', le);
       }
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
     }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.DeleteResult doDelete(SObject record, Boolean allOrNone) {
+    String method = 'doDelete(SObject record, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      try {
+        return Database.delete(record, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('delete', e);
+        ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
+      } catch (ListException le) {
+        this.fireListRejectionError(method, 'delete', le);
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.DeleteResult doDelete(IEntry entry, Boolean allOrNone) {
+    String method = 'doDelete(IEntry entry, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'delete');
+      }
+      try {
+        return Database.delete(record, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('delete', e);
+        ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
+      } catch (ListException le) {
+        this.fireListRejectionError(method, 'delete', le);
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.DeleteResult> doDelete(List<SObject> records, Boolean allOrNone) {
+    String method = 'doDelete(List<SObject> records, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+      }
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+      }
+      try {
+        return Database.delete(records, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('delete', e);
+        ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
+      } catch (ListException le) {
+        this.fireListRejectionError(method, 'delete', le);
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.DeleteResult> doDelete(List<IEntry> entries, Boolean allOrNone) {
+    String method = 'doDelete(List<IEntry> entries, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      if (entries.isEmpty()) {
+        return new List<Database.DeleteResult>();
+      }
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        records.add(record);
+      }
+      try {
+        return Database.delete(records, allOrNone);
+      } catch (DmlException e) {
+        ApexEloquentException ex = createDMLException('delete', e);
+        ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
+      } catch (ListException le) {
+        this.fireListRejectionError(method, 'delete', le);
+      }
+
+      return null;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+
+  /**
+   * Rejects an externalIdField that real Database.upsert cannot route on, so the
+   * failure arrives as an ApexEloquentException like every other failure path
+   * instead of a raw SObjectException. Measured on API v67.0: a field that is
+   * neither an external Id nor a standard indexed (idLookup) field throws
+   * "Invalid field for upsert, must be an External Id custom or standard indexed
+   * field". MockEloquent applies the identical rule.
+   *
+   * @param method calling method signature
+   * @param externalIdField field the upsert routes on
+   */
+  private void validateExternalIdField(String method, Schema.SObjectField externalIdField) {
+    Schema.DescribeFieldResult fieldDescribe = externalIdField.getDescribe();
+    if (fieldDescribe.isExternalId() || fieldDescribe.isIdLookup()) {
+      return;
+    }
+    String error = 'Failed to upsert operation';
+    String reason =
+      'Invalid field for upsert, must be an External Id custom or standard indexed field: ' +
+      fieldDescribe.getName();
+    String action = 'Mark the field as an External Id, or pass one that already is';
+    ApexEloquentException.at(CLASS_NAME)
+      .method(method)
+      .error(error)
+      .reason(reason)
+      .action(action)
+      .param('externalIdField', fieldDescribe.getName())
+      .fire();
+  }
+
+  /**
+   * Fires the unified null-element error for list DML. Real Database DML rejects
+   * lists containing null elements with a ListException before processing any row
+   * (measured on API v67.0); failing fast here keeps every failure path on
+   * ApexEloquentException and avoids an NPE while cloning entries.
+   *
+   * @param method calling method signature
+   * @param dmlType DML verb for the error headline
+   */
+  private void fireNullElementError(String method, String dmlType) {
+    String error = 'Failed to ' + dmlType + ' operation';
+    String reason = 'A null record was passed (as the argument, or as an element of the list), which real Database DML rejects before processing any row';
+    String action = 'Ensure the record passed to the DML method is not null and, for list DML, that the list contains no null elements';
+    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+  }
+
+  /**
+   * Wraps the ListException that Database DML throws when it rejects the input
+   * list before processing any row (e.g. a delete target without an Id — thrown
+   * even with allOrNone = false, measured on API v67.0), so callers can keep
+   * catching ApexEloquentException for every failure path.
+   *
+   * @param method calling method signature
+   * @param dmlType DML verb for the error headline
+   * @param e the platform ListException
+   */
+  private void fireListRejectionError(String method, String dmlType, ListException e) {
+    String error = 'Failed to ' + dmlType + ' operation';
+    String reason = 'The platform rejected the input before processing any row: ' + e.getMessage();
+    String action = 'Ensure every record has an Id and the list contains no null elements (thrown even with allOrNone = false)';
+    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).causedBy(e).fire();
   }
 
   private ApexEloquentException createDMLException(String dmlType, Exception e) {

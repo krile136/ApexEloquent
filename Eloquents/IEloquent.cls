@@ -141,12 +141,104 @@ public interface IEloquent {
   * The returned list preserves the order of the input list.
   * When mixing multiple SObject types in one list, group records of the same type
   * together beforehand: Salesforce starts a new chunk at every type switch and
-  * a single DML operation fails with more than 10 chunks.
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
   *
   * @param records List of SObjects to be inserted
   * @return List of inserted SObjects, in the same order as the input
   */
   List<SObject> doInsert(List<SObject> records);
+
+  /**
+  * Inserts a record and returns the SaveResult.
+  *
+  * @param record SObject to be inserted
+  * @param allOrNone Must not be null. If true, the insert throws when the record fails. If false, the failure is returned as an unsuccessful SaveResult.
+  * @return SaveResult
+  */
+  Database.SaveResult doInsert(SObject record, Boolean allOrNone);
+
+  /**
+  * Inserts a record wrapped in an Entry and returns the SaveResult.
+  * The caller's entry is not modified; the generated Id is carried by the SaveResult.
+  *
+  * @param entry Entry containing the SObject to be inserted
+  * @param allOrNone Must not be null. If true, the insert throws when the record fails. If false, the failure is returned as an unsuccessful SaveResult.
+  * @return SaveResult
+  */
+  Database.SaveResult doInsert(IEntry entry, Boolean allOrNone);
+
+  /**
+  * Inserts a list of records and returns the SaveResults, in the same order as the input.
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * @param records List of SObjects to be inserted
+  * @param allOrNone Must not be null. If true, the insert is rolled back if any record fails. If false, successful inserts are committed and errors are returned for failed records.
+  * @return List of SaveResults, in the same order as the input
+  */
+  List<Database.SaveResult> doInsert(List<SObject> records, Boolean allOrNone);
+
+  /**
+  * Inserts a list of records wrapped in Entries and returns the SaveResults, in the same order as the input.
+  * The caller's entries are not modified; the generated Ids are carried by the SaveResults.
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * @param entries List of Entries containing the SObjects to be inserted
+  * @param allOrNone Must not be null. If true, the insert is rolled back if any record fails. If false, successful inserts are committed and errors are returned for failed records.
+  * @return List of SaveResults, in the same order as the input
+  */
+  List<Database.SaveResult> doInsert(List<IEntry> entries, Boolean allOrNone);
+
+  /**
+  * Inserts a record wrapped in an Entry. ⚠️ The caller's entry does NOT receive
+  * the generated Id — read it from the returned Entry. (Holds as long as
+  * getRecord() returns a defensive copy, as Entry and MockEntry do.)
+  *
+  * @param entry Entry containing the SObject to be inserted
+  * @return New Entry wrapping the inserted record (Id populated)
+  */
+  IEntry doInsert(IEntry entry);
+
+  /**
+  * Inserts a list of records wrapped in Entries. ⚠️ The caller's entries do NOT
+  * receive the generated Ids — read them from the returned Entries. (Holds as long
+  * as getRecord() returns a defensive copy, as Entry and MockEntry do.)
+  *
+  * The returned list preserves the order of the input list.
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * @param entries List of Entries containing the SObjects to be inserted
+  * @return List of new Entries wrapping the inserted records, in the same order as the input
+  */
+  List<IEntry> doInsert(List<IEntry> entries);
 
   /**
   * Updates a record and returns the updated record.
@@ -160,7 +252,7 @@ public interface IEloquent {
   * Updates a record and returns the updated record.
   *
   * @param record SObject to be Updated
-  * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.  
+  * @param allOrNone Must not be null. If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.  
   * @return SaveResult 
   */
   Database.SaveResult doUpdate(SObject record, Boolean allOrNone);
@@ -177,7 +269,7 @@ public interface IEloquent {
   * Updates a record wrapped in an Entry and returns the updated Entry.
   *
   * @param entry Entry containing the SObject to be updated
-  * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
+  * @param allOrNone Must not be null. If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
   * @return SaveResult
   */
   Database.SaveResult doUpdate(IEntry entry, Boolean allOrNone);
@@ -188,7 +280,12 @@ public interface IEloquent {
   * The returned list preserves the order of the input list.
   * When mixing multiple SObject types in one list, group records of the same type
   * together beforehand: Salesforce starts a new chunk at every type switch and
-  * a single DML operation fails with more than 10 chunks.
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
   *
   * @param records List of SObjects to be updated
   * @return List of updated SObjects, in the same order as the input
@@ -203,8 +300,17 @@ public interface IEloquent {
   * the same type together beforehand: Salesforce starts a new chunk at every type
   * switch and a single DML operation fails with more than 10 chunks.
   *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
   * @param records List of SObjects to be updated
-  * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
+  * @param allOrNone Must not be null. If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
   * @return List of SaveResult, in the same order as the input
   */
   List<Database.SaveResult> doUpdate(List<SObject> records, Boolean allOrNone);
@@ -216,6 +322,15 @@ public interface IEloquent {
   * When mixing multiple SObject types in one list, group entries of the same type
   * together beforehand: Salesforce starts a new chunk at every type switch and
   * a single DML operation fails with more than 10 chunks.
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
   *
   * @param entries List of Entries containing the SObjects to be updated
   * @return List of updated Entries, in the same order as the input
@@ -230,8 +345,17 @@ public interface IEloquent {
   * the same type together beforehand: Salesforce starts a new chunk at every type
   * switch and a single DML operation fails with more than 10 chunks.
   *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
   * @param entries List of Entries containing the SObjects to be updated
-  * @param allOrNone If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
+  * @param allOrNone Must not be null. If true, the update will be rolled back if any record fails. If false, successful updates will be committed and errors will be returned for failed records.
   * @return List of SaveResult, in the same order as the input
   */
   List<Database.SaveResult> doUpdate(List<IEntry> entries, Boolean allOrNone);
@@ -258,7 +382,12 @@ public interface IEloquent {
   * The returned list preserves the order of the input list.
   * When mixing multiple SObject types in one list, group records of the same type
   * together beforehand: Salesforce starts a new chunk at every type switch and
-  * a single DML operation fails with more than 10 chunks.
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
   *
   * @param records List of SObjects to be upserted
   * @return List of upserted SObjects, in the same order as the input
@@ -273,17 +402,82 @@ public interface IEloquent {
   * together beforehand: Salesforce starts a new chunk at every type switch and
   * a single DML operation fails with more than 10 chunks.
   *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
   * @param entries List of Entries containing the SObjects to be upserted
   * @return List of upserted Entries, in the same order as the input
   */
   List<IEntry> doUpsert(List<IEntry> entries);
 
   /**
+  * Upserts a record (by Id) and returns the UpsertResult.
+  *
+  * @param record SObject to be upserted
+  * @param allOrNone Must not be null. If true, the upsert throws when the record fails. If false, the failure is returned as an unsuccessful UpsertResult.
+  * @return UpsertResult
+  */
+  Database.UpsertResult doUpsert(SObject record, Boolean allOrNone);
+
+  /**
+  * Upserts a record wrapped in an Entry (by Id) and returns the UpsertResult.
+  * The caller's entry is not modified; a generated Id is carried by the UpsertResult.
+  *
+  * @param entry Entry containing the SObject to be upserted
+  * @param allOrNone Must not be null. If true, the upsert throws when the record fails. If false, the failure is returned as an unsuccessful UpsertResult.
+  * @return UpsertResult
+  */
+  Database.UpsertResult doUpsert(IEntry entry, Boolean allOrNone);
+
+  /**
+  * Upserts a list of records (by Id) and returns the UpsertResults, in the same order as the input.
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * @param records List of SObjects to be upserted
+  * @param allOrNone Must not be null. If true, the upsert is rolled back if any record fails. If false, successful upserts are committed and errors are returned for failed records.
+  * @return List of UpsertResults, in the same order as the input
+  */
+  List<Database.UpsertResult> doUpsert(List<SObject> records, Boolean allOrNone);
+
+  /**
+  * Upserts a list of records wrapped in Entries (by Id) and returns the UpsertResults, in the same order as the input.
+  * The caller's entries are not modified; generated Ids are carried by the UpsertResults.
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * @param entries List of Entries containing the SObjects to be upserted
+  * @param allOrNone Must not be null. If true, the upsert is rolled back if any record fails. If false, successful upserts are committed and errors are returned for failed records.
+  * @return List of UpsertResults, in the same order as the input
+  */
+  List<Database.UpsertResult> doUpsert(List<IEntry> entries, Boolean allOrNone);
+
+  /**
   * Inserts or updates a record using the specified external Id field to match existing records.
   *
   * @param record SObject to be upserted
   * @param externalIdField External Id field to use for matching existing records
-  * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
+  * @param allOrNone Must not be null. If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
   * @return UpsertResult
   */
   Database.UpsertResult doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone);
@@ -293,7 +487,7 @@ public interface IEloquent {
   *
   * @param entry Entry containing the SObject to be upserted
   * @param externalIdField External Id field to use for matching existing records
-  * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
+  * @param allOrNone Must not be null. If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
   * @return UpsertResult
   */
   Database.UpsertResult doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone);
@@ -306,9 +500,18 @@ public interface IEloquent {
   * the same type together beforehand: Salesforce starts a new chunk at every type
   * switch and a single DML operation fails with more than 10 chunks.
   *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
   * @param records List of SObjects to be upserted
   * @param externalIdField External Id field to use for matching existing records
-  * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
+  * @param allOrNone Must not be null. If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
   * @return List of UpsertResult, in the same order as the input
   */
   List<Database.UpsertResult> doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone);
@@ -321,9 +524,18 @@ public interface IEloquent {
   * the same type together beforehand: Salesforce starts a new chunk at every type
   * switch and a single DML operation fails with more than 10 chunks.
   *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
   * @param entries List of Entries containing the SObjects to be upserted
   * @param externalIdField External Id field to use for matching existing records
-  * @param allOrNone If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
+  * @param allOrNone Must not be null. If true, the upsert will be rolled back if any record fails. If false, successful upserts will be committed and errors will be returned for failed records.
   * @return List of UpsertResult, in the same order as the input
   */
   List<Database.UpsertResult> doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone);
@@ -345,6 +557,15 @@ public interface IEloquent {
   /**
   * Deletes a list of records.
   *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
   * @param records List of SObjects to be deleted
   */
   void doDelete(List<SObject> records);
@@ -352,7 +573,82 @@ public interface IEloquent {
   /**
   * Deletes a list of Entries.
   *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
   * @param entries List of Entries containing the SObjects to be deleted
   */
   void doDelete(List<IEntry> entries);
+
+  /**
+  * Deletes a record and returns the DeleteResult.
+  *
+  * A record without an Id makes the call throw even with allOrNone = false —
+  * the platform rejects the input before processing any row (measured on API v67.0).
+  *
+  * @param record SObject to be deleted
+  * @param allOrNone Must not be null. If true, the delete throws when the record fails. If false, the failure is returned as an unsuccessful DeleteResult.
+  * @return DeleteResult
+  */
+  Database.DeleteResult doDelete(SObject record, Boolean allOrNone);
+
+  /**
+  * Deletes a record wrapped in an Entry and returns the DeleteResult.
+  *
+  * A record without an Id makes the call throw even with allOrNone = false —
+  * the platform rejects the input before processing any row (measured on API v67.0).
+  *
+  * @param entry Entry containing the SObject to be deleted
+  * @param allOrNone Must not be null. If true, the delete throws when the record fails. If false, the failure is returned as an unsuccessful DeleteResult.
+  * @return DeleteResult
+  */
+  Database.DeleteResult doDelete(IEntry entry, Boolean allOrNone);
+
+  /**
+  * Deletes a list of records and returns the DeleteResults, in the same order as the input.
+  *
+  * Records without an Id make the whole call throw even with allOrNone = false —
+  * the platform rejects the list before processing any row (measured on API v67.0).
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * @param records List of SObjects to be deleted
+  * @param allOrNone Must not be null. If true, the delete is rolled back if any record fails. If false, successful deletes are committed and errors are returned for failed records.
+  * @return List of DeleteResults, in the same order as the input
+  */
+  List<Database.DeleteResult> doDelete(List<SObject> records, Boolean allOrNone);
+
+  /**
+  * Deletes a list of records wrapped in Entries and returns the DeleteResults, in the same order as the input.
+  *
+  * Records without an Id make the whole call throw even with allOrNone = false —
+  * the platform rejects the list before processing any row (measured on API v67.0).
+  *
+  * A null element in the list makes the whole call throw — the platform
+  * rejects the list before processing any row (measured on API v67.0).
+  *
+  * When mixing multiple SObject types in one list, group records of the same type
+  * together beforehand: Salesforce starts a new chunk at every type switch and
+  * a single DML operation fails with more than 10 chunks (System.TypeException,
+  * measured on API v67.0). MockEloquent does NOT reproduce this limit — grouping
+  * by type stays the caller's responsibility and cannot be verified by unit tests.
+  *
+  * @param entries List of Entries containing the SObjects to be deleted
+  * @param allOrNone Must not be null. If true, the delete is rolled back if any record fails. If false, successful deletes are committed and errors are returned for failed records.
+  * @return List of DeleteResults, in the same order as the input
+  */
+  List<Database.DeleteResult> doDelete(List<IEntry> entries, Boolean allOrNone);
 }

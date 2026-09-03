@@ -3648,6 +3648,63 @@ public with sharing class MockEloquentTest {
     Assert.areEqual(0, new MockEloquent().upsertedEntriesAt('nothing').size(), 'Unknown label must yield an empty list.');
   }
 
+  @isTest
+  static void testFailSaveByExternalId_WhenRowWithoutId_ThenPartialFailureReported() {
+    // Arrange - the row does not exist in the org yet: no Id, the external Id value
+    // is the only key the caller has (issue #89)
+    MockEloquent mock = (new MockEloquent()).failSaveByExternalId('CARD-1', 'validation failed');
+
+    // Act
+    List<Database.UpsertResult> results = mock.doUpsertByExternalId(
+      new List<SObject>{
+        new Product2(Name = 'failing card', ProductCode = 'CARD-1'),
+        new Product2(Name = 'ok card', ProductCode = 'CARD-2')
+      },
+      Product2.ProductCode,
+      false
+    );
+
+    // Assert - the registered row fails without an exception, the other row succeeds,
+    // and only the successful row lands in the spy
+    Assert.isFalse(results[0].isSuccess(), 'Row registered via failSaveByExternalId must fail.');
+    Assert.areEqual('validation failed', results[0].getErrors()[0].getMessage());
+    Assert.isTrue(results[1].isSuccess(), 'Unregistered row must still succeed.');
+    Assert.areEqual(1, mock.upsertedRecordsAt('default').size(), 'Failed row must not be recorded as saved.');
+  }
+
+  @isTest
+  static void testFailSaveByExternalId_WhenEntryWithoutId_ThenPartialFailureReported() {
+    // Arrange
+    MockEntry card = MockEntry.of(Product2.class).set('ProductCode', 'CARD-1');
+    MockEloquent mock = (new MockEloquent()).failSaveByExternalId('CARD-1', 'validation failed');
+
+    // Act
+    List<Database.UpsertResult> results = mock.doUpsertByExternalId(
+      new List<IEntry>{ card },
+      Product2.ProductCode,
+      false
+    );
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'Row registered via failSaveByExternalId must fail.');
+    Assert.isNull(card.getId(), 'A failed row must not receive an Id.');
+  }
+
+  @isTest
+  static void testFailSaveByExternalId_WhenAllOrNoneTrue_ThenThrow() {
+    // Arrange
+    MockEloquent mock = (new MockEloquent()).failSaveByExternalId('CARD-1', 'validation failed');
+
+    // Act & Assert - allOrNone = true throws instead of returning a failed result,
+    // mirroring real all-or-nothing DML
+    try {
+      mock.doUpsertByExternalId(new Product2(Name = 'card', ProductCode = 'CARD-1'), Product2.ProductCode, true);
+      Assert.fail('Expected all-or-none failure to throw.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('validation failed'), 'Should carry the registered message. Got: ' + e.getMessage());
+    }
+  }
+
   // ---- platform-fidelity guards: the mock must fail where real DML fails ----
 
   @isTest

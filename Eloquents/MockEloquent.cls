@@ -204,6 +204,22 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   /**
+   * Returns the records upserted (inserted / updated / upserted) under a given
+   * label, wrapped as IEntry — the symmetric counterpart of the IEntry-based DML
+   * inputs (issue #86): what goes in as IEntry can be asserted as IEntry.
+   *
+   * @param label routing label the DML ran under
+   * @return recorded records wrapped as IEntry; empty list if no DML ran under that label
+   */
+  public List<IEntry> upsertedEntriesAt(String label) {
+    List<IEntry> entries = new List<IEntry>();
+    for (SObject record : this.upsertedRecordsAt(label)) {
+      entries.add(new Entry(record));
+    }
+    return entries;
+  }
+
+  /**
    * Returns the number of records deleted under a given label.
    * Returns 0 if no doDelete ran under that label.
    */

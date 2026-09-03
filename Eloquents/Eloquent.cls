@@ -56,19 +56,59 @@ public inherited sharing class Eloquent implements IEloquent {
   }
 
   /**
+   * constructor
+   */
+  public Eloquent() {
+  }
+
+  /**
+   * Copy constructor used by userMode()/systemMode(): carries the label
+   * bookkeeping over so the returned instance behaves as the same logical
+   * pipeline with only the access mode changed.
+   *
+   * The consumed-label map is shared BY REFERENCE on purpose — consume-once
+   * must keep guarding the whole family of copies as one pipeline, otherwise
+   * switching modes would silently reset the guard.
+   *
+   * @param source instance being copied
+   * @param accessLevel access mode for the copy
+   */
+  private Eloquent(Eloquent source, System.AccessLevel accessLevel) {
+    this.accessLevel = accessLevel;
+    this.strictMode = source.strictMode;
+    this.currentLabel = source.currentLabel;
+    this.labelSetForNextOp = source.labelSetForNextOp;
+    this.consumedLabelToMethod = source.consumedLabelToMethod;
+  }
+
+  /**
    * @inheritDoc
    */
   public IEloquent userMode() {
-    this.accessLevel = System.AccessLevel.USER_MODE;
-    return this;
+    return this.copyWithAccessLevel(System.AccessLevel.USER_MODE);
   }
 
   /**
    * @inheritDoc
    */
   public IEloquent systemMode() {
-    this.accessLevel = System.AccessLevel.SYSTEM_MODE;
-    return this;
+    return this.copyWithAccessLevel(System.AccessLevel.SYSTEM_MODE);
+  }
+
+  /**
+   * Builds the mode-switched copy and hands the pending label off to it:
+   * a label set just before the switch is meant for the next operation on
+   * the returned instance, so the receiver's transient label state is
+   * cleared to keep `label('x').systemMode().doX()` working unchanged.
+   *
+   * @param accessLevel access mode for the copy
+   * @return mode-switched copy; the receiver keeps its own access mode
+   */
+  private IEloquent copyWithAccessLevel(System.AccessLevel accessLevel) {
+    Eloquent copied = new Eloquent(this, accessLevel);
+    this.currentLabel = DEFAULT_LABEL;
+    this.labelSetForNextOp = false;
+    return copied;
   }
 
   /**

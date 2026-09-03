@@ -127,6 +127,8 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    * No-op in the mock: there is no real database, so access mode has no effect on captured data.
+   * Unlike Eloquent (which returns a mode-switched copy), the mock returns itself so every
+   * spy and assertion keeps pointing at the one instance the test holds.
    */
   public IEloquent userMode() {
     return this;
@@ -135,6 +137,8 @@ public with sharing class MockEloquent implements IEloquent {
   /**
    * @inheritDoc
    * No-op in the mock: there is no real database, so access mode has no effect on captured data.
+   * Unlike Eloquent (which returns a mode-switched copy), the mock returns itself so every
+   * spy and assertion keeps pointing at the one instance the test holds.
    */
   public IEloquent systemMode() {
     return this;

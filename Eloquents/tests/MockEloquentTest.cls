@@ -3172,10 +3172,14 @@ public with sharing class MockEloquentTest {
       Assert.fail('Expected consume-once exception when reusing label.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(
-        e.getMessage().contains('already been consumed'),
+        e.getMessage().contains('was already consumed by'),
         'Expected consume-once message, got: ' + e.getMessage()
       );
       Assert.isTrue(e.getMessage().contains('\'a\''), 'Should mention the label name.');
+      Assert.isTrue(
+        e.getMessage().contains('get(Scribe scribe)'),
+        'Should name the operation that first consumed the label. Got: ' + e.getMessage()
+      );
     }
   }
 
@@ -3233,7 +3237,7 @@ public with sharing class MockEloquentTest {
       mock.label('default').get(scribe);
       Assert.fail('Expected consume-once for explicit default.');
     } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('already been consumed'));
+      Assert.isTrue(e.getMessage().contains('was already consumed by'));
     }
   }
 
@@ -3264,7 +3268,7 @@ public with sharing class MockEloquentTest {
       Assert.fail('Expected consume-once: \'a\' was consumed on the original instance.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(
-        e.getMessage().contains('already been consumed'),
+        e.getMessage().contains('was already consumed by'),
         'Expected consume-once after copy(). Got: ' + e.getMessage()
       );
     }

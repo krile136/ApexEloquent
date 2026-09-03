@@ -1191,10 +1191,14 @@ public with sharing class EloquentTest {
       Assert.fail('Expected consume-once exception when reusing label.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(
-        e.getMessage().contains('already been consumed'),
+        e.getMessage().contains('was already consumed by'),
         'Expected consume-once message, got: ' + e.getMessage()
       );
       Assert.isTrue(e.getMessage().contains('dup'), 'Should mention the label name.');
+      Assert.isTrue(
+        e.getMessage().contains('doInsert(SObject record)'),
+        'Should name the operation that first consumed the label. Got: ' + e.getMessage()
+      );
     }
   }
 

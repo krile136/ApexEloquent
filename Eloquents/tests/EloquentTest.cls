@@ -17,7 +17,7 @@
 @isTest
 public with sharing class EloquentTest {
   @isTest
-  static void testUserModeSystemMode_WhenToggled_ThenAccessLevelSwitches() {
+  static void testUserModeSystemMode_WhenSwitched_ThenReceiverUnmodified() {
     // Arrange
     Eloquent eloquent = new Eloquent();
 
@@ -28,31 +28,53 @@ public with sharing class EloquentTest {
       'Default access mode should be USER_MODE'
     );
 
-    // user -> system
-    IEloquent afterSystem = eloquent.systemMode();
+    // user -> system: the copy carries the mode, the receiver keeps its own (issue #88)
+    Eloquent afterSystem = (Eloquent) eloquent.systemMode();
     Assert.areEqual(
       System.AccessLevel.SYSTEM_MODE,
-      eloquent.accessLevel,
-      'systemMode() should switch the access mode to SYSTEM_MODE'
+      afterSystem.accessLevel,
+      'systemMode() should return an instance running in SYSTEM_MODE'
     );
-    Assert.areEqual(eloquent, afterSystem, 'systemMode() should be chainable (return the same instance)');
-
-    // system -> user : must switch back
-    IEloquent afterUser = eloquent.userMode();
     Assert.areEqual(
       System.AccessLevel.USER_MODE,
       eloquent.accessLevel,
-      'userMode() should switch the access mode back to USER_MODE'
+      'systemMode() must not mutate the receiver'
     );
-    Assert.areEqual(eloquent, afterUser, 'userMode() should be chainable (return the same instance)');
+    Assert.isFalse(afterSystem === eloquent, 'systemMode() should return a mode-switched copy, not the receiver');
 
-    // toggle once more to confirm it stays re-switchable
-    eloquent.systemMode();
+    // system -> user on the copy: switches back on a further copy, copy itself unmodified
+    Eloquent afterUser = (Eloquent) afterSystem.userMode();
+    Assert.areEqual(
+      System.AccessLevel.USER_MODE,
+      afterUser.accessLevel,
+      'userMode() should return an instance running in USER_MODE'
+    );
     Assert.areEqual(
       System.AccessLevel.SYSTEM_MODE,
-      eloquent.accessLevel,
-      'systemMode() should switch to SYSTEM_MODE again after a prior userMode()'
+      afterSystem.accessLevel,
+      'userMode() must not mutate the receiver'
     );
+  }
+
+  @isTest
+  static void testSystemMode_WhenPendingLabelSet_ThenLabelTravelsWithCopy() {
+    // Arrange
+    Eloquent eloquent = new Eloquent();
+
+    // Act - label('x').systemMode().doX() must keep working: the pending label
+    // is handed off to the mode-switched copy (issue #88)
+    eloquent.label('modeChain').systemMode().doInsert(buildGroup('modeChain'));
+
+    // Assert - the label was consumed by the copy; reusing it on the family throws consume-once
+    try {
+      eloquent.label('modeChain').doInsert(buildGroup('modeChain2'));
+      Assert.fail('Expected consume-once: the label was consumed through the mode-switched copy.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('was already consumed by'),
+        'Consume-once must span mode-switched copies. Got: ' + e.getMessage()
+      );
+    }
   }
 
   @isTest
@@ -1231,10 +1253,14 @@ public with sharing class EloquentTest {
       Assert.fail('Expected consume-once exception when reusing label.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(
-        e.getMessage().contains('already been consumed'),
+        e.getMessage().contains('was already consumed by'),
         'Expected consume-once message, got: ' + e.getMessage()
       );
       Assert.isTrue(e.getMessage().contains('dup'), 'Should mention the label name.');
+      Assert.isTrue(
+        e.getMessage().contains('doInsert(SObject record)'),
+        'Should name the operation that first consumed the label. Got: ' + e.getMessage()
+      );
     }
   }
 
@@ -1555,6 +1581,35 @@ public with sharing class EloquentTest {
     Assert.areEqual(1, results.size());
     Assert.areEqual(grp.Id, (Id) results[0].get('GroupId'));
     Assert.areEqual(1, ((Decimal) results[0].get('memberCount')).intValue());
+  }
+
+  @isTest
+  static void testFirst_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange - count + first() is the natural "count rows, read one scalar" shape (issue #85)
+    Group grp = buildGroup('aggFirst');
+    insert grp;
+    insert new GroupMember(GroupId = grp.Id, UserOrGroupId = UserInfo.getUserId());
+
+    // Act
+    Scribe countScribe = Scribe.of(GroupMember.class).count('Id', 'memberCount').whereEqual('GroupId', grp.Id);
+    IEntry entry = (new Eloquent()).first(countScribe);
+
+    // Assert
+    Assert.areEqual(1, ((Decimal) entry.get('memberCount')).intValue(), 'Alias must resolve through first() as it does through get().');
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange - an ungrouped aggregate query always returns one row, so firstOrFail succeeds
+    Group grp = buildGroup('aggFirstOrFail');
+    insert grp;
+
+    // Act
+    Scribe countScribe = Scribe.of(GroupMember.class).count('Id', 'memberCount').whereEqual('GroupId', grp.Id);
+    IEntry entry = (new Eloquent()).firstOrFail(countScribe);
+
+    // Assert
+    Assert.areEqual(0, ((Decimal) entry.get('memberCount')).intValue(), 'Zero members still yields one aggregate row with a zero count.');
   }
 
   @isTest

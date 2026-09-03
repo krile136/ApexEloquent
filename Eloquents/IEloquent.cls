@@ -43,23 +43,27 @@ public interface IEloquent {
   IEloquent label(String label);
 
   /**
-   * Runs subsequent SOQL/DML on this instance in user mode (the default):
+   * Returns an IEloquent that runs SOQL/DML in user mode (the default):
    * the running user's field-level security and object permissions are enforced.
    * Note: record-level sharing is governed by the class sharing keyword, not by this setting.
-   * Chainable.
    *
-   * @return this IEloquent for chaining
+   * Immutable: the receiver keeps its own access mode — always use the return
+   * value (`eloquent.userMode().doX(...)`), never call this as a statement.
+   *
+   * @return a mode-switched IEloquent for chaining; the receiver is unmodified
    */
   IEloquent userMode();
 
   /**
-   * Runs subsequent SOQL/DML on this instance in system mode: field-level security
+   * Returns an IEloquent that runs SOQL/DML in system mode: field-level security
    * and object permissions are NOT enforced. Record-level sharing still follows the
    * class sharing keyword (use a `without sharing` caller to also bypass sharing).
    * Opt out of the secure-by-default user mode only where system-context execution is required.
-   * Chainable.
    *
-   * @return this IEloquent for chaining
+   * Immutable: the receiver keeps its own access mode — always use the return
+   * value (`eloquent.systemMode().doX(...)`), never call this as a statement.
+   *
+   * @return a mode-switched IEloquent for chaining; the receiver is unmodified
    */
   IEloquent systemMode();
 

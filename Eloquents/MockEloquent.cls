@@ -26,6 +26,17 @@
  * DML operations like `doInsert` are simulated (e.g., by assigning a mock Id) without
  * performing any actual DML. The class also includes a constructor to force exceptions,
  * enabling robust testing of error-handling logic.
+ *
+ * Scope of the simulation: this mock reproduces the SHAPE of DML — which inputs the
+ * platform rejects (Id present on insert, Id missing on update/delete, null elements,
+ * null arguments, an unusable external-Id field, a field token from another SObject
+ * type, a missing or duplicated external-Id value inside one call), what the results
+ * carry, and the
+ * all-or-nothing rollback contract. It does NOT reproduce the MEANING of an org:
+ * field-level security and CRUD (userMode()/systemMode() are no-ops here), validation
+ * rules, required fields, unique constraints, triggers and their side effects,
+ * lookup filters, field length and value-type conformance (STRING_TOO_LONG etc.), or governor limits. Nor does it reproduce the 10-chunk limit on
+ * type-mixed lists. Those belong to integration tests against a real org.
  * @see IEloquent
  * @see Eloquent
  * @see MockEntry
@@ -50,6 +61,23 @@ public with sharing class MockEloquent implements IEloquent {
 
   private Map<Id, String> saveErrorsById = new Map<Id, String>();
   private Map<String, String> saveErrorsByExternalId = new Map<String, String>();
+  private List<WhenMatcher> saveErrorMatchers = new List<WhenMatcher>();
+
+  /**
+   * Field/value matcher registered via failSaveWhen(). Kept as a value object
+   * because Apex maps cannot key on (field, value) pairs directly.
+   */
+  private class WhenMatcher {
+    private final Schema.SObjectField field;
+    private final Object value;
+    private final String message;
+
+    private WhenMatcher(Schema.SObjectField field, Object value, String message) {
+      this.field = field;
+      this.value = value;
+      this.message = message;
+    }
+  }
   private Map<String, List<SObject>> upsertedByLabel = new Map<String, List<SObject>>();
   private Map<String, Integer> deletedCountByLabel = new Map<String, Integer>();
 
@@ -170,8 +198,9 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   /**
-   * Registers a per-record save failure for SaveResult/UpsertResult-returning DML
-   * (doUpdate(..., allOrNone) / doUpsertByExternalId(..., allOrNone)).
+   * Registers a per-record save failure for every SaveResult/UpsertResult/
+   * DeleteResult-returning DML (the allOrNone overloads of doInsert / doUpdate /
+   * doUpsert / doUpsertByExternalId / doDelete).
    *
    * With allOrNone = false the record's result carries success = false and the
    * given message, and the record is NOT added to the upsert spy (it was not saved).
@@ -181,6 +210,9 @@ public with sharing class MockEloquent implements IEloquent {
    * The target is identified by record Id — pair with MockEntry.autoId().
    * Rows reaching doUpsertByExternalId() WITHOUT an Id (the defining case for an
    * external-Id upsert) cannot be targeted here: use failSaveByExternalId() instead.
+   * Failed results carry a fixed statusCode (FIELD_CUSTOM_VALIDATION_EXCEPTION;
+   * DELETE_FAILED for deletes) — code branching on getStatusCode() cannot be
+   * verified against the mock.
    *
    * Returns a new instance (the receiver is unmodified), like every test-setup
    * builder on this class — always use the return value.
@@ -227,6 +259,56 @@ public with sharing class MockEloquent implements IEloquent {
     }
     MockEloquent newMockEloquent = this.copy();
     newMockEloquent.saveErrorsByExternalId.put(externalIdValue, errorMessage);
+    return newMockEloquent;
+  }
+
+  /**
+   * Registers a per-record save failure matched by an arbitrary field value.
+   * This is the targeting mechanism for rows that carry NO Salesforce Id when the
+   * DML runs — above all doInsert(..., allOrNone) and the create path of
+   * doUpsert(..., allOrNone), which failSave(Id, ...) can never reach (issue #80,
+   * same class of hole as #89).
+   *
+   * Matching applies to every SaveResult/UpsertResult/DeleteResult-returning DML:
+   * a row whose {@code field} equals {@code value} fails. With allOrNone = false
+   * the row's result carries success = false and the given message and the record
+   * is NOT recorded in the spy; with allOrNone = true the whole operation throws.
+   *
+   * Platform-originated rejections come first: on doUpsertByExternalId a row whose
+   * key value is missing, duplicated inside the same call, or read through a token
+   * of another SObject type fails for that reason, whatever failSave* registered.
+   *
+   * Resolution order per row: failSave (record Id) → failSaveByExternalId
+   * (external-Id upsert only) → failSaveWhen matchers. The mechanism priority is
+   * fixed regardless of registration order; among failSaveWhen matchers the one
+   * registered first wins; re-registering the same key on failSave /
+   * failSaveByExternalId overwrites the earlier message (last wins).
+   *
+   * Value semantics: comparison uses Apex ==, so Strings match case-insensitively
+   * and numeric values match across Integer/Decimal (measured). A null value
+   * matches every row where the field is unset. A matcher cannot be scoped to a
+   * single DML verb — it applies to all of them. Failed results carry a fixed
+   * statusCode (FIELD_CUSTOM_VALIDATION_EXCEPTION; DELETE_FAILED for deletes), so
+   * code that branches on getStatusCode() cannot be verified against the mock.
+   *
+   * Returns a new instance (the receiver is unmodified), like every test-setup
+   * builder on this class — always use the return value.
+   *
+   * @param field field whose value identifies the failing row
+   * @param value value that marks a row as failing (compared with ==)
+   * @param errorMessage error message the failed result carries
+   * @return a new MockEloquent with the failure registered
+   */
+  public MockEloquent failSaveWhen(Schema.SObjectField field, Object value, String errorMessage) {
+    String method = 'failSaveWhen(Schema.SObjectField field, Object value, String errorMessage)';
+    if (field == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'field', field).fire();
+    }
+    if (String.isBlank(errorMessage)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'errorMessage', errorMessage).fire();
+    }
+    MockEloquent newMockEloquent = this.copy();
+    newMockEloquent.saveErrorMatchers.add(new WhenMatcher(field, value, errorMessage));
     return newMockEloquent;
   }
 
@@ -354,6 +436,11 @@ public with sharing class MockEloquent implements IEloquent {
    * Releases a label whose operation failed. consume-once guards one
    * SUCCESSFUL operation per label — a failed attempt did not fulfill the
    * label's intent, so the same label may be retried.
+   *
+   * Invariant: every path that reaches releaseLabel must not have recorded
+   * anything in the spies yet (validate first, record last) — otherwise a
+   * retried label would double-record. List DML therefore validates the whole
+   * list before its first recordUpsert/recordDelete.
    */
   private void releaseLabel(String label) {
     this.consumedLabelToMethod.remove(label);
@@ -704,14 +791,298 @@ public with sharing class MockEloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
+      // Validate everything BEFORE assigning any Id or recording anything: without
+      // an allOrNone argument the operation is all-or-nothing, so a mid-list
+      // rejection must leave no trace (real DML rolls the whole call back).
       for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'insert');
+        }
         if (record.Id != null) {
           this.fireInsertWithIdError(method, record.Id);
         }
+      }
+      for (SObject record : records) {
         record.Id = this.generateId(record);
       }
       this.recordUpsertAll(label, records);
       return records;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.SaveResult doInsert(SObject record, Boolean allOrNone) {
+    String method = 'doInsert(SObject record, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      if (record.Id != null) {
+        // Real Database.insert rejects records that already have an Id: throws for
+        // allOrNone=true, row-level INVALID_FIELD_FOR_INSERT_UPDATE for false (measured).
+        if (allOrNone == true) {
+          this.fireInsertWithIdError(method, record.Id);
+        }
+        return buildInsertWithIdSaveResult();
+      }
+      String failure = this.resolveSaveFailure(record);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, 'insert', record.Id, failure);
+        }
+        return buildFailedSaveResult(null, failure);
+      }
+      record.Id = this.generateId(record);
+      this.recordUpsert(label, record);
+      return buildSuccessSaveResult(record.Id);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.SaveResult doInsert(IEntry entry, Boolean allOrNone) {
+    String method = 'doInsert(IEntry entry, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      // Mirror Eloquent: the caller's entry stays untouched — the Id lands on the
+      // internal clone and is reported through the SaveResult.
+      SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'insert');
+      }
+      if (record.Id != null) {
+        if (allOrNone == true) {
+          this.fireInsertWithIdError(method, record.Id);
+        }
+        return buildInsertWithIdSaveResult();
+      }
+      String failure = this.resolveSaveFailure(record);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, 'insert', record.Id, failure);
+        }
+        return buildFailedSaveResult(null, failure);
+      }
+      record.Id = this.generateId(record);
+      this.recordUpsert(label, record);
+      return buildSuccessSaveResult(record.Id);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.SaveResult> doInsert(List<SObject> records, Boolean allOrNone) {
+    String method = 'doInsert(List<SObject> records, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+      }
+      if (allOrNone == true) {
+        for (SObject record : records) {
+          if (record.Id != null) {
+            this.fireInsertWithIdError(method, record.Id);
+          }
+          String failure = this.resolveSaveFailure(record);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'insert', record.Id, failure);
+          }
+        }
+      }
+      List<Database.SaveResult> results = new List<Database.SaveResult>();
+      for (SObject record : records) {
+        if (record.Id != null) {
+          // Reachable only with allOrNone=false: real Database.insert reports a
+          // row-level INVALID_FIELD_FOR_INSERT_UPDATE and processes the other rows (measured).
+          results.add(buildInsertWithIdSaveResult());
+          continue;
+        }
+        String rowFailure = this.resolveSaveFailure(record);
+        if (rowFailure != null) {
+          results.add(buildFailedSaveResult(null, rowFailure));
+          continue;
+        }
+        record.Id = this.generateId(record);
+        this.recordUpsert(label, record);
+        results.add(buildSuccessSaveResult(record.Id));
+      }
+      return results;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.SaveResult> doInsert(List<IEntry> entries, Boolean allOrNone) {
+    String method = 'doInsert(List<IEntry> entries, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      // Mirror Eloquent: the caller's entries stay untouched — Ids land on the clones.
+      // getRecord() is taken once per entry (MockEntry clones on every call).
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+        records.add(record);
+      }
+      if (allOrNone == true) {
+        // Pre-pass: real all-or-nothing DML rolls everything back, so the mock
+        // must throw BEFORE any Id is assigned or any row is recorded.
+        for (SObject record : records) {
+          if (record.Id != null) {
+            this.fireInsertWithIdError(method, record.Id);
+          }
+          String failure = this.resolveSaveFailure(record);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'insert', record.Id, failure);
+          }
+        }
+      }
+      List<Database.SaveResult> results = new List<Database.SaveResult>();
+      for (SObject record : records) {
+        if (record.Id != null) {
+          results.add(buildInsertWithIdSaveResult());
+          continue;
+        }
+        String rowFailure = this.resolveSaveFailure(record);
+        if (rowFailure != null) {
+          results.add(buildFailedSaveResult(null, rowFailure));
+          continue;
+        }
+        record.Id = this.generateId(record);
+        this.recordUpsert(label, record);
+        results.add(buildSuccessSaveResult(record.Id));
+      }
+      return results;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public IEntry doInsert(IEntry entry) {
+    String method = 'doInsert(IEntry entry)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+
+      // Mirror Eloquent: the caller's entry stays untouched and the Id is carried
+      // by the returned Entry, exactly as Database.insert writes it back to the
+      // clone that Eloquent wraps into its return value.
+      SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'insert');
+      }
+      if (record.Id != null) {
+        this.fireInsertWithIdError(method, record.Id);
+      }
+      record.Id = this.generateId(record);
+      this.recordUpsert(label, record);
+      return new Entry(record);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<IEntry> doInsert(List<IEntry> entries) {
+    String method = 'doInsert(List<IEntry> entries)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+
+      // Validate everything BEFORE assigning any Id or recording anything: without
+      // an allOrNone argument the operation is all-or-nothing, so a mid-list
+      // rejection must leave no trace (real DML rolls the whole call back).
+      // getRecord() is taken once per entry (MockEntry clones on every call).
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'insert');
+        }
+        if (record.Id != null) {
+          this.fireInsertWithIdError(method, record.Id);
+        }
+        records.add(record);
+      }
+      // Mirror Eloquent: return fresh Entry instances carrying the Ids instead of
+      // mutating and aliasing the caller's entries.
+      List<IEntry> insertedEntries = new List<IEntry>();
+      for (SObject record : records) {
+        record.Id = this.generateId(record);
+        this.recordUpsert(label, record);
+        insertedEntries.add(new Entry(record));
+      }
+      return insertedEntries;
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -754,6 +1125,9 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'update');
+      }
       if (record.Id == null) {
         this.fireUpdateWithoutIdError(method);
       }
@@ -780,6 +1154,9 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'update');
+        }
         if (record.Id == null) {
           this.fireUpdateWithoutIdError(method);
         }
@@ -804,14 +1181,28 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
 
-      // Mirror Eloquent: return fresh Entry instances wrapping the updated clones
-      // instead of aliasing the caller's entries.
-      List<IEntry> updatedEntries = new List<IEntry>();
+      // Validate everything BEFORE recording anything: without an allOrNone
+      // argument the operation is all-or-nothing, so a mid-list rejection must
+      // leave no trace (real DML rolls the whole call back).
+      // getRecord() is taken once per entry (MockEntry clones on every call).
+      List<SObject> records = new List<SObject>();
       for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'update');
+        }
         SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'update');
+        }
         if (record.Id == null) {
           this.fireUpdateWithoutIdError(method);
         }
+        records.add(record);
+      }
+      // Mirror Eloquent: return fresh Entry instances wrapping the updated clones
+      // instead of aliasing the caller's entries.
+      List<IEntry> updatedEntries = new List<IEntry>();
+      for (SObject record : records) {
         this.recordUpsert(label, record);
         updatedEntries.add(new Entry(record));
       }
@@ -834,6 +1225,9 @@ public with sharing class MockEloquent implements IEloquent {
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
 
       if (record.Id == null) {
         // Real Database.update throws for allOrNone=true and returns a row-level
@@ -843,13 +1237,15 @@ public with sharing class MockEloquent implements IEloquent {
         }
         return buildMissingIdSaveResult();
       }
-      if (allOrNone == true) {
-        this.enforceAllOrNone(method, record);
+      String failure = this.resolveSaveFailure(record);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, 'update', record.Id, failure);
+        }
+        return buildFailedSaveResult(record.Id, failure);
       }
-      if (!this.isSaveFailure(record)) {
-        this.recordUpsert(label, record);
-      }
-      return this.buildSaveResult(record.Id);
+      this.recordUpsert(label, record);
+      return buildSuccessSaveResult(record.Id);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -867,8 +1263,14 @@ public with sharing class MockEloquent implements IEloquent {
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
 
       SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'update');
+      }
       if (record.Id == null) {
         // Real Database.update throws for allOrNone=true and returns a row-level
         // MISSING_ARGUMENT failure for allOrNone=false.
@@ -877,13 +1279,15 @@ public with sharing class MockEloquent implements IEloquent {
         }
         return buildMissingIdSaveResult();
       }
-      if (allOrNone == true) {
-        this.enforceAllOrNone(method, record);
+      String failure = this.resolveSaveFailure(record);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, 'update', record.Id, failure);
+        }
+        return buildFailedSaveResult(record.Id, failure);
       }
-      if (!this.isSaveFailure(record)) {
-        this.recordUpsert(label, record);
-      }
-      return this.buildSaveResult(record.Id);
+      this.recordUpsert(label, record);
+      return buildSuccessSaveResult(record.Id);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -901,13 +1305,24 @@ public with sharing class MockEloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
 
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'update');
+        }
+      }
       if (allOrNone == true) {
         for (SObject record : records) {
           if (record.Id == null) {
             this.fireUpdateWithoutIdError(method);
           }
-          this.enforceAllOrNone(method, record);
+          String failure = this.resolveSaveFailure(record);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'update', record.Id, failure);
+          }
         }
       }
       List<Database.SaveResult> results = new List<Database.SaveResult>();
@@ -918,10 +1333,13 @@ public with sharing class MockEloquent implements IEloquent {
           results.add(buildMissingIdSaveResult());
           continue;
         }
-        if (!this.isSaveFailure(record)) {
-          this.recordUpsert(label, record);
+        String rowFailure = this.resolveSaveFailure(record);
+        if (rowFailure != null) {
+          results.add(buildFailedSaveResult(record.Id, rowFailure));
+          continue;
         }
-        results.add(this.buildSaveResult(record.Id));
+        this.recordUpsert(label, record);
+        results.add(buildSuccessSaveResult(record.Id));
       }
       return results;
     } catch (Exception e) {
@@ -941,29 +1359,48 @@ public with sharing class MockEloquent implements IEloquent {
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
 
+      // getRecord() is taken once per entry (MockEntry clones on every call).
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'update');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'update');
+        }
+        records.add(record);
+      }
       if (allOrNone == true) {
-        for (IEntry entry : entries) {
-          SObject checked = entry.getRecord();
-          if (checked.Id == null) {
+        for (SObject record : records) {
+          if (record.Id == null) {
             this.fireUpdateWithoutIdError(method);
           }
-          this.enforceAllOrNone(method, checked);
+          String failure = this.resolveSaveFailure(record);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'update', record.Id, failure);
+          }
         }
       }
       List<Database.SaveResult> results = new List<Database.SaveResult>();
-      for (IEntry entry : entries) {
-        SObject record = entry.getRecord();
+      for (SObject record : records) {
         if (record.Id == null) {
           // Reachable only with allOrNone=false: real Database.update reports a
           // row-level MISSING_ARGUMENT failure and processes the other rows.
           results.add(buildMissingIdSaveResult());
           continue;
         }
-        if (!this.isSaveFailure(record)) {
-          this.recordUpsert(label, record);
+        String rowFailure = this.resolveSaveFailure(record);
+        if (rowFailure != null) {
+          results.add(buildFailedSaveResult(record.Id, rowFailure));
+          continue;
         }
-        results.add(this.buildSaveResult(record.Id));
+        this.recordUpsert(label, record);
+        results.add(buildSuccessSaveResult(record.Id));
       }
       return results;
     } catch (Exception e) {
@@ -976,25 +1413,34 @@ public with sharing class MockEloquent implements IEloquent {
     return record != null && record.Id != null && this.saveErrorsById.containsKey(record.Id);
   }
 
-  private void enforceAllOrNone(String method, SObject record) {
-    if (!this.isSaveFailure(record)) {
-      return;
-    }
-    this.fireAllOrNoneError(method, record.Id, this.saveErrorsById.get(record.Id));
+  /**
+   * Fire the unified null-element error for list DML. Real Database DML rejects
+   * lists containing null elements with a ListException before processing any row
+   * (measured on API v67.0), so the mock fails fast the same way.
+   *
+   * @param method calling method signature
+   * @param operation DML verb for the error headline
+   */
+  private void fireNullElementError(String method, String operation) {
+    String error = 'Failed to ' + operation + ' operation';
+    String reason = 'A null record was passed (as the argument, or as an element of the list), which real Database DML rejects before processing any row';
+    String action = 'Ensure the record passed to the DML method is not null and, for list DML, that the list contains no null elements';
+    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
   }
 
   /**
    * Throws the all-or-nothing failure for a registered per-record error,
-   * regardless of whether it was registered by Id or by external Id value.
+   * regardless of which failSave variant registered it.
    *
    * @param method calling method signature
+   * @param operation DML verb for the error headline (insert / update / upsert / delete)
    * @param recordId Id of the failing record (null for not-yet-created rows)
    * @param failureMessage registered error message
    */
-  private void fireAllOrNoneError(String method, Id recordId, String failureMessage) {
-    String error = 'Failed to update operation';
+  private void fireAllOrNoneError(String method, String operation, Id recordId, String failureMessage) {
+    String error = 'Failed to ' + operation + ' operation';
     String reason = 'DML failed with: ' + failureMessage;
-    String action = 'This failure was registered via failSave() / failSaveByExternalId(). With allOrNone = true the whole operation throws.';
+    String action = 'This failure was registered via failSave() / failSaveByExternalId() / failSaveWhen(). With allOrNone = true the whole operation throws.';
     ApexEloquentException.at(CLASS_NAME)
       .method(method)
       .error(error)
@@ -1005,41 +1451,263 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   /**
-   * Resolves the registered failure message for an external-Id upsert row:
-   * failSave() registrations (record Id) are checked first, then
-   * failSaveByExternalId() registrations (the external Id field's value) —
-   * the only key a caller has for rows that do not exist yet (issue #89).
+   * Resolves a failure registered via failSaveWhen() by comparing the matcher's
+   * field value against the record. A matcher whose field belongs to a different
+   * SObjectType simply does not match (multi-object tests register matchers for
+   * several types on one mock).
    *
-   * @param record record about to be upserted
-   * @param externalIdField external Id field the upsert routes on
-   * @return the registered error message, or null when the row should succeed
+   * @param record record about to be saved
+   * @return the registered error message, or null when no matcher applies
    */
-  private String resolveUpsertFailure(SObject record, Schema.SObjectField externalIdField) {
-    if (this.isSaveFailure(record)) {
-      return this.saveErrorsById.get(record.Id);
-    }
-    Object externalIdValue = externalIdField == null ? null : record.get(externalIdField);
-    if (externalIdValue != null) {
-      return this.saveErrorsByExternalId.get(String.valueOf(externalIdValue));
+  private String resolveWhenFailure(SObject record) {
+    for (WhenMatcher matcher : this.saveErrorMatchers) {
+      Object actual;
+      try {
+        actual = record.get(matcher.field);
+      } catch (SObjectException e) {
+        // Field tokens carry their owning SObjectType (measured: "Account.Name does
+        // not belong to SObject type Contact"), so a matcher registered for another
+        // object lands here and simply does not match. Same-named fields cannot
+        // misfire — the token, not the name, is what gets resolved.
+        continue;
+      }
+      if (actual == matcher.value) {
+        return matcher.message;
+      }
     }
     return null;
   }
 
-  private Database.SaveResult buildSaveResult(Id recordId) {
-    if (recordId != null && this.saveErrorsById.containsKey(recordId)) {
-      Map<String, Object> payload = new Map<String, Object>{
-        'success' => false,
-        'id' => recordId,
-        'errors' => new List<Object>{
-          new Map<String, Object>{
-            'message' => this.saveErrorsById.get(recordId),
-            'statusCode' => 'FIELD_CUSTOM_VALIDATION_EXCEPTION'
-          }
-        }
-      };
-      return (Database.SaveResult) JSON.deserialize(JSON.serialize(payload), Database.SaveResult.class);
+  /**
+   * Result of reading the external Id value off a record: either the value, or the
+   * row-level failure message the platform reports when the field token does not
+   * apply to that record's type.
+   */
+  private class ExternalIdRead {
+    private Object value;
+    private String failure;
+  }
+
+  /**
+   * Reads the external Id value, mirroring how the platform treats a field token
+   * from another SObject type: measured on API v67.0, that is NOT an exception but
+   * a row-level failure — CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY, "Expected field
+   * from SObject type Account but found Name from Product2". (A token whose flags
+   * make it unusable as a key is a different case and throws; see
+   * validateExternalIdField.)
+   *
+   * @param record record being upserted
+   * @param externalIdField field token the upsert routes on
+   * @return the value, or the row-level failure message when the token does not apply
+   */
+  private static ExternalIdRead readExternalId(SObject record, Schema.SObjectField externalIdField) {
+    ExternalIdRead read = new ExternalIdRead();
+    try {
+      read.value = record.get(externalIdField);
+    } catch (SObjectException e) {
+      Schema.DescribeFieldResult fieldDescribe = externalIdField.getDescribe();
+      read.failure =
+        'Expected field from SObject type ' +
+        record.getSObjectType().getDescribe().getName() +
+        ' but found ' +
+        fieldDescribe.getName() +
+        ' from ' +
+        fieldDescribe.getSObjectType().getDescribe().getName();
     }
-    return buildSuccessSaveResult(recordId);
+    return read;
+  }
+
+  /**
+   * Collects the external Id values that appear on more than one row of the same
+   * call. Real Database.upsert rejects every row sharing a value (measured:
+   * DUPLICATE_VALUE row failures with allOrNone = false, DmlException with true),
+   * while rows with unique values still succeed.
+   *
+   * @param records rows about to be upserted
+   * @param externalIdField field token the upsert routes on
+   * @return lowercased values that occur more than once (empty when none do)
+   */
+  private static Set<String> findDuplicateExternalIds(List<SObject> records, Schema.SObjectField externalIdField) {
+    Set<String> seen = new Set<String>();
+    Set<String> duplicates = new Set<String>();
+    for (SObject record : records) {
+      ExternalIdRead read = readExternalId(record, externalIdField);
+      if (read.failure != null || read.value == null) {
+        continue;
+      }
+      // Matching is case-SENSITIVE: measured on API v67.0, rows named 'R5Case' and
+      // 'r5case' both succeed, while two identical values collide. (The platform
+      // lowercases the value in the message for external-Id fields only — see
+      // duplicateMessage — but that is formatting, not the matching rule.)
+      String key = String.valueOf(read.value);
+      if (!seen.add(key)) {
+        duplicates.add(key);
+      }
+    }
+    return duplicates;
+  }
+
+  /**
+   * Formats the duplicate-key message the platform reports. Measured on API v67.0:
+   * an external-Id field reports the value lowercased ("...: r4-dupx" for 'R4-DUPX'),
+   * a standard indexed field reports it as-is ("...: R5MsgA").
+   *
+   * @param value the duplicated key value
+   * @param externalIdField field the upsert routes on
+   * @return the platform's message for this row
+   */
+  private static String duplicateMessage(Object value, Schema.SObjectField externalIdField) {
+    String raw = String.valueOf(value);
+    String shown = externalIdField.getDescribe().isExternalId() ? raw.toLowerCase() : raw;
+    return 'Duplicate external id specified: ' + shown;
+  }
+
+  /**
+   * Rejects an externalIdField that real Database.upsert cannot route on.
+   * Measured on API v67.0: a field that is neither an external Id nor a standard
+   * indexed (idLookup) field throws SObjectException "Invalid field for upsert,
+   * must be an External Id custom or standard indexed field". Without this guard
+   * the mock upserts happily and the test stays green while production rejects
+   * the call.
+   *
+   * @param method calling method signature
+   * @param externalIdField field the upsert routes on
+   */
+  private void validateExternalIdField(String method, Schema.SObjectField externalIdField) {
+    Schema.DescribeFieldResult fieldDescribe = externalIdField.getDescribe();
+    if (fieldDescribe.isExternalId() || fieldDescribe.isIdLookup()) {
+      return;
+    }
+    String error = 'Failed to upsert operation';
+    String reason =
+      'Invalid field for upsert, must be an External Id custom or standard indexed field: ' +
+      fieldDescribe.getName();
+    String action = 'Mark the field as an External Id, or pass one that already is';
+    ApexEloquentException.at(CLASS_NAME)
+      .method(method)
+      .error(error)
+      .reason(reason)
+      .action(action)
+      .param('externalIdField', fieldDescribe.getName())
+      .fire();
+  }
+
+  /**
+   * Resolves the registered failure message for a SaveResult/DeleteResult row:
+   * failSave() registrations (record Id) first, then failSaveWhen() matchers.
+   *
+   * @param record record about to be saved or deleted
+   * @return the registered error message, or null when the row should succeed
+   */
+  private String resolveSaveFailure(SObject record) {
+    if (this.isSaveFailure(record)) {
+      return this.saveErrorsById.get(record.Id);
+    }
+    return this.resolveWhenFailure(record);
+  }
+
+  /**
+   * Resolves the failure message for an external-Id upsert row, in the order the
+   * platform itself applies: failSave() registrations (record Id), then the
+   * platform-originated rejections (field token from another SObject type, missing
+   * key value, duplicate key inside the call), then failSaveByExternalId()
+   * registrations (the external Id field's value — the only key a caller has for
+   * rows that do not exist yet, issue #89), then failSaveWhen() matchers.
+   *
+   * @param record record about to be upserted
+   * @param externalIdField external Id field the upsert routes on
+   * @param duplicateExternalIds key values that occur on more than one row of this call
+   * @return the failure message, or null when the row should succeed
+   */
+  private String resolveUpsertFailure(
+    SObject record,
+    Schema.SObjectField externalIdField,
+    Set<String> duplicateExternalIds
+  ) {
+    if (this.isSaveFailure(record)) {
+      return this.saveErrorsById.get(record.Id);
+    }
+    ExternalIdRead read = readExternalId(record, externalIdField);
+    if (read.failure != null) {
+      return read.failure;
+    }
+    // Measured: a row whose key field is empty fails with MISSING_ARGUMENT
+    // "<Field> not specified" — for external-Id fields and standard indexed fields
+    // alike. Upserting BY Id is the exception: a null Id is the create path.
+    String keyFieldName = externalIdField.getDescribe().getName();
+    if (read.value == null && keyFieldName != 'Id') {
+      return keyFieldName + ' not specified';
+    }
+    if (read.value != null && duplicateExternalIds.contains(String.valueOf(read.value))) {
+      // Measured: rows sharing a key value inside one call all fail with DUPLICATE_VALUE.
+      return duplicateMessage(read.value, externalIdField);
+    }
+    Object externalIdValue = read.value;
+    if (externalIdValue != null && this.saveErrorsByExternalId.containsKey(String.valueOf(externalIdValue))) {
+      return this.saveErrorsByExternalId.get(String.valueOf(externalIdValue));
+    }
+    return this.resolveWhenFailure(record);
+  }
+
+  /**
+   * Build the failed SaveResult a registered per-record failure produces with
+   * allOrNone = false.
+   *
+   * @param recordId Id of the failing record (null for not-yet-created rows)
+   * @param failureMessage registered error message
+   * @return failed SaveResult carrying the message
+   */
+  private static Database.SaveResult buildFailedSaveResult(Id recordId, String failureMessage) {
+    Map<String, Object> payload = new Map<String, Object>{
+      'success' => false,
+      'id' => recordId,
+      'errors' => new List<Object>{
+        new Map<String, Object>{ 'message' => failureMessage, 'statusCode' => 'FIELD_CUSTOM_VALIDATION_EXCEPTION' }
+      }
+    };
+    return (Database.SaveResult) JSON.deserialize(JSON.serialize(payload), Database.SaveResult.class);
+  }
+
+  /**
+   * Build the failed SaveResult that real Database.insert returns for a record
+   * that already has an Id when allOrNone is false (measured on API v67.0).
+   *
+   * @return failed SaveResult carrying the INVALID_FIELD_FOR_INSERT_UPDATE error
+   */
+  private static Database.SaveResult buildInsertWithIdSaveResult() {
+    String payload = '{"success":false,"errors":[{"message":"cannot specify Id in an insert call","statusCode":"INVALID_FIELD_FOR_INSERT_UPDATE"}]}';
+    return (Database.SaveResult) JSON.deserialize(payload, Database.SaveResult.class);
+  }
+
+  /**
+   * Build the successful DeleteResult for a deleted row.
+   *
+   * @param recordId Id of the deleted record
+   * @return successful DeleteResult
+   */
+  private static Database.DeleteResult buildSuccessDeleteResult(Id recordId) {
+    String idPart = recordId == null ? '' : '"id":"' + recordId + '",';
+    String payload = '{"success":true,' + idPart + '"errors":[]}';
+    return (Database.DeleteResult) JSON.deserialize(payload, Database.DeleteResult.class);
+  }
+
+  /**
+   * Build the failed DeleteResult a registered per-record failure produces with
+   * allOrNone = false.
+   *
+   * @param recordId Id of the failing record
+   * @param failureMessage registered error message
+   * @return failed DeleteResult carrying the message
+   */
+  private static Database.DeleteResult buildFailedDeleteResult(Id recordId, String failureMessage) {
+    Map<String, Object> payload = new Map<String, Object>{
+      'success' => false,
+      'id' => recordId,
+      'errors' => new List<Object>{
+        new Map<String, Object>{ 'message' => failureMessage, 'statusCode' => 'DELETE_FAILED' }
+      }
+    };
+    return (Database.DeleteResult) JSON.deserialize(JSON.serialize(payload), Database.DeleteResult.class);
   }
 
   private static Database.SaveResult buildSuccessSaveResult(Id recordId) {
@@ -1144,6 +1812,9 @@ public with sharing class MockEloquent implements IEloquent {
       // by the returned Entry, exactly as Database.upsert writes it back to the
       // clone that Eloquent wraps into its return value.
       SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'upsert');
+      }
       if (record.Id == null) {
         record.Id = this.generateId(record);
       }
@@ -1167,22 +1838,20 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
 
+      // Validate everything BEFORE assigning any Id or recording anything: without
+      // an allOrNone argument the operation is all-or-nothing, so a mid-list
+      // rejection must leave no trace (real DML rolls the whole call back).
       for (SObject record : records) {
         if (record == null) {
-          String error = 'Null record found in records list';
-          String reason = 'The list of records to upsert contains a null value, which is not allowed';
-          String action = 'Ensure that the list of records passed to doUpsert does not contain any null values';
-          ApexEloquentException.at(CLASS_NAME)
-            .method(method)
-            .error(error)
-            .reason(reason)
-            .action(action)
-            .param('records', records)
-            .fire();
+          this.fireNullElementError(method, 'upsert');
         }
+      }
+      for (SObject record : records) {
         if (record.Id == null) {
           record.Id = this.generateId(record);
         }
+      }
+      for (SObject record : records) {
         this.recordUpsert(label, record);
       }
       return records;
@@ -1204,30 +1873,218 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
 
-      // Mirror Eloquent: return fresh Entry instances carrying the Ids instead of
-      // mutating and aliasing the caller's entries.
-      List<IEntry> upsertedEntries = new List<IEntry>();
+      // Validate everything BEFORE assigning any Id or recording anything: without
+      // an allOrNone argument the operation is all-or-nothing, so a mid-list
+      // rejection must leave no trace (real DML rolls the whole call back).
+      // getRecord() is taken once per entry (MockEntry clones on every call).
+      List<SObject> records = new List<SObject>();
       for (IEntry entry : entries) {
-        if (entry == null || entry.getRecord() == null) {
-          String error = 'Null entry found in entries list';
-          String reason = 'The list of entries to upsert contains a null value, which is not allowed';
-          String action = 'Ensure that the list of entries passed to doUpsert does not contain any null values';
-          ApexEloquentException.at(CLASS_NAME)
-            .method(method)
-            .error(error)
-            .reason(reason)
-            .action(action)
-            .param('entries', entries)
-            .fire();
+        if (entry == null) {
+          this.fireNullElementError(method, 'upsert');
         }
         SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        records.add(record);
+      }
+      // Mirror Eloquent: return fresh Entry instances carrying the Ids instead of
+      // mutating and aliasing the caller's entries.
+      for (SObject record : records) {
         if (record.Id == null) {
           record.Id = this.generateId(record);
         }
+      }
+      List<IEntry> upsertedEntries = new List<IEntry>();
+      for (SObject record : records) {
         this.recordUpsert(label, record);
         upsertedEntries.add(new Entry(record));
       }
       return upsertedEntries;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.UpsertResult doUpsert(SObject record, Boolean allOrNone) {
+    String method = 'doUpsert(SObject record, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      String failure = this.resolveSaveFailure(record);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, 'upsert', record.Id, failure);
+        }
+        return this.buildFailedUpsertResult(record.Id, failure);
+      }
+      Boolean isCreated = record.Id == null;
+      if (isCreated) {
+        record.Id = this.generateId(record);
+      }
+      this.recordUpsert(label, record);
+      return buildSuccessUpsertResult(record.Id, isCreated);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.UpsertResult doUpsert(IEntry entry, Boolean allOrNone) {
+    String method = 'doUpsert(IEntry entry, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      // Mirror Eloquent: the caller's entry stays untouched — a generated Id lands
+      // on the internal clone and is reported through the UpsertResult.
+      SObject record = entry.getRecord();
+      if (record == null) {
+        this.fireNullElementError(method, 'upsert');
+      }
+      String failure = this.resolveSaveFailure(record);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, 'upsert', record.Id, failure);
+        }
+        return this.buildFailedUpsertResult(record.Id, failure);
+      }
+      Boolean isCreated = record.Id == null;
+      if (isCreated) {
+        record.Id = this.generateId(record);
+      }
+      this.recordUpsert(label, record);
+      return buildSuccessUpsertResult(record.Id, isCreated);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.UpsertResult> doUpsert(List<SObject> records, Boolean allOrNone) {
+    String method = 'doUpsert(List<SObject> records, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+      }
+      if (allOrNone == true) {
+        // Pre-pass: real all-or-nothing DML rolls everything back, so the mock
+        // must throw BEFORE any Id is assigned or any row is recorded.
+        for (SObject record : records) {
+          String failure = this.resolveSaveFailure(record);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'upsert', record.Id, failure);
+          }
+        }
+      }
+      List<Database.UpsertResult> results = new List<Database.UpsertResult>();
+      for (SObject record : records) {
+        String failure = this.resolveSaveFailure(record);
+        if (failure != null) {
+          results.add(this.buildFailedUpsertResult(record.Id, failure));
+          continue;
+        }
+        Boolean isCreated = record.Id == null;
+        if (isCreated) {
+          record.Id = this.generateId(record);
+        }
+        this.recordUpsert(label, record);
+        results.add(buildSuccessUpsertResult(record.Id, isCreated));
+      }
+      return results;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.UpsertResult> doUpsert(List<IEntry> entries, Boolean allOrNone) {
+    String method = 'doUpsert(List<IEntry> entries, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+
+      // Mirror Eloquent: the caller's entries stay untouched — Ids land on the clones.
+      // getRecord() is taken once per entry (MockEntry clones on every call).
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        records.add(record);
+      }
+      if (allOrNone == true) {
+        // Pre-pass: real all-or-nothing DML rolls everything back, so the mock
+        // must throw BEFORE any Id is assigned or any row is recorded.
+        for (SObject record : records) {
+          String failure = this.resolveSaveFailure(record);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'upsert', record.Id, failure);
+          }
+        }
+      }
+      List<Database.UpsertResult> results = new List<Database.UpsertResult>();
+      for (SObject record : records) {
+        String failure = this.resolveSaveFailure(record);
+        if (failure != null) {
+          results.add(this.buildFailedUpsertResult(record.Id, failure));
+          continue;
+        }
+        Boolean isCreated = record.Id == null;
+        if (isCreated) {
+          record.Id = this.generateId(record);
+        }
+        this.recordUpsert(label, record);
+        results.add(buildSuccessUpsertResult(record.Id, isCreated));
+      }
+      return results;
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1249,11 +2106,18 @@ public with sharing class MockEloquent implements IEloquent {
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      if (externalIdField == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'externalIdField', null).fire();
+      }
+      this.validateExternalIdField(method, externalIdField);
 
-      String failure = this.resolveUpsertFailure(record, externalIdField);
+      String failure = this.resolveUpsertFailure(record, externalIdField, new Set<String>());
       if (failure != null) {
         if (allOrNone == true) {
-          this.fireAllOrNoneError(method, record.Id, failure);
+          this.fireAllOrNoneError(method, 'upsert', record.Id, failure);
         }
         return this.buildFailedUpsertResult(record.Id, failure);
       }
@@ -1284,12 +2148,22 @@ public with sharing class MockEloquent implements IEloquent {
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      if (externalIdField == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'externalIdField', null).fire();
+      }
+      this.validateExternalIdField(method, externalIdField);
 
       SObject record = entry.getRecord();
-      String failure = this.resolveUpsertFailure(record, externalIdField);
+      if (record == null) {
+        this.fireNullElementError(method, 'upsert');
+      }
+      String failure = this.resolveUpsertFailure(record, externalIdField, new Set<String>());
       if (failure != null) {
         if (allOrNone == true) {
-          this.fireAllOrNoneError(method, record.Id, failure);
+          this.fireAllOrNoneError(method, 'upsert', record.Id, failure);
         }
         return this.buildFailedUpsertResult(record.Id, failure);
       }
@@ -1322,26 +2196,34 @@ public with sharing class MockEloquent implements IEloquent {
       if (records == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      if (externalIdField == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'externalIdField', null).fire();
+      }
+      this.validateExternalIdField(method, externalIdField);
 
-      List<Database.UpsertResult> results = new List<Database.UpsertResult>();
       for (SObject record : records) {
         if (record == null) {
-          String error = 'Null record found in records list';
-          String reason = 'The list of records to upsert contains a null value, which is not allowed';
-          String action = 'Ensure that the list of records passed to doUpsertByExternalId does not contain any null values';
-          ApexEloquentException.at(CLASS_NAME)
-            .method(method)
-            .error(error)
-            .reason(reason)
-            .action(action)
-            .param('records', records)
-            .fire();
+          this.fireNullElementError(method, 'upsert');
         }
-        String failure = this.resolveUpsertFailure(record, externalIdField);
-        if (failure != null) {
-          if (allOrNone == true) {
-            this.fireAllOrNoneError(method, record.Id, failure);
+      }
+      Set<String> duplicateExternalIds = findDuplicateExternalIds(records, externalIdField);
+      if (allOrNone == true) {
+        // Pre-pass: real all-or-nothing DML rolls everything back, so the mock
+        // must throw BEFORE any Id is assigned or any row is recorded.
+        for (SObject record : records) {
+          String failure = this.resolveUpsertFailure(record, externalIdField, duplicateExternalIds);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'upsert', record.Id, failure);
           }
+        }
+      }
+      List<Database.UpsertResult> results = new List<Database.UpsertResult>();
+      for (SObject record : records) {
+        String failure = this.resolveUpsertFailure(record, externalIdField, duplicateExternalIds);
+        if (failure != null) {
           results.add(this.buildFailedUpsertResult(record.Id, failure));
           continue;
         }
@@ -1374,34 +2256,48 @@ public with sharing class MockEloquent implements IEloquent {
       if (entries == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      if (externalIdField == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'externalIdField', null).fire();
+      }
+      this.validateExternalIdField(method, externalIdField);
 
-      List<Database.UpsertResult> results = new List<Database.UpsertResult>();
+      // Mirror Eloquent: the Id is reported through the UpsertResult, never written
+      // back into the caller's entries (Database.upsert writes to the clones).
+      // getRecord() is taken once per entry (MockEntry clones on every call).
+      List<SObject> records = new List<SObject>();
       for (IEntry entry : entries) {
-        if (entry == null || entry.getRecord() == null) {
-          String error = 'Null entry found in entries list';
-          String reason = 'The list of entries to upsert contains a null value, which is not allowed';
-          String action = 'Ensure that the list of entries passed to doUpsertByExternalId does not contain any null values';
-          ApexEloquentException.at(CLASS_NAME)
-            .method(method)
-            .error(error)
-            .reason(reason)
-            .action(action)
-            .param('entries', entries)
-            .fire();
+        if (entry == null) {
+          this.fireNullElementError(method, 'upsert');
         }
         SObject record = entry.getRecord();
-        String failure = this.resolveUpsertFailure(record, externalIdField);
-        if (failure != null) {
-          if (allOrNone == true) {
-            this.fireAllOrNoneError(method, record.Id, failure);
+        if (record == null) {
+          this.fireNullElementError(method, 'upsert');
+        }
+        records.add(record);
+      }
+      Set<String> duplicateExternalIds = findDuplicateExternalIds(records, externalIdField);
+      if (allOrNone == true) {
+        // Pre-pass: real all-or-nothing DML rolls everything back, so the mock
+        // must throw BEFORE any Id is assigned or any row is recorded.
+        for (SObject record : records) {
+          String failure = this.resolveUpsertFailure(record, externalIdField, duplicateExternalIds);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'upsert', record.Id, failure);
           }
+        }
+      }
+      List<Database.UpsertResult> results = new List<Database.UpsertResult>();
+      for (SObject record : records) {
+        String failure = this.resolveUpsertFailure(record, externalIdField, duplicateExternalIds);
+        if (failure != null) {
           results.add(this.buildFailedUpsertResult(record.Id, failure));
           continue;
         }
         Boolean isCreated = record.Id == null;
         if (isCreated) {
-          // Mirror Eloquent: the Id is reported through the UpsertResult, never
-          // written back into the caller's entry (Database.upsert writes to the clone).
           record.Id = this.generateId(record);
         }
         this.recordUpsert(label, record);
@@ -1420,13 +2316,34 @@ public with sharing class MockEloquent implements IEloquent {
       'created' => false,
       'id' => recordId,
       'errors' => new List<Object>{
-        new Map<String, Object>{
-          'message' => failureMessage,
-          'statusCode' => 'FIELD_CUSTOM_VALIDATION_EXCEPTION'
-        }
+        new Map<String, Object>{ 'message' => failureMessage, 'statusCode' => upsertStatusCodeFor(failureMessage) }
       }
     };
     return (Database.UpsertResult) JSON.deserialize(JSON.serialize(payload), Database.UpsertResult.class);
+  }
+
+  /**
+   * Picks the statusCode the platform pairs with a failure message. The three
+   * platform-originated rejections the mock reproduces carry their measured codes
+   * (API v67.0) so that code branching on getStatusCode() behaves as in production;
+   * failures registered through failSave* keep the generic validation code.
+   *
+   * @param failureMessage message the failed row carries
+   * @return matching StatusCode name
+   */
+  private static String upsertStatusCodeFor(String failureMessage) {
+    if (failureMessage != null) {
+      if (failureMessage.startsWith('Duplicate external id specified:')) {
+        return 'DUPLICATE_VALUE';
+      }
+      if (failureMessage.startsWith('Expected field from SObject type ')) {
+        return 'CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY';
+      }
+      if (failureMessage.endsWith(' not specified')) {
+        return 'MISSING_ARGUMENT';
+      }
+    }
+    return 'FIELD_CUSTOM_VALIDATION_EXCEPTION';
   }
 
   private static Database.UpsertResult buildSuccessUpsertResult(Id recordId, Boolean isCreated) {
@@ -1469,7 +2386,8 @@ public with sharing class MockEloquent implements IEloquent {
       if (entry == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
       }
-      if (entry.getRecord() == null || entry.getRecord().Id == null) {
+      SObject deleteTarget = entry.getRecord();
+      if (deleteTarget == null || deleteTarget.Id == null) {
         this.fireDeleteWithoutIdError(method);
       }
 
@@ -1493,7 +2411,10 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
       }
       for (SObject record : records) {
-        if (record == null || record.Id == null) {
+        if (record == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        if (record.Id == null) {
           this.fireDeleteWithoutIdError(method);
         }
       }
@@ -1518,13 +2439,194 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
       }
       for (IEntry entry : entries) {
-        if (entry == null || entry.getRecord() == null || entry.getRecord().Id == null) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        if (record.Id == null) {
           this.fireDeleteWithoutIdError(method);
         }
       }
 
       this.recordDelete(label, entries.size());
       return;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.DeleteResult doDelete(SObject record, Boolean allOrNone) {
+    String method = 'doDelete(SObject record, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (record == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      // Real Database.delete throws for records without an Id even with
+      // allOrNone=false (measured: ListException before any row processing).
+      if (record.Id == null) {
+        this.fireDeleteWithoutIdError(method);
+      }
+
+      String failure = this.resolveSaveFailure(record);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, 'delete', record.Id, failure);
+        }
+        return buildFailedDeleteResult(record.Id, failure);
+      }
+      this.recordDelete(label, 1);
+      return buildSuccessDeleteResult(record.Id);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public Database.DeleteResult doDelete(IEntry entry, Boolean allOrNone) {
+    String method = 'doDelete(IEntry entry, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (entry == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entry', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      SObject record = entry.getRecord();
+      if (record == null || record.Id == null) {
+        this.fireDeleteWithoutIdError(method);
+      }
+
+      String failure = this.resolveSaveFailure(record);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, 'delete', record.Id, failure);
+        }
+        return buildFailedDeleteResult(record.Id, failure);
+      }
+      this.recordDelete(label, 1);
+      return buildSuccessDeleteResult(record.Id);
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.DeleteResult> doDelete(List<SObject> records, Boolean allOrNone) {
+    String method = 'doDelete(List<SObject> records, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (records == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'records', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      // Real Database.delete throws for records without an Id even with
+      // allOrNone=false (measured: ListException before any row processing).
+      for (SObject record : records) {
+        if (record == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        if (record.Id == null) {
+          this.fireDeleteWithoutIdError(method);
+        }
+      }
+
+      if (allOrNone == true) {
+        for (SObject record : records) {
+          String failure = this.resolveSaveFailure(record);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'delete', record.Id, failure);
+          }
+        }
+      }
+      List<Database.DeleteResult> results = new List<Database.DeleteResult>();
+      for (SObject record : records) {
+        String rowFailure = this.resolveSaveFailure(record);
+        if (rowFailure != null) {
+          results.add(buildFailedDeleteResult(record.Id, rowFailure));
+          continue;
+        }
+        this.recordDelete(label, 1);
+        results.add(buildSuccessDeleteResult(record.Id));
+      }
+      return results;
+    } catch (Exception e) {
+      this.releaseLabel(label);
+      throw e;
+    }
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public List<Database.DeleteResult> doDelete(List<IEntry> entries, Boolean allOrNone) {
+    String method = 'doDelete(List<IEntry> entries, Boolean allOrNone)';
+    String label = this.consumeLabel(method);
+    try {
+      this.handleErrorQueue(method, label);
+      if (entries == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'entries', null).fire();
+      }
+      if (allOrNone == null) {
+        ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
+      }
+      // getRecord() is taken once per entry (MockEntry clones on every call).
+      List<SObject> records = new List<SObject>();
+      for (IEntry entry : entries) {
+        if (entry == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        SObject record = entry.getRecord();
+        if (record == null) {
+          this.fireNullElementError(method, 'delete');
+        }
+        if (record.Id == null) {
+          this.fireDeleteWithoutIdError(method);
+        }
+        records.add(record);
+      }
+
+      if (allOrNone == true) {
+        for (SObject record : records) {
+          String failure = this.resolveSaveFailure(record);
+          if (failure != null) {
+            this.fireAllOrNoneError(method, 'delete', record.Id, failure);
+          }
+        }
+      }
+      List<Database.DeleteResult> results = new List<Database.DeleteResult>();
+      for (SObject record : records) {
+        String rowFailure = this.resolveSaveFailure(record);
+        if (rowFailure != null) {
+          results.add(buildFailedDeleteResult(record.Id, rowFailure));
+          continue;
+        }
+        this.recordDelete(label, 1);
+        results.add(buildSuccessDeleteResult(record.Id));
+      }
+      return results;
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1732,7 +2834,10 @@ public with sharing class MockEloquent implements IEloquent {
    */
   private String generateId(SObject record) {
     String prefix = record.getSObjectType().getDescribe().getKeyPrefix();
-    String generatedId = prefix + String.valueOf(this.insertCount).leftPad(12, '0');
+    // The '9' marker keeps this sequence disjoint from MockEntry.autoId(n), whose
+    // Ids are zero-padded small numbers — without it, insertCount 1 collides with
+    // autoId(1) and a failSave registered for the autoId record misfires.
+    String generatedId = prefix + '9' + String.valueOf(this.insertCount).leftPad(11, '0');
     this.insertCount++;
     return generatedId;
   }
@@ -1757,10 +2862,18 @@ public with sharing class MockEloquent implements IEloquent {
       newMockEloquent.errorQueueMap.put(method, newConfigs);
     }
     newMockEloquent.attachedDataByLabel = new Map<String, List<IEntry>>(this.attachedDataByLabel);
-    newMockEloquent.upsertedByLabel = new Map<String, List<SObject>>(this.upsertedByLabel);
+    // Deep-copy the spy buckets: sharing the inner lists would let DML on the copy
+    // leak into the receiver's records, breaking "the receiver is unmodified".
+    newMockEloquent.upsertedByLabel = new Map<String, List<SObject>>();
+    for (String bucketLabel : this.upsertedByLabel.keySet()) {
+      newMockEloquent.upsertedByLabel.put(bucketLabel, new List<SObject>(this.upsertedByLabel.get(bucketLabel)));
+    }
     newMockEloquent.deletedCountByLabel = new Map<String, Integer>(this.deletedCountByLabel);
+    newMockEloquent.upsertedRecords = new List<SObject>(this.upsertedRecords);
+    newMockEloquent.deletedCount = this.deletedCount;
     newMockEloquent.saveErrorsById = new Map<Id, String>(this.saveErrorsById);
     newMockEloquent.saveErrorsByExternalId = new Map<String, String>(this.saveErrorsByExternalId);
+    newMockEloquent.saveErrorMatchers = new List<WhenMatcher>(this.saveErrorMatchers);
     // strict mode state must propagate so failOnXxx-induced copies still enforce
     // consume-once across the original "intent boundary" (issue_39).
     newMockEloquent.strictMode = this.strictMode;

@@ -1735,4 +1735,257 @@ public with sharing class EloquentTest {
   private static Scribe base() {
     return Scribe.of(Group.class).field('Id').whereLike('Name', 'ScribeMx%');
   }
+
+  // ---- issue #80: DML symmetry against real DML ----
+
+  @isTest
+  static void testDoInsert_WhenAllOrNoneFalseAndListMixed_ThenRowLevelResults() {
+    // Arrange - one clean record, one carrying an Id (real insert rejects it row-level)
+    List<SObject> records = new List<SObject>{
+      buildGroup('insPartialGood'),
+      new Group(Id = '00G000000000001', Name = 'EloquentRT insPartialBad', DeveloperName = 'EloquentRT_insPartialBad')
+    };
+
+    // Act
+    List<Database.SaveResult> results = (new Eloquent()).doInsert(records, false);
+
+    // Assert - the clean row commits, the Id-carrying row fails row-level
+    Assert.isTrue(results[0].isSuccess(), 'Row without Id must succeed.');
+    Assert.isNotNull(results[0].getId(), 'SaveResult must carry the new Id.');
+    Assert.isFalse(results[1].isSuccess(), 'Row with Id must fail.');
+    Assert.areEqual(StatusCode.INVALID_FIELD_FOR_INSERT_UPDATE, results[1].getErrors()[0].getStatusCode());
+    Assert.isNull(results[1].getId(), 'The rejected row reports no Id (the mock mirrors this).');
+    Assert.areEqual(1, [SELECT COUNT() FROM Group WHERE Name = 'EloquentRT insPartialGood'], 'The successful row must be committed.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenAddEntry_ThenInputNotMutatedAndRecordInserted() {
+    // Arrange
+    IEntry entry = new Entry(buildGroup('insEntry'));
+
+    // Act
+    IEntry insertedEntry = (new Eloquent()).doInsert(entry);
+
+    // Assert - the caller's entry stays untouched; the Id travels via the return value
+    Assert.isNull(entry.getId(), 'Input entry must not be mutated.');
+    Assert.isNotNull(insertedEntry.getId(), 'Returned entry must carry the new Id.');
+    Assert.areEqual(1, [SELECT COUNT() FROM Group WHERE Id = :insertedEntry.getId()], 'The record must be committed.');
+  }
+
+  @isTest
+  static void testDoInsert_WhenEntriesAllOrNoneTrue_ThenResultsCarryIds() {
+    // Arrange
+    List<IEntry> entries = new List<IEntry>{
+      new Entry(buildGroup('insAon1')),
+      new Entry(buildGroup('insAon2'))
+    };
+
+    // Act
+    List<Database.SaveResult> results = (new Eloquent()).doInsert(entries, true);
+
+    // Assert
+    Assert.areEqual(2, results.size());
+    for (Integer i = 0; i < results.size(); i++) {
+      Assert.isTrue(results[i].isSuccess(), 'All-or-none insert of clean rows must succeed.');
+      Assert.isNotNull(results[i].getId(), 'SaveResult must carry the new Id.');
+      Assert.isNull(entries[i].getId(), 'Input entries must not be mutated.');
+    }
+  }
+
+  @isTest
+  static void testDoUpsert_WhenAllOrNoneFalseAndBogusId_ThenRowLevelFailure() {
+    // Arrange - a well-formed but nonexistent Id makes the row fail without an exception
+    Group ghost = new Group(Id = '00G000000000001', Name = 'EloquentRT upsGhost', DeveloperName = 'EloquentRT_upsGhost');
+
+    // Act
+    Database.UpsertResult result = (new Eloquent()).doUpsert((SObject) ghost, false);
+
+    // Assert
+    // The exact status code varies by object (INVALID_ID_FIELD on Group,
+    // INVALID_CROSS_REFERENCE_KEY on Product2) — the contract under test is
+    // "row-level failure instead of an exception".
+    Assert.isFalse(result.isSuccess(), 'Upsert of a nonexistent Id must fail row-level with allOrNone=false.');
+    Assert.isFalse(result.getErrors().isEmpty(), 'The failure must carry an error.');
+  }
+
+  @isTest
+  static void testDoDelete_WhenAllOrNoneFalseAndListMixed_ThenRowLevelResults() {
+    // Arrange
+    Group real = buildGroup('delPartial');
+    insert real;
+    Group ghost = new Group(Id = '00G000000000001');
+
+    // Act
+    List<Database.DeleteResult> results = (new Eloquent()).doDelete(new List<SObject>{ real, ghost }, false);
+
+    // Assert - the real row is deleted, the ghost fails row-level
+    Assert.isTrue(results[0].isSuccess(), 'Existing row must be deleted.');
+    Assert.isFalse(results[1].isSuccess(), 'Nonexistent row must fail row-level.');
+    Assert.areEqual(StatusCode.INVALID_CROSS_REFERENCE_KEY, results[1].getErrors()[0].getStatusCode());
+    Assert.areEqual(0, [SELECT COUNT() FROM Group WHERE Id = :real.Id], 'The successful deletion must be committed.');
+  }
+
+  @isTest
+  static void testDoDelete_WhenEntryAllOrNoneTrue_ThenDeleted() {
+    // Arrange
+    Group real = buildGroup('delAonEntry');
+    insert real;
+    IEntry entry = new Entry(real);
+
+    // Act
+    Database.DeleteResult result = (new Eloquent()).doDelete(entry, true);
+
+    // Assert
+    Assert.isTrue(result.isSuccess(), 'Delete of an existing row must succeed.');
+    Assert.areEqual(real.Id, result.getId(), 'DeleteResult must carry the record Id.');
+    Assert.areEqual(0, [SELECT COUNT() FROM Group WHERE Id = :real.Id], 'The row must be gone.');
+  }
+
+  // ---- review round 1: measured platform behaviours pinned by real DML ----
+
+  @isTest
+  static void testDoInsert_WhenIdPresentAllOrNoneTrue_ThenThrowWrapped() {
+    // Arrange
+    Group stale = new Group(Id = '00G000000000001', Name = 'EloquentRT insAonId', DeveloperName = 'EloquentRT_insAonId');
+
+    // Act & Assert - the measured INVALID_FIELD_FOR_INSERT_UPDATE arrives wrapped
+    // as ApexEloquentException, like every DML failure in this framework
+    try {
+      (new Eloquent()).doInsert(new List<SObject>{ stale }, true);
+      Assert.fail('Expected ApexEloquentException for all-or-none insert with Id.');
+    } catch (ApexEloquentException e) {
+      // The SAME string the mock bakes in — if the platform ever changes the
+      // wording, this real-DML test and the mock drift apart visibly.
+      Assert.isTrue(
+        e.getMessage().contains('cannot specify Id in an insert call'),
+        'Should carry the measured platform message the mock mirrors. Got: ' + e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenRecordWithoutIdAllOrNoneFalse_ThenThrowWrapped() {
+    // Arrange & Act & Assert - the platform throws a ListException here even with
+    // allOrNone=false (measured); Eloquent wraps it so callers keep catching
+    // ApexEloquentException on every failure path
+    try {
+      (new Eloquent()).doDelete(new Group(Name = 'EloquentRT delNoId'), false);
+      Assert.fail('Expected ApexEloquentException for delete without Id.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('rejected the input'), 'Should be the wrapped list rejection. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenAllOrNoneNull_ThenThrowRequired() {
+    // Arrange - a null Boolean would NPE inside Database.insert (measured);
+    // the guard turns it into a diagnosable exception before any DML
+    Boolean aon = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doInsert(buildGroup('nullAon'), aon);
+      Assert.fail('Expected ApexEloquentException for null allOrNone.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('allOrNone'), 'Should name the missing argument.');
+    }
+  }
+
+  @isTest
+  static void testDoInsert_WhenEmptyEntriesAllOrNoneFalse_ThenReturnEmptyResults() {
+    // Act & Assert - matches the guard convention of every other List<IEntry> method
+    Assert.areEqual(0, (new Eloquent()).doInsert(new List<IEntry>(), false).size(), 'Empty input must yield empty results.');
+  }
+
+  @isTest
+  static void testDoUpsert_WhenEmptyEntriesAllOrNoneFalse_ThenReturnEmptyResults() {
+    // Act & Assert
+    Assert.areEqual(0, (new Eloquent()).doUpsert(new List<IEntry>(), false).size(), 'Empty input must yield empty results.');
+  }
+
+  @isTest
+  static void testDoDelete_WhenEmptyEntriesAllOrNoneFalse_ThenReturnEmptyResults() {
+    // Act & Assert
+    Assert.areEqual(0, (new Eloquent()).doDelete(new List<IEntry>(), false).size(), 'Empty input must yield empty results.');
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenExternalIdFieldNull_ThenThrowRequired() {
+    // Arrange - Database.upsert NPEs on a null field token ("Argument 2 cannot be
+    // null", measured); the guard turns it into a diagnosable exception before DML
+    Schema.SObjectField externalIdField = null;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(new List<SObject>{ buildGroup('nullField') }, externalIdField, false);
+      Assert.fail('Expected ApexEloquentException for null externalIdField.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('externalIdField'), 'Should name the missing argument.');
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenKeyValueMissing_ThenRowFails() {
+    // Arrange & Act - real DML: a row whose key field is empty fails at row level
+    // with MISSING_ARGUMENT (the mock mirrors this exact message)
+    List<Database.UpsertResult> results = (new Eloquent())
+      .doUpsertByExternalId(new List<SObject>{ new Contact(LastName = 'EloquentRT noKey') }, Contact.Email, false);
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'A row without a key value must fail.');
+    Assert.areEqual('Email not specified', results[0].getErrors()[0].getMessage(), 'Same string the mock bakes in.');
+    Assert.areEqual(StatusCode.MISSING_ARGUMENT, results[0].getErrors()[0].getStatusCode());
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenFieldIsNotUsableAsKey_ThenThrow() {
+    // Arrange - the guard exists on this side so the failure arrives as an
+    // ApexEloquentException instead of the platform's raw SObjectException;
+    // without a test here, only the mock's copy of the rule is guarded
+    Schema.SObjectField plainField = Product2.Description;
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(
+        new List<SObject>{ new Product2(Name = 'x', Description = 'D1') },
+        plainField,
+        false
+      );
+      Assert.fail('Expected ApexEloquentException for a field unusable as an upsert key.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(
+        e.getMessage().contains('must be an External Id'),
+        'Should carry the measured platform wording. Got: ' + e.getMessage()
+      );
+    }
+  }
+
+  @isTest
+  static void testDoDelete_WhenListContainsNullElement_ThenThrowUnifiedError() {
+    // Arrange - real Database.delete rejects the list before processing any row
+    List<SObject> records = new List<SObject>{ buildGroup('delNullElem'), null };
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doDelete(records);
+      Assert.fail('Expected ApexEloquentException for a null list element.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('A null record was passed'), 'Should be the unified null-element error.');
+    }
+  }
+
+  @isTest
+  static void testDoUpsertByExternalId_WhenListContainsNullElement_ThenThrowUnifiedError() {
+    // Arrange - previously a raw ListException leaked here (measured: "DML
+    // statement found null SObject"); now the unified guard fires before DML
+    List<SObject> records = new List<SObject>{ buildGroup('nullElem'), null };
+
+    // Act & Assert
+    try {
+      (new Eloquent()).doUpsertByExternalId(records, Group.Id, false);
+      Assert.fail('Expected ApexEloquentException for a null list element.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('A null record was passed'), 'Should be the unified null-element error.');
+    }
+  }
 }

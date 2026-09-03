@@ -817,6 +817,36 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
+  static void testFirst_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'existingCount');
+    IEloquent eloquent = new MockEloquent(
+      MockEntry.asAggregateResult(new Map<String, Object>{ 'existingCount' => 3 })
+    );
+
+    // Act
+    IEntry entry = eloquent.first(scribe);
+
+    // Assert
+    Assert.areEqual(3, entry.get('existingCount'), 'Alias must resolve through first() as it does through get() (issue #85).');
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange
+    Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'existingCount');
+    IEloquent eloquent = new MockEloquent(
+      MockEntry.asAggregateResult(new Map<String, Object>{ 'existingCount' => 3 })
+    );
+
+    // Act
+    IEntry entry = eloquent.firstOrFail(scribe);
+
+    // Assert
+    Assert.areEqual(3, entry.get('existingCount'), 'Alias must resolve through firstOrFail() as it does through get() (issue #85).');
+  }
+
+  @isTest
   static void testGet_WhenApplyAggregateScribeAndAccessNonSelectedField_ThenThrowException() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
@@ -3172,10 +3202,14 @@ public with sharing class MockEloquentTest {
       Assert.fail('Expected consume-once exception when reusing label.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(
-        e.getMessage().contains('already been consumed'),
+        e.getMessage().contains('was already consumed by'),
         'Expected consume-once message, got: ' + e.getMessage()
       );
       Assert.isTrue(e.getMessage().contains('\'a\''), 'Should mention the label name.');
+      Assert.isTrue(
+        e.getMessage().contains('get(Scribe scribe)'),
+        'Should name the operation that first consumed the label. Got: ' + e.getMessage()
+      );
     }
   }
 
@@ -3233,7 +3267,7 @@ public with sharing class MockEloquentTest {
       mock.label('default').get(scribe);
       Assert.fail('Expected consume-once for explicit default.');
     } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('already been consumed'));
+      Assert.isTrue(e.getMessage().contains('was already consumed by'));
     }
   }
 
@@ -3264,7 +3298,7 @@ public with sharing class MockEloquentTest {
       Assert.fail('Expected consume-once: \'a\' was consumed on the original instance.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(
-        e.getMessage().contains('already been consumed'),
+        e.getMessage().contains('was already consumed by'),
         'Expected consume-once after copy(). Got: ' + e.getMessage()
       );
     }
@@ -3590,6 +3624,84 @@ public with sharing class MockEloquentTest {
       Assert.fail('Expected QueryException: whenLabel must not leak into the receiver');
     } catch (QueryException e) {
       Assert.areEqual('boom', e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testUpsertedEntriesAt_WhenDmlRan_ThenReturnEntries() {
+    // Arrange
+    MockEloquent mock = new MockEloquent();
+    MockEntry input = MockEntry.of(Opportunity.class);
+
+    // Act
+    mock.label('save').doUpsert(new List<IEntry>{ input });
+
+    // Assert - what goes in as IEntry can be asserted as IEntry (issue #86)
+    List<IEntry> saved = mock.upsertedEntriesAt('save');
+    Assert.areEqual(1, saved.size(), 'Expected one recorded entry.');
+    Assert.isNotNull(saved[0].getId(), 'Recorded entry must carry the generated Id.');
+  }
+
+  @isTest
+  static void testUpsertedEntriesAt_WhenUnknownLabel_ThenReturnEmptyList() {
+    // Act & Assert
+    Assert.areEqual(0, new MockEloquent().upsertedEntriesAt('nothing').size(), 'Unknown label must yield an empty list.');
+  }
+
+  @isTest
+  static void testFailSaveByExternalId_WhenRowWithoutId_ThenPartialFailureReported() {
+    // Arrange - the row does not exist in the org yet: no Id, the external Id value
+    // is the only key the caller has (issue #89)
+    MockEloquent mock = (new MockEloquent()).failSaveByExternalId('CARD-1', 'validation failed');
+
+    // Act
+    List<Database.UpsertResult> results = mock.doUpsertByExternalId(
+      new List<SObject>{
+        new Product2(Name = 'failing card', ProductCode = 'CARD-1'),
+        new Product2(Name = 'ok card', ProductCode = 'CARD-2')
+      },
+      Product2.ProductCode,
+      false
+    );
+
+    // Assert - the registered row fails without an exception, the other row succeeds,
+    // and only the successful row lands in the spy
+    Assert.isFalse(results[0].isSuccess(), 'Row registered via failSaveByExternalId must fail.');
+    Assert.areEqual('validation failed', results[0].getErrors()[0].getMessage());
+    Assert.isTrue(results[1].isSuccess(), 'Unregistered row must still succeed.');
+    Assert.areEqual(1, mock.upsertedRecordsAt('default').size(), 'Failed row must not be recorded as saved.');
+  }
+
+  @isTest
+  static void testFailSaveByExternalId_WhenEntryWithoutId_ThenPartialFailureReported() {
+    // Arrange
+    MockEntry card = MockEntry.of(Product2.class).set('ProductCode', 'CARD-1');
+    MockEloquent mock = (new MockEloquent()).failSaveByExternalId('CARD-1', 'validation failed');
+
+    // Act
+    List<Database.UpsertResult> results = mock.doUpsertByExternalId(
+      new List<IEntry>{ card },
+      Product2.ProductCode,
+      false
+    );
+
+    // Assert
+    Assert.isFalse(results[0].isSuccess(), 'Row registered via failSaveByExternalId must fail.');
+    Assert.isNull(card.getId(), 'A failed row must not receive an Id.');
+  }
+
+  @isTest
+  static void testFailSaveByExternalId_WhenAllOrNoneTrue_ThenThrow() {
+    // Arrange
+    MockEloquent mock = (new MockEloquent()).failSaveByExternalId('CARD-1', 'validation failed');
+
+    // Act & Assert - allOrNone = true throws instead of returning a failed result,
+    // mirroring real all-or-nothing DML
+    try {
+      mock.doUpsertByExternalId(new Product2(Name = 'card', ProductCode = 'CARD-1'), Product2.ProductCode, true);
+      Assert.fail('Expected all-or-none failure to throw.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('validation failed'), 'Should carry the registered message. Got: ' + e.getMessage());
     }
   }
 

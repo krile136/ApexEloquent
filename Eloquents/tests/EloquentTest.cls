@@ -1191,10 +1191,14 @@ public with sharing class EloquentTest {
       Assert.fail('Expected consume-once exception when reusing label.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(
-        e.getMessage().contains('already been consumed'),
+        e.getMessage().contains('was already consumed by'),
         'Expected consume-once message, got: ' + e.getMessage()
       );
       Assert.isTrue(e.getMessage().contains('dup'), 'Should mention the label name.');
+      Assert.isTrue(
+        e.getMessage().contains('doInsert(SObject record)'),
+        'Should name the operation that first consumed the label. Got: ' + e.getMessage()
+      );
     }
   }
 
@@ -1515,6 +1519,35 @@ public with sharing class EloquentTest {
     Assert.areEqual(1, results.size());
     Assert.areEqual(grp.Id, (Id) results[0].get('GroupId'));
     Assert.areEqual(1, ((Decimal) results[0].get('memberCount')).intValue());
+  }
+
+  @isTest
+  static void testFirst_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange - count + first() is the natural "count rows, read one scalar" shape (issue #85)
+    Group grp = buildGroup('aggFirst');
+    insert grp;
+    insert new GroupMember(GroupId = grp.Id, UserOrGroupId = UserInfo.getUserId());
+
+    // Act
+    Scribe countScribe = Scribe.of(GroupMember.class).count('Id', 'memberCount').whereEqual('GroupId', grp.Id);
+    IEntry entry = (new Eloquent()).first(countScribe);
+
+    // Assert
+    Assert.areEqual(1, ((Decimal) entry.get('memberCount')).intValue(), 'Alias must resolve through first() as it does through get().');
+  }
+
+  @isTest
+  static void testFirstOrFail_WhenAggregateScribe_ThenAliasReadable() {
+    // Arrange - an ungrouped aggregate query always returns one row, so firstOrFail succeeds
+    Group grp = buildGroup('aggFirstOrFail');
+    insert grp;
+
+    // Act
+    Scribe countScribe = Scribe.of(GroupMember.class).count('Id', 'memberCount').whereEqual('GroupId', grp.Id);
+    IEntry entry = (new Eloquent()).firstOrFail(countScribe);
+
+    // Assert
+    Assert.areEqual(0, ((Decimal) entry.get('memberCount')).intValue(), 'Zero members still yields one aggregate row with a zero count.');
   }
 
   @isTest

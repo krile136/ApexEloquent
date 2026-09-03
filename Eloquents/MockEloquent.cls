@@ -49,6 +49,7 @@ public with sharing class MockEloquent implements IEloquent {
   private Map<String, List<IEntry>> attachedDataByLabel = new Map<String, List<IEntry>>();
 
   private Map<Id, String> saveErrorsById = new Map<Id, String>();
+  private Map<String, String> saveErrorsByExternalId = new Map<String, String>();
   private Map<String, List<SObject>> upsertedByLabel = new Map<String, List<SObject>>();
   private Map<String, Integer> deletedCountByLabel = new Map<String, Integer>();
 
@@ -178,6 +179,8 @@ public with sharing class MockEloquent implements IEloquent {
    * mirroring real all-or-nothing DML.
    *
    * The target is identified by record Id — pair with MockEntry.autoId().
+   * Rows reaching doUpsertByExternalId() WITHOUT an Id (the defining case for an
+   * external-Id upsert) cannot be targeted here: use failSaveByExternalId() instead.
    *
    * Returns a new instance (the receiver is unmodified), like every test-setup
    * builder on this class — always use the return value.
@@ -192,6 +195,38 @@ public with sharing class MockEloquent implements IEloquent {
     }
     MockEloquent newMockEloquent = this.copy();
     newMockEloquent.saveErrorsById.put(recordId, errorMessage);
+    return newMockEloquent;
+  }
+
+  /**
+   * Registers a per-record save failure for doUpsertByExternalId(), keyed by the
+   * external Id field's VALUE — the key the caller actually has. failSave(Id, ...)
+   * cannot target rows that do not exist in the org yet: they carry no Salesforce
+   * Id before the mock assigns one, and needing no Id is the defining situation
+   * for an external-Id upsert (issue #89).
+   *
+   * With allOrNone = false the row's UpsertResult carries success = false and the
+   * given message, and the record is NOT added to the upsert spy (it was not saved).
+   * With allOrNone = true the whole operation throws before anything is recorded,
+   * mirroring real all-or-nothing DML.
+   *
+   * Returns a new instance (the receiver is unmodified), like every test-setup
+   * builder on this class — always use the return value.
+   *
+   * @param externalIdValue value of the external Id field identifying the failing row
+   * @param errorMessage error message the failed UpsertResult carries
+   * @return a new MockEloquent with the failure registered
+   */
+  public MockEloquent failSaveByExternalId(String externalIdValue, String errorMessage) {
+    String method = 'failSaveByExternalId(String externalIdValue, String errorMessage)';
+    if (String.isBlank(externalIdValue)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'externalIdValue', externalIdValue).fire();
+    }
+    if (String.isBlank(errorMessage)) {
+      ApexEloquentException.required(CLASS_NAME, method, 'errorMessage', errorMessage).fire();
+    }
+    MockEloquent newMockEloquent = this.copy();
+    newMockEloquent.saveErrorsByExternalId.put(externalIdValue, errorMessage);
     return newMockEloquent;
   }
 
@@ -945,16 +980,49 @@ public with sharing class MockEloquent implements IEloquent {
     if (!this.isSaveFailure(record)) {
       return;
     }
+    this.fireAllOrNoneError(method, record.Id, this.saveErrorsById.get(record.Id));
+  }
+
+  /**
+   * Throws the all-or-nothing failure for a registered per-record error,
+   * regardless of whether it was registered by Id or by external Id value.
+   *
+   * @param method calling method signature
+   * @param recordId Id of the failing record (null for not-yet-created rows)
+   * @param failureMessage registered error message
+   */
+  private void fireAllOrNoneError(String method, Id recordId, String failureMessage) {
     String error = 'Failed to update operation';
-    String reason = 'DML failed with: ' + this.saveErrorsById.get(record.Id);
-    String action = 'This failure was registered via failSave(). With allOrNone = true the whole operation throws.';
+    String reason = 'DML failed with: ' + failureMessage;
+    String action = 'This failure was registered via failSave() / failSaveByExternalId(). With allOrNone = true the whole operation throws.';
     ApexEloquentException.at(CLASS_NAME)
       .method(method)
       .error(error)
       .reason(reason)
       .action(action)
-      .param('recordId', record.Id)
+      .param('recordId', recordId)
       .fire();
+  }
+
+  /**
+   * Resolves the registered failure message for an external-Id upsert row:
+   * failSave() registrations (record Id) are checked first, then
+   * failSaveByExternalId() registrations (the external Id field's value) —
+   * the only key a caller has for rows that do not exist yet (issue #89).
+   *
+   * @param record record about to be upserted
+   * @param externalIdField external Id field the upsert routes on
+   * @return the registered error message, or null when the row should succeed
+   */
+  private String resolveUpsertFailure(SObject record, Schema.SObjectField externalIdField) {
+    if (this.isSaveFailure(record)) {
+      return this.saveErrorsById.get(record.Id);
+    }
+    Object externalIdValue = externalIdField == null ? null : record.get(externalIdField);
+    if (externalIdValue != null) {
+      return this.saveErrorsByExternalId.get(String.valueOf(externalIdValue));
+    }
+    return null;
   }
 
   private Database.SaveResult buildSaveResult(Id recordId) {
@@ -1182,11 +1250,12 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
 
-      if (allOrNone == true) {
-        this.enforceAllOrNone(method, record);
-      }
-      if (this.isSaveFailure(record)) {
-        return this.buildFailedUpsertResult(record.Id);
+      String failure = this.resolveUpsertFailure(record, externalIdField);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, record.Id, failure);
+        }
+        return this.buildFailedUpsertResult(record.Id, failure);
       }
       Boolean isCreated = record.Id == null;
       if (isCreated) {
@@ -1217,11 +1286,12 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       SObject record = entry.getRecord();
-      if (allOrNone == true) {
-        this.enforceAllOrNone(method, record);
-      }
-      if (this.isSaveFailure(record)) {
-        return this.buildFailedUpsertResult(record.Id);
+      String failure = this.resolveUpsertFailure(record, externalIdField);
+      if (failure != null) {
+        if (allOrNone == true) {
+          this.fireAllOrNoneError(method, record.Id, failure);
+        }
+        return this.buildFailedUpsertResult(record.Id, failure);
       }
       Boolean isCreated = record.Id == null;
       if (isCreated) {
@@ -1267,11 +1337,12 @@ public with sharing class MockEloquent implements IEloquent {
             .param('records', records)
             .fire();
         }
-        if (allOrNone == true) {
-          this.enforceAllOrNone(method, record);
-        }
-        if (this.isSaveFailure(record)) {
-          results.add(this.buildFailedUpsertResult(record.Id));
+        String failure = this.resolveUpsertFailure(record, externalIdField);
+        if (failure != null) {
+          if (allOrNone == true) {
+            this.fireAllOrNoneError(method, record.Id, failure);
+          }
+          results.add(this.buildFailedUpsertResult(record.Id, failure));
           continue;
         }
         Boolean isCreated = record.Id == null;
@@ -1319,11 +1390,12 @@ public with sharing class MockEloquent implements IEloquent {
             .fire();
         }
         SObject record = entry.getRecord();
-        if (allOrNone == true) {
-          this.enforceAllOrNone(method, record);
-        }
-        if (this.isSaveFailure(record)) {
-          results.add(this.buildFailedUpsertResult(record.Id));
+        String failure = this.resolveUpsertFailure(record, externalIdField);
+        if (failure != null) {
+          if (allOrNone == true) {
+            this.fireAllOrNoneError(method, record.Id, failure);
+          }
+          results.add(this.buildFailedUpsertResult(record.Id, failure));
           continue;
         }
         Boolean isCreated = record.Id == null;
@@ -1342,14 +1414,14 @@ public with sharing class MockEloquent implements IEloquent {
     }
   }
 
-  private Database.UpsertResult buildFailedUpsertResult(Id recordId) {
+  private Database.UpsertResult buildFailedUpsertResult(Id recordId, String failureMessage) {
     Map<String, Object> payload = new Map<String, Object>{
       'success' => false,
       'created' => false,
       'id' => recordId,
       'errors' => new List<Object>{
         new Map<String, Object>{
-          'message' => this.saveErrorsById.get(recordId),
+          'message' => failureMessage,
           'statusCode' => 'FIELD_CUSTOM_VALIDATION_EXCEPTION'
         }
       }
@@ -1688,6 +1760,7 @@ public with sharing class MockEloquent implements IEloquent {
     newMockEloquent.upsertedByLabel = new Map<String, List<SObject>>(this.upsertedByLabel);
     newMockEloquent.deletedCountByLabel = new Map<String, Integer>(this.deletedCountByLabel);
     newMockEloquent.saveErrorsById = new Map<Id, String>(this.saveErrorsById);
+    newMockEloquent.saveErrorsByExternalId = new Map<String, String>(this.saveErrorsByExternalId);
     // strict mode state must propagate so failOnXxx-induced copies still enforce
     // consume-once across the original "intent boundary" (issue_39).
     newMockEloquent.strictMode = this.strictMode;

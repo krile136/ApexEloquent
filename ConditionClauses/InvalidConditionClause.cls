@@ -47,6 +47,14 @@ public with sharing class InvalidConditionClause implements IConditionClause {
    * Fires the deferred required-argument error: the null-valued condition survived
    * to SOQL build time without being retracted by ignoreWhen().
    */
+
+  /**
+   * @inheritDoc
+   */
+  public String clauseKind() {
+    return 'invalid';
+  }
+
   public String build() {
     ApexEloquentException.required(CLASS_NAME, this.method, 'value', null)
       .param('fieldName', this.field)

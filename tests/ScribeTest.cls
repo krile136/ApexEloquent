@@ -4555,4 +4555,1258 @@ public with sharing class ScribeTest {
 
     Assert.areEqual('SELECT id FROM Account WHERE Type = \'X\' OR Rating = \'B\'', scribe.toSoql());
   }
+
+  // ---- issue #94: assertCondition / assertNoCondition ----
+
+  @isTest
+  static void testAssertCondition_WhenConditionPresent_ThenPasses() {
+    // Arrange
+    Set<Id> ids = new Set<Id>{ '001000000000001AAA', '001000000000002AAA' };
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereIn('Id', ids).whereEqual('Type', 'X');
+
+    // Act & Assert - chains, so both conditions are fixed in one statement
+    scribe.assertCondition(new InConditionClause('Id', ids)).assertCondition(new EqualConditionClause('Type', 'X'));
+  }
+
+  @isTest
+  static void testHasCondition_WhenSetBuiltInAnotherOrder_ThenStillMatches() {
+    // Arrange - Apex Sets iterate in insertion order (measured), so the expectation must
+    // not depend on how the Set was built
+    Id first = '001000000000001AAA';
+    Id second = '001000000000002AAA';
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereIn('Id', new Set<Id>{ first, second });
+
+    // Act & Assert
+    Assert.isTrue(scribe.hasCondition(new InConditionClause('Id', new Set<Id>{ second, first })));
+  }
+
+  @isTest
+  static void testHasCondition_WhenConditionMissing_ThenFalse() {
+    // Arrange - the defect this feature exists for: the query ignores the given Ids
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereEqual('Type', 'X');
+
+    // Act & Assert
+    Assert.isFalse(scribe.hasCondition(new InConditionClause('Id', new Set<Id>{ '001000000000001AAA' })));
+  }
+
+  @isTest
+  static void testConditionAssertionMessage_WhenMissing_ThenNamesExpectedActualAndSoql() {
+    // Arrange - the diagnosis is the whole point of the assertion over a hand-written
+    // toSoql().contains(...) check, and System.AssertException cannot be caught, so the
+    // message is verified through the builder
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereEqual('Type', 'X');
+
+    // Act
+    String message = scribe.conditionAssertionMessage(new InConditionClause('Id', new Set<Id>{ '001000000000001AAA' }), true);
+
+    // Assert
+    Assert.isTrue(message.contains('Expected the query to carry this condition'), message);
+    Assert.isTrue(message.contains('Id IN'), 'Should show the expected condition. Got: ' + message);
+    Assert.isTrue(message.contains('Type = \'X\''), 'Should list the conditions present. Got: ' + message);
+    Assert.isTrue(message.contains('SELECT'), 'Should show the SOQL. Got: ' + message);
+  }
+
+  @isTest
+  static void testHasCondition_WhenInsideWhereGroup_ThenFound() {
+    // Arrange - a group filters the same object, so its conditions count as the query's
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereGroup(Scribe.asGroup().whereEqual('Type', 'X').orCondition().whereEqual('Rating', 'B'));
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Rating', 'B'));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenOnParentObject_ThenNeedsTheParentType() {
+    // Arrange - the condition lives on the parent, not on the queried object
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Type', 'Partner'));
+
+    // Act & Assert - naming the object finds it...
+    scribe.assertCondition(new EqualConditionClause(Account.class, 'Type', 'Partner'));
+
+    // ...while the two-argument form targets the queried object and must not match
+    Assert.isFalse(
+      scribe.hasCondition(new EqualConditionClause('Type', 'Partner')),
+      'A parent condition must not satisfy an expectation aimed at the queried object.'
+    );
+    Assert.isTrue(
+      scribe.conditionAssertionMessage(new EqualConditionClause('Type', 'Partner'), true)
+        .contains('the same condition exists elsewhere in this query'),
+      'The message should point at the object that does carry it.'
+    );
+  }
+
+  @isTest
+  static void testAssertCondition_WhenOnChildSubQuery_ThenNeedsTheChildType() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(Contact.class).field('Id').whereEqual('LastName', 'Yamada'));
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause(Contact.class, 'LastName', 'Yamada'));
+  }
+
+  @isTest
+  static void testHasCondition_WhenSameFragmentInWhereAndHaving_ThenOnlyWhereIsFound() {
+    // Arrange - HAVING is never searched, so the check has to be able to fail: the alias is
+    // named after a real field and both sides render the same fragment. If HAVING were
+    // searched, removing the WHERE condition would still satisfy the assertion.
+    Scribe withWhere = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .sum('Amount', 'Amount')
+      .whereGreaterThan('Amount', 1)
+      .groupByField('StageName')
+      .havingCondition(Scribe.asHaving().whereGreaterThan('Amount', 1));
+    Scribe havingOnly = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .sum('Amount', 'Amount')
+      .groupByField('StageName')
+      .havingCondition(Scribe.asHaving().whereGreaterThan('Amount', 1));
+
+    // Act & Assert
+    Assert.isTrue(withWhere.hasCondition(new GreaterThanConditionClause('Amount', 1)), 'The WHERE condition must be found.');
+    Assert.isFalse(havingOnly.hasCondition(new GreaterThanConditionClause('Amount', 1)), 'A HAVING condition must never satisfy the assertion.');
+  }
+
+  @isTest
+  static void testAssertNoCondition_WhenAbsent_ThenPasses() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereEqual('Type', 'X');
+
+    // Act & Assert - the guard for "this filter must never be added"
+    scribe.assertNoCondition(new EqualConditionClause('IsDeleted', true));
+    Assert.isTrue(
+      scribe.conditionAssertionMessage(new EqualConditionClause('Type', 'X'), false)
+        .contains('Expected the query NOT to carry this condition'),
+      'The forbidden-condition message should be phrased the other way round.'
+    );
+  }
+
+  @isTest
+  static void testHasCondition_WhenOperatorDiffers_ThenNotFound() {
+    // Arrange - the expected clause fixes the operator too, so whereLike does not
+    // satisfy an expectation written as whereEqual
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereLike('Name', 'Acme%');
+
+    // Act & Assert
+    Assert.isFalse(scribe.hasCondition(new EqualConditionClause('Name', 'Acme%')));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenSelfReferencingParent_ThenRefusesToGuess() {
+    // Arrange - both the queried object and its parent are Account, so naming the object
+    // cannot say which one is meant
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Type', 'Root')
+      .parentCondition(Scribe.asParent('ParentId').whereEqual('Type', 'Parent'));
+
+    // Act & Assert - it must not quietly pass on whichever it happens to find
+    try {
+      scribe.assertCondition(new EqualConditionClause(Account.class, 'Type', 'Parent'));
+      Assert.fail('Expected the ambiguous target to be refused.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Ambiguous query target'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('ParentId'), 'Should list the paths to choose from. Got: ' + e.getMessage());
+      Assert.isTrue(e.getMessage().contains('assertConditionAt'), 'Should say how to resolve it. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenSelfReferencingParent_ThenEachLevelIsDistinct() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Type', 'Root')
+      .parentCondition(Scribe.asParent('ParentId').whereEqual('Type', 'Parent'));
+
+    // Act & Assert - the path tells the two apart
+    scribe.assertConditionAt('', new EqualConditionClause('Type', 'Root'));
+    scribe.assertConditionAt('ParentId', new EqualConditionClause('Type', 'Parent'));
+    Assert.isFalse(scribe.hasConditionAt('', new EqualConditionClause('Type', 'Parent')), 'The parent condition is not the root one.');
+    Assert.isFalse(scribe.hasConditionAt('ParentId', new EqualConditionClause('Type', 'Root')), 'The root condition is not the parent one.');
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenParentOfParent_ThenReachedByChainedPath() {
+    // Arrange - two hops up, every level the same object
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('ParentId').parentCondition(Scribe.asParent('ParentId').whereEqual('Type', 'Grandparent'))
+      );
+
+    // Act & Assert
+    scribe.assertConditionAt('ParentId.ParentId', new EqualConditionClause('Type', 'Grandparent'));
+    Assert.isFalse(scribe.hasConditionAt('ParentId', new EqualConditionClause('Type', 'Grandparent')));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenChildNamedByRelationship_ThenPathUsesThatName() {
+    // Arrange - a child hop is its relationName when one was given, matching how the
+    // framework already keys child data
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(Contact.class).relationName('Contacts').field('Id').whereEqual('LastName', 'Yamada'));
+
+    // Act & Assert
+    scribe.assertConditionAt('Contacts', new EqualConditionClause('LastName', 'Yamada'));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenChildHasNoRelationName_ThenPathUsesObjectName() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(Contact.class).field('Id').whereEqual('LastName', 'Yamada'));
+
+    // Act & Assert
+    scribe.assertConditionAt('Contact', new EqualConditionClause('LastName', 'Yamada'));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenPathLeadsNowhere_ThenThrowAndListRealPaths() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('ParentId').whereEqual('Type', 'X'));
+
+    // Act & Assert - a mistyped path is answered with the paths the query actually has
+    try {
+      scribe.assertConditionAt('OwnerId', new EqualConditionClause('Type', 'X'));
+      Assert.fail('Expected an unknown path to be refused.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Unknown query path'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('ParentId'), 'Should list the real paths. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertNoConditionAt_WhenAbsentAtThatPath_ThenPasses() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Type', 'Root')
+      .parentCondition(Scribe.asParent('ParentId').whereEqual('Type', 'Parent'));
+
+    // Act & Assert - the root does not carry the parent's condition
+    scribe.assertNoConditionAt('', new EqualConditionClause('Type', 'Parent'));
+  }
+
+  @isTest
+  static void testHasCondition_WhenEmptyInCollidesWithIsNull_ThenTheyStayDistinct() {
+    // Arrange - measured: an empty IN renders 'Id = null' and IS NULL renders 'Id = NULL',
+    // which Apex's case-insensitive String equality treats as equal. Keying on the kind of
+    // condition and its field keeps one from satisfying an assertion about the other.
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereNull('Id');
+
+    // Act & Assert - an IS NULL on Id must not answer for "filtered by these Ids"
+    Assert.isTrue(scribe.hasCondition(new IsNullConditionClause('Id')), 'The IS NULL condition is present.');
+    Assert.isFalse(
+      scribe.hasCondition(new EqualConditionClause('Id', null)),
+      'A different kind of condition rendering the same text must not match.'
+    );
+  }
+
+  @isTest
+  static void testHasCondition_WhenInsideSemiJoinSubQuery_ThenFound() {
+    // Arrange - whereIn(field, Scribe) carries a whole query inside the condition; treating
+    // it as a leaf would let assertNoCondition pass on a filter that is present
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereIn('Id', Scribe.of(Contact.class).field('AccountId').whereEqual('IsDeleted', true));
+
+    // Act & Assert
+    Assert.isTrue(scribe.hasCondition(new EqualConditionClause(Contact.class, 'IsDeleted', true)));
+    scribe.assertConditionAt('Id', new EqualConditionClause('IsDeleted', true));
+  }
+
+  @isTest
+  static void testAssertNoCondition_WhenConditionHidesInSemiJoin_ThenFails() {
+    // Arrange - the guard direction: "this filter must never be added" must not be
+    // satisfied by a filter tucked inside a subquery
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereIn('Id', Scribe.of(Contact.class).field('AccountId').whereEqual('IsDeleted', true));
+
+    // Act & Assert
+    Assert.isTrue(
+      scribe.hasCondition(new EqualConditionClause(Contact.class, 'IsDeleted', true)),
+      'assertNoCondition would wrongly pass if the subquery were not searched.'
+    );
+  }
+
+  @isTest
+  static void testAssertCondition_WhenSelfReferencingParentAndRootTargeted_ThenNotAmbiguous() {
+    // Arrange - naming no object means the queried object, which is one exact place; a
+    // self-referencing parent must not make that assertion ambiguous
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'x')
+      .parentCondition(Scribe.asParent('ParentId').whereEqual('Type', 'y'));
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Name', 'x'));
+    Assert.isFalse(scribe.hasCondition(new EqualConditionClause('Type', 'y')), 'The parent condition is not the root one.');
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenParentHasNoConditions_ThenReportsRatherThanNpe() {
+    // Arrange - ParentScribe returns before assigning its type when it holds no condition,
+    // so the type is null at assertion time
+    Scribe scribe = Scribe.of(Account.class).field('Id').parentCondition(Scribe.asParent('ParentId'));
+
+    // Act & Assert - the path is reachable and simply holds nothing, which is the answer a
+    // test wants when checking that a parent is NOT filtered
+    Assert.isFalse(scribe.hasConditionAt('ParentId', new EqualConditionClause('Type', 'X')));
+    scribe.assertNoConditionAt('ParentId', new EqualConditionClause('Type', 'X'));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenPathHasNoConditions_ThenStillListed() {
+    // Arrange - a place holding no condition is exactly where "assert nothing is filtered
+    // here" is wanted, so the guidance must name it
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(Contact.class).field('Id'));
+
+    // Act
+    String message;
+    try {
+      scribe.assertConditionAt('Typo', new EqualConditionClause('LastName', 'X'));
+      message = '(no exception)';
+    } catch (ApexEloquentException e) {
+      message = e.getMessage();
+    }
+
+    // Assert
+    Assert.isTrue(message.contains('Contact'), 'A condition-free child must still be listed. Got: ' + message);
+  }
+
+  // ---- issue #94: the shapes real projects actually build ----
+  //
+  // Surveyed across 233 production classes / 382 queries. What matters here is not only
+  // that conditions are found, but that the parts of a query which carry NO condition
+  // (parentField, orderBy, take/offset, groupBy) never turn into false matches.
+
+  @isTest
+  static void testAssertCondition_WhenQueryAlsoSelectsParentFields_ThenOnlyConditionsAreSearched() {
+    // Arrange - parentField is the second most common relationship feature (71 uses) and
+    // selects from a parent without filtering on it. A field selected there must not be
+    // mistaken for a condition.
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentField(Scribe.asParent('AccountId').field('Type').field('Rating'))
+      .whereEqual('LastName', 'Yamada');
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('LastName', 'Yamada'));
+    Assert.isFalse(scribe.hasCondition(new EqualConditionClause(Account.class, 'Type', 'A')), 'A selected parent field is not a condition.');
+    try {
+      scribe.assertConditionAt('AccountId', new EqualConditionClause('Type', 'A'));
+      Assert.fail('A parent that only contributes SELECT fields is not a searchable place.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Unknown query path'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertCondition_WhenSameParentUsedForFieldsAndConditions_ThenConditionSideIsFound() {
+    // Arrange - a real batch selects from a parent AND filters on it through two separate
+    // asParent instances of the same relationship
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentField(Scribe.asParent('AccountId').field('Type'))
+      .whereEqual('LastName', 'Yamada')
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Rating', 'Hot').whereNotNull('Phone'));
+
+    // Act & Assert - the condition side is reachable, and both of its conditions are there
+    scribe
+      .assertConditionAt('AccountId', new EqualConditionClause('Rating', 'Hot'))
+      .assertConditionAt('AccountId', new IsNotNullConditionClause('Phone'));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenQueryIsOrderedAndPaged_ThenConditionsStillMatch() {
+    // Arrange - the pagination idiom real search screens use: take(pageSize + 1) + offset,
+    // with multi-key ordering. None of it carries conditions.
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereEqual('Type', 'Partner')
+      .orderBy('Name', 'ASC', 'LAST')
+      .orderBy('Id', 'ASC')
+      .take(21)
+      .offset(20);
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Type', 'Partner'));
+    Assert.isFalse(scribe.hasCondition(new EqualConditionClause('Name', 'ASC')), 'An ORDER BY key is not a condition.');
+  }
+
+  @isTest
+  static void testAssertCondition_WhenSameObjectAppearsAsParentSelfAndChild_ThenEachPlaceIsDistinct() {
+    // Arrange - a real editor screen: a self-referencing parent for the source record, the
+    // record itself, and a self-referencing child collection named by relationName. The
+    // same object occupies three places at once.
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereEqual('Type', 'Self')
+      .parentCondition(Scribe.asParent('ParentId').whereEqual('Type', 'Parent'))
+      .withChildren(Scribe.asChild(Account.class).relationName('ChildAccounts').field('Id').whereEqual('Type', 'Child'));
+
+    // Act & Assert - naming the object cannot choose between three places
+    try {
+      scribe.assertCondition(new EqualConditionClause(Account.class, 'Type', 'Self'));
+      Assert.fail('Three Account places must be refused as ambiguous.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Ambiguous query target'), e.getMessage());
+    }
+    // ...but each path names exactly one
+    scribe.assertConditionAt('', new EqualConditionClause('Type', 'Self'));
+    scribe.assertConditionAt('ParentId', new EqualConditionClause('Type', 'Parent'));
+    scribe.assertConditionAt('ChildAccounts', new EqualConditionClause('Type', 'Child'));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenConditionsAreBuiltByReassignment_ThenEachBranchIsProvable() {
+    // Arrange - the most common dynamic shape: a filter DTO drives a chain of ifs that
+    // reassign the Scribe. Each branch produces a different set of conditions, and a test
+    // has to be able to pin the set it expects.
+    Set<Id> ids = new Set<Id>{ '001000000000001AAA' };
+    String nameFilter = null;
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    if (!ids.isEmpty()) {
+      scribe = scribe.whereIn('Id', ids);
+    }
+    if (String.isNotBlank(nameFilter)) {
+      scribe = scribe.whereLike('Name', nameFilter + '%');
+    }
+    scribe = scribe.whereEqual('Type', 'Always');
+
+    // Act & Assert - what the branch built, and what it did not
+    scribe.assertCondition(new InConditionClause('Id', ids));
+    scribe.assertCondition(new EqualConditionClause('Type', 'Always'));
+    scribe.assertNoCondition(new LikeConditionClause('Name', 'x%'));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenOrGroupIsRetractedAsAWhole_ThenSurroundingFiltersRemain() {
+    // Arrange - a real review queue: several optional filters, then an OR group that is
+    // itself dropped when its keyword is blank
+    String keyword = null;
+    Set<Id> ids = new Set<Id>{ '001000000000001AAA' };
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereIn('Id', ids)
+      .ignoreWhen(ids.isEmpty())
+      .whereEqual('Type', 'Queue')
+      .whereGroup(
+        Scribe.asGroup().whereLike('Name', keyword + '%').orCondition().whereLike('Phone', keyword + '%')
+      )
+      .ignoreWhen(String.isBlank(keyword));
+
+    // Act & Assert
+    scribe.assertCondition(new InConditionClause('Id', ids));
+    scribe.assertCondition(new EqualConditionClause('Type', 'Queue'));
+    scribe.assertNoCondition(new LikeConditionClause('Name', keyword + '%'));
+    scribe.assertNoCondition(new LikeConditionClause('Phone', keyword + '%'));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenNegationIsSwappedForItsPositive_ThenNotFound() {
+    // Arrange - a real test in another project notes that swapping whereNotIn for whereIn
+    // survives its assertions. Here the kind is part of the key, so the swap is caught.
+    // NOTE: a local named `scribe` would shadow the class (Apex identifiers are
+    // case-insensitive), so a second Scribe.of(...) in the same method needs another name.
+    Set<String> types = new Set<String>{ 'Excluded' };
+    Scribe negated = Scribe.of(Account.class).field('Name').whereNotIn('Type', types);
+    Scribe swapped = Scribe.of(Account.class).field('Name').whereIn('Type', types);
+
+    // Act & Assert
+    negated.assertCondition(new NotInConditionClause('Type', types));
+    Assert.isFalse(negated.hasCondition(new InConditionClause('Type', types)), 'whereIn must not satisfy a whereNotIn expectation.');
+    Assert.isFalse(swapped.hasCondition(new NotInConditionClause('Type', types)), 'and the swap must not pass the other way either.');
+  }
+
+  @isTest
+  static void testAssertCondition_WhenNullAndNotNullAreSwapped_ThenNotFound() {
+    // Arrange - the same swap for the null pair, which reads almost identically in code
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereNotNull('Phone');
+
+    // Act & Assert
+    scribe.assertCondition(new IsNotNullConditionClause('Phone'));
+    Assert.isFalse(scribe.hasCondition(new IsNullConditionClause('Phone')), 'whereNull must not satisfy a whereNotNull expectation.');
+  }
+
+  @isTest
+  static void testAssertCondition_WhenDateRangeUsesInclusiveBounds_ThenBothBoundsMatch() {
+    // Arrange - date ranges are always written with the OrEqual pair in practice; the
+    // strict variants are effectively unused, so the pair is what must be provable
+    Date rangeStart = Date.newInstance(2026, 1, 1);
+    Date rangeEnd = Date.newInstance(2026, 12, 31);
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .whereGreaterThanOrEqual('CloseDate', rangeStart)
+      .whereLessThanOrEqual('CloseDate', rangeEnd);
+
+    // Act & Assert - both bounds live on the same field, so only the kind tells them apart
+    scribe
+      .assertCondition(new GreaterThanOrEqualConditionClause('CloseDate', rangeStart))
+      .assertCondition(new LessThanOrEqualConditionClause('CloseDate', rangeEnd));
+    Assert.isFalse(scribe.hasCondition(new GreaterThanConditionClause('CloseDate', rangeStart)), 'The strict variant is a different condition.');
+  }
+
+  // ---- issue #94: every condition kind round-trips through the assertion ----
+  //
+  // Every clause class got a shortened constructor for building expectations, so every one
+  // of them has to be provable against the query the matching where...() builds. A kind
+  // whose expectation cannot match what the builder produces would look like a missing
+  // condition to the test author.
+
+  @isTest
+  static void testAssertCondition_WhenEveryScalarConditionKind_ThenEachMatchesItsBuilder() {
+    // Arrange - one query carrying every scalar comparison the builder offers
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereEqual('Type', 'A')
+      .whereNotEqual('Rating', 'B')
+      .whereGreaterThan('NumberOfEmployees', 1)
+      .whereGreaterThanOrEqual('AnnualRevenue', 2)
+      .whereLessThan('NumberOfLocations__c', 3)
+      .whereLessThanOrEqual('AnnualRevenue', 4)
+      .whereLike('Name', 'Acme%')
+      .whereNotLike('Industry', 'Ban%')
+      .whereNull('Website')
+      .whereNotNull('Phone');
+
+    // Act & Assert
+    scribe
+      .assertCondition(new EqualConditionClause('Type', 'A'))
+      .assertCondition(new NotEqualConditionClause('Rating', 'B'))
+      .assertCondition(new GreaterThanConditionClause('NumberOfEmployees', 1))
+      .assertCondition(new GreaterThanOrEqualConditionClause('AnnualRevenue', 2))
+      .assertCondition(new LessThanConditionClause('NumberOfLocations__c', 3))
+      .assertCondition(new LessThanOrEqualConditionClause('AnnualRevenue', 4))
+      .assertCondition(new LikeConditionClause('Name', 'Acme%'))
+      .assertCondition(new NotLikeConditionClause('Industry', 'Ban%'))
+      .assertCondition(new IsNullConditionClause('Website'))
+      .assertCondition(new IsNotNullConditionClause('Phone'));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenCollectionConditionKinds_ThenEachMatchesItsBuilder() {
+    // Arrange
+    Set<Id> ids = new Set<Id>{ '001000000000001AAA' };
+    Set<String> types = new Set<String>{ 'Partner' };
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereIn('Id', ids).whereNotIn('Type', types);
+
+    // Act & Assert
+    scribe
+      .assertCondition(new InConditionClause('Id', ids))
+      .assertCondition(new NotInConditionClause('Type', types));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenMultiPicklistConditionKinds_ThenEachMatchesItsBuilder() {
+    // Arrange - INCLUDES / EXCLUDES take a List<String> and never go through toListObject,
+    // so their values keep the order they were written in on both sides
+    List<String> values = new List<String>{ 'AAA', 'BBB' };
+    Scribe scribe = Scribe.of(QuickText.class)
+      .field('Name')
+      .whereIncludes('Channel', values)
+      .whereExcludes('Channel', new List<String>{ 'CCC' });
+
+    // Act & Assert
+    scribe
+      .assertCondition(new IncludesConditionClause('Channel', values))
+      .assertCondition(new ExcludeConditionClause('Channel', new List<String>{ 'CCC' }));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenSemiJoinConditionKinds_ThenEachMatchesItsBuilder() {
+    // Arrange - the expectation holds a Scribe of its own, so the two subqueries must be
+    // built the same way to compare equal
+    Scribe matching = Scribe.of(Contact.class).field('AccountId').whereEqual('LastName', 'Yamada');
+    Scribe other = Scribe.of(Contact.class).field('AccountId').whereEqual('LastName', 'Suzuki');
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereIn('Id', matching).whereNotIn('ParentId', other);
+
+    // Act & Assert
+    scribe
+      .assertCondition(new InSubQueryConditionClause('Id', matching))
+      .assertCondition(new NotInSubQueryConditionClause('ParentId', other));
+  }
+
+  @isTest
+  static void testAssertNoCondition_WhenNegativeKindsAreAbsent_ThenPasses() {
+    // Arrange - the guard direction for the kinds a query does NOT carry
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereEqual('Type', 'A');
+
+    // Act & Assert
+    scribe
+      .assertNoCondition(new NotEqualConditionClause('Type', 'A'))
+      .assertNoCondition(new IsNotNullConditionClause('Type'))
+      .assertNoCondition(new NotLikeConditionClause('Type', 'A'))
+      .assertNoCondition(new NotInConditionClause('Type', new Set<String>{ 'A' }));
+  }
+
+  // ---- issue #94 x ignoreWhen: every place a retraction can happen ----
+  //
+  // ignoreWhen pops the LAST ConditionPart of whichever Scribe it is chained onto, and it
+  // can be chained onto whereGroup() and parentCondition() too — so what disappears may be
+  // a whole group or a whole parent, not just one condition. These fix the assertion side
+  // for each place a retraction can leave a hole.
+
+  @isTest
+  static void testAssertCondition_WhenRetractionSitsBetweenTwoConditions_ThenNeighboursSurvive() {
+    // Arrange - the ordinary shape: an optional filter in the MIDDLE of a chain. ignoreWhen
+    // pops the last part, and the conditions written after it are appended afterwards, so
+    // this is where a retraction could take the wrong one with it.
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereEqual('Type', 'Before')
+      .whereIn('Id', ids)
+      .ignoreWhen(ids.isEmpty())
+      .whereEqual('Rating', 'After');
+
+    // Act & Assert - only the middle one is gone
+    scribe.assertCondition(new EqualConditionClause('Type', 'Before'));
+    scribe.assertCondition(new EqualConditionClause('Rating', 'After'));
+    scribe.assertNoCondition(new InConditionClause('Id', ids));
+    Assert.areEqual(
+      'SELECT name FROM Account WHERE Type = \'Before\' AND Rating = \'After\'',
+      scribe.toSoql(),
+      'Sanity: exactly the two neighbours remain, in order.'
+    );
+  }
+
+  @isTest
+  static void testAssertCondition_WhenMiddleRetractionIsKept_ThenAllThreeRemain() {
+    // Arrange - the same chain with the flag false: the middle condition stays, which is
+    // the half that proves the test above is not passing for the wrong reason
+    Set<Id> ids = new Set<Id>{ '001000000000001AAA' };
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereEqual('Type', 'Before')
+      .whereIn('Id', ids)
+      .ignoreWhen(ids.isEmpty())
+      .whereEqual('Rating', 'After');
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Type', 'Before'));
+    scribe.assertCondition(new InConditionClause('Id', ids));
+    scribe.assertCondition(new EqualConditionClause('Rating', 'After'));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenSeveralMiddleRetractionsInOneChain_ThenOnlyTheKeptOnesRemain() {
+    // Arrange - several optional filters interleaved with required ones, which is how a
+    // Usecase assembling a search actually reads
+    Set<Id> emptyIds = new Set<Id>();
+    Set<String> types = new Set<String>{ 'Partner' };
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereEqual('Rating', 'Required1')
+      .whereIn('Id', emptyIds)
+      .ignoreWhen(emptyIds.isEmpty())
+      .whereIn('Type', types)
+      .ignoreWhen(types.isEmpty())
+      .whereEqual('Industry', 'Required2')
+      .whereIn('OwnerId', emptyIds)
+      .ignoreWhen(emptyIds.isEmpty());
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Rating', 'Required1'));
+    scribe.assertCondition(new InConditionClause('Type', types));
+    scribe.assertCondition(new EqualConditionClause('Industry', 'Required2'));
+    scribe.assertNoCondition(new InConditionClause('Id', emptyIds));
+    scribe.assertNoCondition(new InConditionClause('OwnerId', emptyIds));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenMiddleRetractionInsideGroup_ThenNeighboursSurvive() {
+    // Arrange - the same middle position, one level down inside a group
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereGroup(
+        Scribe.asGroup()
+          .whereEqual('Type', 'Before')
+          .whereIn('Id', ids)
+          .ignoreWhen(ids.isEmpty())
+          .whereEqual('Rating', 'After')
+      );
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Type', 'Before'));
+    scribe.assertCondition(new EqualConditionClause('Rating', 'After'));
+    scribe.assertNoCondition(new InConditionClause('Id', ids));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenMiddleOrConditionRetracted_ThenTheAndNeighboursSurvive() {
+    // Arrange - the retracted middle condition was the only OR, so ignoreWhen also resets
+    // the OR-only mode and the condition written after it joins with AND
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereEqual('Type', 'Before')
+      .orCondition()
+      .whereIn('Id', ids)
+      .ignoreWhen(ids.isEmpty())
+      .whereEqual('Rating', 'After');
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Type', 'Before'));
+    scribe.assertCondition(new EqualConditionClause('Rating', 'After'));
+    scribe.assertNoCondition(new InConditionClause('Id', ids));
+    Assert.areEqual(
+      'SELECT name FROM Account WHERE Type = \'Before\' AND Rating = \'After\'',
+      scribe.toSoql(),
+      'Sanity: the retracted OR must not leave its operator behind.'
+    );
+  }
+
+  @isTest
+  static void testAssertCondition_WhenGroupInnerConditionRetracted_ThenOnlyTheOtherRemains() {
+    // Arrange - retraction inside a group (R2/P1/S1)
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereGroup(Scribe.asGroup().whereEqual('Type', 'X').whereIn('Id', ids).ignoreWhen(ids.isEmpty()));
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Type', 'X'));
+    scribe.assertNoCondition(new InConditionClause('Id', ids));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenWholeGroupRetracted_ThenNothingFromItRemains() {
+    // Arrange - whereGroup().ignoreWhen() pops the group itself (R1/P2/S2)
+    Boolean skipGroup = true;
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereEqual('Rating', 'A')
+      .whereGroup(Scribe.asGroup().whereEqual('Type', 'X')).ignoreWhen(skipGroup);
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Rating', 'A'));
+    scribe.assertNoCondition(new EqualConditionClause('Type', 'X'));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenWholeParentConditionRetracted_ThenPathIsGone() {
+    // Arrange - parentCondition().ignoreWhen() pops the parent branch entirely (R1/P3/S2)
+    Boolean skipParent = true;
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .whereEqual('LastName', 'Yamada')
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Type', 'Partner'))
+      .ignoreWhen(skipParent);
+
+    // Act & Assert - the condition is gone, and so is the path that led to it
+    scribe.assertCondition(new EqualConditionClause('LastName', 'Yamada'));
+    Assert.isFalse(scribe.hasCondition(new EqualConditionClause(Account.class, 'Type', 'Partner')));
+    try {
+      scribe.assertConditionAt('AccountId', new EqualConditionClause('Type', 'Partner'));
+      Assert.fail('The retracted parent must no longer be reachable as a path.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Unknown query path'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenParentBecomesEmptyByRetraction_ThenReportedNotNpe() {
+    // Arrange - the parent survives but loses its only condition (R3/P1/S2). Its type is
+    // never assigned in that case (ParentScribe returns before doing so), which is the same
+    // shape that produced an NPE before the metaType fallback.
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereIn('Id', ids).ignoreWhen(ids.isEmpty()));
+
+    // Act & Assert
+    Assert.isFalse(scribe.hasConditionAt('AccountId', new InConditionClause('Id', ids)));
+    scribe.assertNoConditionAt('AccountId', new InConditionClause('Id', ids));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenGrandparentConditionRetracted_ThenOnlyThatLevelIsEmpty() {
+    // Arrange - retraction two hops up (R4/P1/S2)
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('ParentId')
+          .whereEqual('Type', 'Middle')
+          .parentCondition(Scribe.asParent('ParentId').whereIn('Id', ids).ignoreWhen(ids.isEmpty()))
+      );
+
+    // Act & Assert
+    scribe.assertConditionAt('ParentId', new EqualConditionClause('Type', 'Middle'));
+    scribe.assertNoConditionAt('ParentId.ParentId', new InConditionClause('Id', ids));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenChildConditionRetracted_ThenChildPathHoldsNothing() {
+    // Arrange - retraction inside a child subquery (R5/P1/S2)
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(Contact.class).field('Id').whereIn('Id', ids).ignoreWhen(ids.isEmpty()));
+
+    // Act & Assert
+    scribe.assertNoConditionAt('Contact', new InConditionClause('Id', ids));
+    Assert.isFalse(scribe.hasCondition(new InConditionClause(Contact.class, 'Id', ids)));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenSemiJoinInnerConditionRetracted_ThenSubQueryPathHoldsNothing() {
+    // Arrange - retraction inside a semi-join subquery (R6/P1/S2)
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereIn(
+        'Id',
+        Scribe.of(Contact.class).field('AccountId').whereIn('Id', ids).ignoreWhen(ids.isEmpty())
+      );
+
+    // Act & Assert
+    scribe.assertNoConditionAt('Id', new InConditionClause('Id', ids));
+    Assert.isFalse(scribe.hasCondition(new InConditionClause(Contact.class, 'Id', ids)));
+  }
+
+  @isTest
+  static void testHasCondition_WhenHavingConditionRetracted_ThenStillNotSearched() {
+    // Arrange - HAVING is out of scope whether or not a retraction happened (R7/P1/S2)
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .sum('Amount', 'Amount')
+      .whereGreaterThan('Amount', 1)
+      .groupByField('StageName')
+      .havingCondition(Scribe.asHaving().whereGreaterThan('Amount', 1).whereIn('Amount', ids).ignoreWhen(ids.isEmpty()));
+
+    // Act & Assert
+    scribe.assertCondition(new GreaterThanConditionClause('Amount', 1));
+    Assert.isFalse(scribe.hasCondition(new InConditionClause('Amount', ids)), 'HAVING is never searched.');
+  }
+
+  @isTest
+  static void testAssertCondition_WhenOrConditionRetracted_ThenRemainingConditionStillFound() {
+    // Arrange - retracting the OR-marked condition also resets the OR-only mode (S3)
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereEqual('Type', 'X')
+      .orCondition()
+      .whereIn('Id', ids)
+      .ignoreWhen(ids.isEmpty());
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Type', 'X'));
+    scribe.assertNoCondition(new InConditionClause('Id', ids));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenOrSurvivesRetraction_ThenBothSidesStillFound() {
+    // Arrange - the retraction is elsewhere, so the OR pair is intact (S3)
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Name')
+      .whereIn('Id', ids)
+      .ignoreWhen(ids.isEmpty())
+      .whereEqual('Type', 'X')
+      .orCondition()
+      .whereEqual('Rating', 'B');
+
+    // Act & Assert - presence is what is checked; an OR-joined condition still counts
+    scribe.assertCondition(new EqualConditionClause('Type', 'X'));
+    scribe.assertCondition(new EqualConditionClause('Rating', 'B'));
+    scribe.assertNoCondition(new InConditionClause('Id', ids));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenEveryConditionRetracted_ThenQueryCarriesNothing() {
+    // Arrange - the whole WHERE clause disappears (S2 at the root)
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereIn('Id', ids).ignoreWhen(ids.isEmpty());
+
+    // Act & Assert
+    Assert.isFalse(scribe.toSoql().contains('WHERE'), 'Sanity: no WHERE clause at all. Got: ' + scribe.toSoql());
+    scribe.assertNoCondition(new InConditionClause('Id', ids));
+    Assert.isTrue(
+      scribe.conditionAssertionMessage(new InConditionClause('Id', ids), true).contains('no condition on this object'),
+      'The message should say the query filters on nothing.'
+    );
+  }
+
+  @isTest
+  static void testAssertCondition_WhenSelfReferenceLosesTheParent_ThenNoLongerAmbiguous() {
+    // Arrange - the ambiguity check counts places, so retracting the parent must remove it
+    // from the count as well (S2 x A2)
+    Boolean skipParent = true;
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Type', 'Root')
+      .parentCondition(Scribe.asParent('ParentId').whereEqual('Type', 'Parent'))
+      .ignoreWhen(skipParent);
+
+    // Act & Assert - with one Account left, naming the object is unambiguous again
+    scribe.assertCondition(new EqualConditionClause(Account.class, 'Type', 'Root'));
+  }
+
+  @isTest
+  static void testConditionAssertionMessage_WhenPathRetracted_ThenItIsNotOffered() {
+    // Arrange - the guidance must not name a path the query no longer has
+    Boolean skipParent = true;
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Type', 'X'))
+      .ignoreWhen(skipParent);
+
+    // Act
+    String message;
+    try {
+      scribe.assertConditionAt('AccountId', new EqualConditionClause('Type', 'X'));
+      message = '(no exception)';
+    } catch (ApexEloquentException e) {
+      message = e.getMessage();
+    }
+
+    // Assert - the guidance lists what the query still has; the retracted path is not
+    // among the choices (it only appears echoed back as the path that was asked for)
+    Assert.isTrue(message.contains('Unknown query path'), message);
+    String guidance = message.substringBetween('Use one of the paths this query actually has:', 'Provided:');
+    Assert.isNotNull(guidance, 'The message should offer the paths that remain. Got: ' + message);
+    Assert.isFalse(
+      guidance.contains('AccountId'),
+      'A retracted path must not be offered as a choice. Got: ' + guidance
+    );
+    Assert.isTrue(guidance.contains('the queried object'), 'The root should still be offered. Got: ' + guidance);
+  }
+
+  @isTest
+  static void testScribeSpy_WhenConditionRetracted_ThenTheRecordedQueryHasItGone() {
+    // Arrange - the spy records the Scribe itself, so a retraction must be visible through
+    // it exactly as on the Scribe (A6)
+    Set<Id> ids = new Set<Id>();
+    MockEloquent mock = (new MockEloquent()).attach('fetch', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereIn('Id', ids).ignoreWhen(ids.isEmpty());
+
+    // Act
+    mock.label('fetch').get(scribe);
+
+    // Assert
+    mock.scribeAt('fetch').assertNoCondition(new InConditionClause('Id', ids));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenIgnoreWhenKeptTheCondition_ThenFound() {
+    // Arrange - ignoreWhen(false) leaves the condition in place
+    Set<Id> ids = new Set<Id>{ '001000000000001AAA' };
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereIn('Id', ids).ignoreWhen(ids.isEmpty());
+
+    // Act & Assert
+    scribe.assertCondition(new InConditionClause('Id', ids));
+  }
+
+  @isTest
+  static void testAssertNoCondition_WhenIgnoreWhenRetractedTheCondition_ThenAbsent() {
+    // Arrange - the other half of the same branch: ignoreWhen(true) pops the condition off
+    // the query, so the assertion is written with the same empty collection the production
+    // code was handed. An empty IN renders degenerate SOQL, which is why the comparison key
+    // carries the kind and the field rather than the text alone.
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereIn('Id', ids).ignoreWhen(ids.isEmpty());
+
+    // Act & Assert
+    scribe.assertNoCondition(new InConditionClause('Id', ids));
+    Assert.isFalse(scribe.hasCondition(new InConditionClause('Id', ids)));
+  }
+
+  @isTest
+  static void testAssertCondition_WhenEmptyExpectationAndWrongFieldFiltered_ThenNotFound() {
+    // Arrange - both sides render 'Id = null', so only the field keeps them apart: a query
+    // narrowing the wrong field must not satisfy an assertion about the right one
+    Set<Id> ids = new Set<Id>();
+    Scribe scribe = Scribe.of(Contact.class).field('Id').whereIn('OwnerId', ids);
+
+    // Act & Assert
+    Assert.isFalse(
+      scribe.hasCondition(new InConditionClause('AccountId', ids)),
+      'A degenerate condition on another field must not match.'
+    );
+    Assert.isTrue(scribe.hasCondition(new InConditionClause('OwnerId', ids)), 'The field it does filter matches.');
+  }
+
+  @isTest
+  static void testAssertCondition_WhenExpectedIsNull_ThenThrow() {
+    // Arrange
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+    IConditionClause expected = null;
+
+    // Act & Assert
+    try {
+      scribe.assertCondition(expected);
+      Assert.fail('Expected ApexEloquentException for a null expectation.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('expected'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenSetPassedToWhereIn_ThenValuesAreSorted() {
+    // Arrange - a Set has no order, so the generated IN clause is canonical: the same
+    // set of values always renders the same way, whichever order it was built in
+    Scribe forward = Scribe.of(Account.class).field('Id').whereIn('Name', new Set<String>{ 'a', 'b', 'c' });
+    Scribe reverse = Scribe.of(Account.class).field('Id').whereIn('Name', new Set<String>{ 'c', 'b', 'a' });
+
+    // Act & Assert
+    Assert.areEqual(forward.toSoql(), reverse.toSoql(), 'A Set must render canonically regardless of insertion order.');
+    Assert.isTrue(forward.toSoql().contains('IN (\'a\', \'b\', \'c\')'), 'Got: ' + forward.toSoql());
+  }
+
+  @isTest
+  static void testToSoql_WhenListPassedToWhereIn_ThenOrderIsPreserved() {
+    // Arrange - a List carries an order the caller chose, so it is left alone
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', new List<String>{ 'c', 'a', 'b' });
+
+    // Act & Assert
+    Assert.isTrue(scribe.toSoql().contains('IN (\'c\', \'a\', \'b\')'), 'Got: ' + scribe.toSoql());
+  }
+  @isTest
+  static void testAssertCondition_WhenExpectedFieldIsMisspelled_ThenThrow() {
+    // Arrange - a misspelled field renders as tidy SOQL (getFieldType falls back to STRING
+    // for anything absent from the describe map), so it would simply match nothing
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('Type', 'Partner');
+
+    // Act & Assert
+    try {
+      scribe.assertCondition(new EqualConditionClause('Typ', 'Partner'));
+      Assert.fail('Expected ApexEloquentException for a field Account does not have.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Typ'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertNoCondition_WhenExpectedFieldIsMisspelled_ThenThrow() {
+    // Arrange - this is the half that matters: an unmatched expectation fails assertCondition
+    // loudly, but would let assertNoCondition pass for ever, including after the code under
+    // test starts filtering on the very field the test was written to guard
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('Type', 'Partner');
+
+    // Act & Assert
+    try {
+      scribe.assertNoCondition(new EqualConditionClause('Typ', 'Partner'));
+      Assert.fail('A misspelled field must not let assertNoCondition pass.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Typ'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertCondition_WhenExpectedFieldIsARelationshipPath_ThenAccepted() {
+    // Arrange - dotted names are the polymorphic and relationship forms that are valid in
+    // SOQL but absent from the describe map, so the field check must leave them alone
+    Scribe scribe = Scribe.of(Contact.class).field('Id').whereEqual('Account.Type', 'Partner');
+
+    // Act & Assert
+    scribe.assertCondition(new EqualConditionClause('Account.Type', 'Partner'));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenFieldBelongsToTheObjectAtThePath_ThenAccepted() {
+    // Arrange - the parent loses its type when it holds no condition, so resolving the field
+    // check against the root would reject a field the parent really has (R7)
+    Scribe scribe = Scribe.of(Contact.class).field('Id').parentCondition(Scribe.asParent('AccountId'));
+
+    // Act & Assert - Industry is an Account field, and the answer is simply "not filtered"
+    Assert.isFalse(scribe.hasConditionAt('AccountId', new EqualConditionClause('Industry', 'Retail')));
+    scribe.assertNoConditionAt('AccountId', new EqualConditionClause('Industry', 'Retail'));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenFieldBelongsToTheRootNotThePath_ThenThrow() {
+    // Arrange - the mirror of the test above: LastName is a Contact field, and the path
+    // leads to Account, so reading the expectation against the root would hide the mistake
+    Scribe scribe = Scribe.of(Contact.class).field('Id').parentCondition(Scribe.asParent('AccountId'));
+
+    // Act & Assert
+    try {
+      scribe.assertNoConditionAt('AccountId', new EqualConditionClause('LastName', 'X'));
+      Assert.fail('Expected ApexEloquentException for a field Account does not have.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('LastName'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenPathAndObjectDisagree_ThenThrow() {
+    // Arrange - naming both is allowed as documentation, but an object the path does not
+    // lead to is a mistake in the test, not something to honour silently
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Type', 'Partner'));
+
+    // Act & Assert
+    try {
+      scribe.assertConditionAt('AccountId', new EqualConditionClause(Contact.class, 'LastName', 'X'));
+      Assert.fail('Expected ApexEloquentException when the path and the named object disagree.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('AccountId'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenPathAndObjectAgree_ThenFound() {
+    // Arrange - the same shape with the two in agreement stays accepted
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Type', 'Partner'));
+
+    // Act & Assert
+    scribe.assertConditionAt('AccountId', new EqualConditionClause(Account.class, 'Type', 'Partner'));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenPathLeadsNowhere_ThenReportedAsPathNotField() {
+    // Arrange - a wrong path is reported as a wrong path. The expectation is read against
+    // the root only to render the message, so its field must not be judged there.
+    Scribe scribe = Scribe.of(Contact.class).field('Id').whereEqual('LastName', 'X');
+
+    // Act
+    String message;
+    try {
+      scribe.assertConditionAt('Typo', new EqualConditionClause('Industry', 'Retail'));
+    } catch (Exception e) {
+      message = e.getMessage();
+    }
+
+    // Assert
+    Assert.isNotNull(message, 'A path reaching nothing must be reported.');
+    Assert.isFalse(message.contains('has no field named'), 'Got the field error instead: ' + message);
+  }
+  @isTest
+  static void testAssertConditionAt_WhenTwoSemiJoinsShareAHopName_ThenBothAreAssertable() {
+    // Arrange - hop names come from three sources sharing one namespace, so the same field
+    // can reach two objects. Both are places the query really filters, so an assertion
+    // about either must be writable (R3/1).
+    Scribe scribe = Scribe.of(Task.class)
+      .field('Id')
+      .whereIn('AccountId', Scribe.of(Opportunity.class).field('AccountId').whereEqual('StageName', 'Closed Won'))
+      .whereIn('AccountId', Scribe.of(Contact.class).field('AccountId').whereEqual('LastName', 'Yamada'));
+
+    // Act & Assert - the expectation is read against whichever object has the named field
+    scribe.assertConditionAt('AccountId', new EqualConditionClause('StageName', 'Closed Won'));
+    scribe.assertConditionAt('AccountId', new EqualConditionClause('LastName', 'Yamada'));
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenCollidingHopAndObjectNamed_ThenAccepted() {
+    // Arrange - naming the object is the way to say which of two colliding places is meant,
+    // so it must not be reported as a conflict when the path does reach it
+    Scribe scribe = Scribe.of(Task.class)
+      .field('Id')
+      .whereIn('AccountId', Scribe.of(Opportunity.class).field('AccountId').whereEqual('StageName', 'Closed Won'))
+      .whereIn('AccountId', Scribe.of(Contact.class).field('AccountId').whereEqual('LastName', 'Yamada'));
+
+    // Act & Assert
+    scribe.assertConditionAt('AccountId', new EqualConditionClause(Contact.class, 'LastName', 'Yamada'));
+    Assert.isFalse(
+      scribe.hasConditionAt('AccountId', new EqualConditionClause(Contact.class, 'LastName', 'Suzuki')),
+      'A different value must not match.'
+    );
+  }
+
+  @isTest
+  static void testAssertConditionAt_WhenCollidingHopAndFieldOnNeither_ThenBothObjectsNamed() {
+    // Arrange - the field check still fires when no candidate has the field, and the message
+    // has to name every object that was considered or it cannot be acted on
+    Scribe scribe = Scribe.of(Task.class)
+      .field('Id')
+      .whereIn('AccountId', Scribe.of(Opportunity.class).field('AccountId').whereEqual('StageName', 'Closed Won'))
+      .whereIn('AccountId', Scribe.of(Contact.class).field('AccountId').whereEqual('LastName', 'Yamada'));
+
+    // Act & Assert
+    try {
+      scribe.assertConditionAt('AccountId', new EqualConditionClause('LastNam', 'Yamada'));
+      Assert.fail('Expected ApexEloquentException for a field neither object has.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Opportunity'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('Contact'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testHasCondition_WhenExpectedFieldIsMisspelled_ThenThrow() {
+    // Arrange - hasCondition returns a Boolean, so "return false" is the tempting answer for
+    // an unknown field. It throws instead, deliberately: false is what a test would read as
+    // "the query does not filter on this", which is exactly the wrong conclusion.
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('Type', 'Partner');
+
+    // Act & Assert
+    try {
+      scribe.hasCondition(new EqualConditionClause('Typ', 'Partner'));
+      Assert.fail('A misspelled field must not be answered with a Boolean.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Typ'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertCondition_WhenExpectedIsAnAggregateAlias_ThenThrow() {
+    // Arrange - HAVING is never searched because its field name is an aggregate alias, so an
+    // alias passed as an expectation used to be answered with a silent "not found". It is now
+    // refused as a field the object does not have, which says why.
+    Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'cnt').groupByField('StageName');
+
+    // Act & Assert
+    try {
+      scribe.assertCondition(new GreaterThanConditionClause('cnt', 1));
+      Assert.fail('Expected ApexEloquentException for an aggregate alias.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('cnt'), e.getMessage());
+    }
+  }
+  @isTest
+  static void testAssertCondition_WhenFieldIsAbsentHereButPresentElsewhere_ThenDiagnosedNotRejected() {
+    // Arrange - Contact has no 'Type'; Account does, and carries the condition. The field
+    // check must not pre-empt the more useful diagnosis, so it runs only once the search
+    // has come up empty everywhere (R3/1 follow-up).
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Type', 'Partner'));
+
+    // Act & Assert - the queried object genuinely does not carry it, and saying so is right
+    Assert.isFalse(scribe.hasCondition(new EqualConditionClause('Type', 'Partner')));
+    scribe.assertNoCondition(new EqualConditionClause('Type', 'Partner'));
+    Assert.isTrue(
+      scribe.conditionAssertionMessage(new EqualConditionClause('Type', 'Partner'), true)
+        .contains('the same condition exists elsewhere in this query'),
+      'The diagnosis must survive the field check.'
+    );
+  }
+
+  @isTest
+  static void testAssertNoCondition_WhenFieldIsNowhereInTheQuery_ThenStillRejected() {
+    // Arrange - the mirror of the test above: a name that belongs to no part of the query is
+    // a mistake in the test, and must not be answered with a quiet pass
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('Type', 'Partner'));
+
+    // Act & Assert
+    try {
+      scribe.assertNoCondition(new EqualConditionClause('Typ', 'Partner'));
+      Assert.fail('A name belonging to no object in the query must be refused.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Typ'), e.getMessage());
+    }
+  }
 }

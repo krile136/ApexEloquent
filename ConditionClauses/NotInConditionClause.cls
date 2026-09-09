@@ -53,8 +53,42 @@ public with sharing class NotInConditionClause extends AbstractConditionClause {
   }
 
   /**
+   * Test-only constructor for building an expected condition on the object being
+   * queried. Pair it with `Scribe.assertCondition` / `assertNoCondition`.
+   *
+   * @param field The field name the condition applies to.
+   * @param values The expected values.
+   */
+  @TestVisible
+  private NotInConditionClause(String field, Object values) {
+    this(null, null, field, values);
+  }
+
+  /**
+   * Test-only constructor for building an expected condition on a specific object.
+   * Use this to name a condition that lives on a parent (`parentCondition`) or on a
+   * child subquery (`withChildren`); the two-argument form targets the queried object.
+   *
+   * @param recordType The SObject class the condition applies to (e.g. Account.class).
+   * @param field The field name the condition applies to.
+   * @param values The expected values.
+   */
+  @TestVisible
+  private NotInConditionClause(System.Type recordType, String field, Object values) {
+    this(toSObjectType(recordType), null, field, values);
+  }
+
+  /**
    * @inheritdoc
    */
+
+  /**
+   * @inheritDoc
+   */
+  public override String clauseKind() {
+    return 'notIn';
+  }
+
   public override String build() {
     if (this.values.isEmpty()) {
       return '';

@@ -3840,6 +3840,193 @@ public with sharing class MockEloquentTest {
     }
   }
 
+  // ---- issue #94: query spy (scribeAt / scribesAt / lastScribe) ----
+
+  @isTest
+  static void testScribeAt_WhenLabelledReadRan_ThenReturnsThatQuery() {
+    // Arrange
+    MockEloquent mock = (new MockEloquent()).attach('fetch', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Name').whereEqual('Type', 'X');
+
+    // Act
+    mock.label('fetch').get(scribe);
+
+    // Assert - the read-side counterpart of upsertedRecordsAt
+    Assert.areEqual(scribe.toSoql(), mock.scribeAt('fetch').toSoql(), 'The recorded query must be the one executed.');
+    mock.scribeAt('fetch').assertCondition(new EqualConditionClause('Type', 'X'));
+  }
+
+  @isTest
+  static void testScribeAt_WhenNoReadRan_ThenReturnsNull() {
+    // Arrange & Act & Assert - a branch that skips the query is a normal thing to
+    // assert, so this is null rather than an error
+    Assert.isNull(new MockEloquent().scribeAt('fetch'), 'An unused label must yield null, not an exception.');
+  }
+
+  @isTest
+  static void testScribesAt_WhenSeveralReadsRan_ThenReturnsThemInOrder() {
+    // Arrange - without labels every read lands in the default bucket
+    MockEloquent mock = new MockEloquent();
+    Scribe first = Scribe.of(Account.class).field('Name');
+    Scribe second = Scribe.of(Contact.class).field('LastName');
+
+    // Act
+    mock.get(first);
+    mock.first(second);
+
+    // Assert
+    List<Scribe> recorded = mock.scribesAt('default');
+    Assert.areEqual(2, recorded.size(), 'Both reads must be recorded.');
+    Assert.areEqual(first.toSoql(), recorded[0].toSoql(), 'Execution order must be preserved.');
+    Assert.areEqual(second.toSoql(), recorded[1].toSoql(), 'Execution order must be preserved.');
+  }
+
+  @isTest
+  static void testScribeAt_WhenSeveralReadsShareALabel_ThenThrowAndPointAtScribesAt() {
+    // Arrange
+    MockEloquent mock = new MockEloquent();
+    mock.get(Scribe.of(Account.class).field('Name'));
+    mock.get(Scribe.of(Contact.class).field('LastName'));
+
+    // Act & Assert - naming a single query would have to pick one silently
+    try {
+      mock.scribeAt('default');
+      Assert.fail('Expected ApexEloquentException when a label holds several queries.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('scribesAt'), 'Should point at the list accessor. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testLastScribe_WhenReadsRan_ThenReturnsMostRecentAndMatchesLegacyField() {
+    // Arrange
+    MockEloquent mock = new MockEloquent();
+    Scribe last = Scribe.of(Contact.class).field('LastName');
+
+    // Act
+    mock.get(Scribe.of(Account.class).field('Name'));
+    mock.getAsSObject(last);
+
+    // Assert - the deprecated `scribe` field keeps holding the same value
+    Assert.areEqual(last.toSoql(), mock.lastScribe().toSoql());
+    Assert.areEqual(mock.lastScribe(), mock.scribe, 'The legacy field must stay in step with lastScribe().');
+  }
+
+  @isTest
+  static void testLastScribe_WhenNoReadRan_ThenReturnsNull() {
+    // Act & Assert
+    Assert.isNull(new MockEloquent().lastScribe(), 'No read means no last query.');
+  }
+
+  @isTest
+  static void testScribeSpy_WhenFailureIsRaisedBeforeTheQueryIsSeen_ThenNothingRecorded() {
+    // Arrange - failOnGet fires in handleErrorQueue, before the query reaches the spy
+    MockEloquent mock = (new MockEloquent()).failOnGet();
+
+    // Act
+    try {
+      mock.get(Scribe.of(Account.class).field('Name'));
+      Assert.fail('Expected the configured failure.');
+    } catch (ApexEloquentException e) {
+      // expected
+    }
+
+    // Assert
+    Assert.areEqual(0, mock.scribesAt('default').size(), 'A read that never got to the query leaves no trace.');
+    Assert.isNull(mock.lastScribe(), 'Nor does it become the last query.');
+  }
+
+  @isTest
+  static void testScribeSpy_WhenReadFailsAfterTheQueryIsIssued_ThenItIsStillRecorded() {
+    // Arrange - firstOrFail throwing on zero rows is a NORMAL path: callers catch the
+    // business exception. The query was still issued, and inspecting what a Usecase asked
+    // for is the point of this spy, so it is recorded.
+    MockEloquent mock = new MockEloquent();
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    // Act
+    try {
+      mock.firstOrFail(scribe);
+      Assert.fail('Expected firstOrFail to throw on zero rows.');
+    } catch (ApexEloquentException e) {
+      // expected — the caller's normal branch
+    }
+
+    // Assert
+    Assert.areEqual(1, mock.scribesAt('default').size(), 'The query was issued, so it is recorded.');
+    Assert.areEqual(scribe.toSoql(), mock.lastScribe().toSoql());
+  }
+
+  @isTest
+  static void testScribeSpy_WhenFailedReadIsRetriedUnderTheSameLabel_ThenScribesAtHoldsBoth() {
+    // Arrange - a failed read releases its label, so a retry records a second query. This
+    // documents the consequence rather than hiding it: scribeAt reports the ambiguity and
+    // scribesAt is the way through.
+    MockEloquent mock = (new MockEloquent()).attach('fetch', new List<IEntry>());
+    Scribe scribe = Scribe.of(Account.class).field('Name');
+
+    // Act
+    for (Integer i = 0; i < 2; i++) {
+      try {
+        mock.label('fetch').firstOrFail(scribe);
+        Assert.fail('Expected firstOrFail to throw on zero rows.');
+      } catch (ApexEloquentException e) {
+        // expected
+      }
+    }
+
+    // Assert
+    Assert.areEqual(2, mock.scribesAt('fetch').size(), 'Both attempts were issued.');
+    try {
+      mock.scribeAt('fetch');
+      Assert.fail('Expected scribeAt to report the ambiguity.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('scribesAt'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testScribeSpy_WhenAllSixReadPathsRun_ThenEachIsRecorded() {
+    // Arrange - every read path must be a spy, not just get()
+    MockEntry entry = MockEntry.of(Account.class).autoId(1);
+    Scribe scribe = Scribe.of(Account.class).field('Id');
+
+    // Act & Assert
+    MockEloquent m1 = new MockEloquent(entry);
+    m1.get(scribe);
+    Assert.areEqual(1, m1.scribesAt('default').size(), 'get() must record.');
+    MockEloquent m2 = new MockEloquent(entry);
+    m2.getAsSObject(scribe);
+    Assert.areEqual(1, m2.scribesAt('default').size(), 'getAsSObject() must record.');
+    MockEloquent m3 = new MockEloquent(entry);
+    m3.first(scribe);
+    Assert.areEqual(1, m3.scribesAt('default').size(), 'first() must record.');
+    MockEloquent m4 = new MockEloquent(entry);
+    m4.firstAsSObject(scribe);
+    Assert.areEqual(1, m4.scribesAt('default').size(), 'firstAsSObject() must record.');
+    MockEloquent m5 = new MockEloquent(entry);
+    m5.firstOrFail(scribe);
+    Assert.areEqual(1, m5.scribesAt('default').size(), 'firstOrFail() must record.');
+    MockEloquent m6 = new MockEloquent(entry);
+    m6.firstOrFailAsSObject(scribe);
+    Assert.areEqual(1, m6.scribesAt('default').size(), 'firstOrFailAsSObject() must record.');
+  }
+
+  @isTest
+  static void testScribeSpy_WhenCopied_ThenReadsOnTheCopyDoNotLeakBack() {
+    // Arrange - builders return a copy; a read on the copy must not appear on the receiver
+    MockEloquent original = new MockEloquent();
+    original.get(Scribe.of(Account.class).field('Name'));
+
+    // Act
+    MockEloquent copied = original.failSave('001000000000009AAA', 'x');
+    copied.get(Scribe.of(Contact.class).field('LastName'));
+
+    // Assert
+    Assert.areEqual(1, original.scribesAt('default').size(), 'The receiver must be unmodified.');
+    Assert.areEqual(2, copied.scribesAt('default').size(), 'The copy carries the earlier read plus its own.');
+  }
+
   // ---- issue #80: DML symmetry (insert 8 shapes, upsert/delete allOrNone) ----
 
   @isTest

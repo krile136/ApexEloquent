@@ -756,7 +756,7 @@ public with sharing class Scribe {
   /**
    * Adds an equality (=) or IS NULL condition to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param value The value to compare against. If null, becomes an IS NULL clause.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -782,7 +782,7 @@ public with sharing class Scribe {
   /**
    * Adds an inequality (!=) or IS NOT NULL condition to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param value The value to compare against. If null, becomes an IS NOT NULL clause.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -808,7 +808,7 @@ public with sharing class Scribe {
   /**
    * Adds a greater than (>) condition to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param value The value to compare against.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -841,7 +841,7 @@ public with sharing class Scribe {
   /**
    * Adds a greater than or equal (>=) condition to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param value The value to compare against.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -874,7 +874,7 @@ public with sharing class Scribe {
   /**
    * Adds a less than (<) condition to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param value The value to compare against.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -907,7 +907,7 @@ public with sharing class Scribe {
   /**
    * Adds a less than or equal (<=) condition to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param value The value to compare against.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -940,7 +940,7 @@ public with sharing class Scribe {
   /**
    * Adds a LIKE condition to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param value The string value to compare against, including wildcards (%).
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -968,7 +968,7 @@ public with sharing class Scribe {
   /**
    * Adds a NOT LIKE condition to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param value The string value to compare against, including wildcards (%).
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -1002,7 +1002,7 @@ public with sharing class Scribe {
    * Adds an IN condition to the WHERE clause.
    *
    * Handles empty lists gracefully by creating a logically impossible condition.
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param values A List or Set of values to include.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -1030,7 +1030,7 @@ public with sharing class Scribe {
   /**
    * Adds an IN condition with a subquery to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param subQuery A Scribe instance representing the subquery.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -1074,7 +1074,7 @@ public with sharing class Scribe {
    * Adds a NOT IN condition to the WHERE clause.
    *
    * Handles empty lists gracefully by ignoring the condition.
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param values A List or Set of values to exclude.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -1102,7 +1102,7 @@ public with sharing class Scribe {
   /**
    * Adds a NOT IN condition with a subquery to the WHERE clause.
    *
-   * @param fieldName The field to filter on.
+   * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param subQuery A Scribe instance representing the subquery.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -1145,7 +1145,7 @@ public with sharing class Scribe {
   /**
    * Adds an INCLUDES condition to the WHERE clause for multi-select picklists.
    *
-   * @param fieldName The multi-select picklist field to filter on.
+   * @param fieldName The multi-select picklist field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param values A list of values to include.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -1178,7 +1178,7 @@ public with sharing class Scribe {
   /**
    * Adds an EXCLUDES condition to the WHERE clause for multi-select picklists.
    *
-   * @param fieldName The multi-select picklist field to filter on.
+   * @param fieldName The multi-select picklist field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param values A list of values to exclude.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
@@ -1211,7 +1211,7 @@ public with sharing class Scribe {
   /**
    * Adds an IS NULL condition to the WHERE clause.
    *
-   * @param fieldName The field to check for null.
+   * @param fieldName The field to check for null. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNull(String fieldName) {
@@ -1231,7 +1231,7 @@ public with sharing class Scribe {
   /**
    * Adds an IS NOT NULL condition to the WHERE clause.
    *
-   * @param fieldName The field to check for non-null.
+   * @param fieldName The field to check for non-null. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotNull(String fieldName) {
@@ -1254,7 +1254,7 @@ public with sharing class Scribe {
    * @return A FieldStructure instance representing the query shape.
    */
   public FieldStructure buildFieldStructure() {
-    Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
+    Map<String, Schema.SObjectField> fieldMap = SchemaCache.fieldMapOf(this.sObjectType);
 
     Map<String, FieldStructure> relationFieldStructures = new Map<String, FieldStructure>();
     if (!this.parents.isEmpty()) {
@@ -1850,7 +1850,7 @@ public with sharing class Scribe {
         .param('path', searchPath)
         .fire();
     }
-    Map<String, Schema.SObjectField> metaFieldMap = metaType.getDescribe().fields.getMap();
+    Map<String, Schema.SObjectField> metaFieldMap = SchemaCache.fieldMapOf(metaType);
     match.expectedFragment = expected.overrideMetaData(metaType, metaFieldMap).build();
     match.expectedKey = comparisonKey(expected, match.expectedFragment);
     this.collectConditionMatches(targetType, searchByPath ? searchPath : null, '', match);
@@ -1915,8 +1915,10 @@ public with sharing class Scribe {
    * queried object when the condition sits on a parent, say — and telling the caller the
    * condition exists elsewhere says more than telling them the field does not exist.
    *
-   * Dotted names are left alone: they are the polymorphic and relationship forms
-   * (`Queue.Name`, `Account.Type`) that the same describe fallback exists to support.
+   * Dotted names are refused like any other unknown field. Dots address hops in the `path`
+   * argument, never inside a field name — Scribe has no dotted field syntax on either side,
+   * so `assertConditionAt('AccountId', new EqualConditionClause('Type', 'x'))` is the form,
+   * not `assertCondition(new EqualConditionClause('Account.Type', 'x'))`.
    *
    * @param method Calling method signature, for the error.
    * @param expected The expected condition.
@@ -1930,12 +1932,7 @@ public with sharing class Scribe {
     Map<String, Schema.SObjectField> metaFieldMap
   ) {
     String fieldName = expected.getFieldName();
-    if (String.isBlank(fieldName) || fieldName.contains('.')) {
-      return;
-    }
-    // The map keys are lower-case but containsKey ignores case (measured on API v67.0);
-    // lowering keeps the lookup right either way.
-    if (metaFieldMap.containsKey(fieldName.toLowerCase())) {
+    if (String.isBlank(fieldName) || metaFieldMap.containsKey(fieldName)) {
       return;
     }
     String error = 'Unknown field in expected condition';
@@ -2048,7 +2045,7 @@ public with sharing class Scribe {
       return types[0];
     }
     for (Schema.SObjectType type : types) {
-      if (type.getDescribe().fields.getMap().containsKey(fieldName.toLowerCase())) {
+      if (SchemaCache.hasField(type, fieldName)) {
         return type;
       }
     }
@@ -2066,7 +2063,7 @@ public with sharing class Scribe {
     if (this.sObjectType == null) {
       return null;
     }
-    Schema.SObjectField relationField = this.sObjectType.getDescribe().fields.getMap().get(relationFieldName);
+    Schema.SObjectField relationField = SchemaCache.fieldMapOf(this.sObjectType).get(relationFieldName);
     if (relationField == null) {
       return null;
     }
@@ -2216,7 +2213,7 @@ public with sharing class Scribe {
     Boolean isTarget = targetPath == null ? this.sObjectType == targetType : path == targetPath;
     Map<String, Schema.SObjectField> fieldMap = this.sObjectType == null
       ? null
-      : this.sObjectType.getDescribe().fields.getMap();
+      : SchemaCache.fieldMapOf(this.sObjectType);
 
     for (ConditionPart part : this.conditionParts) {
       if (part.condition != null) {
@@ -2324,7 +2321,7 @@ public with sharing class Scribe {
 
     this.validateAndInitialize();
 
-    Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
+    Map<String, Schema.SObjectField> fieldMap = SchemaCache.fieldMapOf(this.sObjectType);
 
     String selectFieldsString = this.buildSelectFields(fieldMap, 0);
     String fromString = this.describe.getName();
@@ -2558,6 +2555,71 @@ public with sharing class Scribe {
   }
 
   /**
+   * Refuses a WHERE condition naming a field the filtered object does not have.
+   *
+   * Without this, an unknown name reaches `AbstractConditionClause.getFieldType`, which
+   * falls back to STRING for anything absent from the describe map. The name renders as
+   * tidy SOQL and the whole query builds, so the failure lands at execution time as the
+   * platform's `No such column`, and never lands at all in a unit test — `MockEloquent`
+   * does not execute the SOQL it is handed. `SELECT` has always been checked here
+   * (`getSelectedFields`); this closes the same gap on the other side.
+   *
+   * The fallback also changes the literal's shape, so an unknown name is not merely
+   * unfiltered: measured on API v64.0, `whereGreaterThan('Amoun', 1000)` renders
+   * `Amoun > '1000'`, and a quoted literal against a numeric field is rejected by the
+   * platform with a message that names the type, not the typo.
+   *
+   * Dotted names are refused too, and told why. Scribe has no field syntax for reaching
+   * across a relationship — `SELECT` has always rejected `field('Account.Type')`, and
+   * parents are reached with `Scribe.asParent(...)`, whose indentation is what expresses
+   * the hierarchy. The dotted form only ever leaked through here, and leaked broken: the
+   * type of a parent field cannot be resolved from the child's map, so every non-text
+   * parent field rendered as a quoted literal and could not be executed.
+   *
+   * ⚠️ Closing this also closes the only way to filter on a polymorphic parent
+   * (`Owner.Name`, `Queue.Name`), because `ParentScribe.validate` rejects name-pointing
+   * lookups. Polymorphic parents are unsupported by design; the dotted leak was standing
+   * in for a feature that does not exist yet.
+   *
+   * HAVING never reaches here: `buildHavingClause` is a separate path, and its field name
+   * is an aggregate alias rather than a field.
+   *
+   * @param condition The condition about to be rendered.
+   * @param fieldMap The field map of the object this condition filters.
+   * @throws ApexEloquentException when the field does not exist on that object.
+   */
+  private void rejectUnknownConditionField(IConditionClause condition, Map<String, Schema.SObjectField> fieldMap) {
+    String fieldName = condition.getFieldName();
+    if (String.isBlank(fieldName) || fieldMap == null || fieldMap.containsKey(fieldName)) {
+      return;
+    }
+    String objectName = this.sObjectType == null ? '(unknown)' : this.sObjectType.getDescribe().getName();
+    String error = 'Condition Field Failed';
+    if (fieldName.contains('.')) {
+      String reason = String.format(
+        'The field `{0}` reaches across a relationship. Scribe has no dotted field syntax; parents are reached with Scribe.asParent(...).',
+        new List<String>{ fieldName }
+      );
+      // A custom relationship is written `Project__r`, and its lookup field is `Project__c`
+      // — not `Project__rId`. Getting this wrong makes the message worthless in exactly the
+      // projects that have custom objects, which is all of them.
+      String hop = fieldName.substringBefore('.');
+      String lookupField = hop.endsWith('__r') ? hop.removeEnd('__r') + '__c' : hop + 'Id';
+      String action = String.format(
+        'Write the condition on the parent instead: parentCondition(Scribe.asParent(\'{0}\')...). Filtering on a polymorphic parent (Owner, Queue, What, Who) is not supported.',
+        new List<String>{ lookupField }
+      );
+      throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
+    }
+    String reason = String.format(
+      'The field `{0}` does not exist on the SObject `{1}`.',
+      new List<String>{ fieldName, objectName }
+    );
+    String action = 'Please check the field API name for typos or ensure the field is accessible in the current Org.';
+    throw ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).build();
+  }
+
+  /**
    * Constructs the complete WHERE clause string from all condition parts.
    *
    * @param fieldMap A map of the source object's fields.
@@ -2588,6 +2650,7 @@ public with sharing class Scribe {
       String clause = '';
 
       if (conditionPart.condition != null) {
+        this.rejectUnknownConditionField(conditionPart.condition, fieldMap);
         IConditionClause condition = conditionPart.condition.overrideMetaData(this.sObjectType, fieldMap);
         clause = condition.build();
         if (String.isBlank(clause)) {
@@ -2851,7 +2914,7 @@ public with sharing class Scribe {
   private String buildChildSoql(Schema.SObjectType parentSObjectType, Integer lowerNestingdepth) {
     this.validateAndInitialize();
 
-    Map<String, Schema.SObjectField> fieldMap = this.describe.fields.getMap();
+    Map<String, Schema.SObjectField> fieldMap = SchemaCache.fieldMapOf(this.sObjectType);
     String selectFieldsString = this.buildSelectFields(fieldMap, lowerNestingDepth);
 
     String objectName = this.describe.getName();
@@ -3404,7 +3467,7 @@ public with sharing class Scribe {
 
       Schema.SObjectType parentSObjectType = parentObjectData.relationSObjectType;
       this.scribe.sObjectType = parentSObjectType;
-      Map<String, Schema.SObjectField> parentFieldMap = parentSObjectType.getDescribe().fields.getMap();
+      Map<String, Schema.SObjectField> parentFieldMap = SchemaCache.fieldMapOf(parentSObjectType);
 
       return this.scribe.buildWhereClause(parentFieldMap, newChildObjectName);
     }
@@ -3500,7 +3563,7 @@ public with sharing class Scribe {
 
       List<String> parentSelects = new List<String>();
       List<String> parentFieldNames = this.scribe.getSelectedFields(
-        parentObjectData.relationSObjectType.getDescribe().fields.getMap()
+        SchemaCache.fieldMapOf(parentObjectData.relationSObjectType)
       );
       for (String parentFieldName : parentFieldNames) {
         parentSelects.add(parentFieldName);
@@ -3508,8 +3571,9 @@ public with sharing class Scribe {
 
       Map<String, FieldStructure> grandParentFieldStructures = new Map<String, FieldStructure>();
       if (!this.scribe.parents.isEmpty()) {
-        Map<String, Schema.sObjectField> parentFieldMap = parentObjectData.relationSObjectType.getDescribe()
-          .fields.getMap();
+        Map<String, Schema.sObjectField> parentFieldMap = SchemaCache.fieldMapOf(
+          parentObjectData.relationSObjectType
+        );
         for (ParentScribe grandParentScribe : this.scribe.parents) {
           String grandParentRelationFieldName = grandParentScribe.getRelationFieldName().toLowerCase();
           FieldStructure grandParentFieldStructure = grandParentScribe.buildFieldStructure(parentFieldMap);

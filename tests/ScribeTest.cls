@@ -5081,7 +5081,10 @@ public with sharing class ScribeTest {
       .whereNotEqual('Rating', 'B')
       .whereGreaterThan('NumberOfEmployees', 1)
       .whereGreaterThanOrEqual('AnnualRevenue', 2)
-      .whereLessThan('NumberOfLocations__c', 3)
+      // 🚨 Framework tests may only name fields that exist in a BARE SCRATCH ORG — that is
+      // where the package is built. NumberOfLocations__c stood here and passed in a dev org
+      // while failing the package build, which the field check added in v3.12.0 exposed.
+      .whereLessThan('NumberOfEmployees', 3)
       .whereLessThanOrEqual('AnnualRevenue', 4)
       .whereLike('Name', 'Acme%')
       .whereNotLike('Industry', 'Ban%')
@@ -5094,7 +5097,7 @@ public with sharing class ScribeTest {
       .assertCondition(new NotEqualConditionClause('Rating', 'B'))
       .assertCondition(new GreaterThanConditionClause('NumberOfEmployees', 1))
       .assertCondition(new GreaterThanOrEqualConditionClause('AnnualRevenue', 2))
-      .assertCondition(new LessThanConditionClause('NumberOfLocations__c', 3))
+      .assertCondition(new LessThanConditionClause('NumberOfEmployees', 3))
       .assertCondition(new LessThanOrEqualConditionClause('AnnualRevenue', 4))
       .assertCondition(new LikeConditionClause('Name', 'Acme%'))
       .assertCondition(new NotLikeConditionClause('Industry', 'Ban%'))

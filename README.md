@@ -111,6 +111,50 @@ Those three kinds of hop share one namespace, so a path can reach two places at 
 searched, and the expectation is read against whichever of them has the field it names; add the
 object to the expected condition when that is not enough to say which one is meant.
 
+## Field names are checked when the query is built
+
+Both halves of a query are validated against the object's describe:
+
+```apex
+Scribe.of(Contact.class).field('LastNam')                     // rejected: SELECT
+Scribe.of(Contact.class).field('Id').whereEqual('LastNam', 'x')  // rejected: WHERE
+```
+
+The `WHERE` half matters most in a unit test. `MockEloquent` returns the entries a test
+attached without executing the SOQL, so before this check an unknown field simply travelled
+to production — where the platform rejects it. Worse, an unknown name has no resolvable
+type, so its literal was quoted: `whereGreaterThan('Amoun', 1000)` rendered
+`Amoun > '1000'`, and the platform's complaint named the type rather than the typo.
+
+**There is no dotted field syntax.** Reach a parent with `Scribe.asParent(...)` — the
+nesting is what expresses the hierarchy, and the parent's own describe is what types the
+literal:
+
+```apex
+// ❌ rejected. It also rendered Account.NumberOfEmployees > '100', which cannot execute
+.whereGreaterThan('Account.NumberOfEmployees', 100)
+
+// ✅ renders Account.NumberOfEmployees > 100
+.parentCondition(Scribe.asParent('AccountId').whereGreaterThan('NumberOfEmployees', 100))
+```
+
+Filtering on a polymorphic parent (`Owner`, `Queue`, `What`, `Who`) is not supported, and
+neither are SOQL functions in the field position (`toLabel(Status)`, `convertCurrency(...)`,
+`CALENDAR_YEAR(...)`).
+
+⚠️ **Upgrading surfaces mistakes that were never reaching production either.** A condition
+whose collection was always empty renders to nothing and disappears, so a wrong field name
+in it was invisible — `whereNotIn('StageName', emptySet)` on an Account built and ran
+happily. The same goes for a branch a test never took. Those now fail when the query is
+built. This framework's own test suite had two such queries, both filtering an object by a
+field belonging to a different one; if an upgrade turns a test red here, read the field
+name before reaching for the previous version.
+
+Two things are deliberately outside the check. A condition withdrawn by `ignoreWhen(true)`
+is not part of the query, so it is not examined. `ORDER BY` still accepts a relationship
+path (`orderBy('Account.Name')`): SOQL has no parent-side `ORDER BY`, so that is the only
+way to sort by a parent field, and it carries no literal to mistype.
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).

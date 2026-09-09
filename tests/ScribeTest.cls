@@ -1527,10 +1527,13 @@ public with sharing class ScribeTest {
   static void testWhereGroup_WhenGroupConditionIsEmpty_ThenIgnoreGroupCondition() {
     // Arrange
     List<Id> Ids = new List<Id>();
-    List<String> stages = new List<String>();
+    List<String> types = new List<String>();
+    // 🚨 Both fields must exist on Account. This test used to filter Account by StageName
+    // (an Opportunity field); it passed only because an empty NOT IN renders to nothing and
+    // the group vanished. The field check added in v3.12.0 caught it.
     Scribe scribe = Scribe.of(Account.class)
       .field('Id')
-      .whereGroup(Scribe.asGroup().whereNotIn('Id', Ids).whereNotIn('StageName', stages)) // Empty group condition
+      .whereGroup(Scribe.asGroup().whereNotIn('Id', Ids).whereNotIn('Type', types)) // Empty group condition
       .whereEqual('Name', 'Test Account');
 
     // Act
@@ -1661,7 +1664,10 @@ public with sharing class ScribeTest {
         Scribe.asChild(Contact.class)
           .field('Id')
           .whereNotNull('Name')
-          .withChildren(Scribe.asChild(Opportunity.class).field('Id').whereNotNull('Email'))
+          // 🚨 NextStep is an Opportunity field. This used to be Email (a Contact field),
+          // which built fine because an unknown name fell back to STRING and was never
+          // executed. The field check added in v3.12.0 caught it.
+          .withChildren(Scribe.asChild(Opportunity.class).field('Id').whereNotNull('NextStep'))
       )
       .whereEqual('Name', 'Test Account');
 
@@ -1669,7 +1675,7 @@ public with sharing class ScribeTest {
     String soql = scribe.toSoql();
 
     // Assert
-    String expectedSoql = 'SELECT id, (SELECT id, (SELECT id FROM Opportunities WHERE Email != NULL) FROM Contacts WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
+    String expectedSoql = 'SELECT id, (SELECT id, (SELECT id FROM Opportunities WHERE NextStep != NULL) FROM Contacts WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
     Assert.areEqual(expectedSoql, soql);
   }
 
@@ -5075,7 +5081,10 @@ public with sharing class ScribeTest {
       .whereNotEqual('Rating', 'B')
       .whereGreaterThan('NumberOfEmployees', 1)
       .whereGreaterThanOrEqual('AnnualRevenue', 2)
-      .whereLessThan('NumberOfLocations__c', 3)
+      // 🚨 Framework tests may only name fields that exist in a BARE SCRATCH ORG — that is
+      // where the package is built. NumberOfLocations__c stood here and passed in a dev org
+      // while failing the package build, which the field check added in v3.12.0 exposed.
+      .whereLessThan('NumberOfEmployees', 3)
       .whereLessThanOrEqual('AnnualRevenue', 4)
       .whereLike('Name', 'Acme%')
       .whereNotLike('Industry', 'Ban%')
@@ -5088,7 +5097,7 @@ public with sharing class ScribeTest {
       .assertCondition(new NotEqualConditionClause('Rating', 'B'))
       .assertCondition(new GreaterThanConditionClause('NumberOfEmployees', 1))
       .assertCondition(new GreaterThanOrEqualConditionClause('AnnualRevenue', 2))
-      .assertCondition(new LessThanConditionClause('NumberOfLocations__c', 3))
+      .assertCondition(new LessThanConditionClause('NumberOfEmployees', 3))
       .assertCondition(new LessThanOrEqualConditionClause('AnnualRevenue', 4))
       .assertCondition(new LikeConditionClause('Name', 'Acme%'))
       .assertCondition(new NotLikeConditionClause('Industry', 'Ban%'))
@@ -5610,13 +5619,50 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testAssertCondition_WhenExpectedFieldIsARelationshipPath_ThenAccepted() {
-    // Arrange - dotted names are the polymorphic and relationship forms that are valid in
-    // SOQL but absent from the describe map, so the field check must leave them alone
+  static void testWhereEqual_WhenFieldNameIsARelationshipPath_ThenRejected() {
+    // Arrange - this test previously fixed the opposite rule, on the mistaken belief that a
+    // dotted name was a supported form. Scribe has no dotted field syntax: SELECT has always
+    // rejected it, parents are reached with asParent, and the leak here rendered broken SOQL
+    // for every non-text parent field. Dots address hops in a path argument, never a field.
     Scribe scribe = Scribe.of(Contact.class).field('Id').whereEqual('Account.Type', 'Partner');
 
+    // Act & Assert - the query itself is refused, and says how to write it instead
+    try {
+      scribe.toSoql();
+      Assert.fail('A dotted field name must not build.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('asParent'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertCondition_WhenExpectedFieldIsARelationshipPath_ThenRejected() {
+    // Arrange - the expectation side refuses it for the same reason, so the two sides agree
+    Scribe scribe = Scribe.of(Contact.class).field('Id').whereEqual('LastName', 'Yamada');
+
     // Act & Assert
-    scribe.assertCondition(new EqualConditionClause('Account.Type', 'Partner'));
+    try {
+      scribe.assertNoCondition(new EqualConditionClause('Account.Type', 'Partner'));
+      Assert.fail('A dotted field name must not be accepted as an expectation.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Account.Type'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testParentCondition_WhenFilteringATypedParentField_ThenLiteralIsNotQuoted() {
+    // Arrange - the supported form for the same intent. It resolves the field against the
+    // PARENT's describe, so the literal keeps its type; the dotted form could not, and
+    // rendered `Account.NumberOfEmployees > '100'`, which the platform rejects.
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereGreaterThan('NumberOfEmployees', 100));
+
+    // Act & Assert
+    Assert.isTrue(
+      scribe.toSoql().contains('Account.NumberOfEmployees > 100'),
+      'A parent numeric field must render unquoted. Got: ' + scribe.toSoql()
+    );
   }
 
   @isTest
@@ -5807,5 +5853,171 @@ public with sharing class ScribeTest {
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('Typ'), e.getMessage());
     }
+  }
+  // ------------------------------------------------------------------------------------
+  // WHERE field validation. SELECT has always been checked (getSelectedFields); these fix
+  // the same rule on the condition side, which used to fall back to STRING and build SOQL
+  // that only failed at execution — and never failed at all under MockEloquent.
+  // ------------------------------------------------------------------------------------
+
+  @isTest
+  static void testToSoql_WhenConditionFieldDoesNotExist_ThenRejected() {
+    // Arrange
+    Scribe scribe = Scribe.of(Contact.class).field('Id').whereEqual('ZZZ_NoSuchField__c', '1');
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('A condition on a field the object does not have must not build.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('ZZZ_NoSuchField__c'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('Contact'), 'The object must be named. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenConditionFieldIsMisspelled_ThenRejectedRatherThanQuoted() {
+    // Arrange - the shape that used to be worst: a Boolean typo renders as `= 'false'`,
+    // valid-looking SOQL that fails only when executed, with a message about types
+    Scribe scribe = Scribe.of(Contact.class).field('Id').whereEqual('HasOptedOutOfEmai', false);
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('A misspelled Boolean field must not build.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('HasOptedOutOfEmai'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenConditionFieldExists_ThenLiteralKeepsItsType() {
+    // Arrange - the correctly spelled counterpart must still render an unquoted Boolean.
+    // Asserted so the validation cannot be "fixed" by routing everything through STRING.
+    Scribe scribe = Scribe.of(Contact.class).field('Id').whereEqual('HasOptedOutOfEmail', false);
+
+    // Act & Assert
+    Assert.isTrue(
+      scribe.toSoql().contains('HasOptedOutOfEmail = false'),
+      'Got: ' + scribe.toSoql()
+    );
+  }
+
+  @isTest
+  static void testToSoql_WhenBadFieldIsInsideAGroup_ThenRejected() {
+    // Arrange - a group filters the same object at the same place, so it is checked with
+    // the outer field map (R97: the check must reach every nested place, not just the root)
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .whereGroup(Scribe.asGroup().whereEqual('ZZZ_NoSuchField__c', 'x').orCondition().whereEqual('LastName', 'y'));
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('A group condition must be checked too.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('ZZZ_NoSuchField__c'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenBadFieldIsInAParentCondition_ThenRejectedAgainstTheParent() {
+    // Arrange - the parent is checked against the PARENT's fields. LastName exists on
+    // Contact but not on Account, so reading it against the root would let this through.
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereEqual('LastName', 'Yamada'));
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('A parent condition must be checked against the parent object.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Account'), 'The parent must be named. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenBadFieldIsInAChildSubQuery_ThenRejectedAgainstTheChild() {
+    // Arrange - Industry exists on Account (the root) but not on Contact (the child)
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(Contact.class).field('Id').whereEqual('Industry', 'Retail'));
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('A child subquery condition must be checked against the child object.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Contact'), 'The child must be named. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenBadFieldIsInASemiJoinSubQuery_ThenRejected() {
+    // Arrange - the inner query builds through its own toSoql, so it is checked as well
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .whereIn('AccountId', Scribe.of(Account.class).field('Id').whereEqual('ZZZ_NoSuchField__c', 'x'));
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('A semi-join subquery condition must be checked too.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('ZZZ_NoSuchField__c'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenBadFieldIsRetractedByIgnoreWhen_ThenBuilds() {
+    // Arrange - a retracted condition is not part of the query, so there is nothing to
+    // check. This matches the v3.5.0 decision to defer condition errors to build time so
+    // that ignoreWhen can withdraw them.
+    Scribe scribe = Scribe.of(Contact.class).field('Id').whereEqual('ZZZ_NoSuchField__c', 'x').ignoreWhen(true);
+
+    // Act & Assert
+    Assert.areEqual('SELECT id FROM Contact', scribe.toSoql());
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAliasIsNotAField_ThenStillBuilds() {
+    // Arrange - HAVING names an aggregate alias, not a field, and takes a separate build
+    // path. The new check must not reach it, or every HAVING would break.
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .count('Id', 'cnt')
+      .groupByField('StageName')
+      .havingCondition(Scribe.asHaving().whereGreaterThan('cnt', 1));
+
+    // Act & Assert
+    Assert.isTrue(scribe.toSoql().contains('HAVING COUNT(Id) > 1'), 'Got: ' + scribe.toSoql());
+  }
+
+  @isTest
+  static void testOrderBy_WhenGivenARelationshipPath_ThenStillAllowed() {
+    // Arrange - ORDER BY is deliberately NOT covered by the field check. SOQL has no
+    // "parent order by" syntax, so a relationship path on the outer ORDER BY is the only
+    // way to sort by a parent field, it is valid SOQL, and it carries no literal to mistype.
+    Scribe scribe = Scribe.of(Contact.class).field('Id').orderBy('Account.Name', 'ASC');
+
+    // Act & Assert
+    Assert.isTrue(scribe.toSoql().contains('ORDER BY Account.Name ASC'), 'Got: ' + scribe.toSoql());
+  }
+
+  @isTest
+  static void testFieldMapOf_WhenCalledTwice_ThenTheSameInstanceComesBack() {
+    // Arrange - fields.getMap() allocates a new map per call (~88μs measured), and the new
+    // validation reads it for every condition. Identity is what proves the cache is used.
+    SchemaCache.clear();
+
+    // Act
+    Map<String, Schema.SObjectField> first = SchemaCache.fieldMapOf(Contact.SObjectType);
+    Map<String, Schema.SObjectField> second = SchemaCache.fieldMapOf(Contact.SObjectType);
+
+    // Assert
+    Assert.isTrue(first === second, 'The cached field map must be the same instance.');
+    Assert.isTrue(SchemaCache.hasField(Contact.SObjectType, 'LastName'));
+    Assert.isFalse(SchemaCache.hasField(Contact.SObjectType, 'ZZZ_NoSuchField__c'));
   }
 }

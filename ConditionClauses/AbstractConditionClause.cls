@@ -123,9 +123,15 @@ public with sharing abstract class AbstractConditionClause implements ICondition
       ApexEloquentException.invalidOperation(CLASS_NAME, null, 'source SObjectType is not set').fire();
     }
     if (!this.fieldMap.containsKey(field)) {
-      // If the field doesn't exist in the describe map, default to String.
-      // This handles special polymorphic fields like 'Queue.Name',
-      // which are valid in SOQL but may not appear in the initial describe result.
+      // Unreachable from a query: Scribe.buildWhereClause refuses a field the object does
+      // not have before any clause is rendered. Kept as a floor rather than an exception
+      // because a clause can also be built by hand for Scribe's condition assertions, where
+      // the caller is told about the unknown field by a message that names the object.
+      //
+      // 🚨 Do not treat this as support for dotted names. It once rendered
+      // `Account.NumberOfEmployees > '100'` — a quoted literal against a numeric field,
+      // which the platform rejects. Scribe has no dotted field syntax; parents are reached
+      // with Scribe.asParent(...).
       return Schema.DisplayType.STRING;
     }
     Schema.DisplayType fieldType = this.fieldMap.get(field).getDescribe().getType();

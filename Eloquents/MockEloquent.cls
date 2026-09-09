@@ -49,8 +49,14 @@ public with sharing class MockEloquent implements IEloquent {
   private Map<String, List<ErrorConfig>> errorQueueMap = new Map<String, List<ErrorConfig>>();
   private ErrorConfig lastConfig;
 
+  /**
+   * @deprecated Direct field access will be removed in a future major version.
+   * Use lastScribe() instead — this holds the same value.
+   */
   @TestVisible
   private Scribe scribe;
+
+  private Map<String, List<Scribe>> scribesByLabel = new Map<String, List<Scribe>>();
 
   private String currentLabel = DEFAULT_LABEL;
   private Boolean strictMode = false;
@@ -292,6 +298,93 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   /**
+   * Returns the query executed under a given label — the read-side counterpart of
+   * upsertedRecordsAt. Pair it with `Scribe.assertCondition` to fix, in a unit test,
+   * that a Usecase narrowed its query by the input it was handed.
+   *
+   * ```
+   * mock.scribeAt('fetch').assertCondition(new InConditionClause('Id', contactIds));
+   * ```
+   *
+   * Returns null when nothing ran under that label, so a branch that skips the query
+   * can be asserted with `Assert.isNull(mock.scribeAt('fetch'))`.
+   *
+   * Once `.label(...)` is in use, consume-once allows a label at most one successful
+   * operation, so this returns the single query for it. Without labels every read lands
+   * in the 'default' bucket and several can pile up — this throws in that case and
+   * points at scribesAt, rather than silently picking one.
+   *
+   * @param label The routing label the read ran under.
+   * @return The query executed under that label, or null when none ran.
+   * @throws ApexEloquentException when more than one query ran under that label.
+   */
+  public Scribe scribeAt(String label) {
+    List<Scribe> scribes = this.scribesAt(label);
+    if (scribes.isEmpty()) {
+      return null;
+    }
+    if (scribes.size() > 1) {
+      String error = 'Ambiguous query lookup';
+      String reason = 'Label \'' + label + '\' recorded ' + scribes.size() + ' queries, so a single one cannot be named.';
+      String action = 'Use scribesAt(\'' + label + '\') to get them in execution order, or label each read separately.';
+      ApexEloquentException.at(CLASS_NAME)
+        .method('scribeAt(String label)')
+        .error(error)
+        .reason(reason)
+        .action(action)
+        .param('label', label)
+        .fire();
+    }
+    return scribes[0];
+  }
+
+  /**
+   * Returns every query executed under a given label, in execution order. Returns an
+   * empty list when nothing ran under that label — a branch that skips the query is a
+   * normal thing to assert, not an error.
+   *
+   * @param label The routing label the reads ran under.
+   * @return The queries in execution order; empty when none ran.
+   */
+  public List<Scribe> scribesAt(String label) {
+    return this.scribesByLabel.containsKey(label)
+      ? new List<Scribe>(this.scribesByLabel.get(label))
+      : new List<Scribe>();
+  }
+
+  /**
+   * Returns the most recently executed query, whatever label it ran under, or null when
+   * no read has run. This is the value the deprecated `scribe` field also holds.
+   *
+   * @return The last executed query, or null when none ran.
+   */
+  public Scribe lastScribe() {
+    return this.scribe;
+  }
+
+  /**
+   * Records a query against its label at the moment it is issued.
+   *
+   * Unlike the DML spies, which record only what was saved, this records what was ASKED:
+   * a read that goes on to fail — `firstOrFail` finding nothing, an unattached label — is
+   * still a query the Usecase built, and that is the thing being inspected. Only failures
+   * raised before the query is seen at all (`failOnGet`, a null Scribe) leave no trace.
+   *
+   * ⚠️ A consequence: a failed read releases its label, so retrying under the same label
+   * records twice and `scribeAt` then reports the ambiguity. Use `scribesAt` there.
+   *
+   * @param label The routing label the read ran under.
+   * @param scribe The query that was executed.
+   */
+  private void recordScribe(String label, Scribe scribe) {
+    this.scribe = scribe;
+    if (!this.scribesByLabel.containsKey(label)) {
+      this.scribesByLabel.put(label, new List<Scribe>());
+    }
+    this.scribesByLabel.get(label).add(scribe);
+  }
+
+  /**
    * Returns the records upserted (inserted / updated / upserted) under a given label.
    * Returns empty list if no DML ran under that label.
    */
@@ -503,7 +596,7 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
       }
 
-      this.scribe = scribe;
+      this.recordScribe(label, scribe);
       String soql = scribe.toSoql(); // for showing and validate SOQL
       FieldStructure fieldStructure = scribe.isAggregate()
         ? scribe.buildAggregateFieldStructure()
@@ -561,7 +654,7 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
       }
 
-      this.scribe = scribe;
+      this.recordScribe(label, scribe);
       String soql = scribe.toSoql(); // for showing and validate SOQL
       List<SObject> result = new List<SObject>();
       for (IEntry entry : this.activeEntries(label)) {
@@ -586,7 +679,7 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
       }
 
-      this.scribe = scribe;
+      this.recordScribe(label, scribe);
       String soql = scribe.toSoql(); // for showing and validate SOQL
       // Aggregate Scribes need the aggregate FieldStructure so aliases resolve,
       // exactly as get() selects it (issue #85).
@@ -616,7 +709,7 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
       }
 
-      this.scribe = scribe;
+      this.recordScribe(label, scribe);
       String soql = scribe.toSoql(); // for showing and validate SOQL
       List<IEntry> source = this.activeEntries(label);
       if (source.isEmpty()) {
@@ -641,7 +734,7 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
       }
 
-      this.scribe = scribe;
+      this.recordScribe(label, scribe);
       String soql = scribe.toSoql(); // for showing and validate SOQL
       // Aggregate Scribes need the aggregate FieldStructure so aliases resolve,
       // exactly as get() selects it (issue #85).
@@ -683,7 +776,7 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'orFail', null).fire();
       }
 
-      this.scribe = scribe;
+      this.recordScribe(label, scribe);
       String soql = scribe.toSoql(); // for showing and validate SOQL
       // Aggregate Scribes need the aggregate FieldStructure so aliases resolve,
       // exactly as get() selects it (issue #85).
@@ -713,7 +806,7 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'sctibe', null).fire();
       }
 
-      this.scribe = scribe;
+      this.recordScribe(label, scribe);
       String soql = scribe.toSoql(); // for showing and validate SOQL
       List<IEntry> source = this.activeEntries(label);
       if (source.isEmpty()) {
@@ -2825,6 +2918,12 @@ public with sharing class MockEloquent implements IEloquent {
     MockEloquent newMockEloquent = new MockEloquent(this.entries);
     newMockEloquent.insertCount = this.insertCount;
     newMockEloquent.scribe = this.scribe;
+    // Deep-copy the query spy: sharing the inner lists would let reads on the copy
+    // leak into the receiver's records, breaking "the receiver is unmodified".
+    newMockEloquent.scribesByLabel = new Map<String, List<Scribe>>();
+    for (String bucketLabel : this.scribesByLabel.keySet()) {
+      newMockEloquent.scribesByLabel.put(bucketLabel, new List<Scribe>(this.scribesByLabel.get(bucketLabel)));
+    }
     newMockEloquent.errorQueueMap = new Map<String, List<ErrorConfig>>();
     newMockEloquent.lastConfig = null;
     for (String method : this.errorQueueMap.keySet()) {

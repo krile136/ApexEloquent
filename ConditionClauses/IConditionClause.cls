@@ -54,4 +54,21 @@
    * @return The field name or alias.
    */
   String getFieldName();
+
+  /**
+   * A stable identity for the kind of condition this is ('equal', 'in', 'isNull', ...).
+   *
+   * Scribe's condition assertions compare an expected condition against the recorded ones,
+   * and the generated SOQL alone cannot tell them apart: an empty `IN` builds `Id = null`
+   * and `IS NULL` builds `Id = NULL`, which Apex's case-insensitive String equality treats
+   * as equal. The kind is compared alongside the fragment so one condition is never
+   * matched against a different one.
+   *
+   * `AbstractConditionClause` supplies a default, so subclasses that add nothing new stay
+   * unaffected — but a subclass whose meaning differs must override it, or it will compare
+   * equal to every other clause that forgot to.
+   *
+   * @return The kind of this condition.
+   */
+  String clauseKind();
 }

@@ -1568,6 +1568,750 @@ public with sharing class Scribe {
   // =================================================================================================================
 
   /**
+   * Asserts that this query carries the expected condition, failing the test when it
+   * does not. Pair it with `MockEloquent.scribeAt(label)` to fix, in a unit test, that a
+   * Usecase used the input it was handed — the defect this exists for is a query that
+   * ignores its input entirely and touches every matching record in the org, which no
+   * amount of mocked data can reveal.
+   *
+   * This checks that the condition is PRESENT, not that the query is thereby narrowed: a
+   * condition joined with `orCondition()` satisfies it, even though an OR can widen the
+   * query back to everything. Assert the absence of the widening condition as well when
+   * that matters.
+   *
+   * ```
+   * mock.scribeAt('fetch')
+   *   .assertCondition(new InConditionClause('Id', contactIds))
+   *   .assertCondition(new EqualConditionClause(Account.class, 'Status__c', 'Active'));
+   * ```
+   *
+   * Which conditions are searched is decided by the expected clause itself: one built
+   * without an SObject type (the two-argument constructors) is matched against the
+   * queried object — top-level conditions and those inside `whereGroup` — while one
+   * built with a type is matched against every nested scribe for that object, so a
+   * `parentCondition` or a `withChildren` subquery can be named directly.
+   *
+   * When naming the object is not enough to say where — a self-referencing parent, or two
+   * subqueries over the same object — this refuses to guess: it throws and lists the paths
+   * involved, so use `assertConditionAt(path, ...)` to name one. It never quietly passes
+   * on the wrong one.
+   *
+   * HAVING conditions are never searched: their field name is an aggregate alias, not a
+   * field, so matching them here would compare unrelated things.
+   *
+   * Matching is by the kind of condition, its field, and the SOQL it renders as, with the
+   * expected clause built from the same metadata as the recorded one — so a change to how
+   * conditions render moves both sides together, and two different conditions that happen
+   * to render alike stay distinct.
+   *
+   * Collection values keep the semantics of the container they were given in: a Set is
+   * sorted (it has no order), a List is compared in the order it was written. Expect the
+   * same container kind the production code passes, or the two will not line up.
+   *
+   * An empty collection is a normal expectation: `ignoreWhen(ids.isEmpty())` removes the
+   * condition from the query outright, so `assertNoCondition(new InConditionClause('Id',
+   * ids))` is how both sides of that branch are fixed. Such a condition renders as
+   * degenerate SOQL (an empty `IN` becomes `<field> = null`, an empty `NOT IN` becomes
+   * nothing), which is precisely why the kind and the field are part of the key: text
+   * alone would let those collapse into one another.
+   *
+   * A failure raises System.AssertException, which Apex does not allow to be caught
+   * (measured on API v67.0). That is deliberate: a test wrapping its Act in
+   * `catch (Exception e)` cannot swallow the assertion and go green. Use `hasCondition`
+   * when a Boolean is what you want.
+   *
+   * The field name is checked against the object being searched. A misspelling would
+   * otherwise render as tidy SOQL and simply match nothing, which fails loudly here but
+   * would let `assertNoCondition` pass for ever — including after the code under test
+   * starts filtering on the field the test meant to guard.
+   *
+   * @param expected The condition the query is expected to carry.
+   * @return This Scribe, so assertions can be chained.
+   * @throws ApexEloquentException when the expected condition names a field the searched
+   *         object does not have.
+   */
+  @TestVisible
+  private Scribe assertCondition(IConditionClause expected) {
+    ConditionMatch match = this.findCondition(expected, null, false);
+    Assert.isTrue(match.found, this.describeAssertionFailure(expected, match, true));
+    return this;
+  }
+
+  /**
+   * Reports whether this query carries the given condition, using the same search rules
+   * as `assertCondition`. Use it when a test needs its own message, or needs to accept
+   * one of several shapes; `assertCondition` is the shorter form for the usual case.
+   *
+   * @param expected The condition to look for.
+   * @return True when the query carries it.
+   * @throws ApexEloquentException when the expected condition names a field the searched
+   *         object does not have.
+   */
+  @TestVisible
+  private Boolean hasCondition(IConditionClause expected) {
+    return this.findCondition(expected, null, false).found;
+  }
+
+  /**
+   * Asserts that the part of this query reached by `path` carries the expected condition.
+   * Use it when naming the object is not enough to say where — a self-referencing parent
+   * (`Account` filtered by `ParentId`, itself an Account), a parent two hops up, or two
+   * subqueries over the same object. `assertCondition` refuses to guess in those cases,
+   * and its message lists the paths to choose from.
+   *
+   * A path is the chain of hops from the queried object, written the same way the query
+   * was built: a parent hop is the field passed to `Scribe.asParent(...)`, a child hop is
+   * the child's relationship name when `relationName(...)` was used, otherwise the child
+   * object's name, and a semi-join hop is the field passed to `whereIn(field, Scribe)` or
+   * `whereNotIn(field, Scribe)`. `whereGroup` is not a hop — a group filters the same
+   * object at the same place.
+   *
+   * Those three sources share one namespace, so a name can reach two places at once (a
+   * lookup field and a semi-join on the same field, say). Both are then searched, and the
+   * expectation is read against whichever of them has the field it names; add the object
+   * to the expected condition to say which one is meant.
+   *
+   * ```
+   * // Scribe.of(Account.class).parentCondition(Scribe.asParent('ParentId')...)
+   * scribe.assertConditionAt('ParentId', new EqualConditionClause('Type', 'X'));
+   * scribe.assertConditionAt('ParentId.ParentId', new EqualConditionClause('Type', 'Y'));
+   * scribe.assertConditionAt('Contact', new EqualConditionClause('LastName', 'Z'));
+   * ```
+   *
+   * The path already says where to look, so the expected condition is normally built with
+   * the short two-argument constructor. Naming an object as well is allowed — it reads as
+   * documentation — but the two must agree: an object that the path does not lead to is
+   * refused rather than silently ignored.
+   *
+   * @param path The path to the part of the query being asserted.
+   * @param expected The condition it is expected to carry.
+   * @return This Scribe, so assertions can be chained.
+   * @throws ApexEloquentException when the path reaches no part of this query, when the
+   *         expected condition names a field the object at that path does not have, or
+   *         when it names a different object than the path leads to.
+   */
+  @TestVisible
+  private Scribe assertConditionAt(String path, IConditionClause expected) {
+    ConditionMatch match = this.findCondition(expected, path, true);
+    Assert.isTrue(match.found, this.describeAssertionFailure(expected, match, true));
+    return this;
+  }
+
+  /**
+   * Asserts that the part of this query reached by `path` does NOT carry the given
+   * condition. Path rules are those of `assertConditionAt`.
+   *
+   * @param path The path to the part of the query being asserted.
+   * @param unexpected The condition it must not carry.
+   * @return This Scribe, so assertions can be chained.
+   * @throws ApexEloquentException when the path reaches no part of this query, when the
+   *         expected condition names a field the object at that path does not have, or
+   *         when it names a different object than the path leads to.
+   */
+  @TestVisible
+  private Scribe assertNoConditionAt(String path, IConditionClause unexpected) {
+    ConditionMatch match = this.findCondition(unexpected, path, true);
+    Assert.isFalse(match.found, this.describeAssertionFailure(unexpected, match, false));
+    return this;
+  }
+
+  /**
+   * Reports whether the part of this query reached by `path` carries the given condition.
+   * Path rules are those of `assertConditionAt`.
+   *
+   * @param path The path to the part of the query being examined.
+   * @param expected The condition to look for.
+   * @return True when that part of the query carries it.
+   * @throws ApexEloquentException when the path reaches no part of this query, when the
+   *         expected condition names a field the object at that path does not have, or
+   *         when it names a different object than the path leads to.
+   */
+  @TestVisible
+  private Boolean hasConditionAt(String path, IConditionClause expected) {
+    return this.findCondition(expected, path, true).found;
+  }
+
+  /**
+   * Builds the message `assertCondition` / `assertNoCondition` would report for the
+   * given expectation. Exposed so the framework's own tests can verify the diagnosis:
+   * System.AssertException cannot be caught, so a failing assertion cannot be inspected
+   * from inside a test.
+   *
+   * @param expected The condition the message is about.
+   * @param shouldExist True to phrase it as a missing condition, false as a forbidden one.
+   * @return The message.
+   * @throws ApexEloquentException when the expected condition names a field the searched
+   *         object does not have.
+   */
+  @TestVisible
+  private String conditionAssertionMessage(IConditionClause expected, Boolean shouldExist) {
+    return this.describeAssertionFailure(expected, this.findCondition(expected, null, false), shouldExist);
+  }
+
+  /**
+   * Asserts that this query does NOT carry the given condition — the guard for "this
+   * filter must never be added", such as a soft-delete flag a Usecase is meant to ignore.
+   * Search rules are identical to `assertCondition`.
+   *
+   * @param unexpected The condition the query must not carry.
+   * @return This Scribe, so assertions can be chained.
+   * @throws ApexEloquentException when the expected condition names a field the searched
+   *         object does not have. A misspelling would otherwise leave this
+   *         assertion passing for ever, which is the defect the check exists for.
+   */
+  @TestVisible
+  private Scribe assertNoCondition(IConditionClause unexpected) {
+    ConditionMatch match = this.findCondition(unexpected, null, false);
+    Assert.isFalse(match.found, this.describeAssertionFailure(unexpected, match, false));
+    return this;
+  }
+
+  /**
+   * Outcome of searching the condition tree: whether the expected clause was found, the
+   * SOQL fragment it was compared as, every fragment that was compared against it, and
+   * the paths that were in scope — the material the failure message is built from.
+   */
+  private class ConditionMatch {
+    private Boolean found = false;
+    private String expectedFragment;
+    private String expectedKey;
+    private List<String> comparedFragments = new List<String>();
+    private List<String> otherObjectHits = new List<String>();
+    // Paths whose scribe was searched, so an ambiguous target can name them.
+    private List<String> matchedPaths = new List<String>();
+    // Every path in the query, so a mistyped path can be answered with the real ones.
+    private List<String> allPaths = new List<String>();
+  }
+
+  /**
+   * Walks the condition tree looking for the expected clause.
+   *
+   * @param expected The condition to look for.
+   * @return The search outcome, including what was compared, for the failure message.
+   */
+  private ConditionMatch findCondition(IConditionClause expected, String path, Boolean pathGiven) {
+    String method = pathGiven
+      ? 'assertConditionAt(String path, IConditionClause expected)'
+      : 'assertCondition(IConditionClause expected)';
+    if (expected == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'expected', null).fire();
+    }
+    // Build once so nested scribes learn which object they filter before types are
+    // compared (toSoql is idempotent). ⚠️ Scribe.deepClone is shallow, so this also rewrites
+    // state shared with any Scribe cloned from this one: aggregateAliasMap is reset, nested
+    // sObjectType is assigned, and ConditionPart.isOr is recomputed. MockEloquent already
+    // calls toSoql on the recorded query, so the values settle the same way.
+    this.toSoql();
+
+    Schema.SObjectType targetType = expected instanceof AbstractConditionClause
+      ? ((AbstractConditionClause) expected).getSObjectType()
+      : null;
+    String searchPath = path;
+    Boolean searchByPath = pathGiven;
+    if (targetType == null && !pathGiven) {
+      // Naming no object means the queried object itself, which is one exact place — not a
+      // type to look for. Treating it as a type would call a self-referencing parent
+      // ambiguous and refuse an assertion that was never ambiguous.
+      searchPath = '';
+      searchByPath = true;
+    }
+
+    ConditionMatch match = new ConditionMatch();
+    Schema.SObjectType metaType = targetType;
+    List<Schema.SObjectType> pathTypes = this.typesAtPath(searchPath);
+    // Whether the objects being searched are known. They are not when a path leads nowhere:
+    // the expectation is then read against the root just to render a failure message, and
+    // must not be judged as if the root were the target.
+    Boolean targetResolved = !pathTypes.isEmpty();
+    if (metaType == null) {
+      // A parent holding no condition never has its type filled in (ParentScribe returns
+      // before assigning it), so the relationship is followed to find it rather than
+      // dereferencing null or reporting the expectation in the wrong object's terms.
+      metaType = targetResolved ? typeHolding(pathTypes, expected.getFieldName()) : this.sObjectType;
+    } else if (searchByPath && targetResolved && !pathTypes.contains(metaType)) {
+      // Both a path and an object were named, and they disagree. Silently honouring one
+      // would report the expectation in terms of an object the path does not lead to.
+      String error = 'Conflicting query target';
+      String reason =
+        'The path \'' +
+        searchPath +
+        '\' leads to ' +
+        describeTypes(pathTypes) +
+        ', but the expected condition names ' +
+        metaType.getDescribe().getName() +
+        '.';
+      String action = 'Drop the object from the condition (the path already says where to look), or correct one of them.';
+      ApexEloquentException.at(CLASS_NAME)
+        .method('assertConditionAt(String path, IConditionClause expected)')
+        .error(error)
+        .reason(reason)
+        .action(action)
+        .param('path', searchPath)
+        .fire();
+    }
+    Map<String, Schema.SObjectField> metaFieldMap = metaType.getDescribe().fields.getMap();
+    match.expectedFragment = expected.overrideMetaData(metaType, metaFieldMap).build();
+    match.expectedKey = comparisonKey(expected, match.expectedFragment);
+    this.collectConditionMatches(targetType, searchByPath ? searchPath : null, '', match);
+
+    if (searchByPath && match.matchedPaths.isEmpty()) {
+      String error = 'Unknown query path';
+      String reason = 'No part of this query is reached by the path \'' + searchPath + '\'.';
+      String action = 'Use one of the paths this query actually has: ' + describePaths(match.allPaths);
+      ApexEloquentException.at(CLASS_NAME)
+        .method('assertConditionAt(String path, IConditionClause expected)')
+        .error(error)
+        .reason(reason)
+        .action(action)
+        .param('path', searchPath)
+        .fire();
+    }
+    if (!searchByPath && match.matchedPaths.size() > 1) {
+      // Naming only the object cannot say WHICH of them, and quietly passing on the
+      // wrong one is the very failure this feature exists to prevent.
+      String error = 'Ambiguous query target';
+      String reason =
+        '\'' +
+        targetType.getDescribe().getName() +
+        '\' is filtered at ' +
+        match.matchedPaths.size() +
+        ' places in this query: ' +
+        describePaths(match.matchedPaths) +
+        '.';
+      String action = 'Name one with assertConditionAt(\'<path>\', ...) instead of passing the object.';
+      ApexEloquentException.at(CLASS_NAME)
+        .method('assertCondition(IConditionClause expected)')
+        .error(error)
+        .reason(reason)
+        .action(action)
+        .param('sObjectType', targetType.getDescribe().getName())
+        .fire();
+    }
+    // Checked last, and only when the condition turned up nowhere at all. A field the
+    // searched object lacks can still be a real field of another part of the query, and
+    // "the same condition exists elsewhere" is the more useful answer in that case.
+    if (targetResolved && !match.found && match.otherObjectHits.isEmpty()) {
+      // Naming an object pins the search to it, so the message must name that one. Without
+      // one, every object the path reaches was a candidate and all of them are listed.
+      List<Schema.SObjectType> searched = targetType == null
+        ? pathTypes
+        : new List<Schema.SObjectType>{ metaType };
+      this.rejectUnknownField(method, expected, searched, metaFieldMap);
+    }
+    return match;
+  }
+
+  /**
+   * Refuses an expectation naming a field the target object does not have.
+   *
+   * A misspelled field still renders as tidy SOQL — `getFieldType` falls back to STRING for
+   * anything absent from the describe map — so it simply matches nothing. `assertCondition`
+   * fails loudly at that point, but `assertNoCondition` would pass forever, and go on
+   * passing after the implementation starts filtering on the field it was meant to guard.
+   *
+   * Called only once the search has come up empty everywhere. A field the searched object
+   * lacks may still belong to another part of the query — an expectation aimed at the
+   * queried object when the condition sits on a parent, say — and telling the caller the
+   * condition exists elsewhere says more than telling them the field does not exist.
+   *
+   * Dotted names are left alone: they are the polymorphic and relationship forms
+   * (`Queue.Name`, `Account.Type`) that the same describe fallback exists to support.
+   *
+   * @param method Calling method signature, for the error.
+   * @param expected The expected condition.
+   * @param candidates The objects that were searched, for the error.
+   * @param metaFieldMap The field map of the object the expectation is read against.
+   */
+  private void rejectUnknownField(
+    String method,
+    IConditionClause expected,
+    List<Schema.SObjectType> candidates,
+    Map<String, Schema.SObjectField> metaFieldMap
+  ) {
+    String fieldName = expected.getFieldName();
+    if (String.isBlank(fieldName) || fieldName.contains('.')) {
+      return;
+    }
+    // The map keys are lower-case but containsKey ignores case (measured on API v67.0);
+    // lowering keeps the lookup right either way.
+    if (metaFieldMap.containsKey(fieldName.toLowerCase())) {
+      return;
+    }
+    String error = 'Unknown field in expected condition';
+    String reason = describeTypes(candidates) + ' has no field named \'' + fieldName + '\'.';
+    String action = 'Correct the field name — a misspelling would make assertNoCondition pass for ever.';
+    ApexEloquentException.at(CLASS_NAME)
+      .method(method)
+      .error(error)
+      .reason(reason)
+      .action(action)
+      .param('field', fieldName)
+      .fire();
+  }
+
+  /**
+   * Every object filtered at a path.
+   *
+   * A path normally reaches one place, but hop names come from three sources that share
+   * one namespace — a parent's lookup field, a child's relationship name, and a semi-join's
+   * field — so the same name can reach two objects in one query. All of them are returned:
+   * judging an expectation against only the first would refuse an assertion about the
+   * second, which is a place the query really does filter.
+   *
+   * @param path The dot-separated path from this query.
+   * @return The objects at that path, empty when the path leads nowhere.
+   */
+  private List<Schema.SObjectType> typesAtPath(String path) {
+    List<Schema.SObjectType> found = new List<Schema.SObjectType>();
+    this.collectTypesAtPath(path, found);
+    return found;
+  }
+
+  /**
+   * Accumulates the objects reached by a path, following the same hops as `scribeAtPath`.
+   *
+   * @param path The path remaining from this scribe.
+   * @param found The accumulating list, deduplicated by object.
+   */
+  private void collectTypesAtPath(String path, List<Schema.SObjectType> found) {
+    if (String.isBlank(path)) {
+      addType(found, this.sObjectType);
+      return;
+    }
+    for (ConditionPart part : this.conditionParts) {
+      if (part.condition != null) {
+        Scribe subQuery = subQueryOf(part.condition);
+        if (subQuery == null) {
+          continue;
+        }
+        String hop = part.condition.getFieldName();
+        if (path == hop) {
+          addType(found, subQuery.sObjectType);
+        } else if (path.startsWithIgnoreCase(hop + '.')) {
+          subQuery.collectTypesAtPath(path.substring(hop.length() + 1), found);
+        }
+      } else if (part.parentScribe != null) {
+        String hop = part.parentScribe.relationFieldName;
+        if (path == hop) {
+          // A parent holding no condition never has its type assigned (ParentScribe returns
+          // before doing so), so the lookup it was built from is described instead. Only a
+          // single-reference lookup can get here: ParentScribe.validate rejects polymorphic
+          // ones before that early return.
+          Schema.SObjectType parentType = part.parentScribe.scribe.sObjectType == null
+            ? this.parentTypeOf(hop)
+            : part.parentScribe.scribe.sObjectType;
+          addType(found, parentType);
+        } else if (path.startsWithIgnoreCase(hop + '.')) {
+          part.parentScribe.scribe.collectTypesAtPath(path.substring(hop.length() + 1), found);
+        }
+      } else if (part.groupScribe != null) {
+        // A group filters the same object at the same place, so it consumes no hop.
+        part.groupScribe.collectTypesAtPath(path, found);
+      }
+    }
+    for (Scribe child : this.children) {
+      String hop = childHopName(child);
+      if (path == hop) {
+        addType(found, child.sObjectType);
+      } else if (path.startsWithIgnoreCase(hop + '.')) {
+        child.collectTypesAtPath(path.substring(hop.length() + 1), found);
+      }
+    }
+  }
+
+  /**
+   * Adds an object to the accumulator unless it is null or already there.
+   *
+   * @param found The accumulating list.
+   * @param type The object to add.
+   */
+  private static void addType(List<Schema.SObjectType> found, Schema.SObjectType type) {
+    if (type != null && !found.contains(type)) {
+      found.add(type);
+    }
+  }
+
+  /**
+   * The object an expectation should be read against, when a path reaches more than one.
+   *
+   * The one that has the named field is chosen, so a condition written for the second of
+   * two colliding hops is understood as being about that one. When no candidate has the
+   * field, the first is returned and `rejectUnknownField` reports them all.
+   *
+   * @param types The objects the path reaches, never empty.
+   * @param fieldName The field the expectation names.
+   * @return The object to read the expectation against.
+   */
+  private static Schema.SObjectType typeHolding(List<Schema.SObjectType> types, String fieldName) {
+    if (types.size() == 1 || String.isBlank(fieldName) || fieldName.contains('.')) {
+      return types[0];
+    }
+    for (Schema.SObjectType type : types) {
+      if (type.getDescribe().fields.getMap().containsKey(fieldName.toLowerCase())) {
+        return type;
+      }
+    }
+    return types[0];
+  }
+
+  /**
+   * Resolves the object a lookup field points at, for a parent whose scribe never had its
+   * type assigned.
+   *
+   * @param relationFieldName The lookup field given to Scribe.asParent.
+   * @return The referenced object, or null when it cannot be resolved.
+   */
+  private Schema.SObjectType parentTypeOf(String relationFieldName) {
+    if (this.sObjectType == null) {
+      return null;
+    }
+    Schema.SObjectField relationField = this.sObjectType.getDescribe().fields.getMap().get(relationFieldName);
+    if (relationField == null) {
+      return null;
+    }
+    List<Schema.SObjectType> referenced = relationField.getDescribe().getReferenceTo();
+    return referenced.isEmpty() ? null : referenced[0];
+  }
+
+  /**
+   * The query a semi-join condition wraps (`whereIn(field, Scribe)` / `whereNotIn`), or null
+   * for any other condition.
+   *
+   * @param clause The condition to inspect.
+   * @return The subquery, or null.
+   */
+  private static Scribe subQueryOf(IConditionClause clause) {
+    if (clause instanceof InSubQueryConditionClause) {
+      return ((InSubQueryConditionClause) clause).getSubQueryScribe();
+    }
+    if (clause instanceof NotInSubQueryConditionClause) {
+      return ((NotInSubQueryConditionClause) clause).getSubQueryScribe();
+    }
+    return null;
+  }
+
+  /**
+   * The key two conditions are compared by: the kind of condition, the field, and the SOQL
+   * it renders as. The fragment alone is not enough — an empty `IN` renders `Id = null`,
+   * `IS NULL` renders `Id = NULL`, and Apex compares those two Strings as equal, so
+   * matching on text alone would let one condition satisfy an assertion about another.
+   *
+   * @param clause The condition to key.
+   * @param fragment The SOQL it renders as.
+   * @return The comparison key.
+   */
+  private static String comparisonKey(IConditionClause clause, String fragment) {
+    return clause.clauseKind() + '|' + clause.getFieldName() + '|' + fragment;
+  }
+
+  /**
+   * Formats a list of query paths for a message, naming the empty path (the queried
+   * object) rather than printing nothing for it.
+   *
+   * @param paths The paths to format.
+   * @return A readable, comma-separated list.
+   */
+  private static String describePaths(List<String> paths) {
+    List<String> shown = new List<String>();
+    for (String path : paths) {
+      shown.add(String.isBlank(path) ? '\'\' (the queried object)' : '\'' + path + '\'');
+    }
+    return shown.isEmpty() ? '(none)' : String.join(shown, ', ');
+  }
+
+  /**
+   * Renders a list of objects for a message.
+   *
+   * @param types The objects to name.
+   * @return Their names, separated by a slash.
+   */
+  private static String describeTypes(List<Schema.SObjectType> types) {
+    List<String> names = new List<String>();
+    for (Schema.SObjectType type : types) {
+      names.add(type.getDescribe().getName());
+    }
+    return String.join(names, ' / ');
+  }
+
+  /**
+   * Returns the nested scribe reached by a path, or null when the path leads nowhere.
+   *
+   * @param path The dot-separated path from this query.
+   * @return The scribe at that path, or null.
+   */
+  private Scribe scribeAtPath(String path) {
+    if (String.isBlank(path)) {
+      return this;
+    }
+    for (ConditionPart part : this.conditionParts) {
+      if (part.condition != null) {
+        Scribe subQuery = subQueryOf(part.condition);
+        if (subQuery != null) {
+          String hop = part.condition.getFieldName();
+          if (path == hop) {
+            return subQuery;
+          }
+          if (path.startsWithIgnoreCase(hop + '.')) {
+            return subQuery.scribeAtPath(path.substring(hop.length() + 1));
+          }
+        }
+      } else if (part.parentScribe != null) {
+        String hop = part.parentScribe.relationFieldName;
+        if (path == hop) {
+          return part.parentScribe.scribe;
+        }
+        if (path.startsWithIgnoreCase(hop + '.')) {
+          return part.parentScribe.scribe.scribeAtPath(path.substring(hop.length() + 1));
+        }
+      } else if (part.groupScribe != null) {
+        Scribe found = part.groupScribe.scribeAtPath(path);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    for (Scribe child : this.children) {
+      String hop = childHopName(child);
+      if (path == hop) {
+        return child;
+      }
+      if (path.startsWithIgnoreCase(hop + '.')) {
+        return child.scribeAtPath(path.substring(hop.length() + 1));
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The path segment that names a child subquery: its relationship name when one was
+   * given via `relationName(...)`, otherwise the child object's name — the same rule
+   * the framework already uses to key child data in a FieldStructure.
+   *
+   * @param child The child scribe.
+   * @return The segment naming it.
+   */
+  private static String childHopName(Scribe child) {
+    return String.isBlank(child.relationName) ? child.getDescribe().getName() : child.relationName;
+  }
+
+  /**
+   * Recursively compares this scribe's conditions — and those of its groups, parent
+   * conditions and child subqueries — against the expected fragment held in `match`.
+   *
+   * A scribe is in scope when its object matches `targetType`, or when its path equals
+   * `targetPath`; exactly one of the two is supplied.
+   *
+   * @param targetType The object whose conditions are compared, or null when a path was given.
+   * @param targetPath The path whose conditions are compared, or null when a type was given.
+   * @param path This scribe's own path from the query root.
+   * @param match The accumulating search outcome.
+   */
+  private void collectConditionMatches(
+    Schema.SObjectType targetType,
+    String targetPath,
+    String path,
+    ConditionMatch match
+  ) {
+    Boolean isTarget = targetPath == null ? this.sObjectType == targetType : path == targetPath;
+    Map<String, Schema.SObjectField> fieldMap = this.sObjectType == null
+      ? null
+      : this.sObjectType.getDescribe().fields.getMap();
+
+    for (ConditionPart part : this.conditionParts) {
+      if (part.condition != null) {
+        if (fieldMap == null) {
+          continue;
+        }
+        IConditionClause resolved = part.condition.overrideMetaData(this.sObjectType, fieldMap);
+        String fragment = resolved.build();
+        String key = comparisonKey(resolved, fragment);
+        if (isTarget) {
+          match.comparedFragments.add(String.isBlank(path) ? fragment : path + ' -> ' + fragment);
+          if (key == match.expectedKey) {
+            match.found = true;
+          }
+        } else if (key == match.expectedKey) {
+          // Same condition, wrong place — worth naming in the failure message.
+          match.otherObjectHits.add(describePaths(new List<String>{ path }) + ': ' + fragment);
+        }
+        // A semi-join carries a whole query inside the condition; its conditions are part
+        // of what this query filters on, so they are searched one hop further along.
+        Scribe subQuery = subQueryOf(part.condition);
+        if (subQuery != null) {
+          String hop = part.condition.getFieldName();
+          subQuery.collectConditionMatches(
+            targetType,
+            targetPath,
+            String.isBlank(path) ? hop : path + '.' + hop,
+            match
+          );
+        }
+      } else if (part.groupScribe != null) {
+        // A group filters the same object at the same place, so it keeps this path.
+        part.groupScribe.collectConditionMatches(targetType, targetPath, path, match);
+      } else if (part.parentScribe != null) {
+        String hop = part.parentScribe.relationFieldName;
+        part.parentScribe.scribe.collectConditionMatches(
+          targetType,
+          targetPath,
+          String.isBlank(path) ? hop : path + '.' + hop,
+          match
+        );
+      }
+    }
+    if (isTarget && !match.matchedPaths.contains(path)) {
+      // A group shares its container's path, so the same place is counted once.
+      match.matchedPaths.add(path);
+    }
+    if (!match.allPaths.contains(path)) {
+      // Every reachable place is listed, including those holding no condition: asserting
+      // that a place carries nothing is exactly when the list is needed.
+      match.allPaths.add(path);
+    }
+    // Child subqueries filter their own object, one hop further along the path.
+    for (Scribe child : this.children) {
+      String hop = childHopName(child);
+      child.collectConditionMatches(targetType, targetPath, String.isBlank(path) ? hop : path + '.' + hop, match);
+    }
+    // HAVING is deliberately not searched: its "field" is an aggregate alias.
+  }
+
+  /**
+   * Builds the assertion failure message: what was expected, what the query actually
+   * carries, and the SOQL itself — the context a hand-written `toSoql().contains(...)`
+   * check cannot give.
+   *
+   * @param expected The condition that was searched for.
+   * @param match The search outcome.
+   * @param shouldExist True when the condition was required, false when it was forbidden.
+   * @return The message passed to Assert.
+   */
+  private String describeAssertionFailure(IConditionClause expected, ConditionMatch match, Boolean shouldExist) {
+    String headline = shouldExist
+      ? 'Expected the query to carry this condition, but it does not.'
+      : 'Expected the query NOT to carry this condition, but it does.';
+    String found = match.comparedFragments.isEmpty()
+      ? '(the query has no condition on this object)'
+      : String.join(match.comparedFragments, ', ');
+    String message =
+      '\n====== APEX ELOQUENT ASSERTION ======\n' +
+      headline +
+      '\n  Expected : ' +
+      match.expectedFragment +
+      '\n  Found    : ' +
+      found;
+    message += '\n  Searched : ' + describePaths(match.matchedPaths);
+    if (shouldExist && !match.otherObjectHits.isEmpty()) {
+      message +=
+        '\n  Note     : the same condition exists elsewhere in this query (' +
+        String.join(match.otherObjectHits, ', ') +
+        '). Use assertConditionAt with that path, or name that object.';
+    }
+    message += '\n  SOQL     : ' + this.toSoql() + '\n';
+    return message;
+  }
+
+  /**
    * Builds the final SOQL query string.
    *
    * @return The complete, executable SOQL query string.

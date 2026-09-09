@@ -48,8 +48,42 @@ public with sharing class LessThanConditionClause extends AbstractConditionClaus
   }
 
   /**
+   * Test-only constructor for building an expected condition on the object being
+   * queried. Pair it with `Scribe.assertCondition` / `assertNoCondition`.
+   *
+   * @param field The field name the condition applies to.
+   * @param value The expected value.
+   */
+  @TestVisible
+  private LessThanConditionClause(String field, Object value) {
+    this(null, null, field, value);
+  }
+
+  /**
+   * Test-only constructor for building an expected condition on a specific object.
+   * Use this to name a condition that lives on a parent (`parentCondition`) or on a
+   * child subquery (`withChildren`); the two-argument form targets the queried object.
+   *
+   * @param recordType The SObject class the condition applies to (e.g. Account.class).
+   * @param field The field name the condition applies to.
+   * @param value The expected value.
+   */
+  @TestVisible
+  private LessThanConditionClause(System.Type recordType, String field, Object value) {
+    this(toSObjectType(recordType), null, field, value);
+  }
+
+  /**
    * @inheritdoc
    */
+
+  /**
+   * @inheritDoc
+   */
+  public override String clauseKind() {
+    return 'lessThan';
+  }
+
   public override String build() {
     return String.format('{0} < {1}', new List<String>{ this.field, this.checkAndCast() });
   }

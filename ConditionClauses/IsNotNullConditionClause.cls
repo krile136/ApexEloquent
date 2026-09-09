@@ -40,8 +40,40 @@ public with sharing class IsNotNullConditionClause extends AbstractConditionClau
   }
 
   /**
+   * Test-only constructor for building an expected condition on the object being
+   * queried. Pair it with `Scribe.assertCondition` / `assertNoCondition`.
+   *
+   * @param field The field name the condition applies to.
+   */
+  @TestVisible
+  private IsNotNullConditionClause(String field) {
+    this(null, null, field);
+  }
+
+  /**
+   * Test-only constructor for building an expected condition on a specific object.
+   * Use this to name a condition that lives on a parent (`parentCondition`) or on a
+   * child subquery (`withChildren`); the one-argument form targets the queried object.
+   *
+   * @param recordType The SObject class the condition applies to (e.g. Account.class).
+   * @param field The field name the condition applies to.
+   */
+  @TestVisible
+  private IsNotNullConditionClause(System.Type recordType, String field) {
+    this(toSObjectType(recordType), null, field);
+  }
+
+  /**
    * @inheritDoc
    */
+
+  /**
+   * @inheritDoc
+   */
+  public override String clauseKind() {
+    return 'isNotNull';
+  }
+
   public override String build() {
     return String.format('{0} != {1}', new List<String>{ this.field, 'NULL' });
   }

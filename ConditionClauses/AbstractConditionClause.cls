@@ -85,6 +85,34 @@ public with sharing abstract class AbstractConditionClause implements ICondition
   }
 
   /**
+   * A stable identity for the kind of condition this is ('equal', 'in', 'isNull', ...).
+   *
+   * Comparing conditions by their generated SOQL alone is not enough, because degenerate
+   * inputs render indistinguishably: an empty `IN` builds `Id = null` and `IS NULL` builds
+   * `Id = NULL`, which Apex's case-insensitive String equality treats as the same text,
+   * while an empty `NOT IN` builds an empty string. Keying on the kind as well keeps
+   * `Scribe.assertCondition` from matching one condition against a different one.
+   *
+   * @return The kind of this condition.
+   */
+  public virtual String clauseKind() {
+    return 'unknown';
+  }
+
+  /**
+   * Returns the SObject type this condition applies to, or null when the clause was
+   * built without one. Scribe reads this when matching an expected condition against
+   * a recorded query: a clause carrying a type is matched against nested scribes for
+   * that object (a parent condition or a child subquery), and one carrying null is
+   * matched against the queried object itself.
+   *
+   * @return the SObject type of this condition, or null when unspecified
+   */
+  public Schema.SObjectType getSObjectType() {
+    return this.sObjectType;
+  }
+
+  /**
    * Gets the Schema.DisplayType of the specified field.
    *
    * @param field The API name of the field.
@@ -128,6 +156,32 @@ public with sharing abstract class AbstractConditionClause implements ICondition
   }
 
   /**
+   * Resolves an SObject class (e.g. `Account.class`) to its Schema.SObjectType, so the
+   * test-only constructors can take the same `Account.class` form as `Scribe.of(...)`.
+   *
+   * @param recordType The SObject class.
+   * @return The matching Schema.SObjectType.
+   * @throws ApexEloquentException when recordType is null, or is a class that instantiates
+   *         but is not an SObject.
+   * @throws System.TypeException when recordType cannot be instantiated at all — an
+   *         interface or an abstract class fails inside newInstance() before this method
+   *         can judge it (measured on API v67.0).
+   */
+  public static Schema.SObjectType toSObjectType(System.Type recordType) {
+    String method = 'toSObjectType(System.Type recordType)';
+    if (recordType == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'recordType', recordType).fire();
+    }
+    Object instance = recordType.newInstance();
+    if (!(instance instanceof SObject)) {
+      String reason = '`recordType` is not an SObject type.';
+      String action = 'Pass a valid SObject class (e.g., Account.class, MyObject__c.class)';
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'recordType', recordType).fire();
+    }
+    return ((SObject) instance).getSObjectType();
+  }
+
+  /**
    * Normalize a `List` or `Set` of primitive values into a `List<Object>`.
    *
    * Accepts:
@@ -138,22 +192,69 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * Used by `InConditionClause` / `NotInConditionClause` to accept both List- and Set-
    * shaped inputs without forcing the caller to cast to `Set<Id>` or pre-convert to a List.
    *
+   * A Set has no order, so its values are sorted to give the generated IN clause a
+   * canonical form: the same set of values always produces the same SOQL. Measured on
+   * API v67.0, Apex Sets iterate in INSERTION order, so two sets holding the same
+   * values built in different orders would otherwise produce different SOQL — which
+   * also makes `Scribe.assertCondition` unable to match them. A List keeps its order:
+   * the caller chose it.
+   *
    * @param values A List or Set of primitive values.
    * @return The values as a `List<Object>`.
    * @throws ApexEloquentException when `values` is neither a List nor a supported Set type.
    */
   public static List<Object> toListObject(Object values) {
     if (values instanceof List<Object>) return (List<Object>) values;
-    if (values instanceof Set<Id>) return new List<Id>((Set<Id>) values);
-    if (values instanceof Set<String>) return new List<String>((Set<String>) values);
-    if (values instanceof Set<Integer>) return new List<Integer>((Set<Integer>) values);
-    if (values instanceof Set<Long>) return new List<Long>((Set<Long>) values);
-    if (values instanceof Set<Decimal>) return new List<Decimal>((Set<Decimal>) values);
-    if (values instanceof Set<Double>) return new List<Double>((Set<Double>) values);
-    if (values instanceof Set<Boolean>) return new List<Boolean>((Set<Boolean>) values);
-    if (values instanceof Set<Date>) return new List<Date>((Set<Date>) values);
-    if (values instanceof Set<Datetime>) return new List<Datetime>((Set<Datetime>) values);
-    if (values instanceof Set<Time>) return new List<Time>((Set<Time>) values);
+    if (values instanceof Set<Id>) {
+      List<Id> sorted = new List<Id>((Set<Id>) values);
+      sorted.sort();
+      return sorted;
+    }
+    if (values instanceof Set<String>) {
+      List<String> sorted = new List<String>((Set<String>) values);
+      sorted.sort();
+      return sorted;
+    }
+    if (values instanceof Set<Integer>) {
+      List<Integer> sorted = new List<Integer>((Set<Integer>) values);
+      sorted.sort();
+      return sorted;
+    }
+    if (values instanceof Set<Long>) {
+      List<Long> sorted = new List<Long>((Set<Long>) values);
+      sorted.sort();
+      return sorted;
+    }
+    if (values instanceof Set<Decimal>) {
+      List<Decimal> sorted = new List<Decimal>((Set<Decimal>) values);
+      sorted.sort();
+      return sorted;
+    }
+    if (values instanceof Set<Double>) {
+      List<Double> sorted = new List<Double>((Set<Double>) values);
+      sorted.sort();
+      return sorted;
+    }
+    if (values instanceof Set<Boolean>) {
+      List<Boolean> sorted = new List<Boolean>((Set<Boolean>) values);
+      sorted.sort();
+      return sorted;
+    }
+    if (values instanceof Set<Date>) {
+      List<Date> sorted = new List<Date>((Set<Date>) values);
+      sorted.sort();
+      return sorted;
+    }
+    if (values instanceof Set<Datetime>) {
+      List<Datetime> sorted = new List<Datetime>((Set<Datetime>) values);
+      sorted.sort();
+      return sorted;
+    }
+    if (values instanceof Set<Time>) {
+      List<Time> sorted = new List<Time>((Set<Time>) values);
+      sorted.sort();
+      return sorted;
+    }
 
     String reason = 'values must be a List or a Set of a primitive type (Id, String, Integer, Long, Decimal, Double, Boolean, Date, Datetime, Time)';
     String action = 'Pass a List<X> or Set<X> where X is one of the supported primitive types';

@@ -47,8 +47,55 @@ public with sharing class NotInSubQueryConditionClause extends AbstractCondition
   }
 
   /**
+   * Test-only constructor for building an expected condition on the object being
+   * queried. Pair it with `Scribe.assertCondition` / `assertNoCondition`.
+   *
+   * @param field The field name the condition applies to.
+   * @param subQueryScribe The expected subQueryScribe.
+   */
+  @TestVisible
+  private NotInSubQueryConditionClause(String field, Scribe subQueryScribe) {
+    this(null, null, field, subQueryScribe);
+  }
+
+  /**
+   * Test-only constructor for building an expected condition on a specific object.
+   * Use this to name a condition that lives on a parent (`parentCondition`) or on a
+   * child subquery (`withChildren`); the two-argument form targets the queried object.
+   *
+   * @param recordType The SObject class the condition applies to (e.g. Account.class).
+   * @param field The field name the condition applies to.
+   * @param subQueryScribe The expected subQueryScribe.
+   */
+  @TestVisible
+  private NotInSubQueryConditionClause(System.Type recordType, String field, Scribe subQueryScribe) {
+    this(toSObjectType(recordType), null, field, subQueryScribe);
+  }
+
+  /**
    * @inheritDoc
    */
+
+
+  /**
+   * Returns the subquery this condition wraps, so `Scribe.assertCondition` can search the
+   * conditions inside a semi-join. Without it the subquery is a leaf and its conditions are
+   * invisible to the assertion, which would let `assertNoCondition` pass on a filter that is
+   * in fact present.
+   *
+   * @return The subquery Scribe.
+   */
+  public Scribe getSubQueryScribe() {
+    return this.subQueryScribe;
+  }
+
+  /**
+   * @inheritDoc
+   */
+  public override String clauseKind() {
+    return 'notInSubQuery';
+  }
+
   public override String build() {
     return String.format('{0} NOT IN ({1})', new List<String>{ this.field, this.subQueryScribe.toSoql() });
   }

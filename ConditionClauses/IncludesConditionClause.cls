@@ -46,8 +46,42 @@ public with sharing class IncludesConditionClause extends AbstractConditionClaus
   }
 
   /**
+   * Test-only constructor for building an expected condition on the object being
+   * queried. Pair it with `Scribe.assertCondition` / `assertNoCondition`.
+   *
+   * @param field The field name the condition applies to.
+   * @param values The expected values.
+   */
+  @TestVisible
+  private IncludesConditionClause(String field, List<String> values) {
+    this(null, null, field, values);
+  }
+
+  /**
+   * Test-only constructor for building an expected condition on a specific object.
+   * Use this to name a condition that lives on a parent (`parentCondition`) or on a
+   * child subquery (`withChildren`); the two-argument form targets the queried object.
+   *
+   * @param recordType The SObject class the condition applies to (e.g. Account.class).
+   * @param field The field name the condition applies to.
+   * @param values The expected values.
+   */
+  @TestVisible
+  private IncludesConditionClause(System.Type recordType, String field, List<String> values) {
+    this(toSObjectType(recordType), null, field, values);
+  }
+
+  /**
    * @inheritdoc
    */
+
+  /**
+   * @inheritDoc
+   */
+  public override String clauseKind() {
+    return 'includes';
+  }
+
   public override String build() {
     return String.format('{0} INCLUDES ({1})', new List<String>{ this.field, this.checkAndCast() });
   }

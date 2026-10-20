@@ -43,6 +43,7 @@ public with sharing abstract class AbstractConditionClause implements ICondition
     DisplayType.TEXTAREA,
     DisplayType.PICKLIST,
     DisplayType.MULTIPICKLIST,
+    DisplayType.COMBOBOX,
     DisplayType.ID,
     DisplayType.REFERENCE,
     DisplayType.URL,
@@ -51,6 +52,14 @@ public with sharing abstract class AbstractConditionClause implements ICondition
     DisplayType.ENCRYPTEDSTRING,
     DisplayType.ANYTYPE
   };
+
+  /**
+   * The only shape an unquoted SOQL literal may take: a single token with no whitespace,
+   * quotes, parentheses, commas or operators. Numbers (`-1.5`, `1E+10`), booleans, dates,
+   * datetimes (`2026-01-01T00:00:00Z`), times and date literals (`LAST_N_DAYS:30`) all fit.
+   * Anything that does not fit would be pasted into the query as SOQL syntax.
+   */
+  private static final Pattern UNQUOTED_LITERAL = Pattern.compile('[A-Za-z0-9_:.+\\-]+');
 
   /**
    * Constructor for the abstract clause.
@@ -160,6 +169,53 @@ public with sharing abstract class AbstractConditionClause implements ICondition
       return dateTimeValue.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\'');
     }
     return String.escapeSingleQuotes(String.valueOf(value));
+  }
+
+  /**
+   * Renders one non-null value as a SOQL literal for a field of the given type.
+   *
+   * A text-like field gets a quoted, escaped literal. Any other field gets the value
+   * unquoted — and there `escapeSingleQuotes` protects nothing, because there is no
+   * quote to break out of: a String such as `'0 OR Id != null'` handed to a numeric
+   * field used to land in the WHERE clause as SOQL and widen the query to every record.
+   * The unquoted form is therefore refused unless it is a single literal token.
+   *
+   * Converting the value to the field's type (Decimal, Boolean, Date) was rejected: it
+   * would also reject date literals such as `LAST_N_DAYS:30`, which callers pass as
+   * Strings today, while the token check lets them through and still cannot be widened.
+   *
+   * @param fieldType The display type of the field the value is compared against.
+   * @param value The value to render. Callers handle null before calling this.
+   * @return The SOQL literal.
+   * @throws ApexEloquentException when the value would render as more than one token.
+   */
+  protected String toSoqlLiteral(Schema.DisplayType fieldType, Object value) {
+    String valueString = this.formatAndCastToString(value);
+    if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
+      return '\'' + valueString + '\'';
+    }
+    if (!UNQUOTED_LITERAL.matcher(valueString).matches()) {
+      String reason = String.format(
+        'The value for `{0}` ({1}) is not a single SOQL literal and would be inserted into the query as syntax.',
+        new List<String>{ this.field, String.valueOf(fieldType) }
+      );
+      String action = 'Pass a value of the field\'s own type (Integer, Decimal, Boolean, Date, Datetime) instead of a String';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'value', value)
+        .param('field', this.field)
+        .fire();
+    }
+    return valueString;
+  }
+
+  /**
+   * Renders one value as a quoted, escaped literal regardless of the field type, for
+   * the multi-select operators (INCLUDES / EXCLUDES) whose operands are always strings.
+   *
+   * @param value The value to render.
+   * @return The quoted SOQL literal.
+   */
+  protected String toQuotedSoqlLiteral(Object value) {
+    return '\'' + this.formatAndCastToString(value) + '\'';
   }
 
   /**

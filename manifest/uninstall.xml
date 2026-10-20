@@ -5,6 +5,7 @@
         <members>AbstractConditionClause</members>
         <members>AbstractEntry</members>
         <members>AverageClause</members>
+        <members>ConditionClauseInjectionTest</members>
         <members>CountClause</members>
         <members>CountDistinctClause</members>
         <members>Eloquent</members>

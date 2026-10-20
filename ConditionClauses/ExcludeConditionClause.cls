@@ -111,7 +111,7 @@ public with sharing class ExcludeConditionClause extends AbstractConditionClause
   private String checkAndCast() {
     List<String> castedValues = new List<String>();
     for (Object value : this.values) {
-      castedValues.add('\'' + value + '\'');
+      castedValues.add(this.toQuotedSoqlLiteral(value));
     }
 
     return String.join(castedValues, ', ');

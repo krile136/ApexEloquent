@@ -25,6 +25,19 @@ public with sharing class Scribe {
   private static final String CLASS_NAME = 'Scribe';
 
   /**
+   * The longest string the token checks (unquoted values, ORDER BY fields, aggregate aliases)
+   * hand to a regex. A string the regex has to reject fails with an uncatchable
+   * `System.LimitException: Regex too complicated` once it is long enough (measured on API
+   * v67.0: the ORDER BY pattern at 300,000 characters, the unquoted-value and alias patterns at
+   * 1,000,000; all three refused normally at 100,000). Anything longer
+   * than this is refused before the regex runs, with the same ApexEloquentException.
+   * No legitimate token comes close: a field path of five relationship hops, a number, or a
+   * date literal is well under 300 characters.
+   * Internal: not part of the supported API.
+   */
+  public static final Integer MAX_TOKEN_LENGTH = 1000;
+
+  /**
    * A field path: `Name`, `Account.Owner.Name`.
    */
   private static final String FIELD_PATH = '[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)*';
@@ -3072,7 +3085,6 @@ public with sharing class Scribe {
     while (low <= high) {
       Integer mid = (low + high) / 2;
       String midName = relationships[mid].getChildSObject().getDescribe().getName();
-      System.debug('midName: ' + midName);
       Integer res = targetChildObjectName.compareTo(midName);
 
       if (res == 0) {
@@ -3684,7 +3696,8 @@ public with sharing class Scribe {
         ApexEloquentException.required('Scribe.OrderByClause', null, 'field', field).fire();
       }
       // Surrounding spaces are harmless and used to be accepted, so they are trimmed rather than refused.
-      if (!ORDER_BY_FIELD_SHAPE.matcher(field.trim()).matches()) {
+      String trimmed = field.trim();
+      if (trimmed.length() > MAX_TOKEN_LENGTH || !ORDER_BY_FIELD_SHAPE.matcher(trimmed).matches()) {
         ApexEloquentException.invalidArgument(
             'Scribe.OrderByClause',
             null,

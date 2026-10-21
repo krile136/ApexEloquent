@@ -23,6 +23,32 @@
 public with sharing class Scribe {
   private static final String CLASS_NAME = 'Scribe';
 
+  /**
+   * A field path: `Name`, `Account.Owner.Name`.
+   */
+  private static final String FIELD_PATH = '[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)*';
+
+  /**
+   * The ORDER BY items Scribe accepts: a field path, or one function over a field path
+   * (`COUNT(Id)`, `SUM(Amount)`). The field is written into the query as is, and a sort
+   * column is often taken straight from an LWC datatable, so anything wider would let the
+   * caller append syntax (`Name, Id`, `Name DESC NULLS FIRST`, `Name LIMIT 1`).
+   * Several columns in one string (`orderBy('Name, Id')`) used to come out as valid SOQL and
+   * are now refused for the same reason; call orderBy() once per column.
+   * An aggregate alias passes the shape, but SOQL itself rejects it in ORDER BY
+   * (measured on API v67.0: `ORDER BY cnt` is `No such column 'cnt'`); use `COUNT(Id)`.
+   * Rejected alternative: checking against the schema. A relationship path and an aggregate
+   * are not in the field map, and the shape alone already rules out spaces, commas and quotes.
+   * Not covered, and refused:
+   * - `DISTANCE(Location__c, GEOLOCATION(...), 'mi')`: its arguments hold commas and a quoted unit.
+   * - Nested functions such as `CALENDAR_YEAR(convertTimezone(CreatedDate))`. SOQL accepts them
+   *   (measured on API v67.0), but groupByField() checks against the field map and cannot build
+   *   the matching GROUP BY, so Scribe has no query they would sort.
+   */
+  private static final Pattern ORDER_BY_FIELD_SHAPE = Pattern.compile(
+    FIELD_PATH + '|[A-Za-z][A-Za-z0-9_]*\\(' + FIELD_PATH + '\\)'
+  );
+
   // =================================================================================================================
   // Properties
   // =================================================================================================================
@@ -939,8 +965,17 @@ public with sharing class Scribe {
   /**
    * Adds a LIKE condition to the WHERE clause.
    *
+   * `%` and `_` in the value are always wildcards, and whereLike / whereNotLike currently
+   * have no way to match them literally: the value goes through `String.escapeSingleQuotes`,
+   * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
+   * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
+   * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
+   * search for `100%` also matches `1000`. APIs that escape the wildcards themselves
+   * (whereContains / whereStartsWith / whereEndsWith) are planned for a near release (issue #106).
+   * To match a value containing `%` exactly, whereEqual already treats it as a plain character.
+   *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
-   * @param value The string value to compare against, including wildcards (%).
+   * @param value The string value to compare against, including wildcards (% and _).
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereLike(String fieldName, String value) {
@@ -967,8 +1002,17 @@ public with sharing class Scribe {
   /**
    * Adds a NOT LIKE condition to the WHERE clause.
    *
+   * `%` and `_` in the value are always wildcards, and whereLike / whereNotLike currently
+   * have no way to match them literally: the value goes through `String.escapeSingleQuotes`,
+   * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
+   * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
+   * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
+   * search for `100%` also matches `1000`. APIs that escape the wildcards themselves
+   * (whereContains / whereStartsWith / whereEndsWith) are planned for a near release (issue #106).
+   * To match a value containing `%` exactly, whereEqual already treats it as a plain character.
+   *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
-   * @param value The string value to compare against, including wildcards (%).
+   * @param value The string value to compare against, including wildcards (% and _).
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotLike(String fieldName, String value) {
@@ -2772,28 +2816,22 @@ public with sharing class Scribe {
           .condition
           .overrideMetaData(this.sObjectType, aliasStructure.getFieldMap())
           .overrideField(aliasStructure.getFieldName());
-        String clauseWithAlias = condition.build();
+        String aggregateClause = aliasStructure.getAggregateClause();
 
-        // The initial build() result uses the SObject field name, so we need to replace it with the full aggregate function.
-        // e.g., 'Amount > 1000' becomes 'AVG(Amount) > 1000'
-        List<String> clauseParts = clauseWithAlias.split(' ');
-        clauseParts[0] = aliasStructure.getAggregateClause();
-
-        // The initial build() formats the value based on the original field's data type.
-        // However, for some aggregate functions (like COUNT, SUM, AVG), the result is numeric and should not be quoted.
-        // We only preserve the original casting for MIN and MAX, as their return type matches the original field's type.
-        Boolean needsCast = clauseParts[0].startsWith('MAX') || clauseParts[0].startsWith('MIN');
-        if (!needsCast) {
-          // The value part is everything from the 3rd element (index 2) onwards.
-          List<String> valueList = new List<String>();
-          for (Integer i = 2; i < clauseParts.size(); i++) {
-            valueList.add(clauseParts[i]);
-          }
-          String valueString = String.join(valueList, ' ');
-          // Remove the surrounding single quotes.
-          valueString = valueString.replaceAll('^\'|\'$', '');
-          clauseParts = new List<String>{ clauseParts[0], clauseParts[1], valueString };
+        // MIN and MAX return the field's own type, so their operand is rendered for that field.
+        // COUNT, COUNT_DISTINCT, SUM and AVG return a number whatever the field is (COUNT(Id) is
+        // a count, not an Id), so the operand is rendered as a number by the clause itself.
+        // This used to be done by stripping the quotes from the built string afterwards, which
+        // undid the escaping and let a value carry HAVING syntax.
+        Boolean keepsFieldType = aggregateClause.startsWith('MAX') || aggregateClause.startsWith('MIN');
+        if (!keepsFieldType && condition instanceof AbstractConditionClause) {
+          condition = ((AbstractConditionClause) condition).asNumericOperand();
         }
+
+        // build() names the SObject field; put the aggregate function in its place.
+        // e.g., 'Amount > 1000' becomes 'AVG(Amount) > 1000'
+        List<String> clauseParts = condition.build().split(' ');
+        clauseParts[0] = aggregateClause;
         clause = String.join(clauseParts, ' ');
         isLastOperatorOr = conditionPart.isOr;
       } else if (conditionPart.groupScribe != null) {
@@ -3596,7 +3634,7 @@ public with sharing class Scribe {
 
     public OrderByClause(String field) {
       this.validateField(field);
-      this.field = field;
+      this.field = field.trim();
       this.order = 'ASC';
       this.nullsOperator = null;
     }
@@ -3604,8 +3642,8 @@ public with sharing class Scribe {
     public OrderByClause(String field, String order) {
       this.validateField(field);
       this.validateOrder(order);
-      this.field = field;
-      this.order = order;
+      this.field = field.trim();
+      this.order = this.canonical(order);
       this.nullsOperator = null;
     }
 
@@ -3613,9 +3651,23 @@ public with sharing class Scribe {
       this.validateField(field);
       this.validateOrder(order);
       this.validateNullsOperator(nullsOperator);
-      this.field = field;
-      this.order = order;
-      this.nullsOperator = nullsOperator;
+      this.field = field.trim();
+      this.order = this.canonical(order);
+      this.nullsOperator = this.canonical(nullsOperator);
+    }
+
+    /**
+     * The keyword as the query should carry it. The checks below compare the upper-cased value
+     * against the keyword sets, so writing the caller's own string would let through anything
+     * that upper-cases to a keyword (`aſc` becomes `ASC`, measured on API v67.0). The upper-cased
+     * value is the set member itself. The locale is fixed so that the result does not depend on
+     * the running user's locale.
+     *
+     * @param keyword A value that has passed validateOrder() or validateNullsOperator().
+     * @return The keyword in upper case, exactly as it appears in ORDERS or NULLS_OPERATORS.
+     */
+    private String canonical(String keyword) {
+      return keyword.toUpperCase('en_US');
     }
 
     public String build() {
@@ -3630,6 +3682,18 @@ public with sharing class Scribe {
       if (String.isBlank(field)) {
         ApexEloquentException.required('Scribe.OrderByClause', null, 'field', field).fire();
       }
+      // Surrounding spaces are harmless and used to be accepted, so they are trimmed rather than refused.
+      if (!ORDER_BY_FIELD_SHAPE.matcher(field.trim()).matches()) {
+        ApexEloquentException.invalidArgument(
+            'Scribe.OrderByClause',
+            null,
+            'The field for orderBy() is not a single field path and would be inserted into the query as syntax',
+            'Pass one field API name, relationship path or aggregate such as COUNT(Id), and the direction as the second argument',
+            'field',
+            field
+          )
+          .fire();
+      }
     }
 
     private void validateFields(List<String> fields) {
@@ -3642,7 +3706,7 @@ public with sharing class Scribe {
     }
 
     private void validateOrder(String order) {
-      if (String.isBlank(order) || !this.ORDERS.contains(order.toUpperCase())) {
+      if (String.isBlank(order) || !this.ORDERS.contains(this.canonical(order))) {
         ApexEloquentException.invalidArgument(
             'Scribe.OrderByClause',
             null,
@@ -3656,7 +3720,7 @@ public with sharing class Scribe {
     }
 
     private void validateNullsOperator(String nullsOperator) {
-      if (String.isBlank(nullsOperator) || !this.NULLS_OPERATORS.contains(nullsOperator.toUpperCase())) {
+      if (String.isBlank(nullsOperator) || !this.NULLS_OPERATORS.contains(this.canonical(nullsOperator))) {
         ApexEloquentException.invalidArgument(
             'Scribe.OrderByClause',
             null,

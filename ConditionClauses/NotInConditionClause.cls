@@ -125,12 +125,7 @@ public with sharing class NotInConditionClause extends AbstractConditionClause {
         castedValues.add('NULL');
         continue;
       }
-      String valueString = this.formatAndCastToString(value);
-      if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
-        castedValues.add('\'' + valueString + '\'');
-      } else {
-        castedValues.add(valueString);
-      }
+      castedValues.add(this.toSoqlLiteral(fieldType, value));
     }
 
     return String.join(castedValues, ', ');

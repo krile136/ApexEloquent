@@ -117,11 +117,6 @@ public with sharing class LikeConditionClause extends AbstractConditionClause {
     }
 
     Schema.DisplayType fieldType = this.getFieldType(field);
-    String valueString = this.formatAndCastToString(value);
-    if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
-      return '\'' + valueString + '\'';
-    }
-
-    return valueString;
+    return this.toSoqlLiteral(fieldType, value);
   }
 }

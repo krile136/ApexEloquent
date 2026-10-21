@@ -115,11 +115,6 @@ public with sharing class EqualConditionClause extends AbstractConditionClause {
       return 'NULL';
     }
 
-    String valueString = this.formatAndCastToString(value);
-    if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
-      return '\'' + valueString + '\'';
-    }
-
-    return valueString;
+    return this.toSoqlLiteral(fieldType, value);
   }
 }

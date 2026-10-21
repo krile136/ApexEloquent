@@ -5,7 +5,6 @@
         <members>AbstractConditionClause</members>
         <members>AbstractEntry</members>
         <members>AverageClause</members>
-        <members>ConditionClauseInjectionTest</members>
         <members>CountClause</members>
         <members>CountDistinctClause</members>
         <members>Eloquent</members>
@@ -58,6 +57,7 @@
         <members>NotLikeConditionClauseTest</members>
         <members>Scribe</members>
         <members>ScribeTest</members>
+        <members>SoqlInjectionTest</members>
         <members>SumClause</members>
         <name>ApexClass</name>
     </types>

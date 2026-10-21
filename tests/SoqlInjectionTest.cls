@@ -12,19 +12,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * @directory ApexEloquent/ConditionClauses/tests
+ * @directory ApexEloquent/tests
  */
 
 /**
- * SOQL injection through condition values.
+ * SOQL injection through condition values, ORDER BY fields and aggregate aliases.
  *
  * Scribe renders values into the query text, so every value has to come out as exactly
- * one literal. The payloads below try to close the literal (quoted fields) or to append
- * syntax directly (unquoted fields), and would widen `WHERE <narrowing> AND <this>` to
- * every record through the trailing `OR`, since conditions are joined without parentheses.
+ * one operand. The payloads below try to close the literal (quoted fields), to append
+ * syntax directly (unquoted fields and numeric HAVING operands), or to reach a local
+ * variable through a bind reference (`:name`).
+ *
+ * How far an injected `OR` reaches depends on the rest of the query. SOQL refuses AND and
+ * OR on one level without parentheses (measured on API v67.0: `... AND x = 0 OR Id != null`
+ * is `unexpected token: 'OR'`), so a bare `OR` widens a query whose other conditions are
+ * OR-joined or absent, and a payload that balances parentheses (`0) OR (Id != null`)
+ * widens one inside a whereGroup.
  */
 @isTest
-public class ConditionClauseInjectionTest {
+public class SoqlInjectionTest {
   private static final String QUOTE_BREAKOUT = 'x\' OR Name != \'y';
   private static final String MULTI_BREAKOUT = 'a\') OR Id != null OR MultiSelectField__c INCLUDES (\'b';
   private static final String UNQUOTED_PAYLOAD = '0 OR Id != null';
@@ -142,6 +148,100 @@ public class ConditionClauseInjectionTest {
     assertRefused(new NotInConditionClause(opp, fieldsOf(opp), 'Amount', new List<Object>{ 100, '0) OR (Id != null' }));
   }
 
+  @isTest
+  static void testBuild_WhenValueStartsWithColon_ThenRefusedAsBindReference() {
+    // `:label` is a bind to a local variable of whichever method runs Database.query.
+    Schema.SObjectType account = Account.getSObjectType();
+    assertRefused(new EqualConditionClause(account, fieldsOf(account), 'NumberOfEmployees', ':label'));
+    assertRefused(new InConditionClause(account, fieldsOf(account), 'NumberOfEmployees', new List<Object>{ ':label' }));
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // HAVING: numeric aggregates render their operand as a number, so it must be a single token
+  // ---------------------------------------------------------------------------------------------
+
+  private static Scribe countByAccount(Scribe havingScribe) {
+    return Scribe.of(Opportunity.class).field('AccountId').count('Id', 'cnt').groupByField('AccountId').havingCondition(havingScribe);
+  }
+
+  private static void assertHavingRefused(Scribe havingScribe) {
+    try {
+      String soql = countByAccount(havingScribe).toSoql();
+      Assert.fail('A HAVING operand that is not a single literal must be refused, but built: ' + soql);
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('not a single SOQL literal'), 'Unexpected message: ' + e.getMessage());
+    }
+  }
+
+  private static void assertEndsWith(String expectedTail, String soql) {
+    Assert.isTrue(soql.endsWith(expectedTail), 'Expected the query to end with `' + expectedTail + '`: ' + soql);
+  }
+
+  @isTest
+  static void testToSoql_WhenHavingCountValueCarriesSyntax_ThenRefused() {
+    assertHavingRefused(Scribe.asHaving().whereGreaterThan('cnt', '999999 OR COUNT(Id) > 0'));
+  }
+
+  @isTest
+  static void testToSoql_WhenHavingInValueHoldsComma_ThenRefusedInsteadOfSplit() {
+    // One value must stay one operand: '1, 2' used to come out as `IN (1, 2)`.
+    assertHavingRefused(Scribe.asHaving().whereIn('cnt', new List<String>{ '1, 2' }));
+  }
+
+  @isTest
+  static void testToSoql_WhenHavingValueStartsWithColon_ThenRefusedAsBindReference() {
+    assertHavingRefused(Scribe.asHaving().whereEqual('cnt', ':label'));
+  }
+
+  @isTest
+  static void testToSoql_WhenHavingCountValueIsNumberOrNumericString_ThenUnquoted() {
+    assertEndsWith('HAVING COUNT(Id) > 5', countByAccount(Scribe.asHaving().whereGreaterThan('cnt', 5)).toSoql());
+    assertEndsWith('HAVING COUNT(Id) > 5', countByAccount(Scribe.asHaving().whereGreaterThan('cnt', '5')).toSoql());
+    assertEndsWith(
+      'HAVING COUNT(Id) IN (1, 2)',
+      countByAccount(Scribe.asHaving().whereIn('cnt', new List<Integer>{ 1, 2 })).toSoql()
+    );
+    assertEndsWith(
+      'HAVING COUNT(Id) NOT IN (1, 2)',
+      countByAccount(Scribe.asHaving().whereNotIn('cnt', new List<Integer>{ 1, 2 })).toSoql()
+    );
+  }
+
+  @isTest
+  static void testToSoql_WhenHavingValueIsRefused_ThenMessageNamesTheAggregate() {
+    try {
+      countByAccount(Scribe.asHaving().whereGreaterThan('cnt', 'x y')).toSoql();
+      Assert.fail('The value must be refused');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('HAVING value compared with an aggregate of `Id`'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testToSoql_WhenHavingSumNotIn_ThenRendered() {
+    // SOQL accepts `HAVING SUM(Amount) NOT IN (1, 2)` (measured on API v67.0).
+    String soql = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .sum('Amount', 'total')
+      .groupByField('StageName')
+      .havingCondition(Scribe.asHaving().whereNotIn('total', new List<Integer>{ 1, 2 }))
+      .toSoql();
+
+    assertEndsWith('HAVING SUM(Amount) NOT IN (1, 2)', soql);
+  }
+
+  @isTest
+  static void testToSoql_WhenHavingMinOnTextField_ThenStaysQuotedAndEscaped() {
+    String soql = Scribe.of(Account.class)
+      .field('Industry')
+      .min('Name', 'firstName')
+      .groupByField('Industry')
+      .havingCondition(Scribe.asHaving().whereEqual('firstName', QUOTE_BREAKOUT))
+      .toSoql();
+
+    assertEndsWith('HAVING MIN(Name) = \'x\\\' OR Name != \\\'y\'', soql);
+  }
+
   // ---------------------------------------------------------------------------------------------
   // Legitimate unquoted values keep working
   // ---------------------------------------------------------------------------------------------
@@ -177,6 +277,120 @@ public class ConditionClauseInjectionTest {
       'CreatedDate > 2026-01-02T03:04:05Z',
       new GreaterThanConditionClause(opp, fieldsOf(opp), 'CreatedDate', Datetime.newInstanceGmt(2026, 1, 2, 3, 4, 5)).build()
     );
+
+    Schema.SObjectType account = Account.getSObjectType();
+    Assert.areEqual('NumberOfEmployees = 5', new EqualConditionClause(account, fieldsOf(account), 'NumberOfEmployees', 5L).build());
+
+    Schema.SObjectType hours = Schema.BusinessHours.SObjectType;
+    Assert.areEqual(
+      'MondayStartTime = 08:00:00.000Z',
+      new EqualConditionClause(hours, fieldsOf(hours), 'MondayStartTime', Time.newInstance(8, 0, 0, 0)).build()
+    );
+  }
+
+  @isTest
+  static void testBuild_WhenComboboxField_ThenValueIsQuoted() {
+    // COMBOBOX is text; it used to render unquoted, which no query could accept.
+    Schema.SObjectType task = Task.getSObjectType();
+    Assert.areEqual('Subject = \'Call\'', new EqualConditionClause(task, fieldsOf(task), 'Subject', 'Call').build());
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Identifiers: ORDER BY fields and aggregate aliases are written as is, so only their shape is let in
+  // ---------------------------------------------------------------------------------------------
+
+  private static void assertOrderByRefused(String field) {
+    try {
+      String soql = Scribe.of(Account.class).field('Id').orderBy(field).toSoql();
+      Assert.fail('An ORDER BY field that is not a single field path must be refused, but built: ' + soql);
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('not a single field path'), 'Unexpected message: ' + e.getMessage());
+    }
+  }
+
+  private static void assertAliasRefused(String alias) {
+    try {
+      String soql = Scribe.of(Opportunity.class).field('AccountId').count('Id', alias).groupByField('AccountId').toSoql();
+      Assert.fail('An alias that is not a single identifier must be refused, but built: ' + soql);
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('not a single identifier'), 'Unexpected message: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testOrderBy_WhenFieldCarriesSyntax_ThenRefused() {
+    // A sort column taken straight from an LWC datatable is the typical source.
+    assertOrderByRefused('Name, Id');
+    assertOrderByRefused('Name DESC NULLS FIRST');
+    assertOrderByRefused('Name LIMIT 1');
+    assertOrderByRefused('Name\'');
+    assertOrderByRefused('COUNT(Id) DESC, Name');
+    assertOrderByRefused('Account..Name');
+  }
+
+  @isTest
+  static void testOrderBy_WhenFieldPathOrAggregate_ThenRendered() {
+    assertEndsWith('ORDER BY Name ASC', Scribe.of(Account.class).field('Id').orderBy('Name').toSoql());
+    assertEndsWith(
+      'ORDER BY Account.Owner.Name DESC NULLS LAST',
+      Scribe.of(Opportunity.class).field('Id').orderBy('Account.Owner.Name', 'DESC', 'LAST').toSoql()
+    );
+    assertEndsWith(
+      'ORDER BY COUNT(Id) DESC',
+      Scribe.of(Opportunity.class)
+        .field('AccountId')
+        .count('Id', 'cnt')
+        .groupByField('AccountId')
+        .orderBy('COUNT(Id)', 'DESC')
+        .toSoql()
+    );
+  }
+
+  @isTest
+  static void testOrderBy_WhenKeywordUpperCasesToDirection_ThenTheKeywordIsWrittenInstead() {
+    // `\u017F` (long s) and `\u0131` (dotless i) upper-case to ASCII, so they pass the keyword check.
+    assertEndsWith(
+      'ORDER BY Name ASC NULLS FIRST',
+      Scribe.of(Account.class).field('Id').orderBy('Name', 'a\u017Fc', 'f\u0131rst').toSoql()
+    );
+    assertEndsWith('ORDER BY Name DESC', Scribe.of(Account.class).field('Id').orderBy('Name', 'desc').toSoql());
+  }
+
+  @isTest
+  static void testOrderBy_WhenFieldHasSurroundingSpaces_ThenTrimmed() {
+    assertEndsWith('ORDER BY Name ASC', Scribe.of(Account.class).field('Id').orderBy(' Name ').toSoql());
+  }
+
+  @isTest
+  static void testOrderBy_WhenFunctionIsNested_ThenRefused() {
+    assertOrderByRefused('CALENDAR_YEAR(convertTimezone(CreatedDate))');
+  }
+
+  @isTest
+  static void testOrderBy_WhenAggregateIsQueried_ThenPlatformAcceptsIt() {
+    String soql = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .count('Id', 'cnt')
+      .groupByField('AccountId')
+      .orderBy('COUNT(Id)', 'DESC')
+      .toSoql();
+
+    Assert.areEqual(0, Database.query(soql).size(), 'The aggregate form the shape lets in must be valid SOQL');
+  }
+
+  @isTest
+  static void testAggregate_WhenAliasCarriesSyntax_ThenRefused() {
+    assertAliasRefused('cnt, Name');
+    assertAliasRefused('cnt FROM Account');
+    assertAliasRefused('a.b');
+    assertAliasRefused('1cnt');
+  }
+
+  @isTest
+  static void testAggregate_WhenAliasIsIdentifier_ThenRendered() {
+    String soql = Scribe.of(Opportunity.class).field('AccountId').count('Id', 'opp_Count2').groupByField('AccountId').toSoql();
+
+    Assert.isTrue(soql.contains('COUNT(Id) opp_Count2'), soql);
   }
 
   // ---------------------------------------------------------------------------------------------

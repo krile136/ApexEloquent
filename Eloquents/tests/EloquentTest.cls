@@ -196,6 +196,27 @@ public with sharing class EloquentTest {
   }
 
   @isTest
+  static void testFirstOrFail_WhenNoRecord_ThenMessageDoesNotRevealTheQuery() {
+    // The message often reaches the UI, so neither the SOQL nor the filter values may be in it.
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('Name', 'ZZ-SECRET-FILTER');
+
+    for (Integer i = 0; i < 2; i++) {
+      try {
+        if (i == 0) {
+          (new Eloquent()).firstOrFail(scribe);
+        } else {
+          (new Eloquent()).firstOrFailAsSObject(scribe);
+        }
+        Assert.fail('Expected ApexEloquentException to be thrown');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('No records were found'), e.getMessage());
+        Assert.isFalse(e.getMessage().contains('ZZ-SECRET-FILTER'), e.getMessage());
+        Assert.isFalse(e.getMessage().contains('SELECT'), e.getMessage());
+      }
+    }
+  }
+
+  @isTest
   static void testFirstOrFailAsSObject_WhenApplyNull_ThenThrowException() {
     // Arrange
     Scribe scribe = null;

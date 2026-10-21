@@ -219,7 +219,7 @@ public with sharing abstract class AbstractConditionClause implements ICondition
     if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
       return '\'' + valueString + '\'';
     }
-    if (!UNQUOTED_LITERAL.matcher(valueString).matches()) {
+    if (valueString.length() > Scribe.MAX_TOKEN_LENGTH || !UNQUOTED_LITERAL.matcher(valueString).matches()) {
       String reason = this.numericOperand
         ? String.format(
             'The HAVING value compared with an aggregate of `{0}` is not a single SOQL literal and would be inserted into the query as syntax.',

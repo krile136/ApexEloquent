@@ -64,7 +64,7 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
     if (String.isBlank(alias)) {
       ApexEloquentException.required(CLASS_NAME, null, 'alias', alias).fire();
     }
-    if (!ALIAS_SHAPE.matcher(alias).matches()) {
+    if (alias.length() > Scribe.MAX_TOKEN_LENGTH || !ALIAS_SHAPE.matcher(alias).matches()) {
       String reason = 'The alias is not a single identifier and would be inserted into the query as syntax';
       String action = 'Use letters, digits and underscores only, starting with a letter';
       ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'alias', alias).fire();

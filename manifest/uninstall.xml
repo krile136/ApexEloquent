@@ -57,6 +57,7 @@
         <members>NotLikeConditionClauseTest</members>
         <members>Scribe</members>
         <members>ScribeTest</members>
+        <members>SoqlInjectionTest</members>
         <members>SumClause</members>
         <name>ApexClass</name>
     </types>

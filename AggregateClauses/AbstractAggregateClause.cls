@@ -29,6 +29,16 @@
 public with sharing abstract class AbstractAggregateClause implements IAggregateClause {
   private static final String CLASS_NAME = 'AbstractAggregateClause';
 
+  /**
+   * The aliases Scribe accepts: one identifier, no dots, spaces or punctuation.
+   * The alias is written into the SELECT clause as is, so anything wider would let the
+   * caller append syntax after the aggregate (e.g. `total, Name`).
+   * This matches what SOQL itself takes (measured on API v67.0): `c_`, `c1` and `c__c` are
+   * accepted, while `_c`, `1c` and `カウント` are `unexpected token`. A reserved word such as
+   * `limit` or `count` passes the shape and is then refused by SOQL, as before.
+   */
+  private static final Pattern ALIAS_SHAPE = Pattern.compile('[A-Za-z][A-Za-z0-9_]*');
+
   protected final Schema.SObjectType sObjectType;
   protected final Map<String, Schema.SObjectField> fieldMap;
   protected final String fieldName;
@@ -53,6 +63,11 @@ public with sharing abstract class AbstractAggregateClause implements IAggregate
     }
     if (String.isBlank(alias)) {
       ApexEloquentException.required(CLASS_NAME, null, 'alias', alias).fire();
+    }
+    if (!ALIAS_SHAPE.matcher(alias).matches()) {
+      String reason = 'The alias is not a single identifier and would be inserted into the query as syntax';
+      String action = 'Use letters, digits and underscores only, starting with a letter';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'alias', alias).fire();
     }
     this.sObjectType = sObjectType;
     this.fieldMap = fieldMap;

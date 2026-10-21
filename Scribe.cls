@@ -966,8 +966,17 @@ public with sharing class Scribe {
   /**
    * Adds a LIKE condition to the WHERE clause.
    *
+   * `%` and `_` in the value are always wildcards, and whereLike / whereNotLike currently
+   * have no way to match them literally: the value goes through `String.escapeSingleQuotes`,
+   * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
+   * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
+   * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
+   * search for `100%` also matches `1000`. APIs that escape the wildcards themselves
+   * (whereContains / whereStartsWith / whereEndsWith) are planned for a near release (issue #106).
+   * To match a value containing `%` exactly, whereEqual already treats it as a plain character.
+   *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
-   * @param value The string value to compare against, including wildcards (%).
+   * @param value The string value to compare against, including wildcards (% and _).
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereLike(String fieldName, String value) {
@@ -994,8 +1003,17 @@ public with sharing class Scribe {
   /**
    * Adds a NOT LIKE condition to the WHERE clause.
    *
+   * `%` and `_` in the value are always wildcards, and whereLike / whereNotLike currently
+   * have no way to match them literally: the value goes through `String.escapeSingleQuotes`,
+   * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
+   * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
+   * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
+   * search for `100%` also matches `1000`. APIs that escape the wildcards themselves
+   * (whereContains / whereStartsWith / whereEndsWith) are planned for a near release (issue #106).
+   * To match a value containing `%` exactly, whereEqual already treats it as a plain character.
+   *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
-   * @param value The string value to compare against, including wildcards (%).
+   * @param value The string value to compare against, including wildcards (% and _).
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotLike(String fieldName, String value) {

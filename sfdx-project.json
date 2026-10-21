@@ -1,8 +1,8 @@
 {
   "packageDirectories": [
     {
-      "versionName": "v3.13.0",
-      "versionNumber": "3.13.0.NEXT",
+      "versionName": "v3.13.1",
+      "versionNumber": "3.13.1.NEXT",
       "path": ".",
       "default": true,
       "package": "ApexEloquent",

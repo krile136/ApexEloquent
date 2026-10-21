@@ -261,12 +261,15 @@ public with sharing class Eloquent implements IEloquent {
         String error = 'No records were found for the given criteria';
         String reason = 'The query execution returned zero records';
         String action = 'Ensure that the query criteria are correct and that relevant records exist in the database';
+        // The SOQL is deliberately left out of the message. Callers often pass the message to
+        // the UI (AuraHandledException), which would show field names and filter values to
+        // every user, including guest users of a public site. The query is still in the
+        // debug log (Scribe.toSoql writes it there) for anyone investigating.
         ApexEloquentException.at(CLASS_NAME)
           .method(method)
           .error(error)
           .reason(reason)
           .action(action)
-          .param('SOQL', scribe.toSoql())
           .fire();
       }
       return entry;
@@ -318,12 +321,15 @@ public with sharing class Eloquent implements IEloquent {
         String error = 'No records were found for the given criteria';
         String reason = 'The query execution returned zero records';
         String action = 'Ensure that the query criteria are correct and that relevant records exist in the database';
+        // The SOQL is deliberately left out of the message. Callers often pass the message to
+        // the UI (AuraHandledException), which would show field names and filter values to
+        // every user, including guest users of a public site. The query is still in the
+        // debug log (Scribe.toSoql writes it there) for anyone investigating.
         ApexEloquentException.at(CLASS_NAME)
           .method(method)
           .error(error)
           .reason(reason)
           .action(action)
-          .param('SOQL', scribe.toSoql())
           .fire();
       }
       return records[0];

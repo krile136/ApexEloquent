@@ -115,6 +115,13 @@ public interface IEloquent {
    * Use this when the Scribe builder cannot express the desired query (e.g.,
    * complex dynamic SOQL, vendor-supplied queries, migration of legacy code).
    *
+   * SECURITY: the string runs as is. Never concatenate user input into it: a value can
+   * close a quote or append conditions (SOQL injection), which Scribe's where...() methods
+   * refuse. If a value must go in, convert it to its real type first (Integer.valueOf,
+   * Date.valueOf, ...); only a text value goes in quoted, after `String.escapeSingleQuotes`.
+   * Prefer Scribe where it can express the query. In v2 the query runs in system mode with
+   * sharing: sharing rules apply, but field-level security and object permissions are not checked.
+   *
    * IMPORTANT: When called via MockEloquent during testing, the returned
    * IEntry instances have the "select-forgotten detection" disabled, because
    * raw SOQL bypasses the Scribe FieldStructure pipeline. Field access on

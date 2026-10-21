@@ -149,6 +149,28 @@ public class SoqlInjectionTest {
   }
 
   @isTest
+  static void testBuild_WhenUnquotedValueIsHuge_ThenRefusedInsteadOfRegexLimit() {
+    // A rejected string this long used to end in an uncatchable `Regex too complicated`.
+    assertRefused(
+      new GreaterThanConditionClause(
+        Account.getSObjectType(),
+        fieldsOf(Account.getSObjectType()),
+        'NumberOfEmployees',
+        '1'.repeat(1000000) + ' x'
+      )
+    );
+    // Over the cap even without syntax: no number or date literal is this long.
+    assertRefused(
+      new GreaterThanConditionClause(
+        Account.getSObjectType(),
+        fieldsOf(Account.getSObjectType()),
+        'NumberOfEmployees',
+        '1'.repeat(Scribe.MAX_TOKEN_LENGTH + 1)
+      )
+    );
+  }
+
+  @isTest
   static void testBuild_WhenValueStartsWithColon_ThenRefusedAsBindReference() {
     // `:label` is a bind to a local variable of whichever method runs Database.query.
     Schema.SObjectType account = Account.getSObjectType();
@@ -367,6 +389,12 @@ public class SoqlInjectionTest {
   }
 
   @isTest
+  static void testOrderBy_WhenFieldIsHuge_ThenRefusedInsteadOfRegexLimit() {
+    // A rejected string this long used to end in an uncatchable `Regex too complicated`.
+    assertOrderByRefused('A'.repeat(300000) + ' x');
+  }
+
+  @isTest
   static void testOrderBy_WhenAggregateIsQueried_ThenPlatformAcceptsIt() {
     String soql = Scribe.of(Opportunity.class)
       .field('AccountId')
@@ -384,6 +412,11 @@ public class SoqlInjectionTest {
     assertAliasRefused('cnt FROM Account');
     assertAliasRefused('a.b');
     assertAliasRefused('1cnt');
+  }
+
+  @isTest
+  static void testAggregate_WhenAliasIsHuge_ThenRefusedInsteadOfRegexLimit() {
+    assertAliasRefused('c'.repeat(1000000) + ' x');
   }
 
   @isTest

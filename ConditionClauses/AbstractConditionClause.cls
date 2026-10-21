@@ -43,6 +43,7 @@ public with sharing abstract class AbstractConditionClause implements ICondition
     DisplayType.TEXTAREA,
     DisplayType.PICKLIST,
     DisplayType.MULTIPICKLIST,
+    DisplayType.COMBOBOX,
     DisplayType.ID,
     DisplayType.REFERENCE,
     DisplayType.URL,
@@ -51,6 +52,29 @@ public with sharing abstract class AbstractConditionClause implements ICondition
     DisplayType.ENCRYPTEDSTRING,
     DisplayType.ANYTYPE
   };
+
+  /**
+   * The shape an unquoted value is allowed to take: a single token with no whitespace,
+   * quotes, parentheses, commas or operators, and not starting with `:`. Numbers (`-1.5`),
+   * booleans, `null`, dates, datetimes (`2026-01-01T00:00:00Z`), times and date literals
+   * (`LAST_N_DAYS:30`) all fit.
+   *
+   * A leading `:` is refused because SOQL reads `:name` as a bind reference to a local
+   * variable of the method that runs Database.query — measured on API v67.0, `:label`
+   * resolved to a variable inside Eloquent. Date literals need a `:` in the middle; the
+   * other mid-token forms measured (`0:n`, `n:n`, `LAST_N_DAYS::n`, `TODAY:n`) were all
+   * parse errors, not binds.
+   *
+   * The token may also have the shape of a field name (`AnnualRevenue`). SOQL does not
+   * compare a field with a field, and both forms measured were parse errors.
+   */
+  private static final Pattern UNQUOTED_LITERAL = Pattern.compile('[A-Za-z0-9_.+\\-][A-Za-z0-9_:.+\\-]*');
+
+  /**
+   * When set, getFieldType reports a number whatever the field type is. See
+   * asNumericOperand.
+   */
+  private Boolean numericOperand = false;
 
   /**
    * Constructor for the abstract clause.
@@ -117,9 +141,13 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * Gets the Schema.DisplayType of the specified field.
    *
    * @param field The API name of the field.
-   * @return The field's display type.
+   * @return The field's display type, or DOUBLE for a copy made by asNumericOperand
+   *         (a HAVING operand compared with COUNT / SUM / AVG of that field).
    */
   protected Schema.DisplayType getFieldType(String field) {
+    if (this.numericOperand) {
+      return Schema.DisplayType.DOUBLE;
+    }
     if (this.sObjectType == null) {
       ApexEloquentException.invalidOperation(CLASS_NAME, null, 'source SObjectType is not set').fire();
     }
@@ -160,6 +188,90 @@ public with sharing abstract class AbstractConditionClause implements ICondition
       return dateTimeValue.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\'');
     }
     return String.escapeSingleQuotes(String.valueOf(value));
+  }
+
+  /**
+   * Renders one non-null value as a SOQL literal for a field of the given type.
+   *
+   * A text-like field gets a quoted, escaped literal. Any other field gets the value
+   * unquoted — and there `escapeSingleQuotes` protects nothing, because there is no
+   * quote to break out of: a String such as `'0 OR Id != null'` handed to a numeric
+   * field used to land in the WHERE clause as SOQL. The unquoted form is therefore
+   * refused unless it is a single literal token (see UNQUOTED_LITERAL).
+   *
+   * The check stops a value from adding syntax; it does not stop a String from choosing
+   * a different, valid operand. `'null'` or `'LAST_N_DAYS:99999'` still pass, so callers
+   * comparing user input against a non-text field should convert it to the field's type.
+   *
+   * Converting every value to the field's type (Decimal, Boolean, Date) was rejected: it
+   * would also reject date literals such as `LAST_N_DAYS:30`, which callers pass as
+   * Strings today. Recognising date literals by pattern and converting everything else
+   * was also considered; it would still break other Strings that SOQL accepts today,
+   * because Datetime.valueOf takes only `yyyy-MM-dd HH:mm:ss`: ISO datetimes
+   * (`2026-01-01T00:00:00Z`, with or without an offset), times and `'null'`.
+   *
+   * @param fieldType The display type of the field the value is compared against.
+   * @param value The value to render. Callers handle null before calling this.
+   * @return The SOQL literal.
+   * @throws ApexEloquentException when the value would render as more than one token.
+   */
+  protected String toSoqlLiteral(Schema.DisplayType fieldType, Object value) {
+    String valueString = this.formatAndCastToString(value);
+    if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
+      return '\'' + valueString + '\'';
+    }
+    if (!UNQUOTED_LITERAL.matcher(valueString).matches()) {
+      String reason = this.numericOperand
+        ? String.format(
+            'The HAVING value compared with an aggregate of `{0}` is not a single SOQL literal and would be inserted into the query as syntax.',
+            new List<String>{ this.field }
+          )
+        : String.format(
+            'The value for `{0}` ({1}) is not a single SOQL literal and would be inserted into the query as syntax.',
+            new List<String>{ this.field, String.valueOf(fieldType) }
+          );
+      String action = this.numericOperand
+        ? 'Pass a number (Integer, Decimal) for an aggregate result'
+        : 'Pass a value of the field\'s own type (Integer, Decimal, Boolean, Date, Datetime) instead of a String';
+      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'value', value)
+        .param('field', this.field)
+        .fire();
+    }
+    return valueString;
+  }
+
+  /**
+   * Returns a copy of this clause whose values are rendered as numbers, whatever the
+   * field type is. Only values that go through getFieldType are affected: INCLUDES /
+   * EXCLUDES stay quoted and escaped, and IS NULL / IS NOT NULL write `NULL` directly.
+   *
+   * For Scribe's HAVING clause: COUNT / COUNT_DISTINCT / SUM / AVG return a number, but
+   * the clause is built against the aggregated field, so `COUNT(Id) > 5` would otherwise
+   * render its operand as a quoted Id. Rendering it as a number here keeps the operand
+   * under the same single-token check as any unquoted value. Scribe used to strip the
+   * quotes from the built string instead, which undid the escaping.
+   *
+   * A clause that does not extend this class never gets the flag, so its rendering is its
+   * own. Among the clauses Scribe creates, the only one that does not extend this class is
+   * InvalidConditionClause, whose build() always throws. Internal: not part of the supported API.
+   *
+   * @return A new clause; this one is left unchanged.
+   */
+  public IConditionClause asNumericOperand() {
+    AbstractConditionClause copy = (AbstractConditionClause) this.overrideField(this.field);
+    copy.numericOperand = true;
+    return copy;
+  }
+
+  /**
+   * Renders one value as a quoted, escaped literal regardless of the field type, for
+   * the multi-select operators (INCLUDES / EXCLUDES) whose operands are always strings.
+   *
+   * @param value The value to render.
+   * @return The quoted SOQL literal.
+   */
+  protected String toQuotedSoqlLiteral(Object value) {
+    return '\'' + this.formatAndCastToString(value) + '\'';
   }
 
   /**

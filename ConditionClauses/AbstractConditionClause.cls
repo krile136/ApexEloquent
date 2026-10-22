@@ -262,8 +262,9 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * Integer field and COUNT() refuse a decimal point. Outside it they refuse the value
    * either way.
    *
-   * A Double that is infinite or NaN cannot become a Decimal (`MathException`, measured
-   * for NaN, Infinity and -Infinity; NaN throws when written out, not on the cast). It is refused here with the same message as any other value that is not
+   * A Double that is infinite or NaN cannot be written as a Decimal (`MathException`,
+   * measured for NaN, Infinity and -Infinity; NaN throws when written out, not on the
+   * cast). It is refused here with the same message as any other value that is not
    * a single SOQL literal; String.valueOf used to let `Infinity` into the query, which then
    * failed at run time.
    *

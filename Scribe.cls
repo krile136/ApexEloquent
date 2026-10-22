@@ -2690,11 +2690,12 @@ public with sharing class Scribe {
    */
   private void fireSemiJoinUnderParent(IConditionClause condition, String childObjectName) {
     String error = 'SOQL Semi-Join Restriction';
+    String operator = condition instanceof NotInSubQueryConditionClause ? 'NOT IN' : 'IN';
     String reason = String.format(
-      'A semi-join cannot filter a parent: `{0}.{1} IN (SELECT ...)` is refused by SOQL ("cannot have more than one level of relationships").',
-      new List<String>{ childObjectName, condition.getFieldName() }
+      'A semi-join cannot filter a parent: `{0}.{1} {2} (SELECT ...)` is refused by SOQL ("cannot have more than one level of relationships").',
+      new List<String>{ childObjectName, condition.getFieldName(), operator }
     );
-    String action = 'Put the semi-join on the queried object instead (for example, whereIn(\'AccountId\', subQuery) rather than a semi-join inside parentCondition(Scribe.asParent(\'AccountId\')...)).';
+    String action = 'To filter on the parent\'s Id, put the semi-join on the lookup field of the queried object (whereIn(\'AccountId\', subQuery)). For another parent field, query the Ids first and pass the Set<Id> to whereIn: SOQL does not nest semi-joins either.';
     ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
   }
 
@@ -2854,11 +2855,13 @@ public with sharing class Scribe {
     }
 
     // Whether this level joins its conditions with OR. The first part never carries isOr,
-    // so the level is OR when any part does (AND and OR cannot be mixed on one level).
+    // so the level is OR when any part does. (A level that mixes AND and OR is refused
+    // below as well; which error comes first does not matter, both refuse the query.)
     Boolean levelIsOr = false;
     for (ConditionPart part : this.conditionParts) {
       levelIsOr = levelIsOr || part.isOr;
     }
+    Boolean droppedAlwaysTrue = false;
 
     Boolean isFirstOperatorOr = null;
     Boolean isLastOperatorOr = false;
@@ -2924,6 +2927,7 @@ public with sharing class Scribe {
           if (levelIsOr) {
             this.fireEmptyNotInUnderOr(alias);
           }
+          droppedAlwaysTrue = true;
           continue;
         }
         isLastOperatorOr = conditionPart.isOr;
@@ -2932,10 +2936,15 @@ public with sharing class Scribe {
         groupScribe.sObjectType = this.sObjectType;
         WhereClauseData groupWhereClauseData = groupScribe.buildHavingClause(aggregateAliasMap);
         if (String.isBlank(groupWhereClauseData.whereClauseString)) {
-          // A group renders nothing only when every condition in it was an empty NOT IN, so
-          // the group is always true; dropping it under OR narrows the result the same way.
-          if (levelIsOr) {
-            this.fireEmptyNotInUnderOr(null);
+          // A group of only empty NOT INs is always true, and dropping it under OR narrows
+          // the result the same way. A group that is empty because ignoreWhen retracted
+          // everything in it (or an empty asGroup()) is not: it drops out silently, as the
+          // orCondition() contract promises.
+          if (groupWhereClauseData.alwaysTrue) {
+            if (levelIsOr) {
+              this.fireEmptyNotInUnderOr(null);
+            }
+            droppedAlwaysTrue = true;
           }
           continue;
         }
@@ -2959,7 +2968,9 @@ public with sharing class Scribe {
       }
     }
 
-    return new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
+    WhereClauseData result = new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
+    result.alwaysTrue = String.isBlank(whereClauseString) && droppedAlwaysTrue;
+    return result;
   }
 
   /**
@@ -2967,8 +2978,10 @@ public with sharing class Scribe {
    * it drops out without changing the result (`A AND true` is `A`), but under OR dropping it
    * turns `A OR true` (every group) into `A`, a narrower result without any sign. HAVING has
    * no expression known to be always true for every aggregate (MIN / MAX can be null), so
-   * this is refused rather than rewritten. Before v3.13.2 the same input rendered
-   * `HAVING COUNT(Id)` and failed at run time, so no working query is affected.
+   * this is refused rather than rewritten. Before v3.13.2 an empty NOT IN in HAVING
+   * rendered the aggregate alone (`HAVING COUNT(Id)`, `... OR MIN(Name)`) and failed at run
+   * time, so a query refused here did not run before either. A group that is empty for
+   * another reason (ignoreWhen) is not refused; see WhereClauseData.alwaysTrue.
    *
    * WHERE drops an empty NOT IN under OR as well; changing that would change results of
    * existing queries, so it is left to a separate issue.
@@ -2984,7 +2997,7 @@ public with sharing class Scribe {
           'whereNotIn(\'{0}\', ...) in HAVING has an empty list and is joined by OR. It is always true, and dropping it would narrow the result.',
           new List<String>{ alias }
         );
-    String action = 'Check the list before building the query. When it is empty, the OR matches every group, so leave out the HAVING condition (or the group that holds the OR). Leaving out only the empty branch would narrow the result the same way.';
+    String action = 'Check the list before building the query. When it is empty, this OR is true for every group: leave out the nearest part joined by AND, or the whole HAVING condition when there is none. Leaving out only the empty branch, or only the group that holds it when that group is itself joined by OR, narrows the result the same way.';
     ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
   }
 
@@ -3497,6 +3510,12 @@ public with sharing class Scribe {
     public boolean isFirstOperatorOr;
     public boolean isLastOperatorOr;
     public Integer renderedCount = 0;
+    /**
+     * HAVING only: the level rendered nothing because every condition left was an empty
+     * NOT IN (or such a group), so it is always true. A level that is empty for another
+     * reason (all of it retracted by ignoreWhen, an empty asGroup()) is not.
+     */
+    public Boolean alwaysTrue = false;
 
     public WhereClauseData(String whereClauseString, boolean isFirstOperatorOr, boolean isLastOperatorOr) {
       this.whereClauseString = whereClauseString;

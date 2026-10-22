@@ -2681,15 +2681,25 @@ public with sharing class Scribe {
    * Every condition Scribe creates extends AbstractConditionClause except
    * InvalidConditionClause, whose build() always throws, so that one is passed through.
    *
+   * Any other kind is refused rather than passed through: built as is, it would leave the
+   * path out and filter the child object without a sign (the failure of issue #116). The
+   * old string prefix worked for any clause, so this guard is what keeps that property.
+   *
    * @param condition The condition about to be rendered.
    * @param expression The field as the SOQL should write it.
    * @return The condition to build.
+   * @throws ApexEloquentException for a condition that cannot write its field in place.
    */
   private IConditionClause renderFieldAs(IConditionClause condition, String expression) {
     if (condition instanceof AbstractConditionClause) {
       return ((AbstractConditionClause) condition).renderFieldAs(expression);
     }
-    return condition;
+    if (condition instanceof InvalidConditionClause) {
+      return condition;
+    }
+    String reason = 'The condition cannot write its field as `' + expression + '`.';
+    ApexEloquentException.invalidOperation(CLASS_NAME, null, reason).fire();
+    return null; // unreachable
   }
 
   /**

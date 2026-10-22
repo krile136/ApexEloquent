@@ -6252,4 +6252,74 @@ public with sharing class ScribeTest {
     );
     Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
   }
+
+  @isTest
+  static void testParentCondition_WhenGroupsAreNestedOrHoldOtherKinds_ThenEveryFieldCarriesThePath() {
+    // Arrange - the path now reaches each clause through renderFieldAs instead of a string
+    // prefix, so every kind of clause and every nesting has to write it (issue #116).
+    Scribe nested = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereGroup(
+            Scribe.asGroup()
+              .whereEqual('Name', 'a')
+              .orCondition()
+              .whereGroup(Scribe.asGroup().whereEqual('Industry', 'b').whereNull('Site'))
+          )
+      );
+    Scribe semiJoin = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereGroup(
+            Scribe.asGroup()
+              .whereIn('OwnerId', Scribe.of(User.class).field('Id').whereEqual('Alias', 'a'))
+              .whereNotIn('Industry', new List<String>{ 'x' })
+          )
+      );
+    Scribe emptyIn = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereGroup(Scribe.asGroup().whereEqual('Name', 'a').orCondition().whereIn('Industry', new List<String>()))
+      );
+
+    // Act
+    String nestedSoql = nested.toSoql();
+    String semiJoinSoql = semiJoin.toSoql();
+    String emptyInSoql = emptyIn.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT id FROM Opportunity WHERE (Account.Name = \'a\' OR (Account.Industry = \'b\' AND Account.Site = NULL))',
+      nestedSoql
+    );
+    // Not executed: SOQL refuses a parent field on the left of a semi-join ("cannot have
+    // more than one level of relationships"). That was so before this change as well; the
+    // string shows each clause kind writes the path.
+    Assert.areEqual(
+      'SELECT id FROM Opportunity WHERE (Account.OwnerId IN (SELECT id FROM User WHERE Alias = \'a\') AND Account.Industry NOT IN (\'x\'))',
+      semiJoinSoql
+    );
+    Assert.areEqual('SELECT id FROM Opportunity WHERE (Account.Name = \'a\' OR Id = null)', emptyInSoql);
+    Assert.areEqual(0, Database.query(nestedSoql).size(), 'The query must run.');
+    Assert.areEqual(0, Database.query(emptyInSoql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testWhere_WhenDoubleIsInfinite_ThenRefusedAtBuildTime() {
+    // Arrange - Infinity cannot become a Decimal (MathException). String.valueOf used to
+    // let `Infinity` into the query, which failed at run time.
+    Double infinite = Double.valueOf('Infinity');
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereGreaterThan('AnnualRevenue', infinite);
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('An infinite Double must be refused.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('is not a single SOQL literal'), e.getMessage());
+    }
+  }
 }

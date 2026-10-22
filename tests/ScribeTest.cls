@@ -6020,4 +6020,580 @@ public with sharing class ScribeTest {
     Assert.isTrue(SchemaCache.hasField(Contact.SObjectType, 'LastName'));
     Assert.isFalse(SchemaCache.hasField(Contact.SObjectType, 'ZZZ_NoSuchField__c'));
   }
+
+  @isTest
+  static void testParentCondition_WhenNotLike_ThenThePathIsInsideTheParentheses() {
+    // Arrange - issue #115. The path used to be prefixed to the built string, which for
+    // NOT LIKE starts with `(NOT `, and rendered `Account.(NOT Name LIKE ...)`.
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereNotLike('Name', '%x%'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Opportunity WHERE (NOT Account.Name LIKE \'%x%\')', soql);
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testParentCondition_WhenNotLikeOnAGrandparent_ThenTheWholePathIsInsideTheParentheses() {
+    // Arrange
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId').parentCondition(Scribe.asParent('OwnerId').whereNotLike('Alias', 'a%'))
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Contact WHERE (NOT Account.Owner.Alias LIKE \'a%\')', soql);
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testParentCondition_WhenGroupInside_ThenTheGroupFiltersTheParent() {
+    // Arrange - issue #116. The group used to be built without the path, so it filtered
+    // the child's own Name: the opportunity named 'a' with no account came back instead.
+    Account acc = new Account(Name = 'a');
+    insert acc;
+    Opportunity underA = new Opportunity(Name = 'zz', StageName = 'Prospecting', CloseDate = Date.today(), AccountId = acc.Id);
+    Opportunity namedA = new Opportunity(Name = 'a', StageName = 'Prospecting', CloseDate = Date.today());
+    insert new List<Opportunity>{ underA, namedA };
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereGroup(Scribe.asGroup().whereEqual('Name', 'a').orCondition().whereEqual('Name', 'b'))
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+    List<Opportunity> found = Database.query(soql);
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Opportunity WHERE (Account.Name = \'a\' OR Account.Name = \'b\')', soql);
+    Assert.areEqual(1, found.size(), 'Only the opportunity under the account named a. Got: ' + found);
+    Assert.areEqual(underA.Id, found[0].Id);
+  }
+
+  @isTest
+  static void testParentCondition_WhenParentInsideAGroupInsideAParent_ThenTheChainIsKept() {
+    // Arrange - issue #116
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereGroup(
+            Scribe.asGroup()
+              .parentCondition(Scribe.asParent('OwnerId').whereEqual('Alias', 'a'))
+              .orCondition()
+              .whereEqual('Name', 'b')
+          )
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Contact WHERE (Account.Owner.Alias = \'a\' OR Account.Name = \'b\')', soql);
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testParentCondition_WhenInIsEmpty_ThenNoRowMatches() {
+    // Arrange - an empty IN renders `Id = null` to match nothing. Prefixed with the path it
+    // became `Account.Id = null`, which matched every opportunity without an account.
+    insert new Opportunity(Name = 'no account', StageName = 'Prospecting', CloseDate = Date.today());
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(Scribe.asParent('AccountId').whereIn('Industry', new List<String>()));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Opportunity WHERE Id = null', soql);
+    Assert.areEqual(0, Database.query(soql).size(), 'An empty IN matches no row.');
+  }
+
+  @isTest
+  static void testHavingCondition_WhenNotLike_ThenTheAggregateIsInsideTheParentheses() {
+    // Arrange - issue #109. The first word of the built string used to be replaced with
+    // the aggregate, and for NOT LIKE that word is `(NOT`: `MIN(Name) Name LIKE 'A%')`.
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Industry')
+      .min('Name', 'firstName')
+      .groupByField('Industry')
+      .havingCondition(Scribe.asHaving().whereNotLike('firstName', 'A%'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT industry, MIN(Name) firstName FROM Account GROUP BY Industry HAVING (NOT MIN(Name) LIKE \'A%\')',
+      soql
+    );
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testHavingCondition_WhenNotInIsEmpty_ThenTheConditionDropsOut() {
+    // Arrange - issue #108. It used to render the bare aggregate, `HAVING COUNT(Id)`.
+    Scribe alone = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .count('Id', 'cnt')
+      .groupByField('AccountId')
+      .havingCondition(Scribe.asHaving().whereNotIn('cnt', new List<Integer>()));
+    Scribe withAnother = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .count('Id', 'cnt')
+      .groupByField('AccountId')
+      .havingCondition(Scribe.asHaving().whereNotIn('cnt', new List<Integer>()).whereGreaterThan('cnt', 1));
+
+    // Act
+    String aloneSoql = alone.toSoql();
+    String withAnotherSoql = withAnother.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId', aloneSoql);
+    Assert.areEqual(
+      'SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId HAVING COUNT(Id) > 1',
+      withAnotherSoql
+    );
+    Assert.areEqual(0, Database.query(aloneSoql).size(), 'The query must run.');
+    Assert.areEqual(0, Database.query(withAnotherSoql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testHavingCondition_WhenInIsEmpty_ThenNoGroupMatches() {
+    // Arrange - the WHERE form `Id = null` is refused in HAVING, so HAVING keeps
+    // `COUNT(Id) = null`, which runs and returns no group.
+    insert new Account(Name = 'a');
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Industry')
+      .count('Id', 'c')
+      .groupByField('Industry')
+      .havingCondition(Scribe.asHaving().whereIn('c', new List<Integer>()));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT industry, COUNT(Id) c FROM Account GROUP BY Industry HAVING COUNT(Id) = null', soql);
+    Assert.areEqual(0, Database.query(soql).size(), 'An empty IN matches no group.');
+  }
+
+  @isTest
+  static void testWhere_WhenNumberWouldBeExponentOrOutOfIntegerRange_ThenItIsWrittenAsSoqlReadsIt() {
+    // Arrange - issue #107. String.valueOf wrote `1.2345678E7` / `1.5E-7` / `1E+10`, and a
+    // whole number outside the Integer range without a decimal point fails with
+    // `For input string`. Both failed at run time.
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereGreaterThan('AnnualRevenue', (Double) 12345678.0)
+      .whereIn(
+        'AnnualRevenue',
+        new List<Object>{ (Double) 0.00000015, Decimal.valueOf('1E+10'), 10000000000L, -2147483648L, 5, 1.50 }
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT id FROM Account WHERE AnnualRevenue > 12345678 AND AnnualRevenue IN (0.00000015, 10000000000.0, 10000000000.0, -2147483648.0, 5, 1.50)',
+      soql
+    );
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testWhere_WhenNumberIsComparedWithIntegerOrTextField_ThenItIsUnchanged() {
+    // Arrange - an Integer field refuses a decimal point, so nothing is added inside the
+    // Integer range. A number compared with a text field is quoted and keeps String.valueOf.
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('NumberOfEmployees', 5)
+      .whereEqual('Name', 10000000000L)
+      .whereEqual('Site', (Double) 12345678.0);
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT id FROM Account WHERE NumberOfEmployees = 5 AND Name = \'10000000000\' AND Site = \'1.2345678E7\'',
+      soql
+    );
+  }
+
+  @isTest
+  static void testHavingCondition_WhenSumIsComparedWithALargeNumber_ThenTheQueryRuns() {
+    // Arrange - issue #107 on the HAVING side
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Industry')
+      .sum('AnnualRevenue', 's')
+      .groupByField('Industry')
+      .havingCondition(Scribe.asHaving().whereGreaterThan('s', 10000000000L));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT industry, SUM(AnnualRevenue) s FROM Account GROUP BY Industry HAVING SUM(AnnualRevenue) > 10000000000.0',
+      soql
+    );
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testParentCondition_WhenGroupsAreNestedOrHoldOtherKinds_ThenEveryFieldCarriesThePath() {
+    // Arrange - the path now reaches each clause through renderFieldAs instead of a string
+    // prefix, so every kind of clause and every nesting has to write it (issue #116).
+    Scribe nested = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereGroup(
+            Scribe.asGroup()
+              .whereEqual('Name', 'a')
+              .orCondition()
+              .whereGroup(Scribe.asGroup().whereEqual('Industry', 'b').whereNull('Site'))
+          )
+      );
+    Scribe notIn = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereGroup(
+            Scribe.asGroup().whereNotIn('Industry', new List<String>{ 'x' }).orCondition().whereNotNull('Site')
+          )
+      );
+    Scribe emptyIn = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereGroup(Scribe.asGroup().whereEqual('Name', 'a').orCondition().whereIn('Industry', new List<String>()))
+      );
+
+    // Act
+    String nestedSoql = nested.toSoql();
+    String notInSoql = notIn.toSoql();
+    String emptyInSoql = emptyIn.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT id FROM Opportunity WHERE (Account.Name = \'a\' OR (Account.Industry = \'b\' AND Account.Site = NULL))',
+      nestedSoql
+    );
+    Assert.areEqual(
+      'SELECT id FROM Opportunity WHERE (Account.Industry NOT IN (\'x\') OR Account.Site != NULL)',
+      notInSoql
+    );
+    Assert.areEqual(0, Database.query(notInSoql).size(), 'The query must run.');
+    Assert.areEqual('SELECT id FROM Opportunity WHERE (Account.Name = \'a\' OR Id = null)', emptyInSoql);
+    Assert.areEqual(0, Database.query(nestedSoql).size(), 'The query must run.');
+    Assert.areEqual(0, Database.query(emptyInSoql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testWhere_WhenDoubleIsInfinite_ThenRefusedAtBuildTime() {
+    // Arrange - Infinity cannot become a Decimal (MathException). String.valueOf used to
+    // let `Infinity` into the query, which failed at run time.
+    Double infinite = Double.valueOf('Infinity');
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereGreaterThan('AnnualRevenue', infinite);
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('An infinite Double must be refused.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('is not a single SOQL literal'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testParentCondition_WhenEveryClauseKindIsUsed_ThenEachWritesThePath() {
+    // Arrange - each clause writes the path itself through soqlField(). One build() that
+    // went back to `this.field` would drop the path for that kind only and filter the child
+    // (the failure of #116), so every kind is listed here. Add a line for a new kind.
+    // Not executed: INCLUDES needs a multi-select picklist. Semi-joins are refused under a
+    // parent (see testParentCondition_WhenSemiJoin_ThenRefusedAtBuildTime).
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereEqual('Name', 'a')
+          .whereNotEqual('Name', 'b')
+          .whereGreaterThan('AnnualRevenue', 1)
+          .whereGreaterThanOrEqual('AnnualRevenue', 2)
+          .whereLessThan('AnnualRevenue', 3)
+          .whereLessThanOrEqual('AnnualRevenue', 4)
+          .whereIn('Industry', new List<String>{ 'c' })
+          .whereNotIn('Industry', new List<String>{ 'd' })
+          .whereLike('Site', 'e%')
+          .whereNotLike('Site', 'f%')
+          .whereIncludes('Industry', new List<String>{ 'g' })
+          .whereExcludes('Industry', new List<String>{ 'h' })
+          .whereNull('Phone')
+          .whereNotNull('Fax')
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expected =
+      'SELECT id FROM Opportunity WHERE (' +
+      'Account.Name = \'a\'' +
+      ' AND Account.Name != \'b\'' +
+      ' AND Account.AnnualRevenue > 1' +
+      ' AND Account.AnnualRevenue >= 2' +
+      ' AND Account.AnnualRevenue < 3' +
+      ' AND Account.AnnualRevenue <= 4' +
+      ' AND Account.Industry IN (\'c\')' +
+      ' AND Account.Industry NOT IN (\'d\')' +
+      ' AND Account.Site LIKE \'e%\'' +
+      ' AND (NOT Account.Site LIKE \'f%\')' +
+      ' AND Account.Industry INCLUDES (\'g\')' +
+      ' AND Account.Industry EXCLUDES (\'h\')' +
+      ' AND Account.Phone = NULL' +
+      ' AND Account.Fax != NULL)';
+    Assert.areEqual(expected, soql);
+  }
+
+  @isTest
+  static void testWhere_WhenDoubleIsNaN_ThenRefusedAtBuildTime() {
+    // Arrange - NaN passes the Decimal cast but cannot be written out (MathException from
+    // toPlainString, measured), unlike Infinity, which fails on the cast.
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('AnnualRevenue', Double.valueOf('NaN'));
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('A NaN Double must be refused.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('is not a single SOQL literal'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testParentCondition_WhenSemiJoin_ThenRefusedAtBuildTime() {
+    // Arrange - SOQL refuses a relationship path on the left of a semi-join, even one level
+    // (`Account.Id IN (SELECT ...)`, measured). Scribe used to build it, and it failed only
+    // when the query ran. A group inside the parent reaches the same place.
+    List<Scribe> scribes = new List<Scribe>{
+      Scribe.of(Contact.class)
+        .field('Id')
+        .parentCondition(Scribe.asParent('AccountId').whereIn('Id', Scribe.of(Opportunity.class).field('AccountId'))),
+      Scribe.of(Contact.class)
+        .field('Id')
+        .parentCondition(Scribe.asParent('AccountId').whereNotIn('OwnerId', Scribe.of(User.class).field('Id'))),
+      Scribe.of(Contact.class)
+        .field('Id')
+        .parentCondition(
+          Scribe.asParent('AccountId')
+            .whereGroup(Scribe.asGroup().whereIn('OwnerId', Scribe.of(User.class).field('Id')).whereEqual('Name', 'a'))
+        )
+    };
+
+    for (Scribe scribe : scribes) {
+      // Act & Assert
+      try {
+        scribe.toSoql();
+        Assert.fail('A semi-join under a parent must be refused.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('A semi-join cannot filter a parent'), e.getMessage());
+      }
+    }
+  }
+
+  @isTest
+  static void testWhere_WhenSemiJoinIsOnTheQueriedObject_ThenStillAllowed() {
+    // Arrange - the refusal is only for a parent; the queried object's own lookup is the
+    // way to write the same filter.
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .whereIn('AccountId', Scribe.of(Opportunity.class).field('AccountId'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Contact WHERE AccountId IN (SELECT accountid FROM Opportunity)', soql);
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testHavingCondition_WhenEmptyNotInIsJoinedByOr_ThenRefusedAtBuildTime() {
+    // Arrange - an empty NOT IN is always true; dropping it under OR turns `A OR true` into
+    // `A`. The first part of an OR level carries no isOr, so both positions are checked,
+    // and so is a group that renders nothing because it held only empty NOT INs.
+    List<Integer> empty = new List<Integer>();
+    List<Scribe> havingScribes = new List<Scribe>{
+      Scribe.asHaving().whereNotIn('cnt', empty).orCondition().whereGreaterThan('cnt', 5),
+      Scribe.asHaving().whereGreaterThan('cnt', 5).orCondition().whereNotIn('cnt', empty),
+      Scribe.asHaving().whereGreaterThan('cnt', 5).orCondition().whereGroup(Scribe.asGroup().whereNotIn('cnt', empty))
+    };
+
+    for (Scribe havingScribe : havingScribes) {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('AccountId')
+        .count('Id', 'cnt')
+        .groupByField('AccountId')
+        .havingCondition(havingScribe);
+
+      // Act & Assert
+      try {
+        scribe.toSoql();
+        Assert.fail('An empty NOT IN under OR must be refused.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('always true'), e.getMessage());
+      }
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenEmptyNotInIsInAnAndGroupUnderOr_ThenItDropsOut() {
+    // Arrange - inside the group the conditions are joined by AND, so the empty NOT IN
+    // drops out correctly (`A AND true` is `A`); only the group's own level decides.
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .count('Id', 'cnt')
+      .groupByField('AccountId')
+      .havingCondition(
+        Scribe.asHaving()
+          .whereGreaterThan('cnt', 5)
+          .orCondition()
+          .whereGroup(Scribe.asGroup().whereLessThan('cnt', 2).whereNotIn('cnt', new List<Integer>()))
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId HAVING COUNT(Id) > 5 OR (COUNT(Id) < 2)',
+      soql
+    );
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAGroupUnderOrIsEmptyForAnotherReason_ThenItDropsOut() {
+    // Arrange - only an always-true group is refused under OR. A group emptied by
+    // ignoreWhen, or an empty asGroup(), drops out as before (the orCondition() contract).
+    Integer maxCnt = null;
+    List<Scribe> havingScribes = new List<Scribe>{
+      Scribe.asHaving()
+        .whereGreaterThan('cnt', 5)
+        .orCondition()
+        .whereGroup(Scribe.asGroup().whereLessThan('cnt', maxCnt).ignoreWhen(maxCnt == null)),
+      Scribe.asHaving().whereGreaterThan('cnt', 5).orCondition().whereGroup(Scribe.asGroup())
+    };
+
+    for (Scribe havingScribe : havingScribes) {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('AccountId')
+        .count('Id', 'cnt')
+        .groupByField('AccountId')
+        .havingCondition(havingScribe);
+
+      // Act
+      String soql = scribe.toSoql();
+
+      // Assert
+      Assert.areEqual('SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId HAVING COUNT(Id) > 5', soql);
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAnAlwaysTrueGroupIsNestedUnderOr_ThenRefused() {
+    // Arrange - always-true passes up through AND groups: [retracted X, empty NOT IN] is
+    // still true, and so is a group whose only content is such a group.
+    Integer maxCnt = null;
+    List<Integer> empty = new List<Integer>();
+    List<Scribe> havingScribes = new List<Scribe>{
+      Scribe.asHaving()
+        .whereGreaterThan('cnt', 5)
+        .orCondition()
+        .whereGroup(
+          Scribe.asGroup().whereLessThan('cnt', maxCnt).ignoreWhen(maxCnt == null).whereNotIn('cnt', empty)
+        ),
+      Scribe.asHaving()
+        .whereGreaterThan('cnt', 5)
+        .orCondition()
+        .whereGroup(Scribe.asGroup().whereGroup(Scribe.asGroup().whereNotIn('cnt', empty)))
+    };
+
+    for (Scribe havingScribe : havingScribes) {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('AccountId')
+        .count('Id', 'cnt')
+        .groupByField('AccountId')
+        .havingCondition(havingScribe);
+
+      // Act & Assert
+      try {
+        scribe.toSoql();
+        Assert.fail('An always-true group under OR must be refused.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('always true'), e.getMessage());
+      }
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAnAlwaysTrueGroupSitsBesideARenderedCondition_ThenOnlyTheGroupDropsOut() {
+    // Arrange - inside `(X AND (always-true group))` X is rendered, so the middle level is
+    // not always true and the outer OR keeps it. The only shape that catches a middle level
+    // reporting always-true by mistake.
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .count('Id', 'cnt')
+      .groupByField('AccountId')
+      .havingCondition(
+        Scribe.asHaving()
+          .whereGreaterThan('cnt', 5)
+          .orCondition()
+          .whereGroup(
+            Scribe.asGroup()
+              .whereLessThan('cnt', 2)
+              .whereGroup(Scribe.asGroup().whereNotIn('cnt', new List<Integer>()))
+          )
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId HAVING COUNT(Id) > 5 OR (COUNT(Id) < 2)',
+      soql
+    );
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testHavingCondition_WhenTheWholeHavingIsAnAlwaysTrueGroup_ThenHavingDropsOut() {
+    // Arrange - always true at the top means every group, which is no HAVING at all
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .count('Id', 'cnt')
+      .groupByField('AccountId')
+      .havingCondition(Scribe.asHaving().whereGroup(Scribe.asGroup().whereNotIn('cnt', new List<Integer>())));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId', soql);
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
 }

@@ -88,11 +88,26 @@ public with sharing class InConditionClause extends AbstractConditionClause {
     return 'in';
   }
 
+  /**
+   * Whether the list is empty, so the clause matches no row. For Scribe's HAVING clause,
+   * which cannot use the `Id = null` that build() writes for this case. Internal: not part
+   * of the supported API.
+   *
+   * @return true when no value was given.
+   */
+  public Boolean hasNoValues() {
+    return this.values.isEmpty();
+  }
+
   public override String build() {
     if (this.values.isEmpty()) {
+      // Matches no row. It names the queried object's own Id, never the rendered field: a
+      // parent condition used to prefix it to `Account.Id = null`, which matches every
+      // child that has no parent instead of none. HAVING cannot name Id and writes its own
+      // form (see Scribe.buildHavingClause / hasNoValues).
       return 'Id = null';
     }
-    return String.format('{0} IN ({1})', new List<String>{ this.field, this.checkAndCast() });
+    return String.format('{0} IN ({1})', new List<String>{ this.soqlField(), this.checkAndCast() });
   }
 
   /**

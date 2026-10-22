@@ -82,7 +82,7 @@ public with sharing class ExcludeConditionClause extends AbstractConditionClause
   }
 
   public override String build() {
-    return String.format('{0} EXCLUDES ({1})', new List<String>{ this.field, this.checkAndCast() });
+    return String.format('{0} EXCLUDES ({1})', new List<String>{ this.soqlField(), this.checkAndCast() });
   }
 
   /**

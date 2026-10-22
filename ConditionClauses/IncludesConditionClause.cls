@@ -82,7 +82,7 @@ public with sharing class IncludesConditionClause extends AbstractConditionClaus
   }
 
   public override String build() {
-    return String.format('{0} INCLUDES ({1})', new List<String>{ this.field, this.checkAndCast() });
+    return String.format('{0} INCLUDES ({1})', new List<String>{ this.soqlField(), this.checkAndCast() });
   }
 
   /**

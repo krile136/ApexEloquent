@@ -92,7 +92,7 @@ public with sharing class NotInConditionClause extends AbstractConditionClause {
     if (this.values.isEmpty()) {
       return '';
     }
-    return String.format('{0} NOT IN ({1})', new List<String>{ this.field, this.checkAndCast() });
+    return String.format('{0} NOT IN ({1})', new List<String>{ this.soqlField(), this.checkAndCast() });
   }
 
   /**

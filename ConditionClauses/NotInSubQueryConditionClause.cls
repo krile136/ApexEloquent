@@ -97,7 +97,7 @@ public with sharing class NotInSubQueryConditionClause extends AbstractCondition
   }
 
   public override String build() {
-    return String.format('{0} NOT IN ({1})', new List<String>{ this.field, this.subQueryScribe.toSoql() });
+    return String.format('{0} NOT IN ({1})', new List<String>{ this.soqlField(), this.subQueryScribe.toSoql() });
   }
 
   /**

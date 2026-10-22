@@ -2676,6 +2676,22 @@ public with sharing class Scribe {
   }
 
   /**
+   * Has the condition write its field as `expression` (a relationship path or an aggregate).
+   * Every condition Scribe creates extends AbstractConditionClause except
+   * InvalidConditionClause, whose build() always throws, so that one is passed through.
+   *
+   * @param condition The condition about to be rendered.
+   * @param expression The field as the SOQL should write it.
+   * @return The condition to build.
+   */
+  private IConditionClause renderFieldAs(IConditionClause condition, String expression) {
+    if (condition instanceof AbstractConditionClause) {
+      return ((AbstractConditionClause) condition).renderFieldAs(expression);
+    }
+    return condition;
+  }
+
+  /**
    * Constructs the complete WHERE clause string from all condition parts.
    *
    * @param fieldMap A map of the source object's fields.
@@ -2708,18 +2724,23 @@ public with sharing class Scribe {
       if (conditionPart.condition != null) {
         this.rejectUnknownConditionField(conditionPart.condition, fieldMap);
         IConditionClause condition = conditionPart.condition.overrideMetaData(this.sObjectType, fieldMap);
+        if (String.isNotBlank(childObjectName)) {
+          // Write the relationship path where the clause writes its field. Prefixing the
+          // built string broke NOT LIKE, which starts with `(NOT ` (issue #115).
+          condition = this.renderFieldAs(condition, childObjectName + '.' + condition.getFieldName());
+        }
         clause = condition.build();
         if (String.isBlank(clause)) {
           continue;
-        }
-        if (String.isNotBlank(childObjectName)) {
-          clause = childObjectName + '.' + clause;
         }
         isLastOperatorOr = conditionPart.isOr;
       } else if (conditionPart.groupScribe != null) {
         Scribe groupScribe = conditionPart.groupScribe;
         groupScribe.sObjectType = this.sObjectType;
-        WhereClauseData groupWhereClauseData = groupScribe.buildWhereClause(fieldMap, null);
+        // The group is part of the same object's conditions, so it carries the same
+        // relationship path. Passing null here dropped the path inside a parent
+        // condition, and the group filtered the child object instead (issue #116).
+        WhereClauseData groupWhereClauseData = groupScribe.buildWhereClause(fieldMap, childObjectName);
         if (String.isBlank(groupWhereClauseData.whereClauseString)) {
           continue;
         }
@@ -2841,11 +2862,22 @@ public with sharing class Scribe {
           condition = ((AbstractConditionClause) condition).asNumericOperand();
         }
 
-        // build() names the SObject field; put the aggregate function in its place.
-        // e.g., 'Amount > 1000' becomes 'AVG(Amount) > 1000'
-        List<String> clauseParts = condition.build().split(' ');
-        clauseParts[0] = aggregateClause;
-        clause = String.join(clauseParts, ' ');
+        if (condition instanceof InConditionClause && ((InConditionClause) condition).hasNoValues()) {
+          // An empty IN matches nothing. Its WHERE form `Id = null` is not allowed in HAVING
+          // ("HAVING expression must be grouped or aggregated"); `COUNT(Id) = null` is, and
+          // returns no group (measured). This keeps what HAVING rendered before.
+          clause = aggregateClause + ' = null';
+        } else {
+          // Write the aggregate where the clause writes its field: 'Amount > 1000' becomes
+          // 'AVG(Amount) > 1000'. Replacing the first word of the built string instead broke
+          // NOT LIKE, which starts with `(NOT ` (issue #109).
+          clause = this.renderFieldAs(condition, aggregateClause).build();
+        }
+        if (String.isBlank(clause)) {
+          // An empty NOT IN renders nothing and drops out, as it does in WHERE. HAVING used to
+          // render the bare aggregate, `HAVING COUNT(Id)`, which fails to run (issue #108).
+          continue;
+        }
         isLastOperatorOr = conditionPart.isOr;
       } else if (conditionPart.groupScribe != null) {
         Scribe groupScribe = conditionPart.groupScribe;

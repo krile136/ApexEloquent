@@ -97,7 +97,7 @@ public with sharing class InSubQueryConditionClause extends AbstractConditionCla
   }
 
   public override String build() {
-    return String.format('{0} IN ({1})', new List<String>{ this.field, this.subQueryScribe.toSoql() });
+    return String.format('{0} IN ({1})', new List<String>{ this.soqlField(), this.subQueryScribe.toSoql() });
   }
 
   /**

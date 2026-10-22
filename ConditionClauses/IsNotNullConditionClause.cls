@@ -75,7 +75,7 @@ public with sharing class IsNotNullConditionClause extends AbstractConditionClau
   }
 
   public override String build() {
-    return String.format('{0} != {1}', new List<String>{ this.field, 'NULL' });
+    return String.format('{0} != {1}', new List<String>{ this.soqlField(), 'NULL' });
   }
 
   /**

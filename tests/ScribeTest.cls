@@ -6267,14 +6267,12 @@ public with sharing class ScribeTest {
               .whereGroup(Scribe.asGroup().whereEqual('Industry', 'b').whereNull('Site'))
           )
       );
-    Scribe semiJoin = Scribe.of(Opportunity.class)
+    Scribe notIn = Scribe.of(Opportunity.class)
       .field('Id')
       .parentCondition(
         Scribe.asParent('AccountId')
           .whereGroup(
-            Scribe.asGroup()
-              .whereIn('OwnerId', Scribe.of(User.class).field('Id').whereEqual('Alias', 'a'))
-              .whereNotIn('Industry', new List<String>{ 'x' })
+            Scribe.asGroup().whereNotIn('Industry', new List<String>{ 'x' }).orCondition().whereNotNull('Site')
           )
       );
     Scribe emptyIn = Scribe.of(Opportunity.class)
@@ -6286,7 +6284,7 @@ public with sharing class ScribeTest {
 
     // Act
     String nestedSoql = nested.toSoql();
-    String semiJoinSoql = semiJoin.toSoql();
+    String notInSoql = notIn.toSoql();
     String emptyInSoql = emptyIn.toSoql();
 
     // Assert
@@ -6294,13 +6292,11 @@ public with sharing class ScribeTest {
       'SELECT id FROM Opportunity WHERE (Account.Name = \'a\' OR (Account.Industry = \'b\' AND Account.Site = NULL))',
       nestedSoql
     );
-    // Not executed: SOQL refuses a parent field on the left of a semi-join ("cannot have
-    // more than one level of relationships"). That was so before this change as well; the
-    // string shows each clause kind writes the path.
     Assert.areEqual(
-      'SELECT id FROM Opportunity WHERE (Account.OwnerId IN (SELECT id FROM User WHERE Alias = \'a\') AND Account.Industry NOT IN (\'x\'))',
-      semiJoinSoql
+      'SELECT id FROM Opportunity WHERE (Account.Industry NOT IN (\'x\') OR Account.Site != NULL)',
+      notInSoql
     );
+    Assert.areEqual(0, Database.query(notInSoql).size(), 'The query must run.');
     Assert.areEqual('SELECT id FROM Opportunity WHERE (Account.Name = \'a\' OR Id = null)', emptyInSoql);
     Assert.areEqual(0, Database.query(nestedSoql).size(), 'The query must run.');
     Assert.areEqual(0, Database.query(emptyInSoql).size(), 'The query must run.');
@@ -6327,8 +6323,8 @@ public with sharing class ScribeTest {
     // Arrange - each clause writes the path itself through soqlField(). One build() that
     // went back to `this.field` would drop the path for that kind only and filter the child
     // (the failure of #116), so every kind is listed here. Add a line for a new kind.
-    // Not executed: INCLUDES needs a multi-select picklist, and SOQL refuses a parent field
-    // on the left of a semi-join.
+    // Not executed: INCLUDES needs a multi-select picklist. Semi-joins are refused under a
+    // parent (see testParentCondition_WhenSemiJoin_ThenRefusedAtBuildTime).
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('Id')
       .parentCondition(
@@ -6341,8 +6337,6 @@ public with sharing class ScribeTest {
           .whereLessThanOrEqual('AnnualRevenue', 4)
           .whereIn('Industry', new List<String>{ 'c' })
           .whereNotIn('Industry', new List<String>{ 'd' })
-          .whereIn('OwnerId', Scribe.of(User.class).field('Id'))
-          .whereNotIn('OwnerId', Scribe.of(User.class).field('Id'))
           .whereLike('Site', 'e%')
           .whereNotLike('Site', 'f%')
           .whereIncludes('Industry', new List<String>{ 'g' })
@@ -6365,8 +6359,6 @@ public with sharing class ScribeTest {
       ' AND Account.AnnualRevenue <= 4' +
       ' AND Account.Industry IN (\'c\')' +
       ' AND Account.Industry NOT IN (\'d\')' +
-      ' AND Account.OwnerId IN (SELECT id FROM User)' +
-      ' AND Account.OwnerId NOT IN (SELECT id FROM User)' +
       ' AND Account.Site LIKE \'e%\'' +
       ' AND (NOT Account.Site LIKE \'f%\')' +
       ' AND Account.Industry INCLUDES (\'g\')' +
@@ -6388,5 +6380,107 @@ public with sharing class ScribeTest {
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('is not a single SOQL literal'), e.getMessage());
     }
+  }
+
+  @isTest
+  static void testParentCondition_WhenSemiJoin_ThenRefusedAtBuildTime() {
+    // Arrange - SOQL refuses a relationship path on the left of a semi-join, even one level
+    // (`Account.Id IN (SELECT ...)`, measured). Scribe used to build it, and it failed only
+    // when the query ran. A group inside the parent reaches the same place.
+    List<Scribe> scribes = new List<Scribe>{
+      Scribe.of(Contact.class)
+        .field('Id')
+        .parentCondition(Scribe.asParent('AccountId').whereIn('Id', Scribe.of(Opportunity.class).field('AccountId'))),
+      Scribe.of(Contact.class)
+        .field('Id')
+        .parentCondition(Scribe.asParent('AccountId').whereNotIn('OwnerId', Scribe.of(User.class).field('Id'))),
+      Scribe.of(Contact.class)
+        .field('Id')
+        .parentCondition(
+          Scribe.asParent('AccountId')
+            .whereGroup(Scribe.asGroup().whereIn('OwnerId', Scribe.of(User.class).field('Id')).whereEqual('Name', 'a'))
+        )
+    };
+
+    for (Scribe scribe : scribes) {
+      // Act & Assert
+      try {
+        scribe.toSoql();
+        Assert.fail('A semi-join under a parent must be refused.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('A semi-join cannot filter a parent'), e.getMessage());
+      }
+    }
+  }
+
+  @isTest
+  static void testWhere_WhenSemiJoinIsOnTheQueriedObject_ThenStillAllowed() {
+    // Arrange - the refusal is only for a parent; the queried object's own lookup is the
+    // way to write the same filter.
+    Scribe scribe = Scribe.of(Contact.class)
+      .field('Id')
+      .whereIn('AccountId', Scribe.of(Opportunity.class).field('AccountId'));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Contact WHERE AccountId IN (SELECT accountid FROM Opportunity)', soql);
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testHavingCondition_WhenEmptyNotInIsJoinedByOr_ThenRefusedAtBuildTime() {
+    // Arrange - an empty NOT IN is always true; dropping it under OR turns `A OR true` into
+    // `A`. The first part of an OR level carries no isOr, so both positions are checked,
+    // and so is a group that renders nothing because it held only empty NOT INs.
+    List<Integer> empty = new List<Integer>();
+    List<Scribe> havingScribes = new List<Scribe>{
+      Scribe.asHaving().whereNotIn('cnt', empty).orCondition().whereGreaterThan('cnt', 5),
+      Scribe.asHaving().whereGreaterThan('cnt', 5).orCondition().whereNotIn('cnt', empty),
+      Scribe.asHaving().whereGreaterThan('cnt', 5).orCondition().whereGroup(Scribe.asGroup().whereNotIn('cnt', empty))
+    };
+
+    for (Scribe havingScribe : havingScribes) {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('AccountId')
+        .count('Id', 'cnt')
+        .groupByField('AccountId')
+        .havingCondition(havingScribe);
+
+      // Act & Assert
+      try {
+        scribe.toSoql();
+        Assert.fail('An empty NOT IN under OR must be refused.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('always true'), e.getMessage());
+      }
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenEmptyNotInIsInAnAndGroupUnderOr_ThenItDropsOut() {
+    // Arrange - inside the group the conditions are joined by AND, so the empty NOT IN
+    // drops out correctly (`A AND true` is `A`); only the group's own level decides.
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .count('Id', 'cnt')
+      .groupByField('AccountId')
+      .havingCondition(
+        Scribe.asHaving()
+          .whereGreaterThan('cnt', 5)
+          .orCondition()
+          .whereGroup(Scribe.asGroup().whereLessThan('cnt', 2).whereNotIn('cnt', new List<Integer>()))
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId HAVING COUNT(Id) > 5 OR (COUNT(Id) < 2)',
+      soql
+    );
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
   }
 }

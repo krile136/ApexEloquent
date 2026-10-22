@@ -1,8 +1,8 @@
 {
   "packageDirectories": [
     {
-      "versionName": "v3.13.1",
-      "versionNumber": "3.13.1.NEXT",
+      "versionName": "v3.13.2",
+      "versionNumber": "3.13.2.NEXT",
       "path": ".",
       "default": true,
       "package": "ApexEloquent",
@@ -24,6 +24,7 @@
     "ApexEloquent@3.11.0-1": "04tgK000000KIvFQAW",
     "ApexEloquent@3.12.0-1": "04tgK000000KJbBQAW",
     "ApexEloquent@3.13.0-1": "04tgK000000V3eLQAS",
-    "ApexEloquent@3.13.1-1": "04tgK000000V3pdQAC"
+    "ApexEloquent@3.13.1-1": "04tgK000000V3pdQAC",
+    "ApexEloquent@3.13.2-1": "04tgK000000VIBxQAO"
   }
 }

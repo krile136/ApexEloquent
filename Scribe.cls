@@ -2698,7 +2698,9 @@ public with sharing class Scribe {
       return condition;
     }
     String reason = 'The condition cannot write its field as `' + expression + '`.';
-    ApexEloquentException.invalidOperation(CLASS_NAME, null, reason).fire();
+    ApexEloquentException.invalidOperation(CLASS_NAME, null, reason)
+      .action('Make the condition extend AbstractConditionClause and write its field with soqlField() in build()')
+      .fire();
     return null; // unreachable
   }
 

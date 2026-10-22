@@ -6322,4 +6322,72 @@ public with sharing class ScribeTest {
       Assert.isTrue(e.getMessage().contains('is not a single SOQL literal'), e.getMessage());
     }
   }
+
+  @isTest
+  static void testParentCondition_WhenEveryClauseKindIsUsed_ThenEachWritesThePath() {
+    // Arrange - each clause writes the path itself through soqlField(). One build() that
+    // went back to `this.field` would drop the path for that kind only and filter the child
+    // (the failure of #116), so every kind is listed here. Add a line for a new kind.
+    // Not executed: INCLUDES needs a multi-select picklist, and SOQL refuses a parent field
+    // on the left of a semi-join.
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('Id')
+      .parentCondition(
+        Scribe.asParent('AccountId')
+          .whereEqual('Name', 'a')
+          .whereNotEqual('Name', 'b')
+          .whereGreaterThan('AnnualRevenue', 1)
+          .whereGreaterThanOrEqual('AnnualRevenue', 2)
+          .whereLessThan('AnnualRevenue', 3)
+          .whereLessThanOrEqual('AnnualRevenue', 4)
+          .whereIn('Industry', new List<String>{ 'c' })
+          .whereNotIn('Industry', new List<String>{ 'd' })
+          .whereIn('OwnerId', Scribe.of(User.class).field('Id'))
+          .whereNotIn('OwnerId', Scribe.of(User.class).field('Id'))
+          .whereLike('Site', 'e%')
+          .whereNotLike('Site', 'f%')
+          .whereIncludes('Industry', new List<String>{ 'g' })
+          .whereExcludes('Industry', new List<String>{ 'h' })
+          .whereNull('Phone')
+          .whereNotNull('Fax')
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    String expected =
+      'SELECT id FROM Opportunity WHERE (' +
+      'Account.Name = \'a\'' +
+      ' AND Account.Name != \'b\'' +
+      ' AND Account.AnnualRevenue > 1' +
+      ' AND Account.AnnualRevenue >= 2' +
+      ' AND Account.AnnualRevenue < 3' +
+      ' AND Account.AnnualRevenue <= 4' +
+      ' AND Account.Industry IN (\'c\')' +
+      ' AND Account.Industry NOT IN (\'d\')' +
+      ' AND Account.OwnerId IN (SELECT id FROM User)' +
+      ' AND Account.OwnerId NOT IN (SELECT id FROM User)' +
+      ' AND Account.Site LIKE \'e%\'' +
+      ' AND (NOT Account.Site LIKE \'f%\')' +
+      ' AND Account.Industry INCLUDES (\'g\')' +
+      ' AND Account.Industry EXCLUDES (\'h\')' +
+      ' AND Account.Phone = NULL' +
+      ' AND Account.Fax != NULL)';
+    Assert.areEqual(expected, soql);
+  }
+
+  @isTest
+  static void testWhere_WhenDoubleIsNaN_ThenRefusedAtBuildTime() {
+    // Arrange - NaN, like Infinity, cannot become a Decimal (MathException, measured)
+    Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('AnnualRevenue', Double.valueOf('NaN'));
+
+    // Act & Assert
+    try {
+      scribe.toSoql();
+      Assert.fail('A NaN Double must be refused.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('is not a single SOQL literal'), e.getMessage());
+    }
+  }
 }

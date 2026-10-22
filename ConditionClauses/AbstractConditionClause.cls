@@ -107,6 +107,15 @@ public with sharing abstract class AbstractConditionClause implements ICondition
   }
 
   // Abstract methods to be implemented by subclasses.
+
+  /**
+   * Returns a new clause for another object's metadata. It does not keep what
+   * asNumericOperand and renderFieldAs set, so call it before them (see copyWithSettings).
+   *
+   * @param sObjectType The object the new clause filters.
+   * @param fieldMap That object's fields.
+   * @return A new clause.
+   */
   public abstract IConditionClause overrideMetaData(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
@@ -254,7 +263,7 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * either way.
    *
    * A Double that is infinite or NaN cannot become a Decimal (`MathException`, measured
-   * for Infinity). It is refused here with the same message as any other value that is not
+   * for NaN, Infinity and -Infinity; NaN throws when written out, not on the cast). It is refused here with the same message as any other value that is not
    * a single SOQL literal; String.valueOf used to let `Infinity` into the query, which then
    * failed at run time.
    *
@@ -267,12 +276,16 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    */
   private String toSoqlNumber(Schema.DisplayType fieldType, Object value) {
     Decimal numeric;
+    String plain;
     try {
+      // Infinity fails on the cast and NaN only when the Decimal is written out, so both
+      // statements are inside (measured).
       numeric = (Decimal) value;
+      plain = numeric.toPlainString();
     } catch (MathException e) {
       this.fireNotASingleLiteral(fieldType, value);
+      return null; // unreachable: fire() always throws
     }
-    String plain = numeric.toPlainString();
     if (!plain.contains('.') && numeric.abs() > MAX_SOQL_INTEGER) {
       plain += '.0';
     }

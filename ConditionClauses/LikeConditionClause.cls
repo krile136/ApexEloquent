@@ -85,7 +85,7 @@ public with sharing class LikeConditionClause extends AbstractConditionClause {
   }
 
   public override String build() {
-    return String.format('{0} LIKE {1}', new List<String>{ this.field, this.checkAndCast() });
+    return String.format('{0} LIKE {1}', new List<String>{ this.soqlField(), this.checkAndCast() });
   }
 
   /**

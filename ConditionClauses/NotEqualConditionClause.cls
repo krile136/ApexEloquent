@@ -84,7 +84,7 @@ public with sharing class NotEqualConditionClause extends AbstractConditionClaus
   }
 
   public override String build() {
-    return String.format('{0} != {1}', new List<String>{ this.field, this.checkAndCast() });
+    return String.format('{0} != {1}', new List<String>{ this.soqlField(), this.checkAndCast() });
   }
 
   /**

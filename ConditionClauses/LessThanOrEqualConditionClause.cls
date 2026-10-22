@@ -86,7 +86,7 @@ public with sharing class LessThanOrEqualConditionClause extends AbstractConditi
   }
 
   public override String build() {
-    return String.format('{0} <= {1}', new List<String>{ this.field, this.checkAndCast() });
+    return String.format('{0} <= {1}', new List<String>{ this.soqlField(), this.checkAndCast() });
   }
 
   /**

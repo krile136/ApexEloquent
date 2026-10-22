@@ -86,7 +86,7 @@ public with sharing class NotLikeConditionClause extends AbstractConditionClause
   }
 
   public override String build() {
-    return String.format('(NOT {0} LIKE {1})', new List<String>{ this.field, this.checkAndCast() });
+    return String.format('(NOT {0} LIKE {1})', new List<String>{ this.soqlField(), this.checkAndCast() });
   }
 
   /**

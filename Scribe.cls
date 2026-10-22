@@ -2694,7 +2694,7 @@ public with sharing class Scribe {
       'A semi-join cannot filter a parent: `{0}.{1} {2} (SELECT ...)` is refused by SOQL ("cannot have more than one level of relationships").',
       new List<String>{ childObjectName, condition.getFieldName(), operator }
     );
-    String action = 'To filter on the parent\'s Id, put the semi-join on the lookup field of the queried object (whereIn(\'AccountId\', subQuery)). For another parent field, query the Ids first and pass the Set<Id> to whereIn: SOQL does not nest semi-joins either.';
+    String action = 'To filter on the parent\'s Id, put the semi-join on the lookup field of the queried object (whereIn(\'AccountId\', subQuery)). For another parent field, query the Ids first and pass the Set<Id> to whereIn inside the parent condition (asParent(\'AccountId\').whereIn(\'OwnerId\', ownerIds)): SOQL does not nest semi-joins either.';
     ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
   }
 
@@ -3510,9 +3510,10 @@ public with sharing class Scribe {
     public boolean isLastOperatorOr;
     public Integer renderedCount = 0;
     /**
-     * HAVING only: the level rendered nothing because every condition left was an empty
-     * NOT IN (or such a group), so it is always true. A level that is empty for another
-     * reason (all of it retracted by ignoreWhen, an empty asGroup()) is not.
+     * HAVING only: the level rendered nothing, and at least one empty NOT IN (or one
+     * always-true group) was dropped from it, so it is always true. A level that is empty
+     * only for another reason (all of it retracted by ignoreWhen, an empty asGroup()) is
+     * not.
      */
     public Boolean alwaysTrue = false;
 

@@ -6548,4 +6548,52 @@ public with sharing class ScribeTest {
       }
     }
   }
+
+  @isTest
+  static void testHavingCondition_WhenAnAlwaysTrueGroupSitsBesideARenderedCondition_ThenOnlyTheGroupDropsOut() {
+    // Arrange - inside `(X AND (always-true group))` X is rendered, so the middle level is
+    // not always true and the outer OR keeps it. The only shape that catches a middle level
+    // reporting always-true by mistake.
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .count('Id', 'cnt')
+      .groupByField('AccountId')
+      .havingCondition(
+        Scribe.asHaving()
+          .whereGreaterThan('cnt', 5)
+          .orCondition()
+          .whereGroup(
+            Scribe.asGroup()
+              .whereLessThan('cnt', 2)
+              .whereGroup(Scribe.asGroup().whereNotIn('cnt', new List<Integer>()))
+          )
+      );
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId HAVING COUNT(Id) > 5 OR (COUNT(Id) < 2)',
+      soql
+    );
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testHavingCondition_WhenTheWholeHavingIsAnAlwaysTrueGroup_ThenHavingDropsOut() {
+    // Arrange - always true at the top means every group, which is no HAVING at all
+    Scribe scribe = Scribe.of(Opportunity.class)
+      .field('AccountId')
+      .count('Id', 'cnt')
+      .groupByField('AccountId')
+      .havingCondition(Scribe.asHaving().whereGroup(Scribe.asGroup().whereNotIn('cnt', new List<Integer>())));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId', soql);
+    Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
 }

@@ -54,6 +54,12 @@ public with sharing abstract class AbstractConditionClause implements ICondition
   };
 
   /**
+   * The largest whole number SOQL reads without a decimal point (the Integer maximum).
+   * See toSoqlNumber.
+   */
+  private static final Long MAX_SOQL_INTEGER = 2147483647L;
+
+  /**
    * The shape an unquoted value is allowed to take: a single token with no whitespace,
    * quotes, parentheses, commas or operators, and not starting with `:`. Numbers (`-1.5`),
    * booleans, `null`, dates, datetimes (`2026-01-01T00:00:00Z`), times and date literals
@@ -77,6 +83,13 @@ public with sharing abstract class AbstractConditionClause implements ICondition
   private Boolean numericOperand = false;
 
   /**
+   * How the field is written in the SOQL, when that differs from its name: `Account.Name`
+   * for a parent condition, `MIN(Name)` for HAVING. Null means the name itself. See
+   * renderFieldAs.
+   */
+  private String renderedField;
+
+  /**
    * Constructor for the abstract clause.
    *
    * @param sObjectType The SObject type context.
@@ -94,10 +107,27 @@ public with sharing abstract class AbstractConditionClause implements ICondition
   }
 
   // Abstract methods to be implemented by subclasses.
+
+  /**
+   * Returns a new clause for another object's metadata. It does not keep what
+   * asNumericOperand and renderFieldAs set, so call it before them (see copyWithSettings).
+   *
+   * @param sObjectType The object the new clause filters.
+   * @param fieldMap That object's fields.
+   * @return A new clause.
+   */
   public abstract IConditionClause overrideMetaData(
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
   );
+
+  /**
+   * Returns a new clause for another field. Like overrideMetaData, it does not keep what
+   * asNumericOperand and renderFieldAs set, so call it before them (see copyWithSettings).
+   *
+   * @param field The field the new clause filters.
+   * @return A new clause.
+   */
   public abstract IConditionClause overrideField(String field);
   private abstract String checkAndCast();
   public abstract String build();
@@ -191,6 +221,79 @@ public with sharing abstract class AbstractConditionClause implements ICondition
   }
 
   /**
+   * Refuses a value that cannot be written as one unquoted SOQL token.
+   *
+   * @param fieldType The type the value is rendered for.
+   * @param value The value refused.
+   * @throws ApexEloquentException always.
+   */
+  private void fireNotASingleLiteral(Schema.DisplayType fieldType, Object value) {
+    String reason = this.numericOperand
+      ? String.format(
+          'The HAVING value compared with an aggregate of `{0}` is not a single SOQL literal and would be inserted into the query as syntax.',
+          new List<String>{ this.field }
+        )
+      : String.format(
+          'The value for `{0}` ({1}) is not a single SOQL literal and would be inserted into the query as syntax.',
+          new List<String>{ this.field, String.valueOf(fieldType) }
+        );
+    String action = this.numericOperand
+      ? 'Pass a number (Integer, Decimal) for an aggregate result'
+      : 'Pass a value of the field\'s own type (Integer, Decimal, Boolean, Date, Datetime) instead of a String';
+    ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'value', value)
+      .param('field', this.field)
+      .fire();
+  }
+
+  /**
+   * Writes a number the way SOQL reads it (issue #107). Two forms that String.valueOf
+   * produces fail at run time (measured on API v64.0):
+   *
+   * - Exponent notation. Apex writes a Double of 1E7 or more, a Double below 1E-3 and a
+   *   Decimal built from exponent notation that way (`1.2345678E7`, `1.5E-7`, `1E+10`).
+   *   SOQL has no exponent literal.
+   * - A whole number outside the Integer range without a decimal point
+   *   (`AnnualRevenue > 10000000000`, also `-2147483648`) fails with `For input string`.
+   *   The same number with `.0` runs. A Long has always rendered without the decimal
+   *   point, so it failed the same way.
+   *
+   * Integer, Long and Double are all instances of Decimal in Apex, and the cast keeps the
+   * value (measured). Between -2147483647 and 2147483647 nothing is added, because an
+   * Integer field and COUNT() refuse a decimal point. Outside it they refuse the value
+   * either way.
+   *
+   * A Double that is infinite or NaN cannot be written as a Decimal (`MathException`,
+   * measured for NaN, Infinity and -Infinity; NaN throws when written out, not on the
+   * cast). It is refused here with the same message as any other value that is not
+   * a single SOQL literal; String.valueOf used to let `Infinity` into the query, which then
+   * failed at run time.
+   *
+   * Quoted values do not come here: a number compared with a text field keeps
+   * String.valueOf, which is what it has always matched.
+   *
+   * @param fieldType The type the value is rendered for (for the message when refused).
+   * @param value The number to write (an Integer, Long, Double or Decimal).
+   * @return A SOQL numeric literal.
+   */
+  private String toSoqlNumber(Schema.DisplayType fieldType, Object value) {
+    Decimal numeric;
+    String plain;
+    try {
+      // Infinity fails on the cast and NaN only when the Decimal is written out, so both
+      // statements are inside (measured).
+      numeric = (Decimal) value;
+      plain = numeric.toPlainString();
+    } catch (MathException e) {
+      this.fireNotASingleLiteral(fieldType, value);
+      return null; // unreachable: fire() always throws
+    }
+    if (!plain.contains('.') && numeric.abs() > MAX_SOQL_INTEGER) {
+      plain += '.0';
+    }
+    return plain;
+  }
+
+  /**
    * Renders one non-null value as a SOQL literal for a field of the given type.
    *
    * A text-like field gets a quoted, escaped literal. Any other field gets the value
@@ -216,26 +319,12 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * @throws ApexEloquentException when the value would render as more than one token.
    */
   protected String toSoqlLiteral(Schema.DisplayType fieldType, Object value) {
-    String valueString = this.formatAndCastToString(value);
     if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
-      return '\'' + valueString + '\'';
+      return '\'' + this.formatAndCastToString(value) + '\'';
     }
+    String valueString = value instanceof Decimal ? this.toSoqlNumber(fieldType, value) : this.formatAndCastToString(value);
     if (valueString.length() > Scribe.MAX_TOKEN_LENGTH || !UNQUOTED_LITERAL.matcher(valueString).matches()) {
-      String reason = this.numericOperand
-        ? String.format(
-            'The HAVING value compared with an aggregate of `{0}` is not a single SOQL literal and would be inserted into the query as syntax.',
-            new List<String>{ this.field }
-          )
-        : String.format(
-            'The value for `{0}` ({1}) is not a single SOQL literal and would be inserted into the query as syntax.',
-            new List<String>{ this.field, String.valueOf(fieldType) }
-          );
-      String action = this.numericOperand
-        ? 'Pass a number (Integer, Decimal) for an aggregate result'
-        : 'Pass a value of the field\'s own type (Integer, Decimal, Boolean, Date, Datetime) instead of a String';
-      ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'value', value)
-        .param('field', this.field)
-        .fire();
+      this.fireNotASingleLiteral(fieldType, value);
     }
     return valueString;
   }
@@ -255,11 +344,60 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * own. Among the clauses Scribe creates, the only one that does not extend this class is
    * InvalidConditionClause, whose build() always throws. Internal: not part of the supported API.
    *
+   * The copy keeps what renderFieldAs set, and renderFieldAs keeps this flag, so the two
+   * can be applied in either order (copyWithSettings). overrideField and overrideMetaData
+   * keep neither.
+   *
    * @return A new clause; this one is left unchanged.
    */
   public IConditionClause asNumericOperand() {
-    AbstractConditionClause copy = (AbstractConditionClause) this.overrideField(this.field);
+    AbstractConditionClause copy = this.copyWithSettings();
     copy.numericOperand = true;
+    return copy;
+  }
+
+  /**
+   * Returns a copy of this clause that writes its field as `expression` in the SOQL. The
+   * field name is still what the value's type is checked against and what getFieldName
+   * returns, so assertions keep naming the field.
+   *
+   * For Scribe: a parent condition writes `Account.Name`, and HAVING writes `MIN(Name)`.
+   * Scribe used to edit the built string instead — prefix the relationship path to it, or
+   * replace its first word with the aggregate. Both assumed the string starts with the
+   * field, but NOT LIKE renders `(NOT Name LIKE ...)`, so they produced
+   * `Account.(NOT Name LIKE ...)` and `MIN(Name) Name LIKE ...)` (issues #115 / #109).
+   * Writing the field in place does not depend on where a clause puts it.
+   *
+   * Internal: not part of the supported API.
+   *
+   * @param expression The field as it appears in the SOQL.
+   * @return A new clause; this one is left unchanged.
+   */
+  public IConditionClause renderFieldAs(String expression) {
+    AbstractConditionClause copy = this.copyWithSettings();
+    copy.renderedField = expression;
+    return copy;
+  }
+
+  /**
+   * The field as the SOQL writes it: what renderFieldAs set, or the field name.
+   *
+   * @return The field for build() to write.
+   */
+  protected String soqlField() {
+    return this.renderedField == null ? this.field : this.renderedField;
+  }
+
+  /**
+   * A copy that keeps the rendering settings, so asNumericOperand and renderFieldAs can be
+   * applied in either order without one dropping the other.
+   *
+   * @return A new clause with the same field, values and rendering settings.
+   */
+  private AbstractConditionClause copyWithSettings() {
+    AbstractConditionClause copy = (AbstractConditionClause) this.overrideField(this.field);
+    copy.numericOperand = this.numericOperand;
+    copy.renderedField = this.renderedField;
     return copy;
   }
 

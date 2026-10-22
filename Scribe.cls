@@ -2677,6 +2677,57 @@ public with sharing class Scribe {
   }
 
   /**
+   * Refuses a semi-join (`whereIn(field, Scribe)` / `whereNotIn(field, Scribe)`) on a parent.
+   * SOQL does not accept a relationship path on the left of a semi-join: both
+   * `Account.Id IN (SELECT ...)` and `Account.OwnerId NOT IN (SELECT ...)` fail at run time
+   * with "cannot have more than one level of relationships" (measured, API v64.0). Scribe
+   * used to build them anyway, so the mistake surfaced only when the query ran; MockEloquent
+   * never runs it. Checked at build time because a group inside a parent reaches here too.
+   *
+   * @param condition The semi-join condition.
+   * @param childObjectName The relationship path the condition sits under.
+   * @throws ApexEloquentException always.
+   */
+  private void fireSemiJoinUnderParent(IConditionClause condition, String childObjectName) {
+    String error = 'SOQL Semi-Join Restriction';
+    String operator = condition instanceof NotInSubQueryConditionClause ? 'NOT IN' : 'IN';
+    String reason = String.format(
+      'A semi-join cannot filter a parent: `{0}.{1} {2} (SELECT ...)` is refused by SOQL ("cannot have more than one level of relationships").',
+      new List<String>{ childObjectName, condition.getFieldName(), operator }
+    );
+    String action = 'To filter on the parent\'s Id, put the semi-join on the lookup field of the queried object (whereIn(\'AccountId\', subQuery)). For another parent field, query the Ids first and pass the Set<Id> to whereIn inside the parent condition (asParent(\'AccountId\').whereIn(\'OwnerId\', ownerIds)): SOQL does not nest semi-joins either.';
+    ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
+  }
+
+  /**
+   * Has the condition write its field as `expression` (a relationship path or an aggregate).
+   * Every condition Scribe creates extends AbstractConditionClause except
+   * InvalidConditionClause, whose build() always throws, so that one is passed through.
+   *
+   * Any other kind is refused rather than passed through: built as is, it would leave the
+   * path out and filter the child object without a sign (the failure of issue #116). The
+   * old string prefix worked for any clause, so this guard is what keeps that property.
+   *
+   * @param condition The condition about to be rendered.
+   * @param expression The field as the SOQL should write it.
+   * @return The condition to build.
+   * @throws ApexEloquentException for a condition that cannot write its field in place.
+   */
+  private IConditionClause renderFieldAs(IConditionClause condition, String expression) {
+    if (condition instanceof AbstractConditionClause) {
+      return ((AbstractConditionClause) condition).renderFieldAs(expression);
+    }
+    if (condition instanceof InvalidConditionClause) {
+      return condition;
+    }
+    String reason = 'The condition cannot write its field as `' + expression + '`.';
+    ApexEloquentException.invalidOperation(CLASS_NAME, null, reason)
+      .action('Make the condition extend AbstractConditionClause and write its field with soqlField() in build()')
+      .fire();
+    return null; // unreachable
+  }
+
+  /**
    * Constructs the complete WHERE clause string from all condition parts.
    *
    * @param fieldMap A map of the source object's fields.
@@ -2709,18 +2760,26 @@ public with sharing class Scribe {
       if (conditionPart.condition != null) {
         this.rejectUnknownConditionField(conditionPart.condition, fieldMap);
         IConditionClause condition = conditionPart.condition.overrideMetaData(this.sObjectType, fieldMap);
+        if (String.isNotBlank(childObjectName) && subQueryOf(condition) != null) {
+          this.fireSemiJoinUnderParent(condition, childObjectName);
+        }
+        if (String.isNotBlank(childObjectName)) {
+          // Write the relationship path where the clause writes its field. Prefixing the
+          // built string broke NOT LIKE, which starts with `(NOT ` (issue #115).
+          condition = this.renderFieldAs(condition, childObjectName + '.' + condition.getFieldName());
+        }
         clause = condition.build();
         if (String.isBlank(clause)) {
           continue;
-        }
-        if (String.isNotBlank(childObjectName)) {
-          clause = childObjectName + '.' + clause;
         }
         isLastOperatorOr = conditionPart.isOr;
       } else if (conditionPart.groupScribe != null) {
         Scribe groupScribe = conditionPart.groupScribe;
         groupScribe.sObjectType = this.sObjectType;
-        WhereClauseData groupWhereClauseData = groupScribe.buildWhereClause(fieldMap, null);
+        // The group is part of the same object's conditions, so it carries the same
+        // relationship path. Passing null here dropped the path inside a parent
+        // condition, and the group filtered the child object instead (issue #116).
+        WhereClauseData groupWhereClauseData = groupScribe.buildWhereClause(fieldMap, childObjectName);
         if (String.isBlank(groupWhereClauseData.whereClauseString)) {
           continue;
         }
@@ -2795,6 +2854,15 @@ public with sharing class Scribe {
       return new WhereClauseData('', false, false);
     }
 
+    // Whether this level joins its conditions with OR. The first part never carries isOr,
+    // so the level is OR when any part does. (A level that mixes AND and OR is refused
+    // below as well; which error comes first does not matter, both refuse the query.)
+    Boolean levelIsOr = false;
+    for (ConditionPart part : this.conditionParts) {
+      levelIsOr = levelIsOr || part.isOr;
+    }
+    Boolean droppedAlwaysTrue = false;
+
     Boolean isFirstOperatorOr = null;
     Boolean isLastOperatorOr = false;
     Boolean usedAnd = false;
@@ -2842,17 +2910,42 @@ public with sharing class Scribe {
           condition = ((AbstractConditionClause) condition).asNumericOperand();
         }
 
-        // build() names the SObject field; put the aggregate function in its place.
-        // e.g., 'Amount > 1000' becomes 'AVG(Amount) > 1000'
-        List<String> clauseParts = condition.build().split(' ');
-        clauseParts[0] = aggregateClause;
-        clause = String.join(clauseParts, ' ');
+        if (condition instanceof InConditionClause && ((InConditionClause) condition).hasNoValues()) {
+          // An empty IN matches nothing. Its WHERE form `Id = null` is not allowed in HAVING
+          // ("HAVING expression must be grouped or aggregated"); `COUNT(Id) = null` is, and
+          // returns no group (measured). This keeps what HAVING rendered before.
+          clause = aggregateClause + ' = null';
+        } else {
+          // Write the aggregate where the clause writes its field: 'Amount > 1000' becomes
+          // 'AVG(Amount) > 1000'. Replacing the first word of the built string instead broke
+          // NOT LIKE, which starts with `(NOT ` (issue #109).
+          clause = this.renderFieldAs(condition, aggregateClause).build();
+        }
+        if (String.isBlank(clause)) {
+          // An empty NOT IN renders nothing and drops out, as it does in WHERE. HAVING used to
+          // render the bare aggregate, `HAVING COUNT(Id)`, which fails to run (issue #108).
+          if (levelIsOr) {
+            this.fireEmptyNotInUnderOr(alias);
+          }
+          droppedAlwaysTrue = true;
+          continue;
+        }
         isLastOperatorOr = conditionPart.isOr;
       } else if (conditionPart.groupScribe != null) {
         Scribe groupScribe = conditionPart.groupScribe;
         groupScribe.sObjectType = this.sObjectType;
         WhereClauseData groupWhereClauseData = groupScribe.buildHavingClause(aggregateAliasMap);
         if (String.isBlank(groupWhereClauseData.whereClauseString)) {
+          // A group of only empty NOT INs is always true, and dropping it under OR narrows
+          // the result the same way. A group that is empty because ignoreWhen retracted
+          // everything in it (or an empty asGroup()) is not: it drops out silently, as the
+          // orCondition() contract promises.
+          if (groupWhereClauseData.alwaysTrue) {
+            if (levelIsOr) {
+              this.fireEmptyNotInUnderOr(null);
+            }
+            droppedAlwaysTrue = true;
+          }
           continue;
         }
         clause = String.format('({0})', new List<String>{ groupWhereClauseData.whereClauseString });
@@ -2875,7 +2968,37 @@ public with sharing class Scribe {
       }
     }
 
-    return new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
+    WhereClauseData result = new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
+    result.alwaysTrue = String.isBlank(whereClauseString) && droppedAlwaysTrue;
+    return result;
+  }
+
+  /**
+   * Refuses an empty NOT IN joined by OR in HAVING. An empty NOT IN is always true. Under AND
+   * it drops out without changing the result (`A AND true` is `A`), but under OR dropping it
+   * turns `A OR true` (every group) into `A`, a narrower result without any sign. HAVING has
+   * no expression known to be always true for every aggregate (MIN / MAX can be null), so
+   * this is refused rather than rewritten. Before v3.13.2 an empty NOT IN in HAVING
+   * rendered the aggregate alone (`HAVING COUNT(Id)`, `... OR MIN(Name)`) and failed at run
+   * time, so a query refused here did not run before either. A group that is empty for
+   * another reason (ignoreWhen) is not refused; see WhereClauseData.alwaysTrue.
+   *
+   * WHERE drops an empty NOT IN under OR as well; changing that would change results of
+   * existing queries, so it is left to a separate issue.
+   *
+   * @param alias The alias of the condition, or null for a group that rendered nothing.
+   * @throws ApexEloquentException always.
+   */
+  private void fireEmptyNotInUnderOr(String alias) {
+    String error = 'Empty NOT IN under OR';
+    String reason = alias == null
+      ? 'A HAVING group joined by OR holds only empty whereNotIn() conditions. It is always true, and dropping it would narrow the result.'
+      : String.format(
+          'whereNotIn(\'{0}\', ...) in HAVING has an empty list and is joined by OR. It is always true, and dropping it would narrow the result.',
+          new List<String>{ alias }
+        );
+    String action = 'Check the list before building the query. When it is empty, this OR is true for every group: leave out the nearest part joined by AND, or the whole HAVING condition when there is none. Leaving out only the empty branch, or only the group that holds it when that group is itself joined by OR, narrows the result the same way.';
+    ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
   }
 
   /**
@@ -3387,6 +3510,13 @@ public with sharing class Scribe {
     public boolean isFirstOperatorOr;
     public boolean isLastOperatorOr;
     public Integer renderedCount = 0;
+    /**
+     * HAVING only: the level rendered nothing, and at least one empty NOT IN (or one
+     * always-true group) was dropped from it, so it is always true. A level that is empty
+     * only for another reason (all of it retracted by ignoreWhen, an empty asGroup()) is
+     * not.
+     */
+    public Boolean alwaysTrue = false;
 
     public WhereClauseData(String whereClauseString, boolean isFirstOperatorOr, boolean isLastOperatorOr) {
       this.whereClauseString = whereClauseString;

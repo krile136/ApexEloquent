@@ -6370,7 +6370,8 @@ public with sharing class ScribeTest {
 
   @isTest
   static void testWhere_WhenDoubleIsNaN_ThenRefusedAtBuildTime() {
-    // Arrange - NaN, like Infinity, cannot become a Decimal (MathException, measured)
+    // Arrange - NaN passes the Decimal cast but cannot be written out (MathException from
+    // toPlainString, measured), unlike Infinity, which fails on the cast.
     Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('AnnualRevenue', Double.valueOf('NaN'));
 
     // Act & Assert
@@ -6482,5 +6483,69 @@ public with sharing class ScribeTest {
       soql
     );
     Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAGroupUnderOrIsEmptyForAnotherReason_ThenItDropsOut() {
+    // Arrange - only an always-true group is refused under OR. A group emptied by
+    // ignoreWhen, or an empty asGroup(), drops out as before (the orCondition() contract).
+    Integer maxCnt = null;
+    List<Scribe> havingScribes = new List<Scribe>{
+      Scribe.asHaving()
+        .whereGreaterThan('cnt', 5)
+        .orCondition()
+        .whereGroup(Scribe.asGroup().whereLessThan('cnt', maxCnt).ignoreWhen(maxCnt == null)),
+      Scribe.asHaving().whereGreaterThan('cnt', 5).orCondition().whereGroup(Scribe.asGroup())
+    };
+
+    for (Scribe havingScribe : havingScribes) {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('AccountId')
+        .count('Id', 'cnt')
+        .groupByField('AccountId')
+        .havingCondition(havingScribe);
+
+      // Act
+      String soql = scribe.toSoql();
+
+      // Assert
+      Assert.areEqual('SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId HAVING COUNT(Id) > 5', soql);
+    }
+  }
+
+  @isTest
+  static void testHavingCondition_WhenAnAlwaysTrueGroupIsNestedUnderOr_ThenRefused() {
+    // Arrange - always-true passes up through AND groups: [retracted X, empty NOT IN] is
+    // still true, and so is a group whose only content is such a group.
+    Integer maxCnt = null;
+    List<Integer> empty = new List<Integer>();
+    List<Scribe> havingScribes = new List<Scribe>{
+      Scribe.asHaving()
+        .whereGreaterThan('cnt', 5)
+        .orCondition()
+        .whereGroup(
+          Scribe.asGroup().whereLessThan('cnt', maxCnt).ignoreWhen(maxCnt == null).whereNotIn('cnt', empty)
+        ),
+      Scribe.asHaving()
+        .whereGreaterThan('cnt', 5)
+        .orCondition()
+        .whereGroup(Scribe.asGroup().whereGroup(Scribe.asGroup().whereNotIn('cnt', empty)))
+    };
+
+    for (Scribe havingScribe : havingScribes) {
+      Scribe scribe = Scribe.of(Opportunity.class)
+        .field('AccountId')
+        .count('Id', 'cnt')
+        .groupByField('AccountId')
+        .havingCondition(havingScribe);
+
+      // Act & Assert
+      try {
+        scribe.toSoql();
+        Assert.fail('An always-true group under OR must be refused.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('always true'), e.getMessage());
+      }
+    }
   }
 }

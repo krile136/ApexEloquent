@@ -2918,6 +2918,43 @@ public with sharing class Scribe {
   }
 
   /**
+   * Refuses a semi-join placed where SOQL does not accept one. Found by running every condition
+   * kind in every context (#121); both used to build and fail only at run time (measured):
+   *
+   * - inside whereGroup: "Semi join sub-selects are only allowed at the top level WHERE
+   *   expressions and not in nested WHERE expressions"
+   * - on a level joined by OR, also when the OR comes after the semi-join: "Semi join
+   *   sub-selects are not allowed with the 'OR' operator". whereIn(field, Scribe) refuses an
+   *   OR written before it when chained; one written after it reached the query.
+   *
+   * A child subquery's own WHERE is its top level, so a semi-join there runs (measured).
+   *
+   * @param condition The semi-join condition.
+   * @throws ApexEloquentException when the placement is one SOQL rejects.
+   */
+  private void rejectSemiJoinPlacement(IConditionClause condition) {
+    Boolean levelIsOr = false;
+    for (Integer i = 0; i < this.conditionParts.size(); i++) {
+      levelIsOr = levelIsOr || this.isOrOperand(i);
+    }
+    if (!this.isGroup && !levelIsOr) {
+      return;
+    }
+    String operator = condition instanceof NotInSubQueryConditionClause ? 'NOT IN' : 'IN';
+    String reason = this.isGroup
+      ? String.format(
+          '`{0} {1} (SELECT ...)` is inside whereGroup(). SOQL accepts a semi-join only at the top level of WHERE, not in a nested expression.',
+          new List<String>{ condition.getFieldName(), operator }
+        )
+      : String.format(
+          '`{0} {1} (SELECT ...)` is joined by OR. SOQL does not accept a semi-join together with OR.',
+          new List<String>{ condition.getFieldName(), operator }
+        );
+    String action = 'Keep the semi-join at the top level, joined by AND. If the OR is needed, query the Ids first and pass the Set<Id> to whereIn(field, ids) instead of a subquery.';
+    ApexEloquentException.at(CLASS_NAME).error('SOQL Semi-Join Restriction').reason(reason).action(action).fire();
+  }
+
+  /**
    * Has the condition write its field as `expression` (a relationship path or an aggregate).
    * Every condition Scribe creates extends AbstractConditionClause except
    * InvalidConditionClause, whose build() always throws, so that one is passed through.
@@ -2989,6 +3026,9 @@ public with sharing class Scribe {
         IConditionClause condition = conditionPart.condition.overrideMetaData(this.sObjectType, fieldMap);
         if (String.isNotBlank(childObjectName) && subQueryOf(condition) != null) {
           this.fireSemiJoinUnderParent(condition, childObjectName);
+        }
+        if (subQueryOf(condition) != null) {
+          this.rejectSemiJoinPlacement(condition);
         }
         if (String.isNotBlank(childObjectName)) {
           // Write the relationship path where the clause writes its field. Prefixing the

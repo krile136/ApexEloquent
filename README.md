@@ -17,15 +17,15 @@ ApexEloquent is part of [**Apex Stem**](https://krileworks.com/apex-stem), a set
 ### A) Unlocked Package (recommended)
 
 ```bash
-sf package install -p 04tgK000000ZPl7QAG -o <your-org> -w 10
+sf package install -p 04tgK000000ZPwPQAW -o <your-org> -w 10
 ```
 
 Or install from the browser:
 
-- Production / Developer Edition: `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000ZPl7QAG`
-- Sandbox: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000ZPl7QAG`
+- Production / Developer Edition: `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000ZPwPQAW`
+- Sandbox: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000ZPwPQAW`
 
-Current version: **v4.0.0** (`04tgK000000ZPl7QAG`). Install IDs for every release are listed on the [Releases](https://github.com/krile136/ApexEloquent/releases) page.
+Current version: **v4.0.0** (`04tgK000000ZPwPQAW`). Install IDs for every release are listed on the [Releases](https://github.com/krile136/ApexEloquent/releases) page.
 
 Why the package: tests inside an installed unlocked package are **excluded from `RunLocalTests`**, and its code is **excluded from your org's coverage calculation** — your deploys stay fast and unaffected by this framework's test suite.
 

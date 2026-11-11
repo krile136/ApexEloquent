@@ -2047,4 +2047,24 @@ public with sharing class EloquentTest {
     // Assert
     Assert.areEqual(total, rows.size(), 'An empty NOT IN under OR must widen the result to every row.');
   }
+
+  @isTest
+  static void testGet_WhenNewQueryShapes_ThenSoqlRuns() {
+    // Arrange - the shapes v4 now writes; each must be SOQL the platform accepts (rows may be zero)
+    List<Scribe> scribes = new List<Scribe>{
+      Scribe.of(Group.class).field('Type').count('Id', 'cnt').groupByField('Type').orderBy('cnt', 'DESC'),
+      Scribe.of(Group.class).field('Id').take(0),
+      Scribe.of(Group.class).field('Type').count('Id', 'cnt').groupByField('Type').allRows(),
+      Scribe.of(Group.class).field('Id').orderBy('Name').take(1).offset(0).allRows(),
+      Scribe.of(Order.class)
+        .field('Id')
+        .through(Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').orderBy('Name', 'DESC').take(5))
+    };
+
+    // Act & Assert - a SOQL the platform rejects would throw here
+    for (Scribe scribe : scribes) {
+      (new Eloquent()).get(scribe);
+    }
+    Assert.areEqual(0, (new Eloquent()).get(Scribe.of(Group.class).field('Id').take(0)).size(), 'LIMIT 0 returns no rows.');
+  }
 }

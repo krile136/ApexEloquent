@@ -125,7 +125,7 @@ public with sharing class MockEloquentTest {
   static void testGet_WhenEntryExitAndUsingMockEntryGenerator_ThenReturnEntries() {
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '00600000000000');
-    MockEntry mockEntry = MockEntry.of(Opportunity.class).autoId(1).add('Name', 'Test Opportunity');
+    MockEntry mockEntry = MockEntry.of(Opportunity.class).autoId(1).set('Name', 'Test Opportunity');
     IEloquent eloquent = new MockEloquent(mockEntry);
 
     // Act
@@ -176,8 +176,8 @@ public with sharing class MockEloquentTest {
       .whereEqual('Id', '006000000000001');
     MockEntry oppEntry = MockEntry.of(Opportunity.class)
       .autoId(1)
-      .add('Name', 'Test Opportunity')
-      .addParent('AccountId', MockEntry.of(Account.class).autoId(1).add('Name', 'Test Account'));
+      .set('Name', 'Test Opportunity')
+      .setParent('AccountId', MockEntry.of(Account.class).autoId(1).set('Name', 'Test Account'));
 
     IEloquent eloquent = new MockEloquent(oppEntry);
 
@@ -217,24 +217,24 @@ public with sharing class MockEloquentTest {
           )
       );
     MockEntry orderItemEntry = MockEntry.of(OrderItem.class)
-      .add('ListPrice', 100)
-      .addParent(
+      .set('ListPrice', 100)
+      .setParent(
         'OrderId',
         MockEntry.of(Order.class)
-          .add('Name', 'Test Order')
-          .addParent(
+          .set('Name', 'Test Order')
+          .setParent(
             'OriginalOrderId',
             MockEntry.of(Order.class)
-              .add('Name', 'Original Test Order')
-              .addParent(
+              .set('Name', 'Original Test Order')
+              .setParent(
                 'ContractId',
                 MockEntry.of(Contract.class)
-                  .add('Name', 'Test Contract')
-                  .addParent(
+                  .set('Name', 'Test Contract')
+                  .setParent(
                     'AccountId',
                     MockEntry.of(Account.class)
-                      .add('Name', 'Test Account')
-                      .addParent('ParentId', MockEntry.of(Account.class).add('Name', 'Parent Account'))
+                      .set('Name', 'Test Account')
+                      .setParent('ParentId', MockEntry.of(Account.class).set('Name', 'Parent Account'))
                   )
               )
           )
@@ -281,8 +281,8 @@ public with sharing class MockEloquentTest {
       .whereEqual('Id', '001000000000001');
     MockEntry accountEntry = MockEntry.of(Account.class)
       .autoId(1)
-      .add('Name', 'Test Account')
-      .addChildren('Contact', MockEntry.of(Contact.class).autoId('{#}').add('Name', 'Test Contact {#}').times(2));
+      .set('Name', 'Test Account')
+      .setChildren('Contact', MockEntry.of(Contact.class).autoId('{#}').set('Name', 'Test Contact {#}').times(2));
 
     IEloquent eloquent = new MockEloquent(accountEntry);
 
@@ -321,45 +321,45 @@ public with sharing class MockEloquentTest {
       );
 
     MockEntry accountEntry = MockEntry.of(Account.class)
-      .add('Name', 'Test Account')
-      .addChildren(
+      .set('Name', 'Test Account')
+      .setChildren(
         'Contact',
         new List<MockEntry>{
           MockEntry.of(Contact.class)
-            .add('Name', 'Test Contact 1')
-            .addChildren(
+            .set('Name', 'Test Contact 1')
+            .setChildren(
               'Case',
               new List<MockEntry>{
                 MockEntry.of(Case.class)
-                  .add('Subject', 'Test Case 1')
-                  .addChildren(
+                  .set('Subject', 'Test Case 1')
+                  .setChildren(
                     'Case',
                     new List<MockEntry>{
                       MockEntry.of(Case.class)
-                        .add('Subject', 'Test Child Case 1')
-                        .addChildren(
+                        .set('Subject', 'Test Child Case 1')
+                        .setChildren(
                           'Case',
-                          new List<MockEntry>{ MockEntry.of(Case.class).add('Subject', 'Test Grandchild Case 1') }
+                          new List<MockEntry>{ MockEntry.of(Case.class).set('Subject', 'Test Grandchild Case 1') }
                         )
                     }
                   )
               }
             ),
           MockEntry.of(Contact.class)
-            .add('Name', 'Test Contact 2')
-            .addChildren(
+            .set('Name', 'Test Contact 2')
+            .setChildren(
               'Case',
               new List<MockEntry>{
                 MockEntry.of(Case.class)
-                  .add('Subject', 'Test Case 2')
-                  .addChildren(
+                  .set('Subject', 'Test Case 2')
+                  .setChildren(
                     'Case',
                     new List<MockEntry>{
                       MockEntry.of(Case.class)
-                        .add('Subject', 'Test Child Case 2')
-                        .addChildren(
+                        .set('Subject', 'Test Child Case 2')
+                        .setChildren(
                           'Case',
-                          new List<MockEntry>{ MockEntry.of(Case.class).add('Subject', 'Test Grandchild Case 2') }
+                          new List<MockEntry>{ MockEntry.of(Case.class).set('Subject', 'Test Grandchild Case 2') }
                         )
                     }
                   )
@@ -581,7 +581,7 @@ public with sharing class MockEloquentTest {
     MockEntry accountEntry = MockEntry.of(Account.class)
       .autoId(1)
       .set('Name', 'Test Account')
-      .addChildren('Contact', MockEntry.of(Contact.class).autoId('{#}').set('Name', 'Test Contact {#}').times(2));
+      .setChildren('Contact', MockEntry.of(Contact.class).autoId('{#}').set('Name', 'Test Contact {#}').times(2));
     IEloquent eloquent = new MockEloquent(accountEntry);
 
     // Act
@@ -1606,7 +1606,7 @@ public with sharing class MockEloquentTest {
       .buildFieldStructure();
     MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
       .autoId(1)
-      .add('Name', 'Opportunity 1')
+      .set('Name', 'Opportunity 1')
       .setFieldStructure(fieldStructure);
 
     IEloquent eloquent = new MockEloquent();
@@ -1682,7 +1682,7 @@ public with sharing class MockEloquentTest {
       .buildFieldStructure();
     List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
       .autoId('{#}')
-      .add('Name', 'Opportunity {#}')
+      .set('Name', 'Opportunity {#}')
       .times(2);
     List<MockEntry> updateEntries = new List<MockEntry>();
     for (MockEntry entry : mockEntries) {
@@ -1782,7 +1782,7 @@ public with sharing class MockEloquentTest {
       .buildFieldStructure();
     MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
       .autoId(1)
-      .add('Name', 'Opportunity 1')
+      .set('Name', 'Opportunity 1')
       .setFieldStructure(fieldStructure);
 
     IEloquent eloquent = new MockEloquent();
@@ -1894,7 +1894,7 @@ public with sharing class MockEloquentTest {
       .buildFieldStructure();
     List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
       .autoId('{#}')
-      .add('Name', 'Opportunity {#}')
+      .set('Name', 'Opportunity {#}')
       .times(2);
     List<MockEntry> updateEntries = new List<MockEntry>();
     for (MockEntry entry : mockEntries) {
@@ -2267,7 +2267,7 @@ public with sharing class MockEloquentTest {
       .buildFieldStructure();
     MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class)
       .autoId(1)
-      .add('Name', 'Opportunity 1')
+      .set('Name', 'Opportunity 1')
       .setFieldStructure(fieldStructure);
     IEloquent eloquent = new MockEloquent();
 
@@ -2538,7 +2538,7 @@ public with sharing class MockEloquentTest {
   @isTest
   static void testDoDelete_WhenEntryIsDeleted_ThenNoExceptionThrown() {
     // Arrange
-    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class).autoId(1).add('Name', 'Opportunity 1');
+    MockEntry mockEntry = (MockEntry) MockEntry.of(Opportunity.class).autoId(1).set('Name', 'Opportunity 1');
     IEloquent eloquent = new MockEloquent();
 
     // Act
@@ -2603,7 +2603,7 @@ public with sharing class MockEloquentTest {
     // Arrange
     List<MockEntry> mockEntries = MockEntry.of(Opportunity.class)
       .autoId('{#}')
-      .add('Name', 'Opportunity {#}')
+      .set('Name', 'Opportunity {#}')
       .times(2);
     IEloquent eloquent = new MockEloquent();
 
@@ -2785,7 +2785,7 @@ public with sharing class MockEloquentTest {
     mock.label('acc').doInsert(a);
 
     Assert.areEqual(1, mock.upsertedRecordsAt('acc').size());
-    Assert.areEqual(0, mock.upsertedRecords.size(), 'Default bucket should be empty.');
+    Assert.areEqual(0, mock.upsertedRecordsAt('default').size(), 'Default bucket should be empty.');
   }
 
   @isTest
@@ -2793,7 +2793,7 @@ public with sharing class MockEloquentTest {
     MockEloquent mock = new MockEloquent();
     mock.doInsert(new Account(Name = 'Inserted'));
 
-    Assert.areEqual(1, mock.upsertedRecords.size(), 'Legacy field reflects default bucket.');
+    Assert.areEqual(1, mock.upsertedRecordsAt('default').size(), 'The default bucket holds the label-free insert.');
     Assert.areEqual(1, mock.upsertedRecordsAt('default').size());
     Assert.areEqual(0, mock.upsertedRecordsAt('acc').size());
   }
@@ -2803,7 +2803,7 @@ public with sharing class MockEloquentTest {
     MockEloquent mock = new MockEloquent();
     mock.label('quoteUpdate').doUpdate(new Account(Id = '001000000000001', Name = 'Updated'));
     Assert.areEqual(1, mock.upsertedRecordsAt('quoteUpdate').size());
-    Assert.areEqual(0, mock.upsertedRecords.size());
+    Assert.areEqual(0, mock.upsertedRecordsAt('default').size());
   }
 
   @isTest
@@ -2825,14 +2825,14 @@ public with sharing class MockEloquentTest {
     MockEloquent mock = new MockEloquent();
     mock.label('cleanup').doDelete(new Account(Id = '001000000000001'));
     Assert.areEqual(1, mock.deletedCountAt('cleanup'));
-    Assert.areEqual(0, mock.deletedCount, 'Default bucket should be empty.');
+    Assert.areEqual(0, mock.deletedCountAt('default'), 'Default bucket should be empty.');
   }
 
   @isTest
   static void testDoDelete_WhenWithoutLabel_ThenIncrementDefaultBucket() {
     MockEloquent mock = new MockEloquent();
     mock.doDelete(new Account(Id = '001000000000001'));
-    Assert.areEqual(1, mock.deletedCount);
+    Assert.areEqual(1, mock.deletedCountAt('default'));
     Assert.areEqual(1, mock.deletedCountAt('default'));
     Assert.areEqual(0, mock.deletedCountAt('other'));
   }
@@ -3130,8 +3130,8 @@ public with sharing class MockEloquentTest {
     Assert.areEqual(1, mock.deletedCountAt('cleanup'));
 
     // Legacy public fields untouched (no default-label DML happened)
-    Assert.areEqual(0, mock.upsertedRecords.size());
-    Assert.areEqual(0, mock.deletedCount);
+    Assert.areEqual(0, mock.upsertedRecordsAt('default').size());
+    Assert.areEqual(0, mock.deletedCountAt('default'));
   }
 
   @isTest
@@ -3898,7 +3898,7 @@ public with sharing class MockEloquentTest {
   }
 
   @isTest
-  static void testLastScribe_WhenReadsRan_ThenReturnsMostRecentAndMatchesLegacyField() {
+  static void testLastScribe_WhenReadsRan_ThenReturnsMostRecent() {
     // Arrange
     MockEloquent mock = new MockEloquent();
     Scribe last = Scribe.of(Contact.class).field('LastName');
@@ -3907,9 +3907,8 @@ public with sharing class MockEloquentTest {
     mock.get(Scribe.of(Account.class).field('Name'));
     mock.getAsSObject(last);
 
-    // Assert - the deprecated `scribe` field keeps holding the same value
+    // Assert
     Assert.areEqual(last.toSoql(), mock.lastScribe().toSoql());
-    Assert.areEqual(mock.lastScribe(), mock.scribe, 'The legacy field must stay in step with lastScribe().');
   }
 
   @isTest
@@ -5026,5 +5025,17 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.areEqual(1, mock.upsertedRecordsAt('default').size(), 'An unregistered row must still be saved.');
+  }
+
+  @isTest
+  static void testScribeAt_WhenAssertingQueryShape_ThenOrderLimitAndAllRowsCanBePinned() {
+    // Arrange - the "latest one" idiom; MockEloquent neither sorts nor cuts, so only the shape can show a flipped DESC
+    MockEloquent mock = new MockEloquent().attach('latest', new List<IEntry>());
+
+    // Act
+    mock.label('latest').get(Scribe.of(Event.class).field('Id').orderBy('CreatedDate', 'DESC').take(1).allRows());
+
+    // Assert
+    mock.scribeAt('latest').assertOrderBy(new List<String>{ 'CreatedDate DESC' }).assertLimit(1).assertAllRows();
   }
 }

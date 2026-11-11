@@ -42,22 +42,6 @@ public with sharing class MockEntry extends AbstractEntry {
   private static final String CLASS_NAME = 'MockEntry';
 
   /**
-   * @deprecated
-   * This method is deprecated in favor of {@link #of(System.Type)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * @param sObjectType The SObject type of the record to create.
-   * @return A new MockEntry instance.
-   */
-  public static MockEntry of(Schema.SObjectType sObjectType) {
-    SObject record = sObjectType.newSObject();
-    return new MockEntry(record);
-  }
-
-  /**
    * Creates a new instance of MockEntry for a given SObject Type.
    *
    * @param recordType The Class type of the SObject (e.g., Account.class).
@@ -237,30 +221,6 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
-   * @deprecated
-   * This method is deprecated in favor set {@link #set(String fieldName, Object value)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * Sets a value for a specified field.
-   * This method is immutable and returns a new MockEntry instance.
-   *
-   * @param fieldName The API name of the field to set.
-   * @param value The value to set for the field.
-   * @return A new MockEntry instance with the updated field value.
-   */
-  public MockEntry add(String fieldName, Object value) {
-    this.enforceSObjectFieldNameOnWrite(fieldName, 'add(String fieldName, Object value)');
-    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
-    newFieldToValue.put(fieldName, value);
-    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
-    this.inheritParameters(newEntry);
-    return newEntry;
-  }
-
-  /**
    * Sets a value for a specified field.
    * This method is immutable and returns a new MockEntry instance.
    *
@@ -304,28 +264,6 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
-   * @deprecated
-   * This method is deprecated in favor setChildren {@link #addChildren(String childObjectNameOrRelationName, List<MockEntry> children)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * Sets a list of child relationship records.
-   *
-   * @param childObjectNameOrRelationName The child object name or the relationship name (e.g., 'Contacts').
-   * @param children A list of MockEntry instances for the child records.
-   * @return A new MockEntry instance with the child records added.
-   */
-  public MockEntry addChildren(String childObjectNameOrRelationName, List<MockEntry> children) {
-    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
-    newFieldToValue.put(childObjectNameOrRelationName, children);
-    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
-    this.inheritParameters(newEntry);
-    return newEntry;
-  }
-
-  /**
    * Sets a list of child relationship records.
    *
    * @param childObjectNameOrRelationName The child object name or the relationship name (e.g., 'Contacts').
@@ -348,29 +286,6 @@ public with sharing class MockEntry extends AbstractEntry {
     }
     Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
     newFieldToValue.put(childObjectNameOrRelationName, children);
-    MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
-    this.inheritParameters(newEntry);
-    return newEntry;
-  }
-
-  /**
-   * @deprecated
-   * This method is deprecated in favor setParent {@link #addParent(String parentIdFieldName, MockEntry parent)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * Sets a parent relationship record.
-   *
-   * @param parentIdFieldName The name of the parent ID field (e.g., 'AccountId').
-   * @param parent The MockEntry for the parent record.
-   * @return A new MockEntry instance with the parent record added.
-   */
-  public MockEntry addParent(String parentIdFieldName, MockEntry parent) {
-    this.enforceSObjectFieldNameOnWrite(parentIdFieldName, 'addParent(String parentIdFieldName, MockEntry parent)');
-    Map<String, Object> newFieldToValue = new Map<String, Object>(this.fieldToValue);
-    newFieldToValue.put(parentIdFieldName, parent);
     MockEntry newEntry = new MockEntry(this.record, this.fieldStructure, newFieldToValue);
     this.inheritParameters(newEntry);
     return newEntry;
@@ -409,13 +324,13 @@ public with sharing class MockEntry extends AbstractEntry {
       ApexEloquentException.required(CLASS_NAME, method, 'suffix', suffix).fire();
     }
     if (suffix == '{#}' || suffix == '{A}' || suffix == '{a}') {
-      return this.add('Id', suffix);
+      return this.set('Id', suffix);
     }
     String id = this.generate18CharId(suffix);
     FieldStructure clonedfieldStructure = this.fieldStructure.clone();
     clonedfieldStructure.addField('id');
     MockEntry newEntry = new MockEntry(this.record, clonedfieldStructure, this.fieldToValue);
-    newEntry = newEntry.add('Id', id);
+    newEntry = newEntry.set('Id', id);
     this.inheritParameters(newEntry);
     return newEntry;
   }
@@ -485,7 +400,7 @@ public with sharing class MockEntry extends AbstractEntry {
    * @throws IllegalArgumentException if count is 0 or less, or if an alphabetic sequence is used and startAt is less than 1.
    * @example
    * // Generates 3 records with Names 'Test Account 10', 'Test Account 20', 'Test Account 30'
-   * .add('Name', 'Test Account {#}').times(3, 10, 10);
+   * .set('Name', 'Test Account {#}').times(3, 10, 10);
    */
   public List<MockEntry> times(Integer count, Integer startAt, Integer interval) {
     String method = 'times(Integer count, Integer startAt, Integer interval)';
@@ -801,18 +716,12 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
-   * @deprecated
-   * Use {@link #asAggregateResult()} or {@link #asAggregateResult(Map)} instead.
-   * The static factories make the intent ("AggregateResult mode") obvious at the
-   * call site, aligning with the `MockEntry.of(...)` / `Scribe.asParent / asChild / asHaving`
-   * patterns elsewhere in ApexEloquent.
-   *
-   * This constructor is retained for backward compatibility but may be removed
-   * in a future major version.
+   * AggregateResult-mode constructor, used by asAggregateResult(). Private since v4: the
+   * static factories make the intent obvious at the call site.
    *
    * @param fieldToValue field to value map
    */
-  public MockEntry(Map<String, Object> fieldToValue) {
+  private MockEntry(Map<String, Object> fieldToValue) {
     super(null);
     this.fieldToValue = fieldToValue;
     this.hasAggregateResult = true;
@@ -1067,93 +976,6 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
-   * @deprecated
-   * Use {@link #getChildren(String)} instead. As of this release, `getChildren`
-   * accepts both child SObject names AND child relationship names (with object
-   * name resolved first, falling back to relationship name on failure).
-   * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * @inheritDoc
-   */
-  public override List<IEntry> getChildrenByRelationName(String childRelationName) {
-    String method = 'getChildrenByRelationName(String childRelationName)';
-    if(childRelationName == null || String.isBlank(childRelationName)) {
-      ApexEloquentException.required(CLASS_NAME, method, 'childRelationName', childRelationName).fire();
-    }
-
-    this.ensureDescribeResultIfNeeded();
-    String errorTemplate = 'The specified child relation name `{0}` is not set in Scribe. parent object name: {0}';
-    try {
-      this.validateChildRelationInFieldStructure(childRelationname, errorTemplate);
-    } catch (ApexEloquentException e) {
-      String reason = e.getMessage();
-      String action =
-        'Ensure that the child relation name \'' +
-        childRelationName +
-        '\' is included in the Scribe definition for this object.';
-      ApexEloquentException.invalidArgument(
-          CLASS_NAME,
-          method,
-          reason,
-          action,
-          'childRelationName',
-          childRelationName,
-          e
-        )
-        .fire();
-    }
-
-    try {
-      this.validateChildRelationName(childRelationName);
-    } catch (ApexEloquentException e) {
-      String reason = e.getMessage();
-      String action =
-        'Ensure that the child relation name \'' +
-        childRelationName +
-        '\' is a valid child relationship for this object.';
-      ApexEloquentException.invalidArgument(
-          CLASS_NAME,
-          method,
-          reason,
-          action,
-          'childRelationName',
-          childRelationName,
-          e
-        )
-        .fire();
-    }
-
-    for (String key : this.fieldToValue.keySet()) {
-      if (key.equalsIgnoreCase(childRelationName)) {
-        errorTemplate = 'The child object needs to be a List<IEntry> or IEntry. parent object name: {0}';
-        try {
-          return this.getchildEntriesFromFieldToValue(key, errorTemplate);
-        } catch (ApexEloquentException e) {
-          String reason = e.getMessage();
-          String action =
-            'Ensure that the value associated with \'' +
-            childRelationName +
-            '\' is a List<IEntry> or IEntry in the mock data for this object.';
-          ApexEloquentException.invalidArgument(
-              CLASS_NAME,
-              method,
-              reason,
-              action,
-              'childRelationName',
-              childRelationName,
-              e
-            )
-            .fire();
-        }
-      }
-    }
-
-    Entry entry = new Entry(this.record);
-    return entry.getChildrenByRelationName(childRelationName);
-  }
-
-  /**
    * @inheritDoc
    */
   public override Id getId() {
@@ -1209,7 +1031,7 @@ public with sharing class MockEntry extends AbstractEntry {
   }
 
   /**
-   * Disables the SObject metadata field-name check on set / add / setParent / addParent.
+   * Disables the SObject metadata field-name check on set / setParent.
    *
    * This is independent from withoutFieldValidation(): the latter relaxes the Scribe
    * (FieldStructure) check used at read time, while this one relaxes the SObject
@@ -1239,7 +1061,7 @@ public with sharing class MockEntry extends AbstractEntry {
    *
    * Usage notes for callers:
    *  - When you need related data, navigate via the IEntry API first
-   *    (getParent / getChildren / getChildrenByRelationName / getThrough / getThroughByRelationName)
+   *    (getParent / getChildren / getThrough)
    *    and then call getRecord() on the resulting IEntry.
    *  - Calling getRecord() on a MockEntry that represents an AggregateResult
    *    throws ApexEloquentException — AggregateResult cannot be returned as a regular SObject.
@@ -1420,7 +1242,7 @@ public with sharing class MockEntry extends AbstractEntry {
 
   /**
    * Validates that the given fieldName exists on the underlying SObject when used at write
-   * time (set / add / setParent / addParent). Skipped when SObjectType is unknown
+   * time (set / setParent). Skipped when SObjectType is unknown
    * (AggregateResult mode) or when the test has opted out via withoutSObjectFieldValidation().
    *
    * @param fieldName field name to validate

@@ -60,11 +60,7 @@ public with sharing class MockEloquent implements IEloquent {
   private Map<String, List<ErrorConfig>> errorQueueMap = new Map<String, List<ErrorConfig>>();
   private ErrorConfig lastConfig;
 
-  /**
-   * @deprecated Direct field access will be removed in a future major version.
-   * Use lastScribe() instead — this holds the same value.
-   */
-  @TestVisible
+  /** The Scribe of the last query, returned by lastScribe(). */
   private Scribe scribe;
 
   private Map<String, List<Scribe>> scribesByLabel = new Map<String, List<Scribe>>();
@@ -96,18 +92,6 @@ public with sharing class MockEloquent implements IEloquent {
   }
   private Map<String, List<SObject>> upsertedByLabel = new Map<String, List<SObject>>();
   private Map<String, Integer> deletedCountByLabel = new Map<String, Integer>();
-
-  /**
-   * @deprecated Direct field access will be removed in a future major version.
-   * Use upsertedRecordsAt('default') instead. Reflects 'default' label only.
-   */
-  public List<SObject> upsertedRecords = new List<SObject>();
-
-  /**
-   * @deprecated Direct field access will be removed in a future major version.
-   * Use deletedCountAt('default') instead. Reflects 'default' label only.
-   */
-  public Integer deletedCount = 0;
 
   private String CLASS_NAME = 'MockEloquent';
   private ApexEloquentException testException = ApexEloquentException.at(CLASS_NAME)
@@ -590,9 +574,6 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   private void recordUpsert(String label, SObject record) {
-    if (label == DEFAULT_LABEL) {
-      this.upsertedRecords.add(record);
-    }
     if (!this.upsertedByLabel.containsKey(label)) {
       this.upsertedByLabel.put(label, new List<SObject>());
     }
@@ -603,9 +584,6 @@ public with sharing class MockEloquent implements IEloquent {
     if (records == null || records.isEmpty()) {
       return;
     }
-    if (label == DEFAULT_LABEL) {
-      this.upsertedRecords.addAll(records);
-    }
     if (!this.upsertedByLabel.containsKey(label)) {
       this.upsertedByLabel.put(label, new List<SObject>());
     }
@@ -613,9 +591,6 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   private void recordDelete(String label, Integer count) {
-    if (label == DEFAULT_LABEL) {
-      this.deletedCount += count;
-    }
     Integer prev = this.deletedCountByLabel.containsKey(label) ? this.deletedCountByLabel.get(label) : 0;
     this.deletedCountByLabel.put(label, prev + count);
   }
@@ -3248,8 +3223,6 @@ public with sharing class MockEloquent implements IEloquent {
       newMockEloquent.upsertedByLabel.put(bucketLabel, new List<SObject>(this.upsertedByLabel.get(bucketLabel)));
     }
     newMockEloquent.deletedCountByLabel = new Map<String, Integer>(this.deletedCountByLabel);
-    newMockEloquent.upsertedRecords = new List<SObject>(this.upsertedRecords);
-    newMockEloquent.deletedCount = this.deletedCount;
     newMockEloquent.saveErrorsById = new Map<Id, String>(this.saveErrorsById);
     newMockEloquent.saveErrorsByExternalId = new Map<String, String>(this.saveErrorsByExternalId);
     newMockEloquent.saveErrorMatchers = new List<WhenMatcher>(this.saveErrorMatchers);

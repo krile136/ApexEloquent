@@ -127,30 +127,6 @@ public abstract class AbstractEntry implements IEntry {
   }
 
   /**
-   * @deprecated
-   * Use {@link #getThrough(String, String)} instead. `getThrough` now accepts both
-   * junction SObject names and junction relationship names. This method is maintained
-   * for backward compatibility but may be removed in a future version.
-   */
-  public List<IEntry> getThroughByRelationName(String junctionRelationName, String relatedKey) {
-    List<IEntry> junctionEntries = this.getChildrenByRelationName(junctionRelationName);
-    if (junctionEntries.isEmpty()) {
-      return new List<IEntry>();
-    }
-
-    List<IEntry> relatedEntries = new List<IEntry>();
-    Schema.DescribeSObjectResult junctionDescribeResult = junctionEntries[0]
-      .getRecord()
-      .getSObjectType()
-      .getDescribe();
-    for (IEntry junctionEntry : junctionEntries) {
-      junctionEntry.setDescribeResult(junctionDescribeResult);
-      relatedEntries.add(junctionEntry.getParent(relatedKey));
-    }
-    return relatedEntries;
-  }
-
-  /**
    * Returns the describe result, deriving it first if it is not set.
    * Always go through this instead of reading describeResult directly:
    * the field is transient, so it is null after deserialization — and any
@@ -245,7 +221,7 @@ public abstract class AbstractEntry implements IEntry {
 
     if (isAmbiguous) {
       String reason = 'The specified child object name is ambiguous because multiple relationships exist on Parent';
-      String action = 'Use getChildrenByRelationName() with the explicit relationship name instead';
+      String action = 'Pass the relationship name to getChildren() (e.g. getChildren(\'Contacts\')) instead of the object name';
       ApexEloquentException.invalidArgument(CLASS_NAME, null, reason, action, 'childObjectName', childObjectName)
         .param('parentObjectName', this.describe().getName())
         .fire();
@@ -284,10 +260,6 @@ public abstract class AbstractEntry implements IEntry {
   public abstract void put(String fieldName, Object value);
   public abstract IEntry getParent(String parentFieldName);
   public abstract List<IEntry> getChildren(String childObjectName);
-  /**
-   * @deprecated Use {@link #getChildren(String)} instead.
-   */
-  public abstract List<IEntry> getChildrenByRelationName(String childRelationName);
   public abstract SObject getRecord();
   public abstract IEntry setRecord(SObject record);
   public abstract Id getId();

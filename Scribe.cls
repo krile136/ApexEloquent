@@ -88,7 +88,6 @@ public with sharing class Scribe {
   // Relationship properties
   private List<ParentScribe> parents = new List<ParentScribe>();
   private List<Scribe> children = new List<Scribe>();
-  private List<Scribe> throughScribes = new List<Scribe>();
   private Schema.SObjectType junctionSObjectType;
   private String parentRelationIdFieldName;
   private String relationName = '';
@@ -96,13 +95,16 @@ public with sharing class Scribe {
   // Aggregate clause properties
   private List<GroupByClause> groupByClauses = new List<GroupByClause>();
   private Map<String, AliasStructure> aggregateAliasMap = new Map<String, AliasStructure>();
+  // The GROUP BY fields as the last build wrote them, for checking ORDER BY in the same build.
+  private List<String> renderedGroupByFields = new List<String>();
   private Scribe havingScribe;
 
   // ORDER BY clause properties
   private List<Scribe.OrderByClause> orderByClauses = new List<Scribe.OrderByClause>();
 
   // LIMIT clause properties
-  private Integer limitNumber = 0;
+  // null = no LIMIT. take(0) is a real LIMIT 0 (zero rows, measured), not "unset" (#103).
+  private Integer limitNumber = null;
 
   // OFFSET clause properties
   private Integer offsetNumber = 0;
@@ -114,6 +116,7 @@ public with sharing class Scribe {
   private Boolean isThrough = false;
   private Boolean isHaving = false;
   private Boolean isForUpdate = false;
+  private Boolean isAllRows = false;
 
   // Constants
   private final Integer MAX_UPPER_NESTING_DEPTH = 5;
@@ -125,7 +128,7 @@ public with sharing class Scribe {
 
   /**
    * Constructor to initialize a Scribe instance.
-   * Use the static `source()` method to start building a query.
+   * Use the static `of()` method to start building a query.
    * @param sObjectType The SObject type for the query.
    */
   public Scribe(Schema.SObjectType sObjectType) {
@@ -138,29 +141,9 @@ public with sharing class Scribe {
   // =================================================================================================================
 
   /**
-   * @deprecated
-   * This method is deprecated in favor of {@link #of(System.Type)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
    * Creates a new Scribe instance, setting the source SObject (the FROM clause).
    * This is the entry point for building a new query.
-   * Example: `Scribe.source(Account.getSObjectType())`
-   *
-   * @param sObjectType The SObject type to query from.
-   * @return A new Scribe instance.
-   */
-  public static Scribe source(Schema.SObjectType sObjectType) {
-    Scribe newScribe = new Scribe(sObjectType);
-    return newScribe;
-  }
-
-  /**
-   * Creates a new Scribe instance, setting the source SObject (the FROM clause).
-   * This is the entry point for building a new query.
-   * Example: `Scribe.source(Account.getSObjectType())`
+   * Example: `Scribe.of(Account.class)`
    *
    * @param recordType The Class type of the SObject (e.g., Account.class).
    * @return A new Scribe instance.
@@ -228,25 +211,13 @@ public with sharing class Scribe {
   }
 
   /**
-   * @deprecated
-   * This method is deprecated in favor asChild {@link #asChild(System.Type)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * Creates a Scribe instance representing a child subquery.
-   * Example: `.withChildren(Scribe.asChild(Contact.getSObjectType()).fields(...).whereEqual(...))`
+   * Builds the child-subquery Scribe for a resolved SObjectType. asChild(System.Type) is the
+   * public entry point; the SObjectType overload was removed in v4.
    *
    * @param childSObjectType The SObjectType of the child records.
    * @return A new Scribe instance configured for a child relationship.
-   * @throws ApexEloquentException if the SObjectType is null.
    */
-  public static Scribe asChild(Schema.SObjectType childSObjectType) {
-    String method = 'asChild(Schema.SObjectType childSObjectType)';
-    if (childSObjectType == null) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'childRecordType', null).build();
-    }
+  private static Scribe newChild(Schema.SObjectType childSObjectType) {
     Scribe newScribe = new Scribe(childSObjectType);
     newScribe.isChild = true;
 
@@ -255,7 +226,7 @@ public with sharing class Scribe {
 
   /**
    * Creates a Scribe instance representing a child subquery.
-   * Example: `.withChildren(Scribe.asChild(Contact.getSObjectType()).fields(...).whereEqual(...))`
+   * Example: `.withChildren(Scribe.asChild(Contact.class).field(...).whereEqual(...))`
    *
    * @param childRecordType The Class type of the child SObject (e.g., Contact.class).
    * @return A new Scribe instance configured for a child relationship.
@@ -283,7 +254,7 @@ public with sharing class Scribe {
     }
 
     Schema.SObjectType childSObjectType = ((SObject) instance).getSObjectType();
-    return Scribe.asChild(childSObjectType);
+    return newChild(childSObjectType);
   }
 
   /**
@@ -295,30 +266,6 @@ public with sharing class Scribe {
   public static Scribe asHaving() {
     Scribe newScribe = new Scribe(null);
     newScribe.isHaving = true;
-    return newScribe;
-  }
-
-  /**
-   * @deprecated
-   * This method is deprecated in favor asThrough {@link #asThrough(System.Type)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * Creates a Scribe instance for a many-to-many relationship traversal.
-   * Example: `.through(Scribe.asThrough(JunctionObject.getSObjectType(), 'TargetObject__c'))`
-   *
-   * @param junctionSObjectType The SObjectType of the junction object.
-   * @param relatedKey The API name of the lookup/master-detail field on the junction object that points to the final target object.
-   * @return A new Scribe instance configured for a many-to-many relationship.
-   */
-  public static Scribe asThrough(Schema.SObjectType junctionSObjectType, String relatedKey) {
-    Scribe newScribe = new Scribe(null);
-    newScribe.isThrough = true;
-    newScribe.junctionSObjectType = junctionSObjectType;
-    newScribe.parentRelationIdFieldName = relatedKey;
-
     return newScribe;
   }
 
@@ -1106,6 +1053,7 @@ public with sharing class Scribe {
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
+    rejectAllRowsInSemiJoin(method, subQuery);
     IConditionClause conditionClause;
     if (subQuery == null) {
       // null at chain time: defer the error to build time so a following
@@ -1178,6 +1126,7 @@ public with sharing class Scribe {
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
+    rejectAllRowsInSemiJoin(method, subQuery);
     IConditionClause conditionClause;
     if (subQuery == null) {
       // null at chain time: defer the error to build time so a following
@@ -1423,6 +1372,65 @@ public with sharing class Scribe {
   }
 
   /**
+   * Refuses allRows() on a semi-join subquery (whereIn / whereNotIn with a Scribe).
+   *
+   * @param method The calling method signature.
+   * @param subQuery The subquery Scribe.
+   * @throws ApexEloquentException when it carries allRows().
+   */
+  private static void rejectAllRowsInSemiJoin(String method, Scribe subQuery) {
+    if (subQuery == null || !subQuery.isAllRows) {
+      return;
+    }
+    String reason = 'allRows() was set on the semi-join subquery. SOQL accepts ALL ROWS only on the outer query (measured: "unexpected token: \'ROWS\'").';
+    ApexEloquentException.at(CLASS_NAME)
+      .method(method)
+      .error('ALL ROWS in a subquery')
+      .reason(reason)
+      .action('Remove allRows() from the subquery.')
+      .fire();
+  }
+
+  /**
+   * Refuses ORDER BY / LIMIT / OFFSET / FOR UPDATE / ALL ROWS on a parent Scribe. SOQL has no syntax for
+   * them on a parent: a parent resolves to the one record each row points at. They used to be
+   * dropped without a sign, while the same methods work on a child subquery (#98).
+   *
+   * @param method The calling method signature.
+   * @param parentScribe The Scribe created by asParent().
+   * @throws ApexEloquentException when any of them is set.
+   */
+  private static void rejectQueryShapeOnParent(String method, Scribe parentScribe) {
+    List<String> found = new List<String>();
+    if (!parentScribe.orderByClauses.isEmpty()) {
+      found.add('orderBy()');
+    }
+    if (parentScribe.limitNumber != null) {
+      found.add('take()');
+    }
+    if (parentScribe.offsetNumber != 0) {
+      found.add('offset()');
+    }
+    if (parentScribe.isForUpdate) {
+      found.add('forUpdate()');
+    }
+    if (parentScribe.isAllRows) {
+      found.add('allRows()');
+    }
+    if (found.isEmpty()) {
+      return;
+    }
+    String error = 'Not allowed on a parent';
+    String reason =
+      String.join(found, ', ') +
+      ' was set on the Scribe.asParent() Scribe. SOQL has no ORDER BY, LIMIT, OFFSET or FOR UPDATE for a parent: it resolves to the one record each row points at.';
+    String action =
+      'To order by a parent field, order the outer query by its path, e.g. orderBy(\'Account.Name\'). ' +
+      'LIMIT and OFFSET have no meaning for a parent; put forUpdate() on the outer query.';
+    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+  }
+
+  /**
    * Adds a condition on a parent relationship field.
    *
    * @param parentScribe A Scribe instance created with `Scribe.asParent()` and configured with WHERE conditions.
@@ -1438,10 +1446,11 @@ public with sharing class Scribe {
 
     if (!parentScribe.isParent) {
       String error = 'Invalid Scribe Context';
-      String reason = 'The Scribe instance passed to parentField() must be initialized using the Scribe.asParent() method.';
-      String action = 'Initialize the parent Scribe using `Scribe.asChild(System.Type childRecordType)` and pass it to withParent().';
+      String reason = 'The Scribe instance passed to parentCondition() must be initialized using the Scribe.asParent() method.';
+      String action = 'Initialize the parent Scribe using `Scribe.asParent(String parentRelationIdFieldName)` and pass it to parentCondition().';
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
+    rejectQueryShapeOnParent(method, parentScribe);
 
     Scribe clonedScribe = this.deepClone();
     ConditionPart parentConditionPart = new ConditionPart(
@@ -1471,9 +1480,10 @@ public with sharing class Scribe {
     if (!parentScribe.isParent) {
       String error = 'Invalid Scribe Context';
       String reason = 'The Scribe instance passed to parentField() must be initialized using the Scribe.asParent() method.';
-      String action = 'Initialize the parent Scribe using `Scribe.asChild(System.Type childRecordType)` and pass it to withParent().';
+      String action = 'Initialize the parent Scribe using `Scribe.asParent(String parentRelationIdFieldName)` and pass it to parentField().';
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
+    rejectQueryShapeOnParent(method, parentScribe);
 
     Scribe clonedScribe = this.deepClone();
     clonedScribe.parents.add(new ParentScribe(parentScribe.parentRelationIdFieldName, parentScribe));
@@ -1500,11 +1510,35 @@ public with sharing class Scribe {
       String action = 'Initialize the through Scribe using `asThrough(System.Type junctionType, String targetLookupField)` and pass it to through().';
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
-    throughScribe.isParent = true;
-    Scribe childScribe = Scribe.asChild(throughScribe.junctionSObjectType)
-      .field(throughScribe.parentRelationIdFieldName)
-      .parentField(throughScribe)
-      .parentCondition(throughScribe);
+    // Work on a copy: every Scribe method leaves its receiver and arguments untouched, and
+    // through() used to set isParent on the caller's Scribe (#102).
+    Scribe targetPart = throughScribe.deepClone();
+    targetPart.isParent = true;
+    Scribe childScribe = newChild(throughScribe.junctionSObjectType)
+      .field(throughScribe.parentRelationIdFieldName);
+    // ORDER BY / LIMIT / OFFSET / FOR UPDATE written on the through Scribe belong to the junction
+    // subquery it becomes; on the parent part they were silently dropped (#102). The ORDER BY
+    // fields are on the target object, so they are written through the lookup's relationship
+    // path (`ORDER BY Product2.Name`), the one form SOQL has for ordering by a parent field.
+    if (!targetPart.orderByClauses.isEmpty()) {
+      Schema.SObjectField lookup = SchemaCache.fieldMapOf(throughScribe.junctionSObjectType)
+        .get(throughScribe.parentRelationIdFieldName);
+      // An unknown lookup is reported by parentField() below; do not mask it with an NPE here.
+      String relationPath = lookup == null ? null : lookup.getDescribe().getRelationshipName();
+      for (OrderByClause orderByClause : targetPart.orderByClauses) {
+        childScribe.orderByClauses.add(relationPath == null ? orderByClause : orderByClause.prefixed(relationPath));
+      }
+    }
+    childScribe.limitNumber = targetPart.limitNumber;
+    childScribe.offsetNumber = targetPart.offsetNumber;
+    childScribe.isForUpdate = targetPart.isForUpdate;
+    childScribe.isAllRows = targetPart.isAllRows;
+    targetPart.orderByClauses = new List<Scribe.OrderByClause>();
+    targetPart.limitNumber = null;
+    targetPart.offsetNumber = 0;
+    targetPart.isForUpdate = false;
+    targetPart.isAllRows = false;
+    childScribe = childScribe.parentField(targetPart).parentCondition(targetPart);
     if (String.isNotBlank(throughScribe.relationName)) {
       childScribe = childScribe.relationName(throughScribe.relationName);
     }
@@ -1579,6 +1613,24 @@ public with sharing class Scribe {
   public Scribe forUpdate() {
     Scribe clonedScribe = this.deepClone();
     clonedScribe.isForUpdate = true;
+    return clonedScribe;
+  }
+
+  /**
+   * Adds ALL ROWS: the query also returns deleted rows in the Recycle Bin and archived
+   * activities (Event / Task closed about a year ago), which a plain query leaves out (#123).
+   * Filter out deleted rows yourself when only archived ones are wanted:
+   * `.whereEqual('IsDeleted', false)`.
+   *
+   * SOQL accepts it only on the outer query and not with FOR UPDATE (measured: a child
+   * subquery or a semi-join fails with "unexpected token: 'ROWS'"); those are refused when
+   * the query is built. Aggregate queries accept it.
+   *
+   * @return A new, immutable Scribe instance with ALL ROWS.
+   */
+  public Scribe allRows() {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.isAllRows = true;
     return clonedScribe;
   }
 
@@ -2189,6 +2241,170 @@ public with sharing class Scribe {
   }
 
   /**
+   * Asserts the ORDER BY of this query, item by item and in order (#104). MockEloquent does
+   * not sort or cut what it returns, so a missing orderBy(), a flipped direction or a wrong
+   * field stays green in a unit test; this pins the query shape instead.
+   *
+   * Each item is `Field [ASC|DESC] [NULLS FIRST|LAST]`; the direction defaults to ASC and case
+   * does not matter. The match is exact: an extra or missing key fails, because ORDER BY means
+   * its whole sequence. An aggregate alias is written as given to orderBy().
+   *
+   * @param expected The expected ORDER BY items, e.g. `new List<String>{ 'CreatedDate DESC' }`.
+   *                 An empty list asserts that there is no ORDER BY.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertOrderBy(List<String> expected) {
+    return this.assertOrderByAt(null, expected);
+  }
+
+  /**
+   * assertOrderBy for the part of this query reached by `path` (a child subquery, for one).
+   * Path rules are those of `assertConditionAt`.
+   *
+   * @param path The path to the part of the query being asserted.
+   * @param expected The expected ORDER BY items.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertOrderByAt(String path, List<String> expected) {
+    if (expected == null) {
+      ApexEloquentException.required(CLASS_NAME, 'assertOrderByAt(String path, List<String> expected)', 'expected', null).fire();
+    }
+    Scribe target = this.requireScribeAt(path);
+    List<String> wanted = new List<String>();
+    for (String item : expected) {
+      wanted.add(normalizeOrderByItem(item));
+    }
+    List<String> actual = new List<String>();
+    for (OrderByClause orderByClause : target.orderByClauses) {
+      actual.add(normalizeOrderByItem(orderByClause.build()));
+    }
+    Assert.areEqual(
+      String.join(wanted, ', '),
+      String.join(actual, ', '),
+      'ORDER BY' + (String.isBlank(path) ? '' : ' at ' + path) + ' does not match.'
+    );
+    return this;
+  }
+
+  /**
+   * Asserts the LIMIT of this query (#104). A missing take() is invisible to a unit test and
+   * surfaces in production as `Too many query rows`.
+   *
+   * @param expected The expected LIMIT.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertLimit(Integer expected) {
+    return this.assertLimitAt(null, expected);
+  }
+
+  /**
+   * assertLimit for the part of this query reached by `path`.
+   *
+   * @param path The path to the part of the query being asserted.
+   * @param expected The expected LIMIT.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertLimitAt(String path, Integer expected) {
+    if (expected == null) {
+      ApexEloquentException.required(CLASS_NAME, 'assertLimitAt(String path, Integer expected)', 'expected', null)
+        .action('Use assertNoLimit() to assert that there is no LIMIT')
+        .fire();
+    }
+    Scribe target = this.requireScribeAt(path);
+    Assert.areEqual(expected, target.limitNumber, 'LIMIT' + (String.isBlank(path) ? '' : ' at ' + path) + ' does not match.');
+    return this;
+  }
+
+  /**
+   * Asserts that this query has no LIMIT.
+   *
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertNoLimit() {
+    return this.assertNoLimitAt(null);
+  }
+
+  /**
+   * assertNoLimit for the part of this query reached by `path`.
+   *
+   * @param path The path to the part of the query being asserted.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertNoLimitAt(String path) {
+    Scribe target = this.requireScribeAt(path);
+    Assert.isNull(target.limitNumber, 'Expected no LIMIT' + (String.isBlank(path) ? '' : ' at ' + path) + ', found LIMIT ' + target.limitNumber + '.');
+    return this;
+  }
+
+  /**
+   * Asserts that this query carries ALL ROWS (#123). Without it the query silently leaves out
+   * archived activities and deleted rows, which MockEloquent cannot show.
+   *
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertAllRows() {
+    Assert.isTrue(this.isAllRows, 'Expected the query to carry ALL ROWS.');
+    return this;
+  }
+
+  /**
+   * Asserts that this query does not carry ALL ROWS.
+   *
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertNoAllRows() {
+    Assert.isFalse(this.isAllRows, 'Expected the query not to carry ALL ROWS.');
+    return this;
+  }
+
+  /**
+   * The nested scribe at `path` for an assertion, refusing a path that leads nowhere.
+   *
+   * @param path The dot-separated path, or blank for this query.
+   * @return The scribe at that path.
+   */
+  private Scribe requireScribeAt(String path) {
+    Scribe target = this.scribeAtPath(path);
+    if (target == null) {
+      String reason = 'The path `' + path + '` reaches no part of this query.';
+      throw ApexEloquentException.at(CLASS_NAME)
+        .error('Unknown query path')
+        .reason(reason)
+        .action('Join hops with dots: a child by its object name (or its relationName() when given), a parent by its lookup field, a semi-join by its field.')
+        .build();
+    }
+    return target;
+  }
+
+  /**
+   * One ORDER BY item in a comparable form: field in lower case, then the direction (ASC when
+   * left out) and NULLS FIRST / LAST in upper case, single spaces between.
+   *
+   * @param item An item such as `CreatedDate desc nulls last`.
+   * @return The normalized item.
+   */
+  private static String normalizeOrderByItem(String item) {
+    List<String> tokens = String.isBlank(item) ? new List<String>() : item.trim().split('\\s+');
+    if (tokens.isEmpty()) {
+      return '';
+    }
+    String normalized = tokens[0].toLowerCase();
+    normalized += ' ' + (tokens.size() > 1 ? tokens[1].toUpperCase() : 'ASC');
+    for (Integer i = 2; i < tokens.size(); i++) {
+      normalized += ' ' + tokens[i].toUpperCase();
+    }
+    return normalized;
+  }
+
+  /**
    * Returns the nested scribe reached by a path, or null when the path leads nowhere.
    *
    * @param path The dot-separated path from this query.
@@ -2415,11 +2631,13 @@ public with sharing class Scribe {
 
     query = this.buildHavingClause(query);
 
-    query = this.buildOrderByClause(query);
+    query = this.buildOrderByClause(query, fieldMap);
 
     query = this.buildLimitClause(query);
 
     query = this.buildOffsetClause(query);
+
+    query = this.buildAllRowsClause(query);
 
     query = this.buildForUpdateClause(query);
 
@@ -2480,7 +2698,6 @@ public with sharing class Scribe {
 
     newScribe.parents = this.parents.clone();
     newScribe.children = this.children.clone();
-    newScribe.throughScribes = this.throughScribes.clone();
     newScribe.junctionSObjectType = this.junctionSObjectType;
     newScribe.parentRelationIdFieldName = this.parentRelationIdFieldName;
     newScribe.relationName = this.relationName;
@@ -2501,6 +2718,7 @@ public with sharing class Scribe {
     newScribe.isThrough = this.isThrough;
     newScribe.isHaving = this.isHaving;
     newScribe.isForUpdate = this.isForUpdate;
+    newScribe.isAllRows = this.isAllRows;
 
     return newScribe;
   }
@@ -3075,12 +3293,22 @@ public with sharing class Scribe {
   }
 
   /**
-   * Constructs the ORDER BY clause string.
+   * Constructs the ORDER BY clause string, checking each field the way SOQL will.
+   *
+   * - In an aggregate query (GROUP BY or an aggregate in SELECT), a field must be grouped, an
+   *   aggregate expression, or an aggregate's alias. An alias is written as its expression,
+   *   because SOQL does not accept the alias there (`No such column 'cnt'`), the same
+   *   substitution HAVING makes. Anything else failed at run time with an uncatchable
+   *   `Ordered field must be grouped or aggregated` (#103).
+   * - In a plain query, a field name must exist on the object (#99). A relationship path
+   *   (`Account.Name`) is not checked: ORDER BY is the one place SOQL lets a query order by a
+   *   parent field, unlike WHERE, which reaches parents through asParent().
    *
    * @param query The current query string.
+   * @param fieldMap A map of the queried object's fields.
    * @return The query string with the ORDER BY clause appended.
    */
-  private String buildOrderByClause(String query) {
+  private String buildOrderByClause(String query, Map<String, Schema.SObjectField> fieldMap) {
     if (this.orderByClauses.isEmpty()) {
       return query;
     }
@@ -3092,14 +3320,57 @@ public with sharing class Scribe {
       ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
     }
 
-    query += ' ORDER BY ';
+    Boolean isAggregateQuery = !this.groupByClauses.isEmpty() || !this.aggregateClauses.isEmpty();
+    Set<String> grouped = new Set<String>();
+    for (String groupField : this.renderedGroupByFields) {
+      grouped.add(groupField.toLowerCase());
+    }
+    Map<String, String> aliasToExpression = new Map<String, String>();
+    for (String alias : this.aggregateAliasMap.keySet()) {
+      aliasToExpression.put(alias.toLowerCase(), this.aggregateAliasMap.get(alias).getAggregateClause());
+    }
+
     List<String> orderByStrings = new List<String>();
     for (OrderByClause orderByClause : this.orderByClauses) {
+      String field = orderByClause.getField();
+      String key = field.toLowerCase();
+      Boolean isExpression = field.contains('(');
+      if (isAggregateQuery) {
+        if (aliasToExpression.containsKey(key)) {
+          orderByStrings.add(orderByClause.buildAs(aliasToExpression.get(key)));
+          continue;
+        }
+        if (!isExpression && !grouped.contains(key)) {
+          this.fireOrderByNotGrouped(field);
+        }
+      } else if (!isExpression && !field.contains('.') && !fieldMap.containsKey(key)) {
+        String objectName = this.describe == null ? '(unknown)' : this.describe.getName();
+        String reason = String.format(
+          'The field `{0}` does not exist on the SObject `{1}`.',
+          new List<String>{ field, objectName }
+        );
+        String action = 'Check the field API name for typos. To order by a parent field, pass its path, e.g. orderBy(\'Account.Name\').';
+        throw ApexEloquentException.at(CLASS_NAME).error('Order By Field Failed').reason(reason).action(action).build();
+      }
       orderByStrings.add(orderByClause.build());
     }
-    query += String.join(orderByStrings, ', ');
 
-    return query;
+    return query + ' ORDER BY ' + String.join(orderByStrings, ', ');
+  }
+
+  /**
+   * Refuses an ORDER BY field that an aggregate query cannot order by.
+   *
+   * @param field The field passed to orderBy().
+   * @throws ApexEloquentException always.
+   */
+  private void fireOrderByNotGrouped(String field) {
+    String reason = String.format(
+      'The aggregate query orders by `{0}`, which is neither grouped nor aggregated. SOQL rejects it at run time with an exception that cannot be caught.',
+      new List<String>{ field }
+    );
+    String action = 'Order by a groupByField() field, an aggregate expression such as COUNT(Id), or the alias of an aggregate in this query.';
+    throw ApexEloquentException.at(CLASS_NAME).error('Ordered field must be grouped or aggregated').reason(reason).action(action).build();
   }
 
   /**
@@ -3109,7 +3380,7 @@ public with sharing class Scribe {
    * @return The query string with the LIMIT clause appended.
    */
   private String buildLimitClause(String query) {
-    if (this.limitNumber == 0) {
+    if (this.limitNumber == null) {
       return query;
     }
 
@@ -3138,6 +3409,36 @@ public with sharing class Scribe {
   }
 
   /**
+   * Constructs the ALL ROWS clause string. It goes last, after LIMIT / OFFSET (measured:
+   * `ALL ROWS LIMIT 1` fails with "unexpected token: 'LIMIT'").
+   *
+   * @param query The current query string.
+   * @return The query string with ALL ROWS appended.
+   */
+  private String buildAllRowsClause(String query) {
+    if (!this.isAllRows) {
+      return query;
+    }
+    if (this.isChild) {
+      String reason = 'allRows() was set on a child subquery. SOQL accepts ALL ROWS only on the outer query.';
+      throw ApexEloquentException.at(CLASS_NAME)
+        .error('ALL ROWS in a subquery')
+        .reason(reason)
+        .action('Put allRows() on the outer Scribe instead.')
+        .build();
+    }
+    if (this.isForUpdate) {
+      String reason = 'allRows() and forUpdate() were both set. SOQL rejects ALL ROWS together with FOR UPDATE (measured).';
+      throw ApexEloquentException.at(CLASS_NAME)
+        .error('ALL ROWS Conflict')
+        .reason(reason)
+        .action('Remove either allRows() or forUpdate().')
+        .build();
+    }
+    return query + ' ALL ROWS';
+  }
+
+  /**
    * Constructs the FOR UPDATE clause string.
    *
    * @param query The current query string.
@@ -3146,6 +3447,14 @@ public with sharing class Scribe {
   private String buildForUpdateClause(String query) {
     if (!this.isForUpdate) {
       return query;
+    }
+    if (this.isChild) {
+      // SOQL locks rows only from the outer query: `(SELECT ... FOR UPDATE)` fails at run time
+      // with "unexpected token: 'FOR'". The ORDER BY / OFFSET conflicts were already refused;
+      // forUpdate() alone on a subquery slipped through (#103).
+      String reason = 'forUpdate() was set on a child subquery. SOQL allows FOR UPDATE only on the outer query; it locks the rows that query returns.';
+      String action = 'Put forUpdate() on the outer Scribe instead.';
+      throw ApexEloquentException.at(CLASS_NAME).error('FOR UPDATE in a subquery').reason(reason).action(action).build();
     }
 
     return query += ' FOR UPDATE';
@@ -3320,11 +3629,13 @@ public with sharing class Scribe {
     List<String> childObjectNames,
     List<String> parentIdFieldNames
   ) {
+    this.renderedGroupByFields = new List<String>();
     if (this.groupByClauses.isEmpty()) {
       return query;
     }
 
     List<String> groupByStrings = this.buildGroupByFields(fieldMap, fieldStructure, childObjectNames);
+    this.renderedGroupByFields = groupByStrings;
 
     if (!fieldStructure.isEmpty()) {
       String reason = 'There are fields in the SELECT clause that are not included in the GROUP BY clause';
@@ -3886,8 +4197,37 @@ public with sharing class Scribe {
       return keyword.toUpperCase('en_US');
     }
 
+    /**
+     * The same ordering on a field reached through a relationship path, e.g. `Name` under
+     * `Product2` becomes `Product2.Name`. Used by through().
+     *
+     * @param relationPath The relationship path to put in front of the field.
+     * @return A new OrderByClause.
+     */
+    public OrderByClause prefixed(String relationPath) {
+      String path = relationPath + '.' + this.field;
+      return this.nullsOperator == null
+        ? new OrderByClause(path, this.order)
+        : new OrderByClause(path, this.order, this.nullsOperator);
+    }
+
+    public String getField() {
+      return this.field;
+    }
+
     public String build() {
-      String orderBy = this.field + ' ' + this.order;
+      return this.buildAs(this.field);
+    }
+
+    /**
+     * The clause with another expression in place of the field, e.g. an aggregate alias
+     * written as its aggregate expression.
+     *
+     * @param expression What to write where the field goes.
+     * @return The ORDER BY item.
+     */
+    public String buildAs(String expression) {
+      String orderBy = expression + ' ' + this.order;
       if (this.nullsOperator != null) {
         orderBy += ' NULLS ' + this.nullsOperator;
       }

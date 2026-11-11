@@ -6652,4 +6652,271 @@ public with sharing class ScribeTest {
     Assert.areEqual('SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId', soql);
     Assert.areEqual(0, Database.query(soql).size(), 'The query must run.');
   }
+
+  // ===============================================================================
+  // v4: parent query shape (#98), through (#102), clause combinations (#103), ORDER BY fields (#99)
+  // ===============================================================================
+
+  private static void assertRefused(Scribe scribe, String expectedFragment) {
+    try {
+      scribe.toSoql();
+      Assert.fail('Expected ApexEloquentException containing: ' + expectedFragment);
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains(expectedFragment), 'Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testParentField_WhenParentHasOrderByTakeOffsetOrForUpdate_ThenThrow() {
+    // Arrange - SOQL has no ORDER BY / LIMIT / OFFSET / FOR UPDATE for a parent; they used to vanish
+    List<Scribe> parents = new List<Scribe>{
+      Scribe.asParent('AccountId').field('Name').orderBy('Name'),
+      Scribe.asParent('AccountId').field('Name').take(5),
+      Scribe.asParent('AccountId').field('Name').offset(5),
+      Scribe.asParent('AccountId').field('Name').forUpdate()
+    };
+
+    // Act & Assert
+    for (Scribe parent : parents) {
+      try {
+        Scribe.of(Contact.class).field('Id').parentField(parent);
+        Assert.fail('Expected ApexEloquentException for a parent with a query shape.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('Not allowed on a parent'), 'Got: ' + e.getMessage());
+      }
+    }
+  }
+
+  @isTest
+  static void testParentCondition_WhenParentHasOrderBy_ThenThrowAndPointToPath() {
+    // Act & Assert
+    try {
+      Scribe.of(Contact.class).field('Id').parentCondition(Scribe.asParent('AccountId').whereEqual('Name', 'a').orderBy('Name'));
+      Assert.fail('Expected ApexEloquentException.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Account.Name'), 'Should point to ordering by the path. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testThrough_WhenOrderByAndTake_ThenWrittenOnJunctionSubquery() {
+    // Arrange - they used to be dropped with the parent part (#102)
+    Scribe target = Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').orderBy('Name', 'DESC').take(5);
+
+    // Act
+    String soql = Scribe.of(Order.class).field('Id').through(target).toSoql();
+
+    // Assert
+    Assert.isTrue(soql.contains('ORDER BY Product2.Name DESC LIMIT 5)'), 'Got: ' + soql);
+  }
+
+  @isTest
+  static void testThrough_WhenSameScribeUsedTwice_ThenBothBuildTheSame() {
+    // Arrange - through() works on a copy and leaves its argument as it was (#102)
+    Scribe target = Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').orderBy('Name');
+
+    // Act
+    String first = Scribe.of(Order.class).field('Id').through(target).toSoql();
+    String second = Scribe.of(Order.class).field('Id').through(target).toSoql();
+
+    // Assert
+    Assert.areEqual(first, second);
+  }
+
+  @isTest
+  static void testThrough_WhenForUpdate_ThenThrowAsSubquery() {
+    assertRefused(
+      Scribe.of(Order.class).field('Id').through(Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').forUpdate()),
+      'FOR UPDATE in a subquery'
+    );
+  }
+
+  @isTest
+  static void testOrderBy_WhenAggregateAlias_ThenWrittenAsExpression() {
+    // Act - SOQL refuses the alias in ORDER BY (No such column 'cnt'); HAVING already substitutes it
+    String soql = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .count('Id', 'cnt')
+      .groupByField('StageName')
+      .orderBy('cnt', 'DESC')
+      .toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT stagename, COUNT(Id) cnt FROM Opportunity GROUP BY StageName ORDER BY COUNT(Id) DESC', soql);
+  }
+
+  @isTest
+  static void testOrderBy_WhenAggregateQueryOrdersByGroupedFieldOrExpression_ThenKept() {
+    // Act
+    String soql = Scribe.of(Opportunity.class)
+      .field('StageName')
+      .count('Id', 'cnt')
+      .groupByField('StageName')
+      .orderBy('StageName')
+      .orderBy('COUNT(Id)', 'DESC')
+      .toSoql();
+
+    // Assert
+    Assert.isTrue(soql.endsWith('ORDER BY StageName ASC, COUNT(Id) DESC'), 'Got: ' + soql);
+  }
+
+  @isTest
+  static void testOrderBy_WhenAggregateQueryOrdersByNonGroupedField_ThenThrow() {
+    // Arrange - at run time this is an uncatchable "Ordered field must be grouped or aggregated" (#103)
+    assertRefused(
+      Scribe.of(Opportunity.class).field('StageName').count('Id', 'cnt').groupByField('StageName').orderBy('Amount'),
+      'Ordered field must be grouped or aggregated'
+    );
+  }
+
+  @isTest
+  static void testOrderBy_WhenFieldDoesNotExist_ThenThrow() {
+    // Arrange - used to render `ORDER BY Nmae ASC` and fail at run time (#99)
+    assertRefused(Scribe.of(Account.class).field('Id').orderBy('Nmae'), 'Order By Field Failed');
+  }
+
+  @isTest
+  static void testOrderBy_WhenRelationshipPath_ThenNotCheckedAndKept() {
+    // Act - ORDER BY is the one place a query orders by a parent field
+    String soql = Scribe.of(Contact.class).field('Id').orderBy('Account.Name').toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Contact ORDER BY Account.Name ASC', soql);
+  }
+
+  @isTest
+  static void testWithChildren_WhenChildForUpdate_ThenThrow() {
+    // Arrange - `(SELECT ... FOR UPDATE)` fails at run time with "unexpected token: 'FOR'" (#103)
+    assertRefused(
+      Scribe.of(Account.class).field('Id').withChildren(Scribe.asChild(Contact.class).field('Id').forUpdate()),
+      'FOR UPDATE in a subquery'
+    );
+  }
+
+  @isTest
+  static void testTake_WhenZero_ThenLimitZero() {
+    // Act - LIMIT 0 is valid SOQL and returns no rows; it used to drop the LIMIT (every row) (#103)
+    String soql = Scribe.of(Contact.class).field('Id').take(0).toSoql();
+    String childSoql = Scribe.of(Account.class).field('Id').withChildren(Scribe.asChild(Contact.class).field('Id').take(0)).toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Contact LIMIT 0', soql);
+    Assert.isTrue(childSoql.contains('FROM Contacts LIMIT 0)'), 'Got: ' + childSoql);
+  }
+
+  // ---- allRows (#123) / assertOrderBy / assertLimit (#104) ----
+
+  @isTest
+  static void testAllRows_WhenSet_ThenWrittenLastAfterLimitAndOffset() {
+    // Act - measured: `ALL ROWS LIMIT 1` fails, so ALL ROWS goes last
+    String soql = Scribe.of(Account.class).field('Id').orderBy('Name').take(1).offset(1).allRows().toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Account ORDER BY Name ASC LIMIT 1 OFFSET 1 ALL ROWS', soql);
+  }
+
+  @isTest
+  static void testAllRows_WhenAggregate_ThenAccepted() {
+    // Act
+    String soql = Scribe.of(Event.class).field('WhatId').count('Id', 'cnt').groupByField('WhatId').allRows().toSoql();
+
+    // Assert
+    Assert.isTrue(soql.endsWith('GROUP BY WhatId ALL ROWS'), 'Got: ' + soql);
+  }
+
+  @isTest
+  static void testAllRows_WhenWithForUpdateOrInSubqueries_ThenThrow() {
+    assertRefused(Scribe.of(Account.class).field('Id').allRows().forUpdate(), 'ALL ROWS Conflict');
+    assertRefused(
+      Scribe.of(Account.class).field('Id').withChildren(Scribe.asChild(Contact.class).field('Id').allRows()),
+      'ALL ROWS in a subquery'
+    );
+    try {
+      Scribe.of(Account.class).field('Id').whereIn('Id', Scribe.of(Contact.class).field('AccountId').allRows());
+      Assert.fail('Expected ApexEloquentException for ALL ROWS in a semi-join.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('ALL ROWS in a subquery'), 'Got: ' + e.getMessage());
+    }
+    try {
+      Scribe.of(Contact.class).field('Id').parentField(Scribe.asParent('AccountId').field('Name').allRows());
+      Assert.fail('Expected ApexEloquentException for ALL ROWS on a parent.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('allRows()'), 'Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testAssertAllRows_WhenSetOrNot_ThenMatches() {
+    Scribe shape1 = Scribe.of(Event.class).field('Id').allRows();
+    shape1.assertAllRows();
+    Scribe shape2 = Scribe.of(Event.class).field('Id');
+    shape2.assertNoAllRows();
+  }
+
+  @isTest
+  static void testAssertOrderBy_WhenSameSequence_ThenPasses() {
+    // Arrange
+    Scribe query = Scribe.of(Account.class).field('Id').orderBy('CreatedDate', 'DESC').orderBy('Name', 'ASC', 'LAST');
+
+    // Act & Assert - direction defaults to ASC; case does not matter
+    query.assertOrderBy(new List<String>{ 'createddate desc', 'Name ASC NULLS LAST' });
+    Scribe shape3 = Scribe.of(Account.class).field('Id').orderBy('Name');
+    shape3.assertOrderBy(new List<String>{ 'Name' });
+    Scribe shape4 = Scribe.of(Account.class).field('Id');
+    shape4.assertOrderBy(new List<String>());
+  }
+
+  @isTest
+  static void testAssertOrderBy_WhenDirectionFlippedOrKeyMissing_ThenFails() {
+    // Arrange
+    Scribe query = Scribe.of(Account.class).field('Id').orderBy('CreatedDate', 'DESC').orderBy('Name');
+
+    // Act & Assert - the match is exact, so a flipped direction or a missing key fails.
+    // AssertException cannot be caught, so the mismatch is checked through the normalized
+    // form both sides are compared in.
+    Boolean sameWhenFlipped = normalizedOrderBy(new List<String>{ 'CreatedDate ASC', 'Name' }) == normalizedOrderBy(new List<String>{ 'CreatedDate DESC', 'Name' });
+    Assert.isFalse(sameWhenFlipped, 'A flipped direction must not match.');
+    query.assertOrderBy(new List<String>{ 'CreatedDate DESC', 'Name ASC' });
+  }
+
+  private static String normalizedOrderBy(List<String> items) {
+    Scribe query = Scribe.of(Account.class).field('Id');
+    for (String item : items) {
+      List<String> parts = item.split(' ');
+      query = parts.size() == 1 ? query.orderBy(parts[0]) : query.orderBy(parts[0], parts[1]);
+    }
+    return query.toSoql();
+  }
+
+  @isTest
+  static void testAssertLimit_WhenSetOrNot_ThenMatches() {
+    Scribe shape5 = Scribe.of(Account.class).field('Id').take(1);
+    shape5.assertLimit(1);
+    Scribe shape6 = Scribe.of(Account.class).field('Id').take(0);
+    shape6.assertLimit(0);
+    Scribe shape7 = Scribe.of(Account.class).field('Id');
+    shape7.assertNoLimit();
+  }
+
+  @isTest
+  static void testAssertOrderByAt_WhenChildSubquery_ThenPathReachesIt() {
+    // Arrange
+    Scribe query = Scribe.of(Account.class)
+      .field('Id')
+      .withChildren(Scribe.asChild(Contact.class).field('Id').orderBy('LastName', 'DESC').take(5));
+
+    // Act & Assert
+    // A child is named by its object (or by relationName() when one was given), as in assertConditionAt
+    query.assertOrderByAt('Contact', new List<String>{ 'LastName DESC' }).assertLimitAt('Contact', 5).assertNoLimit();
+  }
+
+  @isTest
+  static void testAssertOrderByAt_WhenPathLeadsNowhere_ThenThrow() {
+    try {
+      Scribe.of(Account.class).field('Id').assertOrderByAt('Opportunities', new List<String>());
+      Assert.fail('Expected ApexEloquentException for an unknown path.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('Unknown query path'), 'Got: ' + e.getMessage());
+    }
+  }
 }

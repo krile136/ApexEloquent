@@ -166,9 +166,7 @@ public with sharing class Entry extends AbstractEntry {
 
     // Step 1: try to interpret the argument as a child SObject name (existing behavior).
     // Step 2 (fallback): if that fails, try interpreting it as a child relationship name
-    //                    so callers don't have to reach for getChildrenByRelationName when
-    //                    they actually have a relationship name in hand (e.g. set via
-    //                    Scribe.relationName('xxx__r')).
+    //                    (e.g. one set via Scribe.relationName('xxx__r')).
     String childRelationName = null;
     try {
       childRelationName = this.getChildrenRelationNameFromChildObjectName(childObjectName);
@@ -191,49 +189,6 @@ public with sharing class Entry extends AbstractEntry {
           .fire();
       }
     }
-    List<IEntry> childRecords = new List<IEntry>();
-    for (SObject childSObject : this.record.getSObjects(childRelationName)) {
-      childRecords.add(new Entry(childSObject));
-    }
-
-    return childRecords;
-  }
-
-  /**
-   * @deprecated
-   * Use {@link #getChildren(String)} instead. As of this release, `getChildren`
-   * accepts both child SObject names AND child relationship names (with object
-   * name resolved first, falling back to relationship name on failure), so a
-   * dedicated relation-name-only entry point is no longer necessary.
-   * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * @inheritDoc
-   */
-  public override List<IEntry> getChildrenByRelationName(String childRelationName) {
-    String method = 'getChildrenByRelationName(String childRelationName)';
-    if (childRelationName == null || String.isBlank(childRelationName)) {
-      ApexEloquentException.required(CLASS_NAME, method, 'childRelationName', childRelationName).fire();
-    }
-
-    this.ensureDescribeResultIfNeeded();
-    try {
-      this.validateChildRelationName(childRelationName);
-    } catch (ApexEloquentException e) {
-      String reason = e.getMessage();
-      String action = 'Ensure that the child relation name is correct and exists in the parent object\'s child relationships.';
-      ApexEloquentException.invalidArgument(
-          CLASS_NAME,
-          method,
-          reason,
-          action,
-          'childRelationName',
-          childRelationName,
-          e
-        )
-        .fire();
-    }
-
     List<IEntry> childRecords = new List<IEntry>();
     for (SObject childSObject : this.record.getSObjects(childRelationName)) {
       childRecords.add(new Entry(childSObject));

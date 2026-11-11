@@ -10,20 +10,22 @@
 
 ApexEloquent is part of [**Apex Stem**](https://krileworks.com/apex-stem), a set of independent, dependency-free Salesforce Apex frameworks.
 
+> **Upgrading from v3?** v4 removes `toSoql()` and the APIs deprecated during v3, lets platform failures through as `DmlException` / `ListException` / `QueryException`, and runs queries with bound values. Read the [v4.0.0 release notes](https://github.com/krile136/ApexEloquent/releases/tag/v4.0.0) — they list each change with how you will notice it.
+
 ## Installation
 
 ### A) Unlocked Package (recommended)
 
 ```bash
-sf package install -p 04tgK000000VIBxQAO -o <your-org> -w 10
+sf package install -p 04tgK000000ZPl7QAG -o <your-org> -w 10
 ```
 
 Or install from the browser:
 
-- Production / Developer Edition: `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000VIBxQAO`
-- Sandbox: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000VIBxQAO`
+- Production / Developer Edition: `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000ZPl7QAG`
+- Sandbox: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000ZPl7QAG`
 
-Current version: **v3.13.2** (`04tgK000000VIBxQAO`). Install IDs for every release are listed on the [Releases](https://github.com/krile136/ApexEloquent/releases) page.
+Current version: **v4.0.0** (`04tgK000000ZPl7QAG`). Install IDs for every release are listed on the [Releases](https://github.com/krile136/ApexEloquent/releases) page.
 
 Why the package: tests inside an installed unlocked package are **excluded from `RunLocalTests`**, and its code is **excluded from your org's coverage calculation** — your deploys stay fast and unaffected by this framework's test suite.
 
@@ -35,6 +37,36 @@ git submodule update --init --recursive
 ```
 
 `sf project deploy start -d force-app/main/default/classes/ApexEloquent` deploys it like any source folder. A Makefile is also included for direct installs (`make install`).
+
+## Exceptions
+
+`ApexEloquentException` means a bug in the framework, a usage rule violation (a null argument, a query that cannot be built) or `firstOrFail(scribe)` finding no row. A failure decided by the platform reaches you as the platform's own type — `DmlException`, `ListException`, `QueryException` — so catch it as in plain Apex. `MockEloquent` follows the same rule, and refuses an `ApexEloquentException` passed to `failOn*`: production never throws one there.
+
+## Running a Scribe yourself
+
+`Eloquent` runs every query with its values bound (`Database.queryWithBinds`). To run one yourself — a batch's `start()`, for example — build it the same way:
+
+```apex
+SoqlBinds.BoundQuery query = scribe.toBoundQuery();
+return Database.getQueryLocatorWithBinds(query.soql, query.binds, AccessLevel.SYSTEM_MODE);
+```
+
+Choose the access level on purpose. Code moving off v3's `Database.getQueryLocator(scribe.toSoql())` should keep the mode it ran in; `USER_MODE` enforces field-level security and sharing and can make a batch read fewer rows without an error. `toDisplay()` returns the query with its values written in — for logs, messages and string checks, not for running.
+
+## Search input and date periods
+
+`whereLike` treats `%` and `_` in its value as wildcards — right for a pattern such as `'03-%'`, wrong for what a user typed into a search box (`100%` would also match `1000`). `whereContains` / `whereStartsWith` / `whereEndsWith` (and their `Not` forms) take the value literally.
+
+A SOQL date literal changes meaning with the operator: `CloseDate > LAST_N_DAYS:30` returns only rows **after** the period, i.e. in the future. `DateLiteral` and the period methods say which one you mean:
+
+```apex
+Scribe.of(Opportunity.class)
+  .field('Id')
+  .whereWithin('CloseDate', DateLiteral.current().fiscalQuarter())   // = THIS_FISCAL_QUARTER
+  .whereSince('CreatedDate', DateLiteral.last(30).days());          // >= LAST_N_DAYS:30 (includes today)
+```
+
+`whereWithin` (=), `whereNotWithin` (!=, includes nulls), `whereBefore` (<), `whereAfter` (>), `whereSince` (>=), `whereUntil` (<=), `whereWithinAny` (IN).
 
 ## Asserting the query a Usecase built
 
@@ -67,6 +99,13 @@ no string matching against `toDisplay()`. Values passed as a `Set` are order-ind
 | `assertCondition(clause)` / `assertNoCondition(clause)` | the queried object's conditions, including those inside `whereGroup` |
 | `assertConditionAt(path, clause)` / `assertNoConditionAt(path, clause)` | a named place in the query (see below) |
 | `hasCondition(clause)` / `hasConditionAt(path, clause)` | the same checks as a `Boolean`, for custom messages |
+| `assertOrderBy(items)` / `assertOrderByAt(path, items)` | the ORDER BY, item by item and in order (`'CreatedDate DESC'`) |
+| `assertLimit(n)` / `assertNoLimit()` (+ `...At(path, ...)`) | the LIMIT |
+| `assertAllRows()` / `assertNoAllRows()` | whether the query carries `ALL ROWS` |
+
+`MockEloquent` neither sorts nor cuts what it returns, so a flipped `DESC` or a forgotten `take()` stays green without these.
+
+For `whereContains` / `whereStartsWith` / `whereEndsWith`, expect `LikeConditionClause.contains(field, value)` (and `startsWith` / `endsWith`, or `NotLikeConditionClause` for the `Not` forms): a `whereLike` expectation with the same text does not match them, because the two match different rows.
 
 A condition clause built with an SObject class targets that object anywhere in the query — a
 `parentCondition` or a `withChildren` subquery:
@@ -151,9 +190,9 @@ field belonging to a different one; if an upgrade turns a test red here, read th
 name before reaching for the previous version.
 
 Two things are deliberately outside the check. A condition withdrawn by `ignoreWhen(true)`
-is not part of the query, so it is not examined. `ORDER BY` still accepts a relationship
-path (`orderBy('Account.Name')`): SOQL has no parent-side `ORDER BY`, so that is the only
-way to sort by a parent field, and it carries no literal to mistype.
+is not part of the query, so it is not examined. `ORDER BY` checks a plain field name but
+accepts a relationship path (`orderBy('Account.Name')`): SOQL has no parent-side `ORDER BY`,
+so that is the only way to sort by a parent field, and it carries no literal to mistype.
 
 ## License
 

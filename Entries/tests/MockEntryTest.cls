@@ -470,6 +470,80 @@ public class MockEntryTest {
   }
 
   @isTest
+  static void testTimes_WhenLookupHoldsRealId_ThenIdIsKept() {
+    // Arrange - issue #122: a real Id in a field whose name ends with "Id" became null
+    Id oppId = MockEntry.of(Opportunity.class).autoId(1).getId();
+    Id ownerId = MockEntry.of(User.class).autoId(1).getId();
+
+    // Act
+    List<MockEntry> events = MockEntry.of(Event.class).set('WhatId', oppId).set('OwnerId', ownerId).times(2);
+
+    // Assert
+    for (MockEntry e : events) {
+      Assert.areEqual(oppId, e.withoutFieldValidation().get('WhatId'), 'A polymorphic lookup must keep the given Id.');
+      Assert.areEqual(ownerId, e.withoutFieldValidation().get('OwnerId'), 'A lookup must keep the given Id.');
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenAutoIdPlaceholder_ThenSequentialIdsAreGenerated() {
+    // Act - the record's own Id is still auto-numbered from the placeholder
+    List<MockEntry> accounts = MockEntry.of(Account.class).autoId('{#}').times(2);
+
+    // Assert
+    Assert.areEqual(MockEntry.of(Account.class).autoId(1).getId(), accounts[0].getId());
+    Assert.areEqual(MockEntry.of(Account.class).autoId(2).getId(), accounts[1].getId());
+  }
+
+  @isTest
+  static void testTimes_WhenLookupPlaceholder_ThenReferencedObjectIdsLineUp() {
+    // Arrange - five accounts, and opportunities on the 1st, 3rd and 5th of them
+    List<MockEntry> accounts = MockEntry.of(Account.class).autoId('{#}').times(5);
+
+    // Act
+    List<MockEntry> opps = MockEntry.of(Opportunity.class).set('AccountId', '{#}').times(3, 1, 2);
+
+    // Assert - the placeholder numbers Account Ids, not Opportunity Ids
+    Assert.areEqual(accounts[0].getId(), opps[0].withoutFieldValidation().get('AccountId'));
+    Assert.areEqual(accounts[2].getId(), opps[1].withoutFieldValidation().get('AccountId'));
+    Assert.areEqual(accounts[4].getId(), opps[2].withoutFieldValidation().get('AccountId'));
+  }
+
+  @isTest
+  static void testTimes_WhenPolymorphicLookupPlaceholder_ThenThrowException() {
+    // Act & Assert - WhatId can point at many objects; a number alone cannot pick one
+    try {
+      MockEntry.of(Event.class).set('WhatId', '{#}').times(2);
+      Assert.fail('Expected ApexEloquentException for a placeholder in a polymorphic lookup.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('WhatId'), 'Should name the field. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenFixedIdAndSeveralEntries_ThenThrowException() {
+    // Act & Assert - every entry would share one Id (it used to become null silently)
+    try {
+      MockEntry.of(Account.class).autoId(1).times(2);
+      Assert.fail('Expected ApexEloquentException for a fixed Id copied to several entries.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('autoId'), 'Should point at autoId(\'{#}\'). Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenFixedIdAndOneEntry_ThenIdIsKept() {
+    // Arrange
+    MockEntry template = MockEntry.of(Account.class).autoId(1);
+
+    // Act
+    List<MockEntry> entries = template.times(1);
+
+    // Assert
+    Assert.areEqual(template.getId(), entries[0].getId(), 'A single entry keeps the fixed Id.');
+  }
+
+  @isTest
   static void testTimes_WhenApplyNull_ThenThrowException() {
     // Arrange
     FieldStructure fieldStructure = Scribe.of(Account.class).field('Name').buildFieldStructure();
@@ -2422,7 +2496,7 @@ public class MockEntryTest {
         'contacts',
         MockEntry.of(Contact.class)
           .alias('testContact_{#}')
-          .autoId(1)
+          .autoId('{#}')
           .set('LastName', 'Test Contact {#}')
           .times(times)
       );

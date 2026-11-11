@@ -503,8 +503,28 @@ public with sharing class MockEntry extends AbstractEntry {
         Object templateValue = this.fieldToValue.get(key);
         Object resolvedValue = this.resolveValue(templateValue, currentSequence);
 
-        if (key.startsWith('id') || key.startsWith('Id') || key.endsWith('Id')) {
-          newFieldToValue.put(key, this.generate18CharId(String.valueOf(resolvedValue)));
+        // Only the record's own Id is an auto-numbered sequence (autoId('{#}')). A
+        // reference field (WhatId, AccountId, OwnerId, ...) holds an Id of ANOTHER
+        // record, and a field merely named like one (IdentityNo__c) holds no Id at all;
+        // both are copied like any other field (issue #122: the old name-based check
+        // re-numbered them, which turned a real 18-char Id into null and gave a
+        // placeholder this record's key prefix instead of the referenced object's).
+        if (key.equalsIgnoreCase('Id')) {
+          if (!hasPlaceholder(templateValue)) {
+            // A fixed Id (autoId(1)) is copied as-is to a single entry; several entries
+            // sharing it is never meaningful, and it used to become null silently.
+            if (count > 1) {
+              this.fireFixedIdTimes(method, templateValue, count);
+            }
+            newFieldToValue.put(key, templateValue);
+          } else {
+            newFieldToValue.put(key, this.generate18CharId(String.valueOf(resolvedValue)));
+          }
+        } else if (hasPlaceholder(templateValue) && this.isReferenceField(key)) {
+          // set('AccountId', '{#}') numbers the REFERENCED object's Ids, so it lines up
+          // with MockEntry.of(Account.class).autoId(n). It used to take this record's own
+          // key prefix (an Opportunity Id in AccountId), which matched nothing.
+          newFieldToValue.put(key, this.generateReferenceId(method, key, String.valueOf(resolvedValue)));
         } else {
           newFieldToValue.put(key, resolvedValue);
         }
@@ -604,8 +624,90 @@ public with sharing class MockEntry extends AbstractEntry {
    * @return An 18-character Salesforce ID.
    */
   private String generate18CharId(String suffix) {
-    String prefix = this.record.getSObjectType().getDescribe().getKeyPrefix();
+    return this.generate18CharId(this.record.getSObjectType(), suffix);
+  }
+
+  /**
+   * Generates an 18-character Id of the given object, as autoId(suffix) on a MockEntry of
+   * that object would.
+   *
+   * @param sObjectType The object whose key prefix starts the Id.
+   * @param suffix The string to be used at the end of the ID.
+   * @return An 18-character Salesforce ID, or null when the suffix is too long.
+   */
+  private String generate18CharId(Schema.SObjectType sObjectType, String suffix) {
+    String prefix = sObjectType.getDescribe().getKeyPrefix();
     return this.convert15To18(prefix + String.valueOf(suffix).leftPad(15 - prefix.length(), '0'));
+  }
+
+  /**
+   * Whether a template value carries a sequence placeholder ({#}, {A}, {a}).
+   *
+   * @param templateValue The value given to set() / autoId().
+   * @return true when times() resolves something in it.
+   */
+  private static Boolean hasPlaceholder(Object templateValue) {
+    if (!(templateValue instanceof String)) {
+      return false;
+    }
+    String value = (String) templateValue;
+    return value.contains('{#}') || value.contains('{A}') || value.contains('{a}');
+  }
+
+  /**
+   * Whether the field is a lookup / master-detail on this record's object.
+   *
+   * @param fieldName The field name as given to set().
+   * @return true for a reference field.
+   */
+  private Boolean isReferenceField(String fieldName) {
+    Schema.SObjectField field = SchemaCache.fieldMapOf(this.record.getSObjectType()).get(fieldName);
+    return field != null && field.getDescribe().getType() == Schema.DisplayType.REFERENCE;
+  }
+
+  /**
+   * Generates the Id a placeholder in a reference field stands for: the referenced object's
+   * Id with that sequence number. A polymorphic field (WhatId, WhoId, Case.OwnerId, ...)
+   * can point at several objects, and a number alone cannot say which, so it is refused.
+   *
+   * @param method Calling method signature, for the error.
+   * @param fieldName The reference field.
+   * @param suffix The resolved sequence.
+   * @return The 18-character Id of the referenced object.
+   * @throws ApexEloquentException for a polymorphic field.
+   */
+  private String generateReferenceId(String method, String fieldName, String suffix) {
+    Schema.DescribeFieldResult describe = SchemaCache.fieldMapOf(this.record.getSObjectType())
+      .get(fieldName)
+      .getDescribe();
+    List<Schema.SObjectType> targets = describe.getReferenceTo();
+    if (targets.size() != 1) {
+      List<String> names = new List<String>();
+      for (Schema.SObjectType target : targets) {
+        names.add(String.valueOf(target));
+      }
+      String reason =
+        describe.getName() + ' can reference ' + String.join(names, ', ') +
+        ', so a sequence placeholder cannot tell which object\'s Id to generate.';
+      String action =
+        'Set a concrete Id instead, e.g. set(\'' + describe.getName() +
+        '\', MockEntry.of(Account.class).autoId(1).getId()), one entry at a time';
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, fieldName, suffix).fire();
+    }
+    return this.generate18CharId(targets[0], suffix);
+  }
+
+  /**
+   * Refuses times(count > 1) on an entry whose Id is fixed: every entry would share one Id.
+   *
+   * @param method Calling method signature.
+   * @param fixedId The Id set on the template.
+   * @param count The requested number of entries.
+   */
+  private void fireFixedIdTimes(String method, Object fixedId, Integer count) {
+    String reason = 'The template has a fixed Id, so all ' + count + ' entries would share it.';
+    String action = 'Use autoId(\'{#}\') to number the Ids, or leave the Id out';
+    ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'Id', fixedId).fire();
   }
 
   /**

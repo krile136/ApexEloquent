@@ -1029,7 +1029,8 @@ public with sharing class Scribe {
   }
 
   /**
-   * The field falls outside the period: `!=` (see whereWithin).
+   * The field falls outside the period: `!=` (see whereWithin). Rows whose field is null are
+   * included (measured), as for `!=` with any value; add whereNotNull to leave them out.
    *
    * @param fieldName A Date or Datetime field.
    * @param period The period.
@@ -1193,13 +1194,11 @@ public with sharing class Scribe {
   }
 
   /**
-   * A LIKE pattern that matches `value` literally between the given wildcards. The backslash
-   * is escaped first, so the escapes added for `%` and `_` are not escaped again.
+   * Marks the LIKE condition just added by whereContains & co. so its bound pattern keeps the
+   * deliberate escapes (see LikeConditionClause.withEscapesApplied).
    *
-   * @param before The wildcard before the value ('' or '%').
-   * @param value The text to match literally; null stays null (whereLike decides what that means).
-   * @param after The wildcard after the value ('' or '%').
-   * @return The pattern.
+   * @param scribe The Scribe returned by whereLike / whereNotLike.
+   * @return The same Scribe.
    */
   private static Scribe withEscapesApplied(Scribe scribe) {
     ConditionPart last = scribe.conditionParts[scribe.conditionParts.size() - 1];
@@ -1212,6 +1211,15 @@ public with sharing class Scribe {
     return scribe;
   }
 
+  /**
+   * A LIKE pattern that matches `value` literally between the given wildcards. The backslash
+   * is escaped first, so the escapes added for `%` and `_` are not escaped again.
+   *
+   * @param before The wildcard before the value ('' or '%').
+   * @param value The text to match literally; null stays null (whereLike decides what that means).
+   * @param after The wildcard after the value ('' or '%').
+   * @return The pattern.
+   */
   private static String likePattern(String before, String value, String after) {
     if (value == null) {
       return null;
@@ -2828,10 +2836,13 @@ public with sharing class Scribe {
    *
    * ```
    * SoqlBinds.BoundQuery query = scribe.toBoundQuery();
-   * return Database.getQueryLocatorWithBinds(query.soql, query.binds, AccessLevel.USER_MODE);
+   * return Database.getQueryLocatorWithBinds(query.soql, query.binds, AccessLevel.SYSTEM_MODE);
    * ```
    *
-   * Replaces toDisplay(), removed in v4 because its name invited running it.
+   * Choose the access level on purpose (see toBoundQuery): moving from
+   * `Database.getQueryLocator(scribe.toSoql())`, keep the mode that code ran in.
+   *
+   * Replaces toSoql(), removed in v4 because its name invited running it.
    *
    * @return The query with its values written in.
    */
@@ -2845,7 +2856,8 @@ public with sharing class Scribe {
    * Builds this Scribe as a semi-join subquery of the query being built: placeholders while
    * the outer query collects binds, literals otherwise, and nothing written to the log.
    *
-   * Internal: not part of the supported API. InSubQueryConditionClause and
+   * Internal: not part of the supported API, and not for running (outside a bound build it
+   * returns the same text as toDisplay()). InSubQueryConditionClause and
    * NotInSubQueryConditionClause are its callers.
    *
    * @return The subquery text.
@@ -2866,7 +2878,15 @@ public with sharing class Scribe {
    * ```
    *
    * The debug log gets the query with the values written in (`expandedSoql`, the same text
-   * as toDisplay()). Pass the access level yourself; USER_MODE is ApexEloquent's default.
+   * as toDisplay()).
+   *
+   * 🚨 Pass the access level on purpose. `Database.query(String)` / `getQueryLocator(String)`
+   * without an AccessLevel, as in v3's `Database.getQueryLocator(scribe.toSoql())`, ran in the
+   * mode the calling class defaults to. Keep that mode when moving such code: a system process
+   * (a `without sharing` batch that reads every row) passes `AccessLevel.SYSTEM_MODE`.
+   * `USER_MODE` enforces field-level security and, also in a `without sharing` class, sharing —
+   * the batch then reads only the rows its running user may see, without any error (review r2
+   * N1). USER_MODE is what Eloquent itself defaults to, for code written against it.
    *
    * @return The query, its bind values and its text for the log.
    */

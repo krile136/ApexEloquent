@@ -7136,4 +7136,17 @@ public with sharing class ScribeTest {
       Scribe.of(Opportunity.class).field('Id').whereWithin('CloseDate', missing).ignoreWhen(missing == null).toDisplay()
     );
   }
+
+  @isTest
+  static void testToBoundQuery_WhenDatetimeBefore1970_ThenSameSecondAsTheLiteral() {
+    // Arrange - 1969-12-31T23:59:58.500Z; dividing getTime() would round toward zero (r2 N3)
+    Datetime early = Datetime.newInstance(-1500L);
+
+    // Act
+    SoqlBinds.BoundQuery bound = Scribe.of(Account.class).field('Id').whereGreaterThanOrEqual('CreatedDate', early).toBoundQuery();
+
+    // Assert
+    Assert.areEqual(-2000L, ((Datetime) bound.binds.values()[0]).getTime());
+    Assert.isTrue(bound.expandedSoql.endsWith('1969-12-31T23:59:58Z'), bound.expandedSoql);
+  }
 }

@@ -54,7 +54,7 @@ mock.scribeAt('fetch')
 
 The expected condition is an ordinary condition clause, so the field, the operator and the
 value are all fixed at once, and both sides are compared as SOQL built from the same metadata —
-no string matching against `toSoql()`. Values passed as a `Set` are order-independent.
+no string matching against `toDisplay()`. Values passed as a `Set` are order-independent.
 
 | Recording (on `MockEloquent`) | |
 |---|---|

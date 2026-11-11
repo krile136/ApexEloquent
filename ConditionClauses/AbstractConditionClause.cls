@@ -373,7 +373,17 @@ public with sharing abstract class AbstractConditionClause implements ICondition
         }
         // The literal is written to the second (formatGmt 'ss'); bind the same instant, so a
         // millisecond part cannot move a boundary (>=, <=, =) away from what v3 matched.
-        return Datetime.newInstance(((Datetime) value).getTime() / 1000 * 1000);
+        // Built from the same GMT components formatGmt writes, so the second is the literal's
+        // also before 1970, where dividing getTime() would round toward zero (review r2 N3).
+        Datetime instant = (Datetime) value;
+        return Datetime.newInstanceGmt(
+          instant.yearGmt(),
+          instant.monthGmt(),
+          instant.dayGmt(),
+          instant.hourGmt(),
+          instant.minuteGmt(),
+          instant.secondGmt()
+        );
       }
       when TIME {
         return value instanceof Time ? value : null;

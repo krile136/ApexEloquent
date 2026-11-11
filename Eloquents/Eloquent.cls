@@ -327,7 +327,7 @@ public inherited sharing class Eloquent implements IEloquent {
         // The SOQL is deliberately left out of the message. Callers often pass the message to
         // the UI (AuraHandledException), which would show field names and filter values to
         // every user, including guest users of a public site. The query is still in the
-        // debug log (Scribe.toSoql writes it there) for anyone investigating.
+        // debug log (Scribe.toBoundQuery writes it there) for anyone investigating.
         ApexEloquentException.at(CLASS_NAME)
           .method(method)
           .error(error)
@@ -387,7 +387,7 @@ public inherited sharing class Eloquent implements IEloquent {
         // The SOQL is deliberately left out of the message. Callers often pass the message to
         // the UI (AuraHandledException), which would show field names and filter values to
         // every user, including guest users of a public site. The query is still in the
-        // debug log (Scribe.toSoql writes it there) for anyone investigating.
+        // debug log (Scribe.toBoundQuery writes it there) for anyone investigating.
         ApexEloquentException.at(CLASS_NAME)
           .method(method)
           .error(error)

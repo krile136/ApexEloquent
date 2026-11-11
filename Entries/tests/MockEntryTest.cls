@@ -1001,7 +1001,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 };
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -1024,7 +1024,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500, 'maxAmount' => 2000 };
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -1047,7 +1047,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500, 'maxAmount' => 2000 };
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -1073,7 +1073,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 }; // StageName is not exist
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -1096,7 +1096,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'StageName' => 'Test StageName' }; // alias 'avgAmount' is not exist
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -1119,7 +1119,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'StageName' => 'Test StageName',
@@ -1206,7 +1206,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 };
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);

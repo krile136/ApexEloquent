@@ -3852,7 +3852,7 @@ public with sharing class MockEloquentTest {
     mock.label('fetch').get(scribe);
 
     // Assert - the read-side counterpart of upsertedRecordsAt
-    Assert.areEqual(scribe.toSoql(), mock.scribeAt('fetch').toSoql(), 'The recorded query must be the one executed.');
+    Assert.areEqual(scribe.toDisplay(), mock.scribeAt('fetch').toDisplay(), 'The recorded query must be the one executed.');
     mock.scribeAt('fetch').assertCondition(new EqualConditionClause('Type', 'X'));
   }
 
@@ -3877,8 +3877,8 @@ public with sharing class MockEloquentTest {
     // Assert
     List<Scribe> recorded = mock.scribesAt('default');
     Assert.areEqual(2, recorded.size(), 'Both reads must be recorded.');
-    Assert.areEqual(first.toSoql(), recorded[0].toSoql(), 'Execution order must be preserved.');
-    Assert.areEqual(second.toSoql(), recorded[1].toSoql(), 'Execution order must be preserved.');
+    Assert.areEqual(first.toDisplay(), recorded[0].toDisplay(), 'Execution order must be preserved.');
+    Assert.areEqual(second.toDisplay(), recorded[1].toDisplay(), 'Execution order must be preserved.');
   }
 
   @isTest
@@ -3908,7 +3908,7 @@ public with sharing class MockEloquentTest {
     mock.getAsSObject(last);
 
     // Assert
-    Assert.areEqual(last.toSoql(), mock.lastScribe().toSoql());
+    Assert.areEqual(last.toDisplay(), mock.lastScribe().toDisplay());
   }
 
   @isTest
@@ -3953,7 +3953,7 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.areEqual(1, mock.scribesAt('default').size(), 'The query was issued, so it is recorded.');
-    Assert.areEqual(scribe.toSoql(), mock.lastScribe().toSoql());
+    Assert.areEqual(scribe.toDisplay(), mock.lastScribe().toDisplay());
   }
 
   @isTest

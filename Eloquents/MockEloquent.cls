@@ -614,7 +614,7 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       this.recordScribe(label, scribe);
-      String soql = scribe.toSoql(); // for showing and validate SOQL
+      String soql = scribe.toDisplay(); // for showing and validate SOQL
       FieldStructure fieldStructure = scribe.isAggregate()
         ? scribe.buildAggregateFieldStructure()
         : scribe.buildFieldStructure();
@@ -672,7 +672,7 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       this.recordScribe(label, scribe);
-      String soql = scribe.toSoql(); // for showing and validate SOQL
+      String soql = scribe.toDisplay(); // for showing and validate SOQL
       List<SObject> result = new List<SObject>();
       for (IEntry entry : this.activeEntries(label)) {
         result.add(entry.getRecord());
@@ -697,7 +697,7 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       this.recordScribe(label, scribe);
-      String soql = scribe.toSoql(); // for showing and validate SOQL
+      String soql = scribe.toDisplay(); // for showing and validate SOQL
       // Aggregate Scribes need the aggregate FieldStructure so aliases resolve,
       // exactly as get() selects it (issue #85).
       FieldStructure fieldStructure = scribe.isAggregate()
@@ -727,7 +727,7 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       this.recordScribe(label, scribe);
-      String soql = scribe.toSoql(); // for showing and validate SOQL
+      String soql = scribe.toDisplay(); // for showing and validate SOQL
       List<IEntry> source = this.activeEntries(label);
       if (source.isEmpty()) {
         return null;
@@ -752,7 +752,7 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       this.recordScribe(label, scribe);
-      String soql = scribe.toSoql(); // for showing and validate SOQL
+      String soql = scribe.toDisplay(); // for showing and validate SOQL
       // Aggregate Scribes need the aggregate FieldStructure so aliases resolve,
       // exactly as get() selects it (issue #85).
       FieldStructure fieldStructure = scribe.isAggregate()
@@ -768,7 +768,7 @@ public with sharing class MockEloquent implements IEloquent {
           .error(error)
           .reason(reason)
           .action(action)
-          .param('SOQL', scribe.toSoql())
+          .param('SOQL', scribe.toDisplay())
           .fire();
       }
       return source[0].setFieldStructure(fieldStructure);
@@ -794,7 +794,7 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       this.recordScribe(label, scribe);
-      String soql = scribe.toSoql(); // for showing and validate SOQL
+      String soql = scribe.toDisplay(); // for showing and validate SOQL
       // Aggregate Scribes need the aggregate FieldStructure so aliases resolve,
       // exactly as get() selects it (issue #85).
       FieldStructure fieldStructure = scribe.isAggregate()
@@ -824,7 +824,7 @@ public with sharing class MockEloquent implements IEloquent {
       }
 
       this.recordScribe(label, scribe);
-      String soql = scribe.toSoql(); // for showing and validate SOQL
+      String soql = scribe.toDisplay(); // for showing and validate SOQL
       List<IEntry> source = this.activeEntries(label);
       if (source.isEmpty()) {
         String error = 'No records were found for the given criteria';
@@ -835,7 +835,7 @@ public with sharing class MockEloquent implements IEloquent {
           .error(error)
           .reason(reason)
           .action(action)
-          .param('SOQL', scribe.toSoql())
+          .param('SOQL', scribe.toDisplay())
           .fire();
       }
       return source[0].getRecord();

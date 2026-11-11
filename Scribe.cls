@@ -1009,7 +1009,7 @@ public with sharing class Scribe {
    * `100%` there also matches `1000`.
    *
    * The query runs with the value bound, where SOQL honours the backslash escapes (measured:
-   * `zq\_cd` matches only `zq_cd`). toSoql() and the debug log write the value with its
+   * `zq\_cd` matches only `zq_cd`). toDisplay() and the debug log write the value with its
    * backslashes doubled (`'%100\\%%'`), because a literal must escape a backslash to stay a
    * single string; that text is for reading, the bound query is what runs.
    *
@@ -1998,11 +1998,11 @@ public with sharing class Scribe {
       ApexEloquentException.required(CLASS_NAME, method, 'expected', null).fire();
     }
     // Build once so nested scribes learn which object they filter before types are
-    // compared (toSoql is idempotent). ⚠️ Scribe.deepClone is shallow, so this also rewrites
+    // compared (building is idempotent). ⚠️ Scribe.deepClone is shallow, so this also rewrites
     // state shared with any Scribe cloned from this one: aggregateAliasMap is reset, nested
     // sObjectType is assigned, and ConditionPart.isOr is recomputed. MockEloquent already
-    // calls toSoql on the recorded query, so the values settle the same way.
-    this.toSoql();
+    // builds the recorded query, so the values settle the same way.
+    this.buildSoql();
 
     Schema.SObjectType targetType = expected instanceof AbstractConditionClause
       ? ((AbstractConditionClause) expected).getSObjectType()
@@ -2640,7 +2640,7 @@ public with sharing class Scribe {
 
   /**
    * Builds the assertion failure message: what was expected, what the query actually
-   * carries, and the SOQL itself — the context a hand-written `toSoql().contains(...)`
+   * carries, and the SOQL itself — the context a hand-written `toDisplay().contains(...)`
    * check cannot give.
    *
    * @param expected The condition that was searched for.
@@ -2669,36 +2669,62 @@ public with sharing class Scribe {
         String.join(match.otherObjectHits, ', ') +
         '). Use assertConditionAt with that path, or name that object.';
     }
-    message += '\n  SOQL     : ' + this.toSoql() + '\n';
+    message += '\n  SOQL     : ' + this.toDisplay() + '\n';
     return message;
   }
 
   /**
-   * Builds the final SOQL query string, with every value written in as a literal. This is
-   * the form for reading and for string assertions; Eloquent runs the same query through
-   * toBoundQuery(), whose expanded form is identical to this.
+   * The query as text, with every value written in, for reading: debug logs, assertion
+   * messages, string checks in tests. It also writes the text to the debug log.
    *
-   * @return The complete, executable SOQL query string.
+   * 🚨 Not for running. Eloquent runs the same query with its values bound
+   * (toBoundQuery), and the two are not always the same query: the escapes of whereContains /
+   * whereStartsWith / whereEndsWith take effect only when bound, so this text, if run, matches
+   * other rows. To run a Scribe yourself — a batch's start(), for one — use toBoundQuery():
+   *
+   * ```
+   * SoqlBinds.BoundQuery query = scribe.toBoundQuery();
+   * return Database.getQueryLocatorWithBinds(query.soql, query.binds, AccessLevel.USER_MODE);
+   * ```
+   *
+   * Replaces toDisplay(), removed in v4 because its name invited running it.
+   *
+   * @return The query with its values written in.
    */
-  public String toSoql() {
+  public String toDisplay() {
     String query = this.buildSoql();
-    // A semi-join builds its subquery through toSoql() while the outer query is collecting
-    // binds; only the outermost query is logged.
-    if (SoqlBinds.active == null) {
-      System.debug('SOQL Query: ' + query);
-    }
+    System.debug('SOQL Query: ' + query);
     return query;
   }
 
   /**
-   * Builds the query for Database.queryWithBinds: values Scribe can bind with their own type
-   * become `:aeBind<n>` placeholders, the rest stay literals (see
-   * AbstractConditionClause.toBindValue). The debug log shows the expanded query — the
-   * values written in — which is exactly what toSoql() returns (A7, v4).
+   * Builds this Scribe as a semi-join subquery of the query being built: placeholders while
+   * the outer query collects binds, literals otherwise, and nothing written to the log.
    *
-   * Internal: not part of the supported API. Eloquent is its caller.
+   * Internal: not part of the supported API. InSubQueryConditionClause and
+   * NotInSubQueryConditionClause are its callers.
    *
-   * @return The bound query, its bind values and its expanded form.
+   * @return The subquery text.
+   */
+  public String buildSubQuery() {
+    return this.buildSoql();
+  }
+
+  /**
+   * Builds the query to run: values Scribe can bind with their own type become placeholders
+   * and travel in `binds`; the rest stay literals (see AbstractConditionClause.toBindValue).
+   * This is how Eloquent runs every Scribe query, and how to run one yourself:
+   *
+   * ```
+   * SoqlBinds.BoundQuery query = scribe.toBoundQuery();
+   * List<SObject> rows = Database.queryWithBinds(query.soql, query.binds, AccessLevel.USER_MODE);
+   * Database.QueryLocator locator = Database.getQueryLocatorWithBinds(query.soql, query.binds, AccessLevel.USER_MODE);
+   * ```
+   *
+   * The debug log gets the query with the values written in (`expandedSoql`, the same text
+   * as toDisplay()). Pass the access level yourself; USER_MODE is ApexEloquent's default.
+   *
+   * @return The query, its bind values and its text for the log.
    */
   public SoqlBinds.BoundQuery toBoundQuery() {
     SoqlBinds binds = new SoqlBinds();
@@ -2721,7 +2747,7 @@ public with sharing class Scribe {
    * @return The query text.
    */
   private String buildSoql() {
-    // Reset accumulator state so toSoql() is idempotent across multiple calls
+    // Reset accumulator state so toDisplay() is idempotent across multiple calls
     // (otherwise alias entries from the previous build trigger Duplicate Alias Error).
     this.aggregateAliasMap = new Map<String, AliasStructure>();
 
@@ -4110,7 +4136,7 @@ public with sharing class Scribe {
       Integer upperNestingDepth
     ) {
       // Reset the inner scribe's aggregate alias map so this method is idempotent
-      // across multiple top-level toSoql() invocations (mirrors Scribe.toSoql()).
+      // across multiple top-level toDisplay() invocations (mirrors Scribe.toDisplay()).
       this.scribe.aggregateAliasMap = new Map<String, AliasStructure>();
 
       ParentObjectData parentObjectData = this.validate(childFieldMap);

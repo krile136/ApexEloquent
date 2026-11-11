@@ -17,12 +17,12 @@
 /**
  * Runs every condition kind in every query context against the real query engine (#121).
  *
- * Most Scribe tests compare toSoql() with an expected string, which is only as right as the
+ * Most Scribe tests compare toDisplay() with an expected string, which is only as right as the
  * author's understanding of SOQL. Here the platform's parser is the judge: each combination is
  * built and executed through Eloquent.get() (the path production takes), and must either run or
  * be refused by the framework with an ApexEloquentException. A QueryException means Scribe wrote
  * SOQL the platform rejects — a framework bug — and fails the test. Each combination also checks
- * that the bound query Eloquent runs expands to exactly what toSoql() returns.
+ * that the bound query Eloquent runs expands to exactly what toDisplay() returns.
  *
  * Which combinations the framework refuses is written down in expectRefused(); every other
  * combination must run. Adding a kind or a context covers it in every pairing automatically.
@@ -404,11 +404,11 @@ private class QueryMatrixTest {
       try {
         Scribe query = build(context, kind);
         // The executed (bound) query and the logged / asserted one must be the same query:
-        // expanding the placeholders has to give toSoql() exactly (case-sensitive).
+        // expanding the placeholders has to give toDisplay() exactly (case-sensitive).
         String expanded = query.toBoundQuery().expandedSoql;
-        String literal = query.toSoql();
+        String literal = query.toDisplay();
         if (!expanded.equals(literal)) {
-          mismatches.add(context + ' × ' + kind + ': expanded bound query differs from toSoql()\n  bound: ' + expanded + '\n  toSoql: ' + literal);
+          mismatches.add(context + ' × ' + kind + ': expanded bound query differs from toDisplay()\n  bound: ' + expanded + '\n  toDisplay: ' + literal);
         }
         (new Eloquent()).get(query);
         outcome = 'ran';

@@ -20,7 +20,7 @@
  *
  * Each bound value is recorded with the literal Scribe would have written for it. The
  * expanded query — every placeholder replaced by that literal — is what goes to the debug
- * log and is, character for character, what Scribe.toSoql() returns. Both forms come from
+ * log and is, character for character, what Scribe.toDisplay() returns. Both forms come from
  * one rendering pass, so the logged query cannot drift from the executed one.
  *
  * Why queryWithBinds and not Database.query with `:name`: Database.query resolves `:name`
@@ -74,7 +74,7 @@ public with sharing class SoqlBinds {
    * so a placeholder is never mistaken for other text.
    *
    * @param boundSoql The query with placeholders.
-   * @return The query as Scribe.toSoql() writes it.
+   * @return The query as Scribe.toDisplay() writes it.
    */
   public String expand(String boundSoql) {
     Matcher matcher = PLACEHOLDER.matcher(boundSoql);
@@ -95,7 +95,7 @@ public with sharing class SoqlBinds {
     public final String soql;
     /** The values of the placeholders. */
     public final Map<String, Object> binds;
-    /** The query with the values written in, as Scribe.toSoql() returns it; for logs. */
+    /** The query with the values written in, as Scribe.toDisplay() returns it; for logs. */
     public final String expandedSoql;
 
     /**

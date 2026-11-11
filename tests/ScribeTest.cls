@@ -256,7 +256,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account';
@@ -269,7 +269,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').field('Name').field('StageName');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, name, stagename FROM Opportunity';
@@ -283,7 +283,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -318,7 +318,7 @@ public with sharing class ScribeTest {
     scribe.fields(fields);
 
     // Assert
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
     String expectedSoql = 'SELECT id FROM Account';
     Assert.areEqual(expectedSoql, soql);
   }
@@ -356,7 +356,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).fields(fields);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, name, stagename FROM Opportunity';
@@ -395,7 +395,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).allFields();
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.isTrue(soql.contains('id'));
@@ -443,7 +443,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
@@ -456,7 +456,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereEqual('Name', null);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name = NULL';
@@ -472,7 +472,7 @@ public with sharing class ScribeTest {
       .ignoreWhen(true);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert: the preceding WHERE condition is dropped entirely
     String expectedSoql = 'SELECT id FROM Account';
@@ -488,7 +488,7 @@ public with sharing class ScribeTest {
       .ignoreWhen(false);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
@@ -506,7 +506,7 @@ public with sharing class ScribeTest {
       .ignoreWhen(true);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert: the ignored OR condition leaves no trace in the SOQL
     Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\'', soql);
@@ -525,7 +525,7 @@ public with sharing class ScribeTest {
       .whereEqual('Phone', 'C');
 
     // Assert
-    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\' AND Phone = \'C\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\' AND Phone = \'C\'', scribe.toDisplay());
   }
 
   @isTest
@@ -541,7 +541,7 @@ public with sharing class ScribeTest {
       .whereEqual('Phone', 'C');
 
     // Assert
-    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\' OR Phone = \'C\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\' OR Phone = \'C\'', scribe.toDisplay());
   }
 
   @isTest
@@ -576,7 +576,7 @@ public with sharing class ScribeTest {
       .whereEqual('Industry', 'B');
 
     // Assert
-    Assert.areEqual('SELECT id FROM Account WHERE Industry = \'B\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Industry = \'B\'', scribe.toDisplay());
   }
 
   @isTest
@@ -591,7 +591,7 @@ public with sharing class ScribeTest {
       .ignoreWhen(true);
 
     // Assert
-    Assert.areEqual('SELECT id FROM Account', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account', scribe.toDisplay());
   }
 
   @isTest
@@ -606,7 +606,7 @@ public with sharing class ScribeTest {
       .ignoreWhen(false);
 
     // Assert
-    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\' OR Industry = \'B\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'A\' OR Industry = \'B\'', scribe.toDisplay());
   }
 
   @isTest
@@ -622,7 +622,7 @@ public with sharing class ScribeTest {
       .whereEqual('Phone', 'C');
 
     // Assert
-    Assert.areEqual('SELECT id FROM Account WHERE Industry = \'B\' AND Phone = \'C\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Industry = \'B\' AND Phone = \'C\'', scribe.toDisplay());
   }
 
   @isTest
@@ -661,7 +661,7 @@ public with sharing class ScribeTest {
       .ignoreWhen(true);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert: only the last-added condition (Industry) is dropped
     String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
@@ -683,7 +683,7 @@ public with sharing class ScribeTest {
       .ignoreWhen(true);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert: the whole group is dropped; the preceding condition remains
     String expectedSoql = 'SELECT id FROM Opportunity WHERE Name = \'Test Opportunity\'';
@@ -720,7 +720,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Another Or Account Name');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\' OR Name = \'Or Account Name\' OR Name = \'Another Or Account Name\'';
@@ -733,7 +733,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereNotEqual('Name', 'Test Account');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name != \'Test Account\'';
@@ -746,7 +746,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereNotEqual('Name', null);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name != NULL';
@@ -759,7 +759,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('TotalOpportunityQuantity', 1000);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity > 1000';
@@ -777,7 +777,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -793,7 +793,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereGreaterThan('LastModifiedDate', dt);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedDatetime = dt.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\'');
@@ -809,7 +809,7 @@ public with sharing class ScribeTest {
       .whereGreaterThanOrEqual('TotalOpportunityQuantity', 1000);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity >= 1000';
@@ -829,7 +829,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -844,7 +844,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereLessThan('TotalOpportunityQuantity', 1000);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity < 1000';
@@ -862,7 +862,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -879,7 +879,7 @@ public with sharing class ScribeTest {
       .whereLessThanOrEqual('TotalOpportunityQuantity', 1000);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE TotalOpportunityQuantity <= 1000';
@@ -899,7 +899,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -914,7 +914,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereLike('Name', '%Test%');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name LIKE \'%Test%\'';
@@ -928,7 +928,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereLike('Name', dengerousInput);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name LIKE \'Test\\\' OR Name != \\\'\'';
@@ -945,7 +945,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -960,7 +960,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereNotLike('Name', '%Test%');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE (NOT Name LIKE \'%Test%\')';
@@ -978,7 +978,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -998,7 +998,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1014,7 +1014,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', values);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name IN (\'Test Account 1\', \'Test Account 2\')';
@@ -1028,7 +1028,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Id', values);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Id IN (\'001000000000000AAA\', \'001000000000000AAB\')';
@@ -1042,7 +1042,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', values);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name IN (\'Test Account 1\', NULL)';
@@ -1056,7 +1056,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', values);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Id = null';
@@ -1074,7 +1074,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1091,7 +1091,7 @@ public with sharing class ScribeTest {
       .whereIn('AccountId', Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE AccountId IN (SELECT id FROM Account WHERE Name = \'Test Account\')';
@@ -1127,7 +1127,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1143,7 +1143,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Name', values);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name NOT IN (\'Test Account 1\', \'Test Account 2\')';
@@ -1157,7 +1157,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Id', values);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Id NOT IN (\'001000000000000AAA\', \'001000000000000AAB\')';
@@ -1171,7 +1171,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Name', values);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name NOT IN (\'Test Account 1\', NULL)';
@@ -1188,7 +1188,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Account');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
@@ -1206,7 +1206,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1223,7 +1223,7 @@ public with sharing class ScribeTest {
       .whereNotIn('AccountId', Scribe.of(Account.class).field('Id').whereEqual('Name', 'Test Account'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE AccountId NOT IN (SELECT id FROM Account WHERE Name = \'Test Account\')';
@@ -1259,7 +1259,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1275,7 +1275,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereIncludes('Type', values);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     // Note: this test assert soql building with INCUDES condition is success.
@@ -1295,7 +1295,7 @@ public with sharing class ScribeTest {
     // null no longer throws at chain time — the error is deferred to build time,
     // so ignoreWhen() gets a chance to retract the condition first (issue #71)
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1311,7 +1311,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereExcludes('Type', values);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     // Note: this test assert soql building with EXCLUDES condition is success.
@@ -1342,7 +1342,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereNull('Name');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name = NULL';
@@ -1371,7 +1371,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereNotNull('Name');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name != NULL';
@@ -1386,7 +1386,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').orCondition().whereEqual('Name', 'Test Account');
 
     // Assert
-    Assert.areEqual('SELECT id FROM Account WHERE Name = \'Test Account\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'Test Account\'', scribe.toDisplay());
   }
 
   @isTest
@@ -1419,7 +1419,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (TotalOpportunityQuantity > 10000 OR Type = \'Test Type\')';
@@ -1441,7 +1441,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE Name = \'Test Opportunity\' OR (TotalOpportunityQuantity > 10000 OR Type = \'Test Type\')';
@@ -1468,7 +1468,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (TotalOpportunityQuantity > 10000 OR Type = \'Test Type\') AND (CloseDate < 2030-12-31 OR StageName = \'Closed Won\')';
@@ -1538,7 +1538,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Account');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account WHERE Name = \'Test Account\'';
@@ -1613,7 +1613,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Account');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, (SELECT id FROM Opportunities WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
@@ -1630,7 +1630,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Account');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT (SELECT id FROM Opportunities WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
@@ -1649,7 +1649,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Account');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, (SELECT id FROM Opportunities WHERE Name != NULL), (SELECT id FROM Contacts WHERE Email != NULL) FROM Account WHERE Name = \'Test Account\'';
@@ -1673,7 +1673,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Account');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, (SELECT id, (SELECT id FROM Opportunities WHERE NextStep != NULL) FROM Contacts WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
@@ -1723,7 +1723,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1750,7 +1750,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = accountScribe.toSoql();
+      String soql = accountScribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1769,7 +1769,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Account');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, (SELECT id FROM Opportunities WHERE Name != NULL) FROM Account WHERE Name = \'Test Account\'';
@@ -1788,7 +1788,7 @@ public with sharing class ScribeTest {
 
     try {
       // Act
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1806,7 +1806,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1823,7 +1823,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1863,7 +1863,7 @@ public with sharing class ScribeTest {
         .parentField(parentScribe)
         .whereEqual('Name', 'Test Opportunity');
 
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1884,7 +1884,7 @@ public with sharing class ScribeTest {
         .parentField(nonParentScribe)
         .whereEqual('Name', 'Test Opportunity');
 
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1902,7 +1902,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Opportunity');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\'';
@@ -1917,7 +1917,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'Test Opportunity');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\'';
@@ -1933,7 +1933,7 @@ public with sharing class ScribeTest {
         .parentField(Scribe.asGroup())
         .whereEqual('Name', 'Test Opportunity');
 
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1954,7 +1954,7 @@ public with sharing class ScribeTest {
         .parentCondition(parentScribe)
         .whereEqual('Name', 'Test Opportunity');
 
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1975,7 +1975,7 @@ public with sharing class ScribeTest {
         .parentCondition(nonParentScribe)
         .whereEqual('Name', 'Test Opportunity');
 
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -1992,7 +1992,7 @@ public with sharing class ScribeTest {
       .parentCondition(Scribe.asParent('AccountId').whereEqual('Name', 'Test Account'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE Account.Name = \'Test Account\'';
@@ -2007,7 +2007,7 @@ public with sharing class ScribeTest {
         .field('Id')
         .parentCondition(Scribe.asGroup().whereEqual('Name', 'Test Account'));
 
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2026,7 +2026,7 @@ public with sharing class ScribeTest {
       .parentCondition(Scribe.asParent('AccountId').whereEqual('Name', 'Test Account'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\'';
@@ -2045,7 +2045,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Account.Name = \'Test Account\' AND Account.Type = \'Test Type\')';
@@ -2063,7 +2063,7 @@ public with sharing class ScribeTest {
       .parentCondition(Scribe.asParent('AccountId').whereEqual('Type', 'Test Type'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND Account.Name = \'Test Account\' AND Account.Type = \'Test Type\'';
@@ -2085,7 +2085,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Account.Name = \'Test Account\' OR Account.Type = \'Test Type\')';
@@ -2108,7 +2108,7 @@ public with sharing class ScribeTest {
             .whereEqual('Type', 'Test Type')
         );
 
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2133,7 +2133,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' OR (Account.Name = \'Test Account\' OR Account.Type = \'Test Type\')';
@@ -2150,7 +2150,7 @@ public with sharing class ScribeTest {
       .parentCondition(Scribe.asParent('AccountId').orCondition().whereEqual('Name', 'Test Account'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' OR Account.Name = \'Test Account\'';
@@ -2175,7 +2175,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Account.name, Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Account.Name = \'Test Account\' OR Account.Type = \'Test Type\')';
@@ -2201,7 +2201,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Contract.id, Contract.name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Contract.Name = \'Test Contract\' AND Contract.Account.Name = \'Test Account\')';
@@ -2229,7 +2229,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, Contract.id, Contract.name, Contract.Account.name, Contract.Account.id FROM Opportunity WHERE Name = \'Test Opportunity\' AND (Contract.Name = \'Test Contract\' AND (Contract.Account.Name = \'Test Account\' AND Contract.Account.Type = \'Test Type\'))';
@@ -2252,7 +2252,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2281,7 +2281,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2300,7 +2300,7 @@ public with sharing class ScribeTest {
       .whereNotIn('Industry', new List<String>());
 
     // Act & Assert - dropping it would narrow the result to Name = 'a'
-    Assert.areEqual('SELECT id FROM Account WHERE Name = \'a\' OR Id != null', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'a\' OR Id != null', scribe.toDisplay());
   }
 
   @isTest
@@ -2313,7 +2313,7 @@ public with sharing class ScribeTest {
       .whereEqual('Name', 'a');
 
     // Act & Assert
-    Assert.areEqual('SELECT id FROM Account WHERE Id != null OR Name = \'a\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Id != null OR Name = \'a\'', scribe.toDisplay());
   }
 
   @isTest
@@ -2326,7 +2326,7 @@ public with sharing class ScribeTest {
       .whereGroup(Scribe.asGroup().whereNotIn('Industry', new List<String>()).whereNotIn('Type', new List<String>()));
 
     // Act & Assert
-    Assert.areEqual('SELECT id FROM Account WHERE Name = \'a\' OR (Id != null)', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'a\' OR (Id != null)', scribe.toDisplay());
   }
 
   @isTest
@@ -2339,7 +2339,7 @@ public with sharing class ScribeTest {
       .parentCondition(Scribe.asParent('OpportunityId').orCondition().whereNotIn('Id', new List<Id>()));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual('SELECT id FROM OpportunityLineItem WHERE Name = \'Test OLI\' OR Id != null', soql);
@@ -2354,7 +2354,7 @@ public with sharing class ScribeTest {
       .parentCondition(Scribe.asParent('OpportunityId').whereNotIn('Id', new List<Id>()));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM OpportunityLineItem WHERE Name = \'Test OLI\'';
@@ -2375,7 +2375,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM OpportunityLineItem WHERE Name = \'Test OLI\' AND Opportunity.Name LIKE \'Test%\'';
@@ -2411,7 +2411,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -2599,7 +2599,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').take(10);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account LIMIT 10';
@@ -2627,7 +2627,7 @@ public with sharing class ScribeTest {
       .orderBy('CloseDate');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE Id = \'006000000000000\' ORDER BY CloseDate ASC';
@@ -2643,7 +2643,7 @@ public with sharing class ScribeTest {
       .orderBy('CloseDate', 'DESC');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE Id = \'006000000000000\' ORDER BY CloseDate DESC';
@@ -2659,7 +2659,7 @@ public with sharing class ScribeTest {
       .orderBy('CloseDate', 'ASC', 'FIRST');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE Id = \'006000000000000\' ORDER BY CloseDate ASC NULLS FIRST';
@@ -2676,7 +2676,7 @@ public with sharing class ScribeTest {
       .orderBy('Amount', 'DESC', 'LAST');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE StageName = \'prospecting\' ORDER BY CloseDate ASC NULLS FIRST, Amount DESC NULLS LAST';
@@ -2692,7 +2692,7 @@ public with sharing class ScribeTest {
       .orderBy('Amount');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE StageName = \'prospecting\' ORDER BY CloseDate ASC, Amount ASC';
@@ -2704,7 +2704,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).field('Id').whereEqual('Id', '006000000000000').orderBy('');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -2722,7 +2722,7 @@ public with sharing class ScribeTest {
         .field('Id')
         .whereEqual('Id', '006000000000000')
         .orderBy('CloseDate', 'INVALID');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -2741,7 +2741,7 @@ public with sharing class ScribeTest {
         .field('Id')
         .whereEqual('Id', '006000000000000')
         .orderBy('CloseDate', 'ASC', 'INVALID');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -2770,7 +2770,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').offset(10);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account OFFSET 10';
@@ -2809,7 +2809,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate();
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Account FOR UPDATE';
@@ -2826,7 +2826,7 @@ public with sharing class ScribeTest {
       .whereEqual('StageName', 'prospecting');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE StageName = \'prospecting\' LIMIT 10 FOR UPDATE';
@@ -2844,7 +2844,7 @@ public with sharing class ScribeTest {
       .whereEqual('StageName', 'prospecting');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id FROM Opportunity WHERE StageName = \'prospecting\' ORDER BY CloseDate ASC NULLS FIRST LIMIT 10 OFFSET 5';
@@ -2856,7 +2856,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Account.class).field('Id').orderBy('Name').forUpdate();
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2869,7 +2869,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate().orderBy('Name');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2882,7 +2882,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Account.class).field('Id').offset(10).forUpdate();
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2895,7 +2895,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Account.class).field('Id').forUpdate().offset(10);
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2912,7 +2912,7 @@ public with sharing class ScribeTest {
     // Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).average(fieldName, alias);
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2930,7 +2930,7 @@ public with sharing class ScribeTest {
     // Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).average(fieldName, alias);
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2948,7 +2948,7 @@ public with sharing class ScribeTest {
     // Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).average(fieldName, alias);
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2966,7 +2966,7 @@ public with sharing class ScribeTest {
     // Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).average(fieldName, alias);
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -2980,7 +2980,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.asChild(Opportunity.class).average('Amount', 'amountAvg');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       String error = e.getMessage();
@@ -2994,7 +2994,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.asHaving().average('Amount', 'amountAvg');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       String error = e.getMessage();
@@ -3009,7 +3009,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).average('Amount', 'amountAvg');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT AVG(Amount) amountAvg FROM Opportunity';
@@ -3021,7 +3021,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).average('NonExistField', 'amountAvg');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3037,7 +3037,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).average('Name', 'nameAvg');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3056,7 +3056,7 @@ public with sharing class ScribeTest {
         .field('StageName')
         .withChildren(Scribe.asChild(Contact.class).field('Id').field('Email'))
         .average('Amount', 'amountAvg');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3074,7 +3074,7 @@ public with sharing class ScribeTest {
     // Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).count(fieldName, alias);
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3089,7 +3089,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'oppCount');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT COUNT(Id) oppCount FROM Opportunity';
@@ -3098,58 +3098,58 @@ public with sharing class ScribeTest {
 
   @isTest
   static void testToSoql_WhenCalledTwiceWithCount_ThenReturnsSameSoqlIdempotently() {
-    // Reproduces the "Duplicate Alias Error" that occurred when toSoql() was called twice
+    // Reproduces the "Duplicate Alias Error" that occurred when toDisplay() was called twice
     // on an aggregate query. Mirrors the MockEloquent scenario where the framework calls
-    // toSoql() once internally and the test then calls it a second time for assertions.
+    // toDisplay() once internally and the test then calls it a second time for assertions.
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class).count('Id', 'oppCount');
     String expectedSoql = 'SELECT COUNT(Id) oppCount FROM Opportunity';
 
     // Act
-    String firstSoql = scribe.toSoql();
-    String secondSoql = scribe.toSoql();
+    String firstSoql = scribe.toDisplay();
+    String secondSoql = scribe.toDisplay();
 
     // Assert
-    Assert.areEqual(expectedSoql, firstSoql, 'First toSoql() should return the expected SOQL');
-    Assert.areEqual(expectedSoql, secondSoql, 'Second toSoql() should return the same SOQL (idempotent)');
+    Assert.areEqual(expectedSoql, firstSoql, 'First toDisplay() should return the expected SOQL');
+    Assert.areEqual(expectedSoql, secondSoql, 'Second toDisplay() should return the same SOQL (idempotent)');
   }
 
   @isTest
   static void testToSoql_WhenCalledTwiceWithoutExplicitFields_ThenReturnsSameSoql() {
     // Confirms that the side effect in validateAndInitialize() — auto-adding 'Id' to
-    // selectFields when no field is specified — does not break idempotency of a second toSoql() call.
+    // selectFields when no field is specified — does not break idempotency of a second toDisplay() call.
     // Arrange
     Scribe scribe = Scribe.of(Account.class);
 
     // Act
-    String firstSoql = scribe.toSoql();
-    String secondSoql = scribe.toSoql();
+    String firstSoql = scribe.toDisplay();
+    String secondSoql = scribe.toDisplay();
 
     // Assert
-    Assert.areEqual(firstSoql, secondSoql, 'toSoql() should be idempotent without explicit fields');
+    Assert.areEqual(firstSoql, secondSoql, 'toDisplay() should be idempotent without explicit fields');
   }
 
   @isTest
   static void testToSoql_WhenCalledTwiceWithMultipleAggregates_ThenReturnsSameSoql() {
-    // Confirms that calling toSoql() twice with multiple aggregates (sum + count) returns the same SOQL.
+    // Confirms that calling toDisplay() twice with multiple aggregates (sum + count) returns the same SOQL.
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .sum('Amount', 'totalAmount')
       .count('Id', 'oppCount');
 
     // Act
-    String firstSoql = scribe.toSoql();
-    String secondSoql = scribe.toSoql();
+    String firstSoql = scribe.toDisplay();
+    String secondSoql = scribe.toDisplay();
 
     // Assert
-    Assert.areEqual(firstSoql, secondSoql, 'toSoql() with multiple aggregates should be idempotent');
+    Assert.areEqual(firstSoql, secondSoql, 'toDisplay() with multiple aggregates should be idempotent');
   }
 
   @isTest
   static void testToSoql_WhenCalledTwiceWithAggregateAndHaving_ThenReturnsSameSoql() {
     // Confirms idempotency when aggregate is combined with HAVING.
     // HAVING reads aggregateAliasMap after buildSelectFields populates it, so this path is
-    // particularly sensitive to the map being reset properly on each toSoql() call.
+    // particularly sensitive to the map being reset properly on each toDisplay() call.
     // Arrange
     Scribe scribe = Scribe.of(Opportunity.class)
       .field('StageName')
@@ -3158,11 +3158,11 @@ public with sharing class ScribeTest {
       .havingCondition(Scribe.asHaving().whereGreaterThan('totalAmount', 1000));
 
     // Act
-    String firstSoql = scribe.toSoql();
-    String secondSoql = scribe.toSoql();
+    String firstSoql = scribe.toDisplay();
+    String secondSoql = scribe.toDisplay();
 
     // Assert
-    Assert.areEqual(firstSoql, secondSoql, 'toSoql() with aggregate + HAVING should be idempotent');
+    Assert.areEqual(firstSoql, secondSoql, 'toDisplay() with aggregate + HAVING should be idempotent');
   }
 
   @isTest
@@ -3175,11 +3175,11 @@ public with sharing class ScribeTest {
       .parentField(Scribe.asParent('OpportunityId').field('Name'));
 
     // Act
-    String firstSoql = scribe.toSoql();
-    String secondSoql = scribe.toSoql();
+    String firstSoql = scribe.toDisplay();
+    String secondSoql = scribe.toDisplay();
 
     // Assert
-    Assert.areEqual(firstSoql, secondSoql, 'toSoql() with parent field should be idempotent');
+    Assert.areEqual(firstSoql, secondSoql, 'toDisplay() with parent field should be idempotent');
   }
 
   @isTest
@@ -3187,7 +3187,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).count('NonExistField', 'oppCount');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3203,7 +3203,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).count('IsPrivate', 'countIsPrivate');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3220,7 +3220,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).countDistinct('AccountId', 'accountCount');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT COUNT_DISTINCT(AccountId) accountCount FROM Opportunity';
@@ -3232,7 +3232,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).countDistinct('NonExistField', 'accountCount');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3248,7 +3248,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).countDistinct('IsPrivate', 'countDistinctIsPrivate');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3265,7 +3265,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).max('Amount', 'amountMax');
 
     // ActionLinkGroupTemplate
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT MAX(Amount) amountMax FROM Opportunity';
@@ -3277,7 +3277,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).max('NonExistField', 'amountMax');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3293,7 +3293,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).max('IsPrivate', 'maxIsPrivate');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3310,7 +3310,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).min('Amount', 'amountMin');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT MIN(Amount) amountMin FROM Opportunity';
@@ -3322,7 +3322,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).min('NonExistField', 'amountMin');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3338,7 +3338,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).min('IsPrivate', 'minIsPrivate');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3355,7 +3355,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Opportunity.class).sum('Amount', 'amountSum');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT SUM(Amount) amountSum FROM Opportunity';
@@ -3367,7 +3367,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).sum('NonExistField', 'amountSum');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3383,7 +3383,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).sum('Name', 'nameSum');
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3406,7 +3406,7 @@ public with sharing class ScribeTest {
       .sum('Amount', 'amountSum');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT AVG(Amount) amountAvg, COUNT(Id) oppCount, COUNT_DISTINCT(AccountId) accountCount, MAX(Amount) amountMax, MIN(Amount) amountMin, SUM(Amount) amountSum FROM Opportunity';
@@ -3418,7 +3418,7 @@ public with sharing class ScribeTest {
     // Arrange / Act / Assert
     try {
       Scribe scribe = Scribe.of(Opportunity.class).average('Amount', 'amountAlias').count('Id', 'amountAlias'); // Duplicate alias
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3473,7 +3473,7 @@ public with sharing class ScribeTest {
       .groupByField('StageName');
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT stagename, AVG(Amount) amountAvg FROM Opportunity GROUP BY StageName';
@@ -3490,7 +3490,7 @@ public with sharing class ScribeTest {
         .average('Amount', 'amountAvg')
         .groupByField('StageName');
 
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3567,7 +3567,7 @@ public with sharing class ScribeTest {
       .groupByFields(fields);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT stagename, closedate, AVG(Amount) amountAvg FROM Opportunity GROUP BY StageName, CloseDate';
@@ -3586,7 +3586,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3640,7 +3640,7 @@ public with sharing class ScribeTest {
         .field('StageName')
         .average('Amount', 'amountAvg')
         .havingCondition(Scribe.asHaving().whereGreaterThan('amountAvg', 10000));
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3658,7 +3658,7 @@ public with sharing class ScribeTest {
         .average('Amount', 'amountAvg')
         .groupByField('StageName')
         .havingCondition(Scribe.of(Opportunity.class).whereGreaterThan('amountAvg', 10000));
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3677,7 +3677,7 @@ public with sharing class ScribeTest {
       .havingCondition(Scribe.asHaving().whereGreaterThan('amountAvg', 10000));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT stagename, AVG(Amount) amountAvg FROM Opportunity GROUP BY StageName HAVING AVG(Amount) > 10000';
@@ -3694,7 +3694,7 @@ public with sharing class ScribeTest {
       .havingCondition(Scribe.asHaving().whereGreaterThan('amountAvg', 10000).whereLessThan('amountAvg', 50000));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT stagename, AVG(Amount) amountAvg FROM Opportunity GROUP BY StageName HAVING AVG(Amount) > 10000 AND AVG(Amount) < 50000';
@@ -3713,7 +3713,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT stagename, AVG(Amount) amountAvg FROM Opportunity GROUP BY StageName HAVING AVG(Amount) > 10000 OR AVG(Amount) < 50000';
@@ -3733,7 +3733,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT stagename, MAX(Name) maxName, COUNT(Name) nameCount FROM Opportunity GROUP BY StageName HAVING MAX(Name) > \'lastOppName\' AND COUNT(Name) > 10';
@@ -3749,7 +3749,7 @@ public with sharing class ScribeTest {
         .average('Amount', 'amountAvg')
         .groupByField('StageName')
         .havingCondition(Scribe.asHaving().whereGreaterThan('nonExistAlias', 10000));
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3772,7 +3772,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT stagename, AVG(Amount) amountAvg, MAX(CloseDate) lastCloseDate FROM Opportunity GROUP BY StageName HAVING AVG(Amount) > 10000 AND MAX(CloseDate) <= 2030-12-31';
@@ -3788,7 +3788,7 @@ public with sharing class ScribeTest {
         .average('Amount', 'amountAvg')
         .groupByField('StageName')
         .havingCondition(Scribe.asHaving().whereGreaterThan('nonExistAlias', 10000));
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3813,7 +3813,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT stagename, AVG(Amount) avgAmount, COUNT(Id) countId, MAX(TotalOpportunityQuantity) maxQuantity FROM Opportunity GROUP BY StageName HAVING AVG(Amount) > 100 OR (COUNT(Id) > 10 AND MAX(TotalOpportunityQuantity) > 100)';
@@ -3827,7 +3827,7 @@ public with sharing class ScribeTest {
       .parentField(Scribe.asParent('OpportunityId').average('Amount', 'avgAmount'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT AVG(Opportunity.Amount) avgAmount FROM OpportunityLineItem';
@@ -3843,7 +3843,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT AVG(Contract.Account.AnnualRevenue) avgRevenue FROM Order';
@@ -3868,7 +3868,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT AVG(Contract.Account.AnnualRevenue) revenueAvg, COUNT(Contract.Account.Id) accCount, COUNT_DISTINCT(Contract.Account.ParentId) parentCount, MAX(Contract.Account.AnnualRevenue) revenueMax, MIN(Contract.Account.AnnualRevenue) revenueMin, SUM(Contract.Account.AnnualRevenue) revenueSum FROM Order';
@@ -3887,7 +3887,7 @@ public with sharing class ScribeTest {
               Scribe.asParent('AccountId').count('Id', 'countIdAlias') // Duplicate alias
             )
         );
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3905,7 +3905,7 @@ public with sharing class ScribeTest {
         .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
         .groupByField('Product2Id')
         .groupByParent(null); // null is not allowed
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3924,7 +3924,7 @@ public with sharing class ScribeTest {
         .parentField(Scribe.asParent('OpportunityId').field('Id').max('Amount', 'maxAmount'))
         .groupByField('Product2Id')
         .groupByParent(Scribe.of(Opportunity.class).field('Id')); // must use asParent()
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -3943,7 +3943,7 @@ public with sharing class ScribeTest {
       .groupByParent(Scribe.asParent('OpportunityId').groupByField('Id'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT product2id, SUM(TotalPrice) totalPrice, Opportunity.id, MAX(Opportunity.Amount) maxAmount FROM OpportunityLineItem GROUP BY Product2Id, Opportunity.Id';
@@ -3963,7 +3963,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -3992,7 +3992,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT COUNT(Id) itemCount FROM OrderItem GROUP BY Order.OriginalOrder.Contract.Account.Parent.Id';
@@ -4035,7 +4035,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (Exception e) {
       System.debug('Expected exception: ' + e.getMessage());
@@ -4059,7 +4059,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT product2id, SUM(TotalPrice) totalPrice, Opportunity.id, MAX(Opportunity.Amount) maxAmount FROM OpportunityLineItem GROUP BY Product2Id, Opportunity.Id HAVING SUM(TotalPrice) > 1000 AND MAX(Opportunity.Amount) <= 50000';
@@ -4098,7 +4098,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT COUNT(Id) itemcount, Order.OriginalOrder.Contract.Account.parentid, AVG(Order.OriginalOrder.Contract.Account.AnnualRevenue) avgRevenue FROM OrderItem GROUP BY Order.OriginalOrder.Contract.Account.ParentId HAVING COUNT(Id) > 10 AND AVG(Order.OriginalOrder.Contract.Account.AnnualRevenue) <= 50000';
@@ -4112,7 +4112,7 @@ public with sharing class ScribeTest {
       Scribe scribe = Scribe.of(Order.class)
         .field('Id')
         .through(null); // null is not allowed
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -4128,7 +4128,7 @@ public with sharing class ScribeTest {
       Scribe scribe = Scribe.of(Order.class)
         .field('Id')
         .through(Scribe.asChild(OrderItem.class).field('Name')); // must use asThrough()
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -4149,7 +4149,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, (SELECT product2id, Product2.name, Product2.productcode FROM OrderItems WHERE Product2.IsActive = true) FROM Order';
@@ -4168,7 +4168,7 @@ public with sharing class ScribeTest {
             .field('ProductCode')
             .whereEqual('IsActive', true)
         );
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -4190,7 +4190,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expectedSoql = 'SELECT id, (SELECT product2id, Product2.name, Product2.productcode FROM OrderItems WHERE Product2.IsActive = true) FROM Order';
@@ -4212,7 +4212,7 @@ public with sharing class ScribeTest {
 
     // Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -4228,7 +4228,7 @@ public with sharing class ScribeTest {
       .through(Scribe.asThrough(Contract.class, 'LastModifiedById').field('Name'));
     //  Act / Assert
     try {
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
       Assert.fail('Expected exception to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -4239,7 +4239,7 @@ public with sharing class ScribeTest {
   // ===============================================================================
   // Deferred null-value validation (issue #71): a null value no longer throws at
   // chain time — an InvalidConditionClause is recorded, so a following ignoreWhen()
-  // can retract it. If it survives to toSoql(), the original required-argument
+  // can retract it. If it survives to toDisplay(), the original required-argument
   // error fires, naming the originating method and field.
   // ===============================================================================
 
@@ -4249,7 +4249,7 @@ public with sharing class ScribeTest {
     Set<String> names = null;
     Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', names).ignoreWhen(names == null);
 
-    Assert.areEqual('SELECT id FROM Account', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account', scribe.toDisplay());
   }
 
   @isTest
@@ -4257,7 +4257,7 @@ public with sharing class ScribeTest {
     Set<String> names = null;
     Scribe scribe = Scribe.of(Account.class).field('Id').whereNotIn('Name', names).ignoreWhen(names == null);
 
-    Assert.areEqual('SELECT id FROM Account', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account', scribe.toDisplay());
   }
 
   @isTest
@@ -4269,7 +4269,7 @@ public with sharing class ScribeTest {
       .whereGreaterThan('Amount', amount)
       .ignoreWhen(amount == null);
 
-    Assert.areEqual('SELECT id FROM Opportunity', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Opportunity', scribe.toDisplay());
   }
 
   @isTest
@@ -4283,7 +4283,7 @@ public with sharing class ScribeTest {
       .ignoreWhen(names == null)
       .whereLike('Phone', '03-%');
 
-    Assert.areEqual('SELECT id FROM Account WHERE Industry = \'Tech\' AND Phone LIKE \'03-%\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Industry = \'Tech\' AND Phone LIKE \'03-%\'', scribe.toDisplay());
   }
 
   @isTest
@@ -4294,7 +4294,7 @@ public with sharing class ScribeTest {
       .field('Id')
       .whereGroup(Scribe.asGroup().whereIn('Name', names).ignoreWhen(names == null));
 
-    Assert.areEqual('SELECT id FROM Account', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account', scribe.toDisplay());
   }
 
   @isTest
@@ -4304,7 +4304,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereGroup(Scribe.asGroup().whereIn('Name', names));
 
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('whereIn(String fieldName, Object values)'), e.getMessage());
@@ -4318,7 +4318,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', names);
 
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       String error = e.getMessage();
@@ -4502,7 +4502,7 @@ public with sharing class ScribeTest {
     };
 
     for (MatrixCase c : cases) {
-      Assert.areEqual(c.expected, c.scribe.toSoql(), c.name);
+      Assert.areEqual(c.expected, c.scribe.toDisplay(), c.name);
     }
   }
 
@@ -4539,7 +4539,7 @@ public with sharing class ScribeTest {
 
     for (MatrixCase c : cases) {
       try {
-        c.scribe.toSoql();
+        c.scribe.toDisplay();
         Assert.fail('Expected ApexEloquentException: ' + c.name);
       } catch (ApexEloquentException e) {
         Assert.isTrue(e.getMessage().contains(c.expected), c.name + ' / ' + e.getMessage());
@@ -4565,7 +4565,7 @@ public with sharing class ScribeTest {
       .whereEqual('Rating', 'B');
 
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('Mixed AND and OR'), e.getMessage());
@@ -4582,7 +4582,7 @@ public with sharing class ScribeTest {
       );
 
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException to be thrown');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('Mixed AND and OR'), e.getMessage());
@@ -4601,7 +4601,7 @@ public with sharing class ScribeTest {
       .orCondition()
       .whereEqual('Rating', 'B');
 
-    Assert.areEqual('SELECT id FROM Account WHERE Type = \'X\' OR Rating = \'B\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Type = \'X\' OR Rating = \'B\'', scribe.toDisplay());
   }
 
   @isTest
@@ -4614,7 +4614,7 @@ public with sharing class ScribeTest {
       .orCondition()
       .whereEqual('Rating', 'B');
 
-    Assert.areEqual('SELECT id FROM Account WHERE Type = \'X\' OR Rating = \'B\'', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Type = \'X\' OR Rating = \'B\'', scribe.toDisplay());
   }
 
   // ---- issue #94: assertCondition / assertNoCondition ----
@@ -4653,7 +4653,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testConditionAssertionMessage_WhenMissing_ThenNamesExpectedActualAndSoql() {
     // Arrange - the diagnosis is the whole point of the assertion over a hand-written
-    // toSoql().contains(...) check, and System.AssertException cannot be caught, so the
+    // toDisplay().contains(...) check, and System.AssertException cannot be caught, so the
     // message is verified through the builder
     Scribe scribe = Scribe.of(Account.class).field('Name').whereEqual('Type', 'X');
 
@@ -5243,7 +5243,7 @@ public with sharing class ScribeTest {
     scribe.assertNoCondition(new InConditionClause('Id', ids));
     Assert.areEqual(
       'SELECT name FROM Account WHERE Type = \'Before\' AND Rating = \'After\'',
-      scribe.toSoql(),
+      scribe.toDisplay(),
       'Sanity: exactly the two neighbours remain, in order.'
     );
   }
@@ -5330,7 +5330,7 @@ public with sharing class ScribeTest {
     scribe.assertNoCondition(new InConditionClause('Id', ids));
     Assert.areEqual(
       'SELECT name FROM Account WHERE Type = \'Before\' AND Rating = \'After\'',
-      scribe.toSoql(),
+      scribe.toDisplay(),
       'Sanity: the retracted OR must not leave its operator behind.'
     );
   }
@@ -5501,7 +5501,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Name').whereIn('Id', ids).ignoreWhen(ids.isEmpty());
 
     // Act & Assert
-    Assert.isFalse(scribe.toSoql().contains('WHERE'), 'Sanity: no WHERE clause at all. Got: ' + scribe.toSoql());
+    Assert.isFalse(scribe.toDisplay().contains('WHERE'), 'Sanity: no WHERE clause at all. Got: ' + scribe.toDisplay());
     scribe.assertNoCondition(new InConditionClause('Id', ids));
     Assert.isTrue(
       scribe.conditionAssertionMessage(new InConditionClause('Id', ids), true).contains('no condition on this object'),
@@ -5631,8 +5631,8 @@ public with sharing class ScribeTest {
     Scribe reverse = Scribe.of(Account.class).field('Id').whereIn('Name', new Set<String>{ 'c', 'b', 'a' });
 
     // Act & Assert
-    Assert.areEqual(forward.toSoql(), reverse.toSoql(), 'A Set must render canonically regardless of insertion order.');
-    Assert.isTrue(forward.toSoql().contains('IN (\'a\', \'b\', \'c\')'), 'Got: ' + forward.toSoql());
+    Assert.areEqual(forward.toDisplay(), reverse.toDisplay(), 'A Set must render canonically regardless of insertion order.');
+    Assert.isTrue(forward.toDisplay().contains('IN (\'a\', \'b\', \'c\')'), 'Got: ' + forward.toDisplay());
   }
 
   @isTest
@@ -5641,7 +5641,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Account.class).field('Id').whereIn('Name', new List<String>{ 'c', 'a', 'b' });
 
     // Act & Assert
-    Assert.isTrue(scribe.toSoql().contains('IN (\'c\', \'a\', \'b\')'), 'Got: ' + scribe.toSoql());
+    Assert.isTrue(scribe.toDisplay().contains('IN (\'c\', \'a\', \'b\')'), 'Got: ' + scribe.toDisplay());
   }
   @isTest
   static void testAssertCondition_WhenExpectedFieldIsMisspelled_ThenThrow() {
@@ -5684,7 +5684,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert - the query itself is refused, and says how to write it instead
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('A dotted field name must not build.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('asParent'), e.getMessage());
@@ -5716,8 +5716,8 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     Assert.isTrue(
-      scribe.toSoql().contains('Account.NumberOfEmployees > 100'),
-      'A parent numeric field must render unquoted. Got: ' + scribe.toSoql()
+      scribe.toDisplay().contains('Account.NumberOfEmployees > 100'),
+      'A parent numeric field must render unquoted. Got: ' + scribe.toDisplay()
     );
   }
 
@@ -5923,7 +5923,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('A condition on a field the object does not have must not build.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('ZZZ_NoSuchField__c'), e.getMessage());
@@ -5939,7 +5939,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('A misspelled Boolean field must not build.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('HasOptedOutOfEmai'), e.getMessage());
@@ -5954,8 +5954,8 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     Assert.isTrue(
-      scribe.toSoql().contains('HasOptedOutOfEmail = false'),
-      'Got: ' + scribe.toSoql()
+      scribe.toDisplay().contains('HasOptedOutOfEmail = false'),
+      'Got: ' + scribe.toDisplay()
     );
   }
 
@@ -5969,7 +5969,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('A group condition must be checked too.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('ZZZ_NoSuchField__c'), e.getMessage());
@@ -5986,7 +5986,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('A parent condition must be checked against the parent object.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('Account'), 'The parent must be named. Got: ' + e.getMessage());
@@ -6002,7 +6002,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('A child subquery condition must be checked against the child object.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('Contact'), 'The child must be named. Got: ' + e.getMessage());
@@ -6011,14 +6011,14 @@ public with sharing class ScribeTest {
 
   @isTest
   static void testToSoql_WhenBadFieldIsInASemiJoinSubQuery_ThenRejected() {
-    // Arrange - the inner query builds through its own toSoql, so it is checked as well
+    // Arrange - the inner query builds through its own buildSubQuery, so it is checked as well
     Scribe scribe = Scribe.of(Contact.class)
       .field('Id')
       .whereIn('AccountId', Scribe.of(Account.class).field('Id').whereEqual('ZZZ_NoSuchField__c', 'x'));
 
     // Act & Assert
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('A semi-join subquery condition must be checked too.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('ZZZ_NoSuchField__c'), e.getMessage());
@@ -6033,7 +6033,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Contact.class).field('Id').whereEqual('ZZZ_NoSuchField__c', 'x').ignoreWhen(true);
 
     // Act & Assert
-    Assert.areEqual('SELECT id FROM Contact', scribe.toSoql());
+    Assert.areEqual('SELECT id FROM Contact', scribe.toDisplay());
   }
 
   @isTest
@@ -6047,7 +6047,7 @@ public with sharing class ScribeTest {
       .havingCondition(Scribe.asHaving().whereGreaterThan('cnt', 1));
 
     // Act & Assert
-    Assert.isTrue(scribe.toSoql().contains('HAVING COUNT(Id) > 1'), 'Got: ' + scribe.toSoql());
+    Assert.isTrue(scribe.toDisplay().contains('HAVING COUNT(Id) > 1'), 'Got: ' + scribe.toDisplay());
   }
 
   @isTest
@@ -6058,7 +6058,7 @@ public with sharing class ScribeTest {
     Scribe scribe = Scribe.of(Contact.class).field('Id').orderBy('Account.Name', 'ASC');
 
     // Act & Assert
-    Assert.isTrue(scribe.toSoql().contains('ORDER BY Account.Name ASC'), 'Got: ' + scribe.toSoql());
+    Assert.isTrue(scribe.toDisplay().contains('ORDER BY Account.Name ASC'), 'Got: ' + scribe.toDisplay());
   }
 
   @isTest
@@ -6086,7 +6086,7 @@ public with sharing class ScribeTest {
       .parentCondition(Scribe.asParent('AccountId').whereNotLike('Name', '%x%'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual('SELECT id FROM Opportunity WHERE (NOT Account.Name LIKE \'%x%\')', soql);
@@ -6103,7 +6103,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual('SELECT id FROM Contact WHERE (NOT Account.Owner.Alias LIKE \'a%\')', soql);
@@ -6127,7 +6127,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
     List<Opportunity> found = Database.query(soql);
 
     // Assert
@@ -6152,7 +6152,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual('SELECT id FROM Contact WHERE (Account.Owner.Alias = \'a\' OR Account.Name = \'b\')', soql);
@@ -6169,7 +6169,7 @@ public with sharing class ScribeTest {
       .parentCondition(Scribe.asParent('AccountId').whereIn('Industry', new List<String>()));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual('SELECT id FROM Opportunity WHERE Id = null', soql);
@@ -6187,7 +6187,7 @@ public with sharing class ScribeTest {
       .havingCondition(Scribe.asHaving().whereNotLike('firstName', 'A%'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual(
@@ -6212,8 +6212,8 @@ public with sharing class ScribeTest {
       .havingCondition(Scribe.asHaving().whereNotIn('cnt', new List<Integer>()).whereGreaterThan('cnt', 1));
 
     // Act
-    String aloneSoql = alone.toSoql();
-    String withAnotherSoql = withAnother.toSoql();
+    String aloneSoql = alone.toDisplay();
+    String withAnotherSoql = withAnother.toDisplay();
 
     // Assert
     Assert.areEqual('SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId', aloneSoql);
@@ -6237,7 +6237,7 @@ public with sharing class ScribeTest {
       .havingCondition(Scribe.asHaving().whereIn('c', new List<Integer>()));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual('SELECT industry, COUNT(Id) c FROM Account GROUP BY Industry HAVING COUNT(Id) = null', soql);
@@ -6258,7 +6258,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual(
@@ -6279,7 +6279,7 @@ public with sharing class ScribeTest {
       .whereEqual('Site', (Double) 12345678.0);
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual(
@@ -6298,7 +6298,7 @@ public with sharing class ScribeTest {
       .havingCondition(Scribe.asHaving().whereGreaterThan('s', 10000000000L));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual(
@@ -6339,9 +6339,9 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String nestedSoql = nested.toSoql();
-    String notInSoql = notIn.toSoql();
-    String emptyInSoql = emptyIn.toSoql();
+    String nestedSoql = nested.toDisplay();
+    String notInSoql = notIn.toDisplay();
+    String emptyInSoql = emptyIn.toDisplay();
 
     // Assert
     Assert.areEqual(
@@ -6367,7 +6367,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('An infinite Double must be refused.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('is not a single SOQL literal'), e.getMessage());
@@ -6402,7 +6402,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     String expected =
@@ -6432,7 +6432,7 @@ public with sharing class ScribeTest {
 
     // Act & Assert
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('A NaN Double must be refused.');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('is not a single SOQL literal'), e.getMessage());
@@ -6462,7 +6462,7 @@ public with sharing class ScribeTest {
     for (Scribe scribe : scribes) {
       // Act & Assert
       try {
-        scribe.toSoql();
+        scribe.toDisplay();
         Assert.fail('A semi-join under a parent must be refused.');
       } catch (ApexEloquentException e) {
         Assert.isTrue(e.getMessage().contains('A semi-join cannot filter a parent'), e.getMessage());
@@ -6479,7 +6479,7 @@ public with sharing class ScribeTest {
       .whereIn('AccountId', Scribe.of(Opportunity.class).field('AccountId'));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual('SELECT id FROM Contact WHERE AccountId IN (SELECT accountid FROM Opportunity)', soql);
@@ -6507,7 +6507,7 @@ public with sharing class ScribeTest {
 
       // Act & Assert
       try {
-        scribe.toSoql();
+        scribe.toDisplay();
         Assert.fail('An empty NOT IN under OR must be refused.');
       } catch (ApexEloquentException e) {
         Assert.isTrue(e.getMessage().contains('always true'), e.getMessage());
@@ -6531,7 +6531,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual(
@@ -6562,7 +6562,7 @@ public with sharing class ScribeTest {
         .havingCondition(havingScribe);
 
       // Act
-      String soql = scribe.toSoql();
+      String soql = scribe.toDisplay();
 
       // Assert
       Assert.areEqual('SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId HAVING COUNT(Id) > 5', soql);
@@ -6597,7 +6597,7 @@ public with sharing class ScribeTest {
 
       // Act & Assert
       try {
-        scribe.toSoql();
+        scribe.toDisplay();
         Assert.fail('An always-true group under OR must be refused.');
       } catch (ApexEloquentException e) {
         Assert.isTrue(e.getMessage().contains('always true'), e.getMessage());
@@ -6626,7 +6626,7 @@ public with sharing class ScribeTest {
       );
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual(
@@ -6646,7 +6646,7 @@ public with sharing class ScribeTest {
       .havingCondition(Scribe.asHaving().whereGroup(Scribe.asGroup().whereNotIn('cnt', new List<Integer>())));
 
     // Act
-    String soql = scribe.toSoql();
+    String soql = scribe.toDisplay();
 
     // Assert
     Assert.areEqual('SELECT accountid, COUNT(Id) cnt FROM Opportunity GROUP BY AccountId', soql);
@@ -6659,7 +6659,7 @@ public with sharing class ScribeTest {
 
   private static void assertRefused(Scribe scribe, String expectedFragment) {
     try {
-      scribe.toSoql();
+      scribe.toDisplay();
       Assert.fail('Expected ApexEloquentException containing: ' + expectedFragment);
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains(expectedFragment), 'Got: ' + e.getMessage());
@@ -6704,7 +6704,7 @@ public with sharing class ScribeTest {
     Scribe target = Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').orderBy('Name', 'DESC').take(5);
 
     // Act
-    String soql = Scribe.of(Order.class).field('Id').through(target).toSoql();
+    String soql = Scribe.of(Order.class).field('Id').through(target).toDisplay();
 
     // Assert
     Assert.isTrue(soql.contains('ORDER BY Product2.Name DESC LIMIT 5)'), 'Got: ' + soql);
@@ -6716,8 +6716,8 @@ public with sharing class ScribeTest {
     Scribe target = Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').orderBy('Name');
 
     // Act
-    String first = Scribe.of(Order.class).field('Id').through(target).toSoql();
-    String second = Scribe.of(Order.class).field('Id').through(target).toSoql();
+    String first = Scribe.of(Order.class).field('Id').through(target).toDisplay();
+    String second = Scribe.of(Order.class).field('Id').through(target).toDisplay();
 
     // Assert
     Assert.areEqual(first, second);
@@ -6739,7 +6739,7 @@ public with sharing class ScribeTest {
       .count('Id', 'cnt')
       .groupByField('StageName')
       .orderBy('cnt', 'DESC')
-      .toSoql();
+      .toDisplay();
 
     // Assert
     Assert.areEqual('SELECT stagename, COUNT(Id) cnt FROM Opportunity GROUP BY StageName ORDER BY COUNT(Id) DESC', soql);
@@ -6754,7 +6754,7 @@ public with sharing class ScribeTest {
       .groupByField('StageName')
       .orderBy('StageName')
       .orderBy('COUNT(Id)', 'DESC')
-      .toSoql();
+      .toDisplay();
 
     // Assert
     Assert.isTrue(soql.endsWith('ORDER BY StageName ASC, COUNT(Id) DESC'), 'Got: ' + soql);
@@ -6778,7 +6778,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testOrderBy_WhenRelationshipPath_ThenNotCheckedAndKept() {
     // Act - ORDER BY is the one place a query orders by a parent field
-    String soql = Scribe.of(Contact.class).field('Id').orderBy('Account.Name').toSoql();
+    String soql = Scribe.of(Contact.class).field('Id').orderBy('Account.Name').toDisplay();
 
     // Assert
     Assert.areEqual('SELECT id FROM Contact ORDER BY Account.Name ASC', soql);
@@ -6796,8 +6796,8 @@ public with sharing class ScribeTest {
   @isTest
   static void testTake_WhenZero_ThenLimitZero() {
     // Act - LIMIT 0 is valid SOQL and returns no rows; it used to drop the LIMIT (every row) (#103)
-    String soql = Scribe.of(Contact.class).field('Id').take(0).toSoql();
-    String childSoql = Scribe.of(Account.class).field('Id').withChildren(Scribe.asChild(Contact.class).field('Id').take(0)).toSoql();
+    String soql = Scribe.of(Contact.class).field('Id').take(0).toDisplay();
+    String childSoql = Scribe.of(Account.class).field('Id').withChildren(Scribe.asChild(Contact.class).field('Id').take(0)).toDisplay();
 
     // Assert
     Assert.areEqual('SELECT id FROM Contact LIMIT 0', soql);
@@ -6809,7 +6809,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testAllRows_WhenSet_ThenWrittenLastAfterLimitAndOffset() {
     // Act - measured: `ALL ROWS LIMIT 1` fails, so ALL ROWS goes last
-    String soql = Scribe.of(Account.class).field('Id').orderBy('Name').take(1).offset(1).allRows().toSoql();
+    String soql = Scribe.of(Account.class).field('Id').orderBy('Name').take(1).offset(1).allRows().toDisplay();
 
     // Assert
     Assert.areEqual('SELECT id FROM Account ORDER BY Name ASC LIMIT 1 OFFSET 1 ALL ROWS', soql);
@@ -6818,7 +6818,7 @@ public with sharing class ScribeTest {
   @isTest
   static void testAllRows_WhenAggregate_ThenAccepted() {
     // Act
-    String soql = Scribe.of(Event.class).field('WhatId').count('Id', 'cnt').groupByField('WhatId').allRows().toSoql();
+    String soql = Scribe.of(Event.class).field('WhatId').count('Id', 'cnt').groupByField('WhatId').allRows().toDisplay();
 
     // Assert
     Assert.isTrue(soql.endsWith('GROUP BY WhatId ALL ROWS'), 'Got: ' + soql);
@@ -6885,7 +6885,7 @@ public with sharing class ScribeTest {
       List<String> parts = item.split(' ');
       query = parts.size() == 1 ? query.orderBy(parts[0]) : query.orderBy(parts[0], parts[1]);
     }
-    return query.toSoql();
+    return query.toDisplay();
   }
 
   @isTest
@@ -6933,7 +6933,7 @@ public with sharing class ScribeTest {
     // Assert - the value travels as a bind, not as text in the SOQL
     Assert.areEqual('SELECT id FROM Account WHERE Name = :aeBind0', bound.soql);
     Assert.areEqual('O\'Brien', bound.binds.get('aeBind0'), 'A bind needs no escaping.');
-    Assert.isTrue(bound.expandedSoql.equals(query.toSoql()), bound.expandedSoql + ' vs ' + query.toSoql());
+    Assert.isTrue(bound.expandedSoql.equals(query.toDisplay()), bound.expandedSoql + ' vs ' + query.toDisplay());
     Assert.areEqual('SELECT id FROM Account WHERE Name = \'O\\\'Brien\'', bound.expandedSoql);
   }
 
@@ -6956,7 +6956,7 @@ public with sharing class ScribeTest {
       bound.soql
     );
     Assert.areEqual(10, bound.binds.get('aeBind0'));
-    Assert.isTrue(bound.expandedSoql.equals(query.toSoql()));
+    Assert.isTrue(bound.expandedSoql.equals(query.toDisplay()));
   }
 
   @isTest
@@ -6977,7 +6977,7 @@ public with sharing class ScribeTest {
     );
     Assert.areEqual(3, bound.binds.size());
     Assert.areEqual('c', bound.binds.get('aeBind2'));
-    Assert.isTrue(bound.expandedSoql.equals(query.toSoql()));
+    Assert.isTrue(bound.expandedSoql.equals(query.toDisplay()));
   }
 
   // ---- whereContains & co. (#106) ----
@@ -6993,7 +6993,7 @@ public with sharing class ScribeTest {
     // Assert - the bound pattern carries single-backslash escapes, which SOQL honours
     Assert.areEqual('SELECT id FROM Account WHERE Name LIKE :aeBind0', bound.soql);
     Assert.areEqual('%50\\%\\_off\\\\%', bound.binds.get('aeBind0'));
-    Assert.isTrue(bound.expandedSoql.equals(query.toSoql()));
+    Assert.isTrue(bound.expandedSoql.equals(query.toDisplay()));
   }
 
   @isTest
@@ -7001,8 +7001,8 @@ public with sharing class ScribeTest {
     // Act & Assert
     Assert.areEqual('%a\\_b', ((String) Scribe.of(Account.class).field('Id').whereEndsWith('Name', 'a_b').toBoundQuery().binds.get('aeBind0')));
     Assert.areEqual('a\\_b%', ((String) Scribe.of(Account.class).field('Id').whereStartsWith('Name', 'a_b').toBoundQuery().binds.get('aeBind0')));
-    Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotContains('Name', 'x').toSoql().contains('(NOT Name LIKE'));
-    Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotStartsWith('Name', 'x').toSoql().contains('(NOT Name LIKE'));
-    Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotEndsWith('Name', 'x').toSoql().contains('(NOT Name LIKE'));
+    Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotContains('Name', 'x').toDisplay().contains('(NOT Name LIKE'));
+    Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotStartsWith('Name', 'x').toDisplay().contains('(NOT Name LIKE'));
+    Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotEndsWith('Name', 'x').toDisplay().contains('(NOT Name LIKE'));
   }
 }

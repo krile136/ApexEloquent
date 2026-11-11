@@ -188,7 +188,7 @@ public class SoqlInjectionTest {
 
   private static void assertHavingRefused(Scribe havingScribe) {
     try {
-      String soql = countByAccount(havingScribe).toSoql();
+      String soql = countByAccount(havingScribe).toDisplay();
       Assert.fail('A HAVING operand that is not a single literal must be refused, but built: ' + soql);
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('not a single SOQL literal'), 'Unexpected message: ' + e.getMessage());
@@ -217,22 +217,22 @@ public class SoqlInjectionTest {
 
   @isTest
   static void testToSoql_WhenHavingCountValueIsNumberOrNumericString_ThenUnquoted() {
-    assertEndsWith('HAVING COUNT(Id) > 5', countByAccount(Scribe.asHaving().whereGreaterThan('cnt', 5)).toSoql());
-    assertEndsWith('HAVING COUNT(Id) > 5', countByAccount(Scribe.asHaving().whereGreaterThan('cnt', '5')).toSoql());
+    assertEndsWith('HAVING COUNT(Id) > 5', countByAccount(Scribe.asHaving().whereGreaterThan('cnt', 5)).toDisplay());
+    assertEndsWith('HAVING COUNT(Id) > 5', countByAccount(Scribe.asHaving().whereGreaterThan('cnt', '5')).toDisplay());
     assertEndsWith(
       'HAVING COUNT(Id) IN (1, 2)',
-      countByAccount(Scribe.asHaving().whereIn('cnt', new List<Integer>{ 1, 2 })).toSoql()
+      countByAccount(Scribe.asHaving().whereIn('cnt', new List<Integer>{ 1, 2 })).toDisplay()
     );
     assertEndsWith(
       'HAVING COUNT(Id) NOT IN (1, 2)',
-      countByAccount(Scribe.asHaving().whereNotIn('cnt', new List<Integer>{ 1, 2 })).toSoql()
+      countByAccount(Scribe.asHaving().whereNotIn('cnt', new List<Integer>{ 1, 2 })).toDisplay()
     );
   }
 
   @isTest
   static void testToSoql_WhenHavingValueIsRefused_ThenMessageNamesTheAggregate() {
     try {
-      countByAccount(Scribe.asHaving().whereGreaterThan('cnt', 'x y')).toSoql();
+      countByAccount(Scribe.asHaving().whereGreaterThan('cnt', 'x y')).toDisplay();
       Assert.fail('The value must be refused');
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('HAVING value compared with an aggregate of `Id`'), e.getMessage());
@@ -247,7 +247,7 @@ public class SoqlInjectionTest {
       .sum('Amount', 'total')
       .groupByField('StageName')
       .havingCondition(Scribe.asHaving().whereNotIn('total', new List<Integer>{ 1, 2 }))
-      .toSoql();
+      .toDisplay();
 
     assertEndsWith('HAVING SUM(Amount) NOT IN (1, 2)', soql);
   }
@@ -259,7 +259,7 @@ public class SoqlInjectionTest {
       .min('Name', 'firstName')
       .groupByField('Industry')
       .havingCondition(Scribe.asHaving().whereEqual('firstName', QUOTE_BREAKOUT))
-      .toSoql();
+      .toDisplay();
 
     assertEndsWith('HAVING MIN(Name) = \'x\\\' OR Name != \\\'y\'', soql);
   }
@@ -323,7 +323,7 @@ public class SoqlInjectionTest {
 
   private static void assertOrderByRefused(String field) {
     try {
-      String soql = Scribe.of(Account.class).field('Id').orderBy(field).toSoql();
+      String soql = Scribe.of(Account.class).field('Id').orderBy(field).toDisplay();
       Assert.fail('An ORDER BY field that is not a single field path must be refused, but built: ' + soql);
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('not a single field path'), 'Unexpected message: ' + e.getMessage());
@@ -332,7 +332,7 @@ public class SoqlInjectionTest {
 
   private static void assertAliasRefused(String alias) {
     try {
-      String soql = Scribe.of(Opportunity.class).field('AccountId').count('Id', alias).groupByField('AccountId').toSoql();
+      String soql = Scribe.of(Opportunity.class).field('AccountId').count('Id', alias).groupByField('AccountId').toDisplay();
       Assert.fail('An alias that is not a single identifier must be refused, but built: ' + soql);
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('not a single identifier'), 'Unexpected message: ' + e.getMessage());
@@ -352,10 +352,10 @@ public class SoqlInjectionTest {
 
   @isTest
   static void testOrderBy_WhenFieldPathOrAggregate_ThenRendered() {
-    assertEndsWith('ORDER BY Name ASC', Scribe.of(Account.class).field('Id').orderBy('Name').toSoql());
+    assertEndsWith('ORDER BY Name ASC', Scribe.of(Account.class).field('Id').orderBy('Name').toDisplay());
     assertEndsWith(
       'ORDER BY Account.Owner.Name DESC NULLS LAST',
-      Scribe.of(Opportunity.class).field('Id').orderBy('Account.Owner.Name', 'DESC', 'LAST').toSoql()
+      Scribe.of(Opportunity.class).field('Id').orderBy('Account.Owner.Name', 'DESC', 'LAST').toDisplay()
     );
     assertEndsWith(
       'ORDER BY COUNT(Id) DESC',
@@ -364,7 +364,7 @@ public class SoqlInjectionTest {
         .count('Id', 'cnt')
         .groupByField('AccountId')
         .orderBy('COUNT(Id)', 'DESC')
-        .toSoql()
+        .toDisplay()
     );
   }
 
@@ -373,14 +373,14 @@ public class SoqlInjectionTest {
     // `\u017F` (long s) and `\u0131` (dotless i) upper-case to ASCII, so they pass the keyword check.
     assertEndsWith(
       'ORDER BY Name ASC NULLS FIRST',
-      Scribe.of(Account.class).field('Id').orderBy('Name', 'a\u017Fc', 'f\u0131rst').toSoql()
+      Scribe.of(Account.class).field('Id').orderBy('Name', 'a\u017Fc', 'f\u0131rst').toDisplay()
     );
-    assertEndsWith('ORDER BY Name DESC', Scribe.of(Account.class).field('Id').orderBy('Name', 'desc').toSoql());
+    assertEndsWith('ORDER BY Name DESC', Scribe.of(Account.class).field('Id').orderBy('Name', 'desc').toDisplay());
   }
 
   @isTest
   static void testOrderBy_WhenFieldHasSurroundingSpaces_ThenTrimmed() {
-    assertEndsWith('ORDER BY Name ASC', Scribe.of(Account.class).field('Id').orderBy(' Name ').toSoql());
+    assertEndsWith('ORDER BY Name ASC', Scribe.of(Account.class).field('Id').orderBy(' Name ').toDisplay());
   }
 
   @isTest
@@ -401,7 +401,7 @@ public class SoqlInjectionTest {
       .count('Id', 'cnt')
       .groupByField('AccountId')
       .orderBy('COUNT(Id)', 'DESC')
-      .toSoql();
+      .toDisplay();
 
     Assert.areEqual(0, Database.query(soql).size(), 'The aggregate form the shape lets in must be valid SOQL');
   }
@@ -421,7 +421,7 @@ public class SoqlInjectionTest {
 
   @isTest
   static void testAggregate_WhenAliasIsIdentifier_ThenRendered() {
-    String soql = Scribe.of(Opportunity.class).field('AccountId').count('Id', 'opp_Count2').groupByField('AccountId').toSoql();
+    String soql = Scribe.of(Opportunity.class).field('AccountId').count('Id', 'opp_Count2').groupByField('AccountId').toDisplay();
 
     Assert.isTrue(soql.contains('COUNT(Id) opp_Count2'), soql);
   }

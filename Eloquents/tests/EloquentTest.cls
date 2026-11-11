@@ -2150,4 +2150,40 @@ public with sharing class EloquentTest {
       Assert.areEqual(viaLiteral, viaBind, query.toDisplay());
     }
   }
+
+  @isTest
+  static void testGet_WhenPeriodMethods_ThenMeaningAsNamed() {
+    // Arrange - Group rows are created now; Group is platform-frozen, so no org's rules interfere
+    Group created = buildGroup('period');
+    insert created;
+    DateLiteral today = DateLiteral.today();
+    Scribe base = Scribe.of(Group.class).field('Id').whereEqual('Id', created.Id);
+
+    // Act & Assert - CreatedDate is today
+    Assert.areEqual(1, (new Eloquent()).get(base.whereWithin('CreatedDate', today)).size(), 'within today');
+    Assert.areEqual(0, (new Eloquent()).get(base.whereNotWithin('CreatedDate', today)).size(), 'not within today');
+    Assert.areEqual(0, (new Eloquent()).get(base.whereBefore('CreatedDate', today)).size(), 'before today');
+    Assert.areEqual(0, (new Eloquent()).get(base.whereAfter('CreatedDate', today)).size(), 'after today');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereSince('CreatedDate', today)).size(), 'since today');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereUntil('CreatedDate', today)).size(), 'until today');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereAfter('CreatedDate', DateLiteral.last().day())).size(), 'after yesterday');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereBefore('CreatedDate', DateLiteral.next().day())).size(), 'before tomorrow');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereWithin('CreatedDate', DateLiteral.last(1).days())).size(), 'LAST_N_DAYS:1 includes today');
+    Assert.areEqual(
+      1,
+      (new Eloquent()).get(base.whereWithinAny('CreatedDate', new List<DateLiteral>{ DateLiteral.ago(5).days(), today })).size(),
+      'within any'
+    );
+  }
+
+  @isTest
+  static void testGet_WhenDateLiteralInParentChildAndHaving_ThenSoqlRuns() {
+    // Act & Assert - each must be SOQL the platform accepts
+    (new Eloquent()).get(Scribe.of(Contact.class).field('Id').parentCondition(Scribe.asParent('AccountId').whereWithin('CreatedDate', DateLiteral.current().year())));
+    (new Eloquent()).get(Scribe.of(Account.class).field('Id').withChildren(Scribe.asChild(Contact.class).field('Id').whereSince('CreatedDate', DateLiteral.last(7).days())));
+    (new Eloquent()).get(
+      Scribe.of(Opportunity.class).field('AccountId').max('CloseDate', 'm').groupByField('AccountId').havingCondition(Scribe.asHaving().whereWithin('m', DateLiteral.current().fiscalYear()))
+    );
+    Assert.isTrue(true, 'reached: all three ran');
+  }
 }

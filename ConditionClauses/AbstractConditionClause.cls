@@ -413,6 +413,39 @@ public with sharing abstract class AbstractConditionClause implements ICondition
   }
 
   /**
+   * Writes a DateLiteral, which only a Date or Datetime field can be compared with (also as
+   * the MIN / MAX of one in HAVING). Against a text field it would otherwise be quoted and
+   * compared as the string 'LAST_N_DAYS:30' without a sign; against a number it would fail at
+   * run time. It is never bound: a date literal has no bind form, and its text is fixed by
+   * DateLiteral.
+   *
+   * @param fieldType The display type of the field.
+   * @param literal The date literal.
+   * @return The literal's SOQL text.
+   * @throws ApexEloquentException for any other field type.
+   */
+  private String toDateLiteral(Schema.DisplayType fieldType, DateLiteral literal) {
+    if (!this.numericOperand && (fieldType == Schema.DisplayType.DATE || fieldType == Schema.DisplayType.DATETIME)) {
+      return literal.toString();
+    }
+    String reason = String.format(
+      'A DateLiteral ({0}) was compared with `{1}`, which is not a Date or Datetime field.',
+      new List<String>{ literal.toString(), this.field }
+    );
+    ApexEloquentException.invalidArgument(
+        CLASS_NAME,
+        null,
+        reason,
+        'Compare a DateLiteral with a Date or Datetime field only',
+        'value',
+        literal.toString()
+      )
+      .param('field', this.field)
+      .fire();
+    return null; // unreachable
+  }
+
+  /**
    * The literal for one value (the rendering before v4, unchanged).
    *
    * @param fieldType The display type of the field the value is compared against.
@@ -421,6 +454,9 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * @throws ApexEloquentException when the value would render as more than one token.
    */
   private String toLiteral(Schema.DisplayType fieldType, Object value) {
+    if (value instanceof DateLiteral) {
+      return this.toDateLiteral(fieldType, (DateLiteral) value);
+    }
     if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
       return '\'' + this.formatAndCastToString(value) + '\'';
     }

@@ -1003,6 +1003,122 @@ public with sharing class Scribe {
   }
 
   /**
+   * The field falls within the period: `CloseDate = LAST_N_DAYS:30`. A range literal changes
+   * meaning with the operator (measured: `> LAST_N_DAYS:30` returns only rows AFTER the period,
+   * i.e. in the future), so the date-literal methods name the meaning instead of the operator:
+   *
+   * | method | SOQL | rows |
+   * |---|---|---|
+   * | whereWithin | `=` | inside the period |
+   * | whereNotWithin | `!=` | outside it |
+   * | whereBefore | `<` | before the period starts |
+   * | whereAfter | `>` | after the period ends |
+   * | whereSince | `>=` | from the start of the period on |
+   * | whereUntil | `<=` | up to the end of the period |
+   *
+   * ```
+   * Scribe.of(Opportunity.class).field('Id').whereWithin('CloseDate', DateLiteral.current().fiscalQuarter());
+   * ```
+   *
+   * @param fieldName A Date or Datetime field of the object being filtered.
+   * @param period The period. Null is refused when the query is built (ignoreWhen can retract it first).
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereWithin(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereWithin(String fieldName, DateLiteral period)', fieldName) : this.whereEqual(fieldName, period);
+  }
+
+  /**
+   * The field falls outside the period: `!=` (see whereWithin).
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereNotWithin(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereNotWithin(String fieldName, DateLiteral period)', fieldName) : this.whereNotEqual(fieldName, period);
+  }
+
+  /**
+   * The field is before the period starts: `<` (see whereWithin).
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereBefore(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereBefore(String fieldName, DateLiteral period)', fieldName) : this.whereLessThan(fieldName, period);
+  }
+
+  /**
+   * The field is after the period ends: `>` (see whereWithin).
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereAfter(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereAfter(String fieldName, DateLiteral period)', fieldName) : this.whereGreaterThan(fieldName, period);
+  }
+
+  /**
+   * The field is in the period or after it: `>=` (see whereWithin).
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereSince(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereSince(String fieldName, DateLiteral period)', fieldName) : this.whereGreaterThanOrEqual(fieldName, period);
+  }
+
+  /**
+   * The field is in the period or before it: `<=` (see whereWithin).
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereUntil(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereUntil(String fieldName, DateLiteral period)', fieldName) : this.whereLessThanOrEqual(fieldName, period);
+  }
+
+  /**
+   * The field falls within any of the periods: `CloseDate IN (THIS_FISCAL_QUARTER,
+   * N_FISCAL_QUARTERS_AGO:4)` (measured: a row matches when it is in at least one). An empty
+   * list matches no row, as whereIn does.
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param periods The periods. Null, or a null element, is refused when the query is built.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereWithinAny(String fieldName, List<DateLiteral> periods) {
+    if (periods == null || periods.contains(null)) {
+      return this.whereInvalid('whereWithinAny(String fieldName, List<DateLiteral> periods)', fieldName);
+    }
+    List<Object> values = new List<Object>();
+    values.addAll((List<Object>) periods);
+    return this.whereIn(fieldName, values);
+  }
+
+  /**
+   * Adds a condition that is refused when the query is built, for an argument that cannot
+   * form one (a null period). Deferred rather than thrown here so a following ignoreWhen()
+   * can retract it first, as for the other where methods (issue #71).
+   *
+   * @param method The public method that was called.
+   * @param fieldName The field it was called with.
+   * @return A new, immutable Scribe instance.
+   */
+  private Scribe whereInvalid(String method, String fieldName) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.conditionParts.add(new ConditionPart(new InvalidConditionClause(method, fieldName), this.isNextConditionOr));
+    clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
+    return clonedScribe;
+  }
+
+  /**
    * Adds a partial-match condition: the field contains `value` anywhere, with `%`, `_` and
    * `\` in `value` matched as plain characters (#106). Use this for user input such as a
    * search box; whereLike treats `%` and `_` in its value as wildcards, so a search for

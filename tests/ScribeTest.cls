@@ -7066,4 +7066,74 @@ public with sharing class ScribeTest {
     Scribe query = Scribe.of(Account.class).field('Id').orderBy('Name', 'ASC', 'LAST');
     query.assertOrderBy(new List<String>{ 'Name NULLS LAST' });
   }
+
+  // ---- DateLiteral and the period methods ----
+
+  @isTest
+  static void testPeriodMethods_WhenBuilt_ThenOperatorPerMeaning() {
+    // Arrange
+    DateLiteral period = DateLiteral.last(30).days();
+    Map<String, Scribe> byOperator = new Map<String, Scribe>{
+      '= ' => Scribe.of(Opportunity.class).field('Id').whereWithin('CloseDate', period),
+      '!= ' => Scribe.of(Opportunity.class).field('Id').whereNotWithin('CloseDate', period),
+      '< ' => Scribe.of(Opportunity.class).field('Id').whereBefore('CloseDate', period),
+      '> ' => Scribe.of(Opportunity.class).field('Id').whereAfter('CloseDate', period),
+      '>= ' => Scribe.of(Opportunity.class).field('Id').whereSince('CloseDate', period),
+      '<= ' => Scribe.of(Opportunity.class).field('Id').whereUntil('CloseDate', period)
+    };
+
+    // Act & Assert - written as a literal, never bound
+    for (String operator : byOperator.keySet()) {
+      SoqlBinds.BoundQuery bound = byOperator.get(operator).toBoundQuery();
+      Assert.areEqual('SELECT id FROM Opportunity WHERE CloseDate ' + operator + 'LAST_N_DAYS:30', bound.soql);
+      Assert.isTrue(bound.binds.isEmpty());
+    }
+  }
+
+  @isTest
+  static void testWhereWithinAny_WhenSeveralPeriods_ThenInList() {
+    // Act
+    String soql = Scribe.of(Opportunity.class)
+      .field('Id')
+      .whereWithinAny('CloseDate', new List<DateLiteral>{ DateLiteral.current().fiscalQuarter(), DateLiteral.ago(4).fiscalQuarters() })
+      .toDisplay();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM Opportunity WHERE CloseDate IN (THIS_FISCAL_QUARTER, N_FISCAL_QUARTERS_AGO:4)', soql);
+  }
+
+  @isTest
+  static void testDateLiteral_WhenComparedWithNonDateField_ThenRefused() {
+    // A text field would quote it and compare the string 'TODAY' without a sign
+    for (Scribe query : new List<Scribe>{
+      Scribe.of(Account.class).field('Id').whereWithin('Name', DateLiteral.today()),
+      Scribe.of(Account.class).field('Id').whereEqual('NumberOfEmployees', DateLiteral.today()),
+      Scribe.of(Account.class).field('Industry').count('Id', 'cnt').groupByField('Industry').havingCondition(Scribe.asHaving().whereEqual('cnt', DateLiteral.today()))
+    }) {
+      try {
+        query.toDisplay();
+        Assert.fail('Expected ApexEloquentException.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('not a Date or Datetime field'), 'Got: ' + e.getMessage());
+      }
+    }
+  }
+
+  @isTest
+  static void testPeriodMethods_WhenPeriodIsNull_ThenRefusedAtBuildUnlessRetracted() {
+    // Arrange
+    DateLiteral missing = null;
+
+    // Act & Assert - refused when built, not taken as `= NULL`
+    try {
+      Scribe.of(Opportunity.class).field('Id').whereWithin('CloseDate', missing).toDisplay();
+      Assert.fail('Expected ApexEloquentException.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('whereWithin'), 'Got: ' + e.getMessage());
+    }
+    Assert.areEqual(
+      'SELECT id FROM Opportunity',
+      Scribe.of(Opportunity.class).field('Id').whereWithin('CloseDate', missing).ignoreWhen(missing == null).toDisplay()
+    );
+  }
 }

@@ -1018,7 +1018,7 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereContains(String fieldName, String value) {
-    return this.whereLike(fieldName, likePattern('%', value, '%'));
+    return withEscapesApplied(this.whereLike(fieldName, likePattern('%', value, '%')));
   }
 
   /**
@@ -1029,7 +1029,7 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotContains(String fieldName, String value) {
-    return this.whereNotLike(fieldName, likePattern('%', value, '%'));
+    return withEscapesApplied(this.whereNotLike(fieldName, likePattern('%', value, '%')));
   }
 
   /**
@@ -1040,7 +1040,7 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereStartsWith(String fieldName, String value) {
-    return this.whereLike(fieldName, likePattern('', value, '%'));
+    return withEscapesApplied(this.whereLike(fieldName, likePattern('', value, '%')));
   }
 
   /**
@@ -1051,7 +1051,7 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotStartsWith(String fieldName, String value) {
-    return this.whereNotLike(fieldName, likePattern('', value, '%'));
+    return withEscapesApplied(this.whereNotLike(fieldName, likePattern('', value, '%')));
   }
 
   /**
@@ -1062,7 +1062,7 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereEndsWith(String fieldName, String value) {
-    return this.whereLike(fieldName, likePattern('%', value, ''));
+    return withEscapesApplied(this.whereLike(fieldName, likePattern('%', value, '')));
   }
 
   /**
@@ -1073,7 +1073,7 @@ public with sharing class Scribe {
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotEndsWith(String fieldName, String value) {
-    return this.whereNotLike(fieldName, likePattern('%', value, ''));
+    return withEscapesApplied(this.whereNotLike(fieldName, likePattern('%', value, '')));
   }
 
   /**
@@ -1085,6 +1085,17 @@ public with sharing class Scribe {
    * @param after The wildcard after the value ('' or '%').
    * @return The pattern.
    */
+  private static Scribe withEscapesApplied(Scribe scribe) {
+    ConditionPart last = scribe.conditionParts[scribe.conditionParts.size() - 1];
+    if (last.condition instanceof LikeConditionClause) {
+      last.condition = ((LikeConditionClause) last.condition).withEscapesApplied();
+    } else if (last.condition instanceof NotLikeConditionClause) {
+      last.condition = ((NotLikeConditionClause) last.condition).withEscapesApplied();
+    }
+    // An InvalidConditionClause (null value) is left as it is; it is refused at build time.
+    return scribe;
+  }
+
   private static String likePattern(String before, String value, String after) {
     if (value == null) {
       return null;
@@ -1601,13 +1612,26 @@ public with sharing class Scribe {
       String action = 'Initialize the through Scribe using `asThrough(System.Type junctionType, String targetLookupField)` and pass it to through().';
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
+    if (throughScribe.isForUpdate || throughScribe.isAllRows) {
+      // through() becomes a subquery on the junction object, and SOQL accepts FOR UPDATE and
+      // ALL ROWS only on the outer query. Refused here so the message names what was written
+      // (it used to surface as "set on a child subquery") (review r1 F6).
+      String reason = (throughScribe.isForUpdate ? 'forUpdate()' : 'allRows()') +
+        ' was set on the Scribe.asThrough() Scribe. through() becomes a subquery on the junction object, and SOQL accepts FOR UPDATE and ALL ROWS only on the outer query.';
+      ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error('Not allowed on asThrough()')
+        .reason(reason)
+        .action('Put forUpdate() / allRows() on the outer Scribe instead.')
+        .fire();
+    }
     // Work on a copy: every Scribe method leaves its receiver and arguments untouched, and
     // through() used to set isParent on the caller's Scribe (#102).
     Scribe targetPart = throughScribe.deepClone();
     targetPart.isParent = true;
     Scribe childScribe = newChild(throughScribe.junctionSObjectType)
       .field(throughScribe.parentRelationIdFieldName);
-    // ORDER BY / LIMIT / OFFSET / FOR UPDATE written on the through Scribe belong to the junction
+    // ORDER BY / LIMIT / OFFSET written on the through Scribe belong to the junction
     // subquery it becomes; on the parent part they were silently dropped (#102). The ORDER BY
     // fields are on the target object, so they are written through the lookup's relationship
     // path (`ORDER BY Product2.Name`), the one form SOQL has for ordering by a parent field.
@@ -1622,13 +1646,9 @@ public with sharing class Scribe {
     }
     childScribe.limitNumber = targetPart.limitNumber;
     childScribe.offsetNumber = targetPart.offsetNumber;
-    childScribe.isForUpdate = targetPart.isForUpdate;
-    childScribe.isAllRows = targetPart.isAllRows;
     targetPart.orderByClauses = new List<Scribe.OrderByClause>();
     targetPart.limitNumber = null;
     targetPart.offsetNumber = 0;
-    targetPart.isForUpdate = false;
-    targetPart.isAllRows = false;
     childScribe = childScribe.parentField(targetPart).parentCondition(targetPart);
     if (String.isNotBlank(throughScribe.relationName)) {
       childScribe = childScribe.relationName(throughScribe.relationName);
@@ -2488,8 +2508,16 @@ public with sharing class Scribe {
       return '';
     }
     String normalized = tokens[0].toLowerCase();
-    normalized += ' ' + (tokens.size() > 1 ? tokens[1].toUpperCase() : 'ASC');
-    for (Integer i = 2; i < tokens.size(); i++) {
+    Integer next = 1;
+    // The direction may be left out, also before NULLS (`Name NULLS LAST` is `Name ASC NULLS
+    // LAST`); only an explicit ASC / DESC is taken as the direction (review r1 F9).
+    if (tokens.size() > 1 && (tokens[1].equalsIgnoreCase('ASC') || tokens[1].equalsIgnoreCase('DESC'))) {
+      normalized += ' ' + tokens[1].toUpperCase();
+      next = 2;
+    } else {
+      normalized += ' ASC';
+    }
+    for (Integer i = next; i < tokens.size(); i++) {
       normalized += ' ' + tokens[i].toUpperCase();
     }
     return normalized;

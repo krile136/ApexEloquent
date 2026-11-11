@@ -30,6 +30,13 @@ public with sharing class LikeConditionClause extends AbstractConditionClause {
   private final Object value;
 
   /**
+   * Set by whereContains / whereStartsWith / whereEndsWith (and their Not forms), whose
+   * pattern carries deliberate `\%` `\_` `\\` escapes. Without it the pattern is taken as
+   * v3 took it: `%` and `_` are wildcards and `\` is a plain character.
+   */
+  private Boolean escapesApply = false;
+
+  /**
    * Constructor for LikeConditionClause.
    *
    * @param sObjectType The Schema.SObjectType of the object.
@@ -95,14 +102,42 @@ public with sharing class LikeConditionClause extends AbstractConditionClause {
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
   ) {
-    return new LikeConditionClause(sObjectType, fieldMap, this.field, this.value);
+    LikeConditionClause copy = new LikeConditionClause(sObjectType, fieldMap, this.field, this.value);
+    copy.escapesApply = this.escapesApply;
+    return copy;
   }
 
   /**
    * @inheritdoc
    */
   public override IConditionClause overrideField(String field) {
-    return new LikeConditionClause(this.sObjectType, this.fieldMap, field, this.value);
+    LikeConditionClause copy = new LikeConditionClause(this.sObjectType, this.fieldMap, field, this.value);
+    copy.escapesApply = this.escapesApply;
+    return copy;
+  }
+
+  /**
+   * A copy whose pattern keeps its backslash escapes when bound. Internal: not part of the
+   * supported API; Scribe's whereContains family is the caller.
+   *
+   * @return A new clause.
+   */
+  public LikeConditionClause withEscapesApplied() {
+    LikeConditionClause copy = new LikeConditionClause(this.sObjectType, this.fieldMap, this.field, this.value);
+    copy.escapesApply = true;
+    return copy;
+  }
+
+  /**
+   * Doubles the backslashes of a bound pattern unless the escapes are deliberate, so a
+   * whereLike value means what it meant in v3 (measured: bound `%abc\%` matches nothing
+   * where the v3 literal matched `abc\x`; doubled, the bind matches `abc\x` again).
+   *
+   * @param text The pattern.
+   * @return The value to bind.
+   */
+  protected override String textBindValue(String text) {
+    return this.escapesApply ? text : text.replace('\\', '\\\\');
   }
 
   /**

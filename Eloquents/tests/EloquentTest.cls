@@ -2033,8 +2033,11 @@ public with sharing class EloquentTest {
   @isTest
   static void testGet_WhenEmptyNotInJoinedByOr_ThenEveryRowReturned() {
     // Arrange - issue #117 against a real query: `<nothing> OR (empty NOT IN)` is every row.
-    // Group is platform-frozen, so no org customization can change the count.
+    // Group is platform-frozen, so no org customization can change the count. One row is
+    // created so the test cannot pass on an empty table, where v3 also returned 0 (F8).
+    insert buildGroup('emptyNotInOr');
     Integer total = [SELECT COUNT() FROM Group];
+    Assert.isTrue(total > 0);
     Scribe scribe = Scribe.of(Group.class)
       .field('Id')
       .whereEqual('Name', 'EloquentRT no such group')
@@ -2100,5 +2103,51 @@ public with sharing class EloquentTest {
     Assert.areEqual(1, contains.size(), 'Only the name with a literal "50%_" matches.');
     Assert.areEqual(exact.Id, contains[0].getId());
     Assert.areEqual(2, startsWith.size(), 'The two names starting with a literal "50%" match; "50X_off" does not.');
+  }
+
+  @isTest
+  static void testGet_WhenWhereLikeHasBackslash_ThenMatchesLikeV3AndContainsEscapes() {
+    // Arrange - F3: bound, whereLike keeps v3's meaning (\ is a character), whereContains escapes
+    Long stamp = Datetime.now().getTime();
+    String bs = String.fromCharArray(new List<Integer>{ 92 });
+    Group withBackslash = new Group(Name = 'EloquentRT abc' + bs + 'x', DeveloperName = 'EloquentRT_bs1_' + stamp);
+    Group withPercent = new Group(Name = 'EloquentRT abc%y', DeveloperName = 'EloquentRT_bs2_' + stamp);
+    insert new List<Group>{ withBackslash, withPercent };
+
+    // Act
+    List<IEntry> likeRows = (new Eloquent()).get(Scribe.of(Group.class).field('Id').whereLike('Name', '%abc' + bs + '%'));
+    List<IEntry> contains = (new Eloquent()).get(Scribe.of(Group.class).field('Id').whereContains('Name', 'abc%'));
+
+    // Assert
+    Assert.areEqual(1, likeRows.size());
+    Assert.areEqual(withBackslash.Id, likeRows[0].getId(), 'whereLike: the backslash is a plain character, % a wildcard.');
+    Assert.areEqual(1, contains.size());
+    Assert.areEqual(withPercent.Id, contains[0].getId(), 'whereContains: % is a plain character.');
+  }
+
+  @isTest
+  static void testGet_WhenValueTypesAreBound_ThenSameRowsAsTheLiteral() {
+    // Arrange - F4: value types the matrix does not bind; each must be accepted as a bind and
+    // match what the literal text matches
+    List<Scribe> queries = new List<Scribe>{
+      Scribe.of(Opportunity.class).field('AccountId').max('CloseDate', 'm').groupByField('AccountId').havingCondition(Scribe.asHaving().whereGreaterThan('m', Date.today())),
+      Scribe.of(Opportunity.class).field('AccountId').min('Name', 'n').groupByField('AccountId').havingCondition(Scribe.asHaving().whereEqual('n', 'x')),
+      Scribe.of(Opportunity.class).field('AccountId').sum('Amount', 's').groupByField('AccountId').havingCondition(Scribe.asHaving().whereGreaterThan('s', 1)),
+      Scribe.of(Opportunity.class).field('Id').whereGreaterThan('Amount', 1L),
+      Scribe.of(Opportunity.class).field('Id').whereGreaterThan('Amount', 1.5d),
+      Scribe.of(Opportunity.class).field('Id').whereGreaterThan('Amount', 1.5),
+      Scribe.of(Opportunity.class).field('Id').whereEqual('Probability', 10),
+      Scribe.of(Opportunity.class).field('Id').whereEqual('IsPrivate', false),
+      Scribe.of(BusinessHours.class).field('Id').whereEqual('MondayStartTime', Time.newInstance(8, 0, 0, 0)),
+      Scribe.of(Contact.class).field('Id').whereEqual('Phone', ''),
+      Scribe.of(Contact.class).field('Id').whereEqual('AccountId', '')
+    };
+
+    // Act & Assert
+    for (Scribe query : queries) {
+      Integer viaBind = (new Eloquent()).get(query).size();
+      Integer viaLiteral = Database.query(query.toDisplay()).size();
+      Assert.areEqual(viaLiteral, viaBind, query.toDisplay());
+    }
   }
 }

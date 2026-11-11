@@ -69,12 +69,15 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * variable of the method that runs Database.query — measured on API v67.0, `:label`
    * resolved to a variable inside Eloquent. Date literals need a `:` in the middle; the
    * other mid-token forms measured (`0:n`, `n:n`, `LAST_N_DAYS::n`, `TODAY:n`) were all
-   * parse errors, not binds.
+   * parse errors, not binds. Since v4 a `:` must be followed by a digit, as in every date
+   * literal (`LAST_N_DAYS:30`) and time (`10:30:00Z`): queries now run through
+   * Database.queryWithBinds, where `:name` in the text would name a bind variable, so a value
+   * must not be able to write one (review r1 F7).
    *
    * The token may also have the shape of a field name (`AnnualRevenue`). SOQL does not
    * compare a field with a field, and both forms measured were parse errors.
    */
-  private static final Pattern UNQUOTED_LITERAL = Pattern.compile('[A-Za-z0-9_.+\\-][A-Za-z0-9_:.+\\-]*');
+  private static final Pattern UNQUOTED_LITERAL = Pattern.compile('[A-Za-z0-9_.+\\-]([A-Za-z0-9_.+\\-]|:[0-9])*');
 
   /**
    * When set, getFieldType reports a number whatever the field type is. See
@@ -356,7 +359,7 @@ public with sharing abstract class AbstractConditionClause implements ICondition
       if (value instanceof Date || value instanceof Datetime) {
         return this.formatAndCastToString(value);
       }
-      return String.valueOf(value);
+      return this.textBindValue(String.valueOf(value));
     }
     switch on fieldType {
       when DATE {
@@ -365,7 +368,12 @@ public with sharing abstract class AbstractConditionClause implements ICondition
       when DATETIME {
         // A Date is also `instanceof Datetime` (measured; the reverse is false), so the Date
         // check is what keeps a Date for a Datetime field on the literal path.
-        return value instanceof Datetime && !(value instanceof Date) ? value : null;
+        if (!(value instanceof Datetime) || value instanceof Date) {
+          return null;
+        }
+        // The literal is written to the second (formatGmt 'ss'); bind the same instant, so a
+        // millisecond part cannot move a boundary (>=, <=, =) away from what v3 matched.
+        return Datetime.newInstance(((Datetime) value).getTime() / 1000 * 1000);
       }
       when TIME {
         return value instanceof Time ? value : null;
@@ -390,6 +398,18 @@ public with sharing abstract class AbstractConditionClause implements ICondition
       }
     }
     return null;
+  }
+
+  /**
+   * The bind value for a text compared with a text field. LIKE overrides it: a bound pattern
+   * reads `\` as an escape, where the v3 literal (escapeSingleQuotes doubles it) read it as a
+   * plain character.
+   *
+   * @param text The value as text.
+   * @return The value to bind.
+   */
+  protected virtual String textBindValue(String text) {
+    return text;
   }
 
   /**

@@ -81,7 +81,11 @@ public with sharing class SoqlBinds {
     String expanded = '';
     Integer last = 0;
     while (matcher.find()) {
-      expanded += boundSoql.substring(last, matcher.start()) + this.literals[Integer.valueOf(matcher.group(1))];
+      Integer index = Integer.valueOf(matcher.group(1));
+      if (index >= this.literals.size()) {
+        continue; // not one of ours (text that happens to look like a placeholder): leave it
+      }
+      expanded += boundSoql.substring(last, matcher.start()) + this.literals[index];
       last = matcher.end();
     }
     return expanded + boundSoql.substring(last);

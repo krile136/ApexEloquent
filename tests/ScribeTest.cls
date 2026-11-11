@@ -6724,11 +6724,19 @@ public with sharing class ScribeTest {
   }
 
   @isTest
-  static void testThrough_WhenForUpdate_ThenThrowAsSubquery() {
-    assertRefused(
-      Scribe.of(Order.class).field('Id').through(Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').forUpdate()),
-      'FOR UPDATE in a subquery'
-    );
+  static void testThrough_WhenForUpdateOrAllRows_ThenThrowNamingAsThrough() {
+    // through() refuses them itself, so the message names asThrough(), not a child subquery
+    for (Scribe target : new List<Scribe>{
+      Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').forUpdate(),
+      Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').allRows()
+    }) {
+      try {
+        Scribe.of(Order.class).field('Id').through(target);
+        Assert.fail('Expected ApexEloquentException.');
+      } catch (ApexEloquentException e) {
+        Assert.isTrue(e.getMessage().contains('Not allowed on asThrough()'), 'Got: ' + e.getMessage());
+      }
+    }
   }
 
   @isTest
@@ -7004,5 +7012,58 @@ public with sharing class ScribeTest {
     Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotContains('Name', 'x').toDisplay().contains('(NOT Name LIKE'));
     Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotStartsWith('Name', 'x').toDisplay().contains('(NOT Name LIKE'));
     Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotEndsWith('Name', 'x').toDisplay().contains('(NOT Name LIKE'));
+  }
+
+  // ---- review r1 fixes ----
+
+  @isTest
+  static void testToBoundQuery_WhenDatetimeHasMilliseconds_ThenBoundToTheSecond() {
+    // Arrange - the literal is written to the second; the bind must be the same instant (F2)
+    Datetime withMs = Datetime.newInstanceGmt(2026, 1, 2, 3, 4, 5).addSeconds(0);
+    withMs = Datetime.newInstance(withMs.getTime() + 789);
+
+    // Act
+    SoqlBinds.BoundQuery bound = Scribe.of(Account.class).field('Id').whereGreaterThanOrEqual('CreatedDate', withMs).toBoundQuery();
+
+    // Assert
+    Datetime boundValue = (Datetime) bound.binds.values()[0];
+    Assert.areEqual(0, boundValue.millisecondGmt(), 'Milliseconds must be dropped like the literal drops them.');
+    Assert.areEqual(withMs.getTime() / 1000 * 1000, boundValue.getTime());
+  }
+
+  @isTest
+  static void testToBoundQuery_WhenWhereLikeHasBackslash_ThenDoubledLikeV3() {
+    // Act - whereLike keeps v3's meaning: a backslash is a plain character (F3)
+    SoqlBinds.BoundQuery likeQuery = Scribe.of(Account.class).field('Id').whereLike('Name', '%abc\\%').toBoundQuery();
+    SoqlBinds.BoundQuery containsQuery = Scribe.of(Account.class).field('Id').whereContains('Name', 'abc%').toBoundQuery();
+
+    // Assert - whereContains keeps its single-backslash escapes
+    Assert.areEqual('%abc\\\\%', likeQuery.binds.values()[0]);
+    Assert.areEqual('%abc\\%%', containsQuery.binds.values()[0]);
+  }
+
+  @isTest
+  static void testWhereGreaterThan_WhenStringWritesABindName_ThenRefused() {
+    // Arrange - a value must not be able to name a bind variable once queries run bound (F7)
+    try {
+      Scribe.of(Account.class).field('Id').whereGreaterThan('CreatedDate', 'LAST_N_DAYS:aeBind0').toDisplay();
+      Assert.fail('Expected ApexEloquentException.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('not a single SOQL literal'), 'Got: ' + e.getMessage());
+    }
+    // Date literals, ISO datetimes and times keep working
+    Assert.isTrue(
+      Scribe.of(Account.class).field('Id').whereGreaterThan('CreatedDate', 'LAST_N_DAYS:30').toDisplay().endsWith('CreatedDate > LAST_N_DAYS:30')
+    );
+    Assert.isTrue(
+      Scribe.of(Account.class).field('Id').whereGreaterThan('CreatedDate', '2026-01-01T00:00:00Z').toDisplay().endsWith('CreatedDate > 2026-01-01T00:00:00Z')
+    );
+  }
+
+  @isTest
+  static void testAssertOrderBy_WhenDirectionLeftOutBeforeNulls_ThenAsc() {
+    // F9
+    Scribe query = Scribe.of(Account.class).field('Id').orderBy('Name', 'ASC', 'LAST');
+    query.assertOrderBy(new List<String>{ 'Name NULLS LAST' });
   }
 }

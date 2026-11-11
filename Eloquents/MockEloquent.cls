@@ -47,11 +47,17 @@
  * rules, required fields, unique constraints, triggers and their side effects,
  * lookup filters, field length and value-type conformance (STRING_TOO_LONG etc.), or governor limits. Nor does it reproduce the 10-chunk limit on
  * type-mixed lists. Those belong to integration tests against a real org.
+ * Test-only since v4 (@IsTest). Production code that constructs a MockEloquent still
+ * compiles, but throws `System.TypeException: Cannot call test methods in non-test
+ * context` when it runs (measured, also when installed from the unlocked package). Tests in
+ * the subscriber org use it as before. Being a test class, it no longer counts toward the
+ * org's Apex size limit or the coverage denominator.
  * @see IEloquent
  * @see Eloquent
  * @see MockEntry
  * @directory ApexEloquent/Eloquents
  */
+@IsTest
 public with sharing class MockEloquent implements IEloquent {
   private static final String DEFAULT_LABEL = 'default';
 

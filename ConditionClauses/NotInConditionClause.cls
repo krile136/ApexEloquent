@@ -24,9 +24,11 @@
  * clause. It correctly handles null values within the collection by converting them to
  * the `NULL` literal.
  *
- * A key feature is its graceful handling of empty lists: instead of causing a SOQL
- * error, it returns an empty string, which causes the Scribe builder to ignore the
- * condition entirely.
+ * An empty list is always true (no value is "in" it), so instead of causing a SOQL error
+ * it renders the always-true `Id != null`, mirroring the always-false `Id = null` of an
+ * empty `IN` — the same choice as Laravel (`1 = 1` / `0 = 1`). Before v4 it rendered
+ * nothing and dropped out, which was harmless under AND but turned `A OR true` (every
+ * row) into `A` under OR, narrowing the result without any sign (issue #117).
  * @see IConditionClause
  * @see AbstractConditionClause
  * @directory ApexEloquent/ConditionClauses
@@ -89,9 +91,24 @@ public with sharing class NotInConditionClause extends AbstractConditionClause {
     return 'notIn';
   }
 
+  /**
+   * Whether the list is empty, so the clause matches every row. For Scribe's HAVING clause,
+   * which cannot use the `Id != null` that build() writes for this case. Internal: not part
+   * of the supported API.
+   *
+   * @return true when no value was given.
+   */
+  public Boolean hasNoValues() {
+    return this.values.isEmpty();
+  }
+
   public override String build() {
     if (this.values.isEmpty()) {
-      return '';
+      // Matches every row. Like the empty IN, it names the queried object's own Id, never
+      // the rendered field: under a parent condition `Account.Id != null` would drop the
+      // children that have no parent. Measured: `... OR Id != null` returns every row at
+      // the root, in a child subquery and inside a semi-join.
+      return 'Id != null';
     }
     return String.format('{0} NOT IN ({1})', new List<String>{ this.soqlField(), this.checkAndCast() });
   }

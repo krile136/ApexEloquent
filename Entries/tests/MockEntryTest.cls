@@ -59,12 +59,12 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void testConstructor_WhenApplyOnlyFieldToValue_ThenMockEntryCreated() {
+  static void testAsAggregateResult_WhenApplyFieldToValue_ThenMockEntryCreated() {
     // Arrange
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'Name' => 'Mock Account', 'maxAmount' => 100 };
 
     // Act
-    MockEntry mockEntry = new MockEntry(fieldToValue);
+    MockEntry mockEntry = MockEntry.asAggregateResult(fieldToValue);
 
     // Assert
     Assert.isNotNull(mockEntry, 'MockEntry should be created successfully with only fieldToValue');
@@ -467,6 +467,80 @@ public class MockEntryTest {
       Assert.isTrue(errorMessage.contains('autoId(String suffix)'));
       Assert.isTrue(errorMessage.contains('argument is required'));
     }
+  }
+
+  @isTest
+  static void testTimes_WhenLookupHoldsRealId_ThenIdIsKept() {
+    // Arrange - issue #122: a real Id in a field whose name ends with "Id" became null
+    Id oppId = MockEntry.of(Opportunity.class).autoId(1).getId();
+    Id ownerId = MockEntry.of(User.class).autoId(1).getId();
+
+    // Act
+    List<MockEntry> events = MockEntry.of(Event.class).set('WhatId', oppId).set('OwnerId', ownerId).times(2);
+
+    // Assert
+    for (MockEntry e : events) {
+      Assert.areEqual(oppId, e.withoutFieldValidation().get('WhatId'), 'A polymorphic lookup must keep the given Id.');
+      Assert.areEqual(ownerId, e.withoutFieldValidation().get('OwnerId'), 'A lookup must keep the given Id.');
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenAutoIdPlaceholder_ThenSequentialIdsAreGenerated() {
+    // Act - the record's own Id is still auto-numbered from the placeholder
+    List<MockEntry> accounts = MockEntry.of(Account.class).autoId('{#}').times(2);
+
+    // Assert
+    Assert.areEqual(MockEntry.of(Account.class).autoId(1).getId(), accounts[0].getId());
+    Assert.areEqual(MockEntry.of(Account.class).autoId(2).getId(), accounts[1].getId());
+  }
+
+  @isTest
+  static void testTimes_WhenLookupPlaceholder_ThenReferencedObjectIdsLineUp() {
+    // Arrange - five accounts, and opportunities on the 1st, 3rd and 5th of them
+    List<MockEntry> accounts = MockEntry.of(Account.class).autoId('{#}').times(5);
+
+    // Act
+    List<MockEntry> opps = MockEntry.of(Opportunity.class).set('AccountId', '{#}').times(3, 1, 2);
+
+    // Assert - the placeholder numbers Account Ids, not Opportunity Ids
+    Assert.areEqual(accounts[0].getId(), opps[0].withoutFieldValidation().get('AccountId'));
+    Assert.areEqual(accounts[2].getId(), opps[1].withoutFieldValidation().get('AccountId'));
+    Assert.areEqual(accounts[4].getId(), opps[2].withoutFieldValidation().get('AccountId'));
+  }
+
+  @isTest
+  static void testTimes_WhenPolymorphicLookupPlaceholder_ThenThrowException() {
+    // Act & Assert - WhatId can point at many objects; a number alone cannot pick one
+    try {
+      MockEntry.of(Event.class).set('WhatId', '{#}').times(2);
+      Assert.fail('Expected ApexEloquentException for a placeholder in a polymorphic lookup.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('WhatId'), 'Should name the field. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenFixedIdAndSeveralEntries_ThenThrowException() {
+    // Act & Assert - every entry would share one Id (it used to become null silently)
+    try {
+      MockEntry.of(Account.class).autoId(1).times(2);
+      Assert.fail('Expected ApexEloquentException for a fixed Id copied to several entries.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('autoId'), 'Should point at autoId(\'{#}\'). Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testTimes_WhenFixedIdAndOneEntry_ThenIdIsKept() {
+    // Arrange
+    MockEntry template = MockEntry.of(Account.class).autoId(1);
+
+    // Act
+    List<MockEntry> entries = template.times(1);
+
+    // Assert
+    Assert.areEqual(template.getId(), entries[0].getId(), 'A single entry keeps the fixed Id.');
   }
 
   @isTest
@@ -927,7 +1001,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 };
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -950,7 +1024,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500, 'maxAmount' => 2000 };
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -973,7 +1047,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500, 'maxAmount' => 2000 };
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -999,7 +1073,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 }; // StageName is not exist
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -1022,7 +1096,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'StageName' => 'Test StageName' }; // alias 'avgAmount' is not exist
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -1045,7 +1119,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{
       'StageName' => 'Test StageName',
@@ -1132,7 +1206,7 @@ public class MockEntryTest {
       .field('StageName')
       .average('Amount', 'avgAmount')
       .groupByField('StageName');
-    String soql = scribe.toSoql(); // for generate aggregate field structure
+    String soql = scribe.toDisplay(); // for generate aggregate field structure
     FieldStructure fieldStructure = scribe.buildAggregateFieldStructure();
     Map<String, Object> fieldToValue = new Map<String, Object>{ 'avgAmount' => 1500 };
     MockEntry mockEntry = new MockEntry(null, fieldStructure, fieldToValue);
@@ -2045,7 +2119,7 @@ public class MockEntryTest {
   static void testGetChildren_WhenGivenRelationName_ThenFallbackResolveAndReturnChildren() {
     // For a mock built with Scribe.relationName('Contracts') / setChildren('Contracts', ...),
     // calling getChildren('Contracts') (the relationship name, not the SObject name) must work
-    // via the fallback path so callers don't have to switch to getChildrenByRelationName.
+    // via the fallback path.
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.of(Account.class)
@@ -2060,7 +2134,7 @@ public class MockEntryTest {
     };
     MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
 
-    // Act — calling getChildren with the relation name (instead of getChildrenByRelationName)
+    // Act — calling getChildren with the relation name
     List<IEntry> children = mockEntry.getChildren('Contracts');
 
     // Assert
@@ -2071,33 +2145,7 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void testGetChildrenByRelationName_WhenRelationNameIsValid_ThenReturnChildEntries() {
-    // Arrange
-    SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
-    Scribe scribe = Scribe.of(Account.class)
-      .fields(new List<String>{ 'id', 'name' })
-      .withChildren(Scribe.asChild(Contract.class).relationName('Contracts').fields(new List<String>{ 'name' }));
-    FieldStructure fieldStructure = scribe.buildFieldStructure();
-    Map<String, Object> fieldToValue = new Map<String, Object>{
-      'Contracts' => new List<IEntry>{
-        new MockEntry(new Contract(), new Map<String, Object>{ 'Name' => 'Test Contract 1' }),
-        new MockEntry(new Contract(), new Map<String, Object>{ 'Name' => 'Test Contract 2' })
-      }
-    };
-    MockEntry mockEntry = new MockEntry(record, fieldStructure, fieldToValue);
-
-    // Act
-    List<IEntry> children = mockEntry.getChildrenByRelationName('Contracts');
-
-    // Assert
-    Assert.isNotNull(children, 'Children should not be null.');
-    Assert.areEqual(2, children.size(), 'There should be two child entries.');
-    Assert.areEqual('Test Contract 1', children[0].getName(), 'First child name should match.');
-    Assert.areEqual('Test Contract 2', children[1].getName(), 'Second child name should match.');
-  }
-
-  @isTest
-  static void testGetChildrenByRelationName_WhenRelationNameIsInvalid_ThenThrowException() {
+  static void testGetChildren_WhenRelationNameIsInvalid_ThenThrowException() {
     // Arrange
     SObject record = new Account(Id = '001000000000000', Name = 'Test Account');
     Scribe scribe = Scribe.of(Account.class)
@@ -2109,12 +2157,10 @@ public class MockEntryTest {
 
     // Act & Assert
     try {
-      List<IEntry> children = mockEntry.getChildrenByRelationName('Contract__r');
+      List<IEntry> children = mockEntry.getChildren('Contract__r');
       Assert.fail('Expected ApexEloquentException to be thrown.');
     } catch (ApexEloquentException e) {
-      String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('getChildrenByRelationName(String childRelationName)'));
-      Assert.isTrue(errorMessage.contains('argument is Invalid'));
+      Assert.isTrue(e.getMessage().contains('Contract__r'), 'Should name the relation. Got: ' + e.getMessage());
     }
   }
 
@@ -2152,41 +2198,8 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void testGetThroughByRelationName_WhenRelationIsValid_ThenReturnRelatedObject() {
-    // Arrange
-    SObject record = new User(Id = '005000000000000');
-    Scribe scribe = Scribe.of(Order.class)
-      .field('Id')
-      .through(
-        Scribe.asThrough(OrderItem.class, 'Product2Id').relationName('OrderItems').field('Id').field('Name')
-      );
-    FieldStructure fieldStructure = scribe.buildFieldStructure();
-    MockEntry mockEntry = MockEntry.of(Order.class)
-      .setChildren(
-        'OrderItems',
-        new List<MockEntry>{
-          MockEntry.of(OrderItem.class)
-            .setParent('Product2Id', MockEntry.of(Product2.class).autoId(1).set('Name', 'Last Modify 1')),
-          MockEntry.of(OrderItem.class)
-            .setParent('Product2Id', MockEntry.of(Product2.class).autoId(2).set('Name', 'Last Modify 2'))
-        }
-      );
-    mockEntry = (MockEntry) mockEntry.setFieldStructure(fieldStructure);
-
-    // Act
-    List<IEntry> relatedObjects = mockEntry.getThroughByRelationName('OrderItems', 'Product2Id');
-
-    // Assert
-    Assert.isNotNull(relatedObjects, 'Related objects should not be null.');
-    Assert.areEqual(2, relatedObjects.size(), 'There should be two related objects.');
-    Assert.areEqual('Last Modify 1', relatedObjects[0].getName(), 'First related object name should match.');
-    Assert.areEqual('Last Modify 2', relatedObjects[1].getName(), 'Second related object name should match.');
-  }
-
-  @isTest
   static void testGetThrough_WhenRelationNameGiven_ThenReturnRelatedObject() {
     // Arrange: getThrough now also accepts a junction RELATIONSHIP name
-    // (folded in from getThroughByRelationName, mirroring the getChildren consolidation).
     Scribe scribe = Scribe.of(Order.class)
       .field('Id')
       .through(
@@ -2208,7 +2221,7 @@ public class MockEntryTest {
     // Act: pass the RELATION name 'OrderItems' to getThrough (not the object name 'OrderItem')
     List<IEntry> relatedObjects = mockEntry.getThrough('OrderItems', 'Product2Id');
 
-    // Assert: resolves identically to getThroughByRelationName
+    // Assert
     Assert.isNotNull(relatedObjects, 'Related objects should not be null.');
     Assert.areEqual(2, relatedObjects.size(), 'There should be two related objects.');
     Assert.areEqual('Last Modify 1', relatedObjects[0].getName(), 'First related object name should match.');
@@ -2422,7 +2435,7 @@ public class MockEntryTest {
         'contacts',
         MockEntry.of(Contact.class)
           .alias('testContact_{#}')
-          .autoId(1)
+          .autoId('{#}')
           .set('LastName', 'Test Contact {#}')
           .times(times)
       );
@@ -2661,7 +2674,7 @@ public class MockEntryTest {
   //   タイポしたフィールド名が fieldToValue に静かに格納され、SUT が正しい
   //   名前で get したら値が見つからず null 経路に流れて挙動が変わる」 という
   //   silent な mock 不整合。
-  // - 対策として set / add / setParent / addParent の write 時点で
+  // - 対策として set / setParent の write 時点で
   //   SObject metadata に照らして fieldName をチェックする。
   // - エスケープは独立フラグ withoutSObjectFieldValidation()。既存の
   //   withoutFieldValidation() (Scribe FieldStructure 用) と混ぜると
@@ -2715,27 +2728,6 @@ public class MockEntryTest {
   }
 
   @isTest
-  static void testAdd_WhenFieldNameIsTypo_ThenThrowException() {
-    try {
-      MockEntry.of(Account.class).add('Naame', 'foo');
-      Assert.fail('Expected ApexEloquentException for typo field name on add.');
-    } catch (ApexEloquentException e) {
-      String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('Naame'), 'Error should mention the typo: ' + errorMessage);
-      Assert.isTrue(
-        errorMessage.contains('add(String fieldName, Object value)'),
-        'Error should mention the add method: ' + errorMessage
-      );
-    }
-  }
-
-  @isTest
-  static void testAdd_WhenFieldNameIsCorrect_ThenStoresValue() {
-    MockEntry mock = (MockEntry) MockEntry.of(Account.class).add('Name', 'Acme').withoutFieldValidation();
-    Assert.areEqual('Acme', mock.get('Name'));
-  }
-
-  @isTest
   static void testSetParent_WhenParentIdFieldNameIsTypo_ThenThrowException() {
     MockEntry parent = (MockEntry) MockEntry.of(Account.class).autoId(1).set('Name', 'Parent');
     try {
@@ -2756,22 +2748,6 @@ public class MockEntryTest {
       .withoutFieldValidation();
 
     Assert.areEqual('Parent Acme', child.getParent('AccountId').get('Name'));
-  }
-
-  @isTest
-  static void testAddParent_WhenParentIdFieldNameIsTypo_ThenThrowException() {
-    MockEntry parent = (MockEntry) MockEntry.of(Account.class).autoId(1).set('Name', 'Parent');
-    try {
-      MockEntry.of(Contact.class).addParent('AccountIddd', parent);
-      Assert.fail('Expected ApexEloquentException for typo parentIdFieldName.');
-    } catch (ApexEloquentException e) {
-      String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('AccountIddd'), 'Error should mention the typo: ' + errorMessage);
-      Assert.isTrue(
-        errorMessage.contains('addParent(String parentIdFieldName, MockEntry parent)'),
-        'Error should mention the addParent method: ' + errorMessage
-      );
-    }
   }
 
   @isTest
@@ -2815,7 +2791,7 @@ public class MockEntryTest {
   static void testSet_WhenAggregateResultMode_ThenSkipSObjectCheck() {
     // AggregateResult mode has record=null; there is no SObjectType to validate
     // against, so set must remain lenient (no throw).
-    MockEntry mock = (MockEntry) new MockEntry(new Map<String, Object>{ 'aliasA' => 1 })
+    MockEntry mock = (MockEntry) MockEntry.asAggregateResult(new Map<String, Object>{ 'aliasA' => 1 })
       .set('aliasB', 2);
 
     Assert.isNotNull(mock, 'set on AggregateResult-mode MockEntry should not throw.');

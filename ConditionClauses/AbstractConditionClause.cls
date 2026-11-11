@@ -69,12 +69,15 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * variable of the method that runs Database.query — measured on API v67.0, `:label`
    * resolved to a variable inside Eloquent. Date literals need a `:` in the middle; the
    * other mid-token forms measured (`0:n`, `n:n`, `LAST_N_DAYS::n`, `TODAY:n`) were all
-   * parse errors, not binds.
+   * parse errors, not binds. Since v4 a `:` must be followed by a digit, as in every date
+   * literal (`LAST_N_DAYS:30`) and time (`10:30:00Z`): queries now run through
+   * Database.queryWithBinds, where `:name` in the text would name a bind variable, so a value
+   * must not be able to write one (review r1 F7).
    *
    * The token may also have the shape of a field name (`AnnualRevenue`). SOQL does not
    * compare a field with a field, and both forms measured were parse errors.
    */
-  private static final Pattern UNQUOTED_LITERAL = Pattern.compile('[A-Za-z0-9_.+\\-][A-Za-z0-9_:.+\\-]*');
+  private static final Pattern UNQUOTED_LITERAL = Pattern.compile('[A-Za-z0-9_.+\\-]([A-Za-z0-9_.+\\-]|:[0-9])*');
 
   /**
    * When set, getFieldType reports a number whatever the field type is. See
@@ -319,6 +322,151 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * @throws ApexEloquentException when the value would render as more than one token.
    */
   protected String toSoqlLiteral(Schema.DisplayType fieldType, Object value) {
+    String literal = this.toLiteral(fieldType, value);
+    SoqlBinds binds = SoqlBinds.active;
+    if (binds == null) {
+      return literal;
+    }
+    Object bindValue = this.toBindValue(fieldType, value);
+    return bindValue == null ? literal : binds.add(bindValue, literal);
+  }
+
+  /**
+   * The value as Database.queryWithBinds should receive it, or null when it stays a literal.
+   *
+   * The engine checks a bind's Apex type against the column strictly (measured: a String for
+   * a Date, Integer or Boolean column, a Decimal for an Integer column, and a List<Object> all
+   * fail with "Invalid bind expression type"). So only values already of the field's own type
+   * are bound; everything else keeps the literal it has always had. That keeps every input
+   * accepted today working — above all the Strings SOQL reads as date literals
+   * (`LAST_N_DAYS:30`), ISO datetimes and `'null'`, which no bind can express — while every
+   * value compared with a text field, where user input usually lands, is bound.
+   *
+   * A Date compared with a Datetime field stays a literal: the two may not mean the same
+   * instant (a date literal is read in the user's time zone), and this change must not move
+   * results. HAVING operands (asNumericOperand) bind only an Integer; COUNT refuses a decimal.
+   *
+   * @param fieldType The display type of the field the value is compared against.
+   * @param value The value, not null.
+   * @return The value to bind, or null to keep the literal.
+   */
+  private Object toBindValue(Schema.DisplayType fieldType, Object value) {
+    if (this.numericOperand) {
+      return value instanceof Integer ? value : null;
+    }
+    if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
+      // The same text the literal carries, without the escaping a bind does not need.
+      if (value instanceof Date || value instanceof Datetime) {
+        return this.formatAndCastToString(value);
+      }
+      return this.textBindValue(String.valueOf(value));
+    }
+    switch on fieldType {
+      when DATE {
+        return value instanceof Date ? value : null;
+      }
+      when DATETIME {
+        // A Date is also `instanceof Datetime` (measured; the reverse is false), so the Date
+        // check is what keeps a Date for a Datetime field on the literal path.
+        if (!(value instanceof Datetime) || value instanceof Date) {
+          return null;
+        }
+        // The literal is written to the second (formatGmt 'ss'); bind the same instant, so a
+        // millisecond part cannot move a boundary (>=, <=, =) away from what v3 matched.
+        // Built from the same GMT components formatGmt writes, so the second is the literal's
+        // also before 1970, where dividing getTime() would round toward zero (review r2 N3).
+        Datetime instant = (Datetime) value;
+        return Datetime.newInstanceGmt(
+          instant.yearGmt(),
+          instant.monthGmt(),
+          instant.dayGmt(),
+          instant.hourGmt(),
+          instant.minuteGmt(),
+          instant.secondGmt()
+        );
+      }
+      when TIME {
+        return value instanceof Time ? value : null;
+      }
+      when BOOLEAN {
+        return value instanceof Boolean ? value : null;
+      }
+      when INTEGER {
+        return value instanceof Integer ? value : null;
+      }
+      when DOUBLE, CURRENCY, PERCENT {
+        if (!(value instanceof Decimal)) {
+          return null;
+        }
+        try {
+          Decimal numeric = (Decimal) value;
+          numeric.toPlainString(); // NaN throws only when written out (measured)
+          return numeric;
+        } catch (MathException e) {
+          return null; // the literal path refuses it
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The bind value for a text compared with a text field. LIKE overrides it: a bound pattern
+   * reads `\` as an escape, where the v3 literal (escapeSingleQuotes doubles it) read it as a
+   * plain character.
+   *
+   * @param text The value as text.
+   * @return The value to bind.
+   */
+  protected virtual String textBindValue(String text) {
+    return text;
+  }
+
+  /**
+   * Writes a DateLiteral, which only a Date or Datetime field can be compared with (also as
+   * the MIN / MAX of one in HAVING). Against a text field it would otherwise be quoted and
+   * compared as the string 'LAST_N_DAYS:30' without a sign; against a number it would fail at
+   * run time. It is never bound: a date literal has no bind form, and its text is fixed by
+   * DateLiteral.
+   *
+   * @param fieldType The display type of the field.
+   * @param literal The date literal.
+   * @return The literal's SOQL text.
+   * @throws ApexEloquentException for any other field type.
+   */
+  private String toDateLiteral(Schema.DisplayType fieldType, DateLiteral literal) {
+    if (!this.numericOperand && (fieldType == Schema.DisplayType.DATE || fieldType == Schema.DisplayType.DATETIME)) {
+      return literal.toString();
+    }
+    String reason = String.format(
+      'A DateLiteral ({0}) was compared with `{1}`, which is not a Date or Datetime field.',
+      new List<String>{ literal.toString(), this.field }
+    );
+    ApexEloquentException.invalidArgument(
+        CLASS_NAME,
+        null,
+        reason,
+        'Compare a DateLiteral with a Date or Datetime field only',
+        'value',
+        literal.toString()
+      )
+      .param('field', this.field)
+      .fire();
+    return null; // unreachable
+  }
+
+  /**
+   * The literal for one value (the rendering before v4, unchanged).
+   *
+   * @param fieldType The display type of the field the value is compared against.
+   * @param value The value to render. Callers handle null before calling this.
+   * @return The SOQL literal.
+   * @throws ApexEloquentException when the value would render as more than one token.
+   */
+  private String toLiteral(Schema.DisplayType fieldType, Object value) {
+    if (value instanceof DateLiteral) {
+      return this.toDateLiteral(fieldType, (DateLiteral) value);
+    }
     if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
       return '\'' + this.formatAndCastToString(value) + '\'';
     }

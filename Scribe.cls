@@ -88,7 +88,6 @@ public with sharing class Scribe {
   // Relationship properties
   private List<ParentScribe> parents = new List<ParentScribe>();
   private List<Scribe> children = new List<Scribe>();
-  private List<Scribe> throughScribes = new List<Scribe>();
   private Schema.SObjectType junctionSObjectType;
   private String parentRelationIdFieldName;
   private String relationName = '';
@@ -96,13 +95,16 @@ public with sharing class Scribe {
   // Aggregate clause properties
   private List<GroupByClause> groupByClauses = new List<GroupByClause>();
   private Map<String, AliasStructure> aggregateAliasMap = new Map<String, AliasStructure>();
+  // The GROUP BY fields as the last build wrote them, for checking ORDER BY in the same build.
+  private List<String> renderedGroupByFields = new List<String>();
   private Scribe havingScribe;
 
   // ORDER BY clause properties
   private List<Scribe.OrderByClause> orderByClauses = new List<Scribe.OrderByClause>();
 
   // LIMIT clause properties
-  private Integer limitNumber = 0;
+  // null = no LIMIT. take(0) is a real LIMIT 0 (zero rows, measured), not "unset" (#103).
+  private Integer limitNumber = null;
 
   // OFFSET clause properties
   private Integer offsetNumber = 0;
@@ -114,6 +116,7 @@ public with sharing class Scribe {
   private Boolean isThrough = false;
   private Boolean isHaving = false;
   private Boolean isForUpdate = false;
+  private Boolean isAllRows = false;
 
   // Constants
   private final Integer MAX_UPPER_NESTING_DEPTH = 5;
@@ -125,7 +128,7 @@ public with sharing class Scribe {
 
   /**
    * Constructor to initialize a Scribe instance.
-   * Use the static `source()` method to start building a query.
+   * Use the static `of()` method to start building a query.
    * @param sObjectType The SObject type for the query.
    */
   public Scribe(Schema.SObjectType sObjectType) {
@@ -138,29 +141,9 @@ public with sharing class Scribe {
   // =================================================================================================================
 
   /**
-   * @deprecated
-   * This method is deprecated in favor of {@link #of(System.Type)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
    * Creates a new Scribe instance, setting the source SObject (the FROM clause).
    * This is the entry point for building a new query.
-   * Example: `Scribe.source(Account.getSObjectType())`
-   *
-   * @param sObjectType The SObject type to query from.
-   * @return A new Scribe instance.
-   */
-  public static Scribe source(Schema.SObjectType sObjectType) {
-    Scribe newScribe = new Scribe(sObjectType);
-    return newScribe;
-  }
-
-  /**
-   * Creates a new Scribe instance, setting the source SObject (the FROM clause).
-   * This is the entry point for building a new query.
-   * Example: `Scribe.source(Account.getSObjectType())`
+   * Example: `Scribe.of(Account.class)`
    *
    * @param recordType The Class type of the SObject (e.g., Account.class).
    * @return A new Scribe instance.
@@ -228,25 +211,13 @@ public with sharing class Scribe {
   }
 
   /**
-   * @deprecated
-   * This method is deprecated in favor asChild {@link #asChild(System.Type)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * Creates a Scribe instance representing a child subquery.
-   * Example: `.withChildren(Scribe.asChild(Contact.getSObjectType()).fields(...).whereEqual(...))`
+   * Builds the child-subquery Scribe for a resolved SObjectType. asChild(System.Type) is the
+   * public entry point; the SObjectType overload was removed in v4.
    *
    * @param childSObjectType The SObjectType of the child records.
    * @return A new Scribe instance configured for a child relationship.
-   * @throws ApexEloquentException if the SObjectType is null.
    */
-  public static Scribe asChild(Schema.SObjectType childSObjectType) {
-    String method = 'asChild(Schema.SObjectType childSObjectType)';
-    if (childSObjectType == null) {
-      throw ApexEloquentException.required(CLASS_NAME, method, 'childRecordType', null).build();
-    }
+  private static Scribe newChild(Schema.SObjectType childSObjectType) {
     Scribe newScribe = new Scribe(childSObjectType);
     newScribe.isChild = true;
 
@@ -255,7 +226,7 @@ public with sharing class Scribe {
 
   /**
    * Creates a Scribe instance representing a child subquery.
-   * Example: `.withChildren(Scribe.asChild(Contact.getSObjectType()).fields(...).whereEqual(...))`
+   * Example: `.withChildren(Scribe.asChild(Contact.class).field(...).whereEqual(...))`
    *
    * @param childRecordType The Class type of the child SObject (e.g., Contact.class).
    * @return A new Scribe instance configured for a child relationship.
@@ -283,7 +254,7 @@ public with sharing class Scribe {
     }
 
     Schema.SObjectType childSObjectType = ((SObject) instance).getSObjectType();
-    return Scribe.asChild(childSObjectType);
+    return newChild(childSObjectType);
   }
 
   /**
@@ -295,30 +266,6 @@ public with sharing class Scribe {
   public static Scribe asHaving() {
     Scribe newScribe = new Scribe(null);
     newScribe.isHaving = true;
-    return newScribe;
-  }
-
-  /**
-   * @deprecated
-   * This method is deprecated in favor asThrough {@link #asThrough(System.Type)} to align with
-   * the declaration patterns of `ApexBlueprint` (my other OSS) and provide
-   * a more intuitive developer experience (DX).
-   * * * This method is maintained for backward compatibility but may be removed
-   * in a future version.
-   *
-   * Creates a Scribe instance for a many-to-many relationship traversal.
-   * Example: `.through(Scribe.asThrough(JunctionObject.getSObjectType(), 'TargetObject__c'))`
-   *
-   * @param junctionSObjectType The SObjectType of the junction object.
-   * @param relatedKey The API name of the lookup/master-detail field on the junction object that points to the final target object.
-   * @return A new Scribe instance configured for a many-to-many relationship.
-   */
-  public static Scribe asThrough(Schema.SObjectType junctionSObjectType, String relatedKey) {
-    Scribe newScribe = new Scribe(null);
-    newScribe.isThrough = true;
-    newScribe.junctionSObjectType = junctionSObjectType;
-    newScribe.parentRelationIdFieldName = relatedKey;
-
     return newScribe;
   }
 
@@ -979,13 +926,13 @@ public with sharing class Scribe {
   /**
    * Adds a LIKE condition to the WHERE clause.
    *
-   * `%` and `_` in the value are always wildcards, and whereLike / whereNotLike currently
-   * have no way to match them literally: the value goes through `String.escapeSingleQuotes`,
-   * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
-   * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
+   * `%` and `_` in the value are always wildcards, and `\` is a plain character: the value is
+   * a pattern, as in v3 (bound since v4, with its backslashes doubled so they stay plain
+   * characters). To match `%` and `_` literally, use whereContains / whereStartsWith /
+   * whereEndsWith (and their Not forms). When the value
    * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
-   * search for `100%` also matches `1000`. APIs that escape the wildcards themselves
-   * (whereContains / whereStartsWith / whereEndsWith) are planned for a near release (issue #106).
+   * search for `100%` also matches `1000`. For user input use whereContains / whereStartsWith /
+   * whereEndsWith (v4), which take the value literally (issue #106).
    * To match a value containing `%` exactly, whereEqual already treats it as a plain character.
    *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
@@ -1016,13 +963,13 @@ public with sharing class Scribe {
   /**
    * Adds a NOT LIKE condition to the WHERE clause.
    *
-   * `%` and `_` in the value are always wildcards, and whereLike / whereNotLike currently
-   * have no way to match them literally: the value goes through `String.escapeSingleQuotes`,
-   * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
-   * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
+   * `%` and `_` in the value are always wildcards, and `\` is a plain character: the value is
+   * a pattern, as in v3 (bound since v4, with its backslashes doubled so they stay plain
+   * characters). To match `%` and `_` literally, use whereContains / whereStartsWith /
+   * whereEndsWith (and their Not forms). When the value
    * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
-   * search for `100%` also matches `1000`. APIs that escape the wildcards themselves
-   * (whereContains / whereStartsWith / whereEndsWith) are planned for a near release (issue #106).
+   * search for `100%` also matches `1000`. For user input use whereContains / whereStartsWith /
+   * whereEndsWith (v4), which take the value literally (issue #106).
    * To match a value containing `%` exactly, whereEqual already treats it as a plain character.
    *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
@@ -1053,6 +1000,227 @@ public with sharing class Scribe {
     clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
+  }
+
+  /**
+   * The field falls within the period: `CloseDate = LAST_N_DAYS:30`. A range literal changes
+   * meaning with the operator (measured: `> LAST_N_DAYS:30` returns only rows AFTER the period,
+   * i.e. in the future), so the date-literal methods name the meaning instead of the operator:
+   *
+   * | method | SOQL | rows |
+   * |---|---|---|
+   * | whereWithin | `=` | inside the period |
+   * | whereNotWithin | `!=` | outside it |
+   * | whereBefore | `<` | before the period starts |
+   * | whereAfter | `>` | after the period ends |
+   * | whereSince | `>=` | from the start of the period on |
+   * | whereUntil | `<=` | up to the end of the period |
+   *
+   * ```
+   * Scribe.of(Opportunity.class).field('Id').whereWithin('CloseDate', DateLiteral.current().fiscalQuarter());
+   * ```
+   *
+   * @param fieldName A Date or Datetime field of the object being filtered.
+   * @param period The period. Null is refused when the query is built (ignoreWhen can retract it first).
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereWithin(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereWithin(String fieldName, DateLiteral period)', fieldName) : this.whereEqual(fieldName, period);
+  }
+
+  /**
+   * The field falls outside the period: `!=` (see whereWithin). Rows whose field is null are
+   * included (measured), as for `!=` with any value; add whereNotNull to leave them out.
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereNotWithin(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereNotWithin(String fieldName, DateLiteral period)', fieldName) : this.whereNotEqual(fieldName, period);
+  }
+
+  /**
+   * The field is before the period starts: `<` (see whereWithin).
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereBefore(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereBefore(String fieldName, DateLiteral period)', fieldName) : this.whereLessThan(fieldName, period);
+  }
+
+  /**
+   * The field is after the period ends: `>` (see whereWithin).
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereAfter(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereAfter(String fieldName, DateLiteral period)', fieldName) : this.whereGreaterThan(fieldName, period);
+  }
+
+  /**
+   * The field is in the period or after it: `>=` (see whereWithin).
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereSince(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereSince(String fieldName, DateLiteral period)', fieldName) : this.whereGreaterThanOrEqual(fieldName, period);
+  }
+
+  /**
+   * The field is in the period or before it: `<=` (see whereWithin).
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param period The period.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereUntil(String fieldName, DateLiteral period) {
+    return period == null ? this.whereInvalid('whereUntil(String fieldName, DateLiteral period)', fieldName) : this.whereLessThanOrEqual(fieldName, period);
+  }
+
+  /**
+   * The field falls within any of the periods: `CloseDate IN (THIS_FISCAL_QUARTER,
+   * N_FISCAL_QUARTERS_AGO:4)` (measured: a row matches when it is in at least one). An empty
+   * list matches no row, as whereIn does.
+   *
+   * @param fieldName A Date or Datetime field.
+   * @param periods The periods. Null, or a null element, is refused when the query is built.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereWithinAny(String fieldName, List<DateLiteral> periods) {
+    if (periods == null || periods.contains(null)) {
+      return this.whereInvalid('whereWithinAny(String fieldName, List<DateLiteral> periods)', fieldName);
+    }
+    List<Object> values = new List<Object>();
+    values.addAll((List<Object>) periods);
+    return this.whereIn(fieldName, values);
+  }
+
+  /**
+   * Adds a condition that is refused when the query is built, for an argument that cannot
+   * form one (a null period). Deferred rather than thrown here so a following ignoreWhen()
+   * can retract it first, as for the other where methods (issue #71).
+   *
+   * @param method The public method that was called.
+   * @param fieldName The field it was called with.
+   * @return A new, immutable Scribe instance.
+   */
+  private Scribe whereInvalid(String method, String fieldName) {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.conditionParts.add(new ConditionPart(new InvalidConditionClause(method, fieldName), this.isNextConditionOr));
+    clonedScribe.isNextConditionOr = false;
+    clonedScribe.isAfterWhereClause = true;
+    return clonedScribe;
+  }
+
+  /**
+   * Adds a partial-match condition: the field contains `value` anywhere, with `%`, `_` and
+   * `\` in `value` matched as plain characters (#106). Use this for user input such as a
+   * search box; whereLike treats `%` and `_` in its value as wildcards, so a search for
+   * `100%` there also matches `1000`.
+   *
+   * The query runs with the value bound, where SOQL honours the backslash escapes (measured:
+   * `zq\_cd` matches only `zq_cd`). toDisplay() and the debug log write the value with its
+   * backslashes doubled (`'%100\\%%'`), because a literal must escape a backslash to stay a
+   * single string; that text is for reading, the bound query is what runs.
+   *
+   * @param fieldName The field to filter on. Must be a field of the object being filtered.
+   * @param value The text to look for, taken literally. Null is refused when the query is built, as for whereLike.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereContains(String fieldName, String value) {
+    return withEscapesApplied(this.whereLike(fieldName, likePattern('%', value, '%')));
+  }
+
+  /**
+   * whereContains, negated: the field does not contain `value` (taken literally).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The text, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereNotContains(String fieldName, String value) {
+    return withEscapesApplied(this.whereNotLike(fieldName, likePattern('%', value, '%')));
+  }
+
+  /**
+   * The field starts with `value`, taken literally (see whereContains).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The prefix, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereStartsWith(String fieldName, String value) {
+    return withEscapesApplied(this.whereLike(fieldName, likePattern('', value, '%')));
+  }
+
+  /**
+   * The field does not start with `value`, taken literally (see whereContains).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The prefix, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereNotStartsWith(String fieldName, String value) {
+    return withEscapesApplied(this.whereNotLike(fieldName, likePattern('', value, '%')));
+  }
+
+  /**
+   * The field ends with `value`, taken literally (see whereContains).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The suffix, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereEndsWith(String fieldName, String value) {
+    return withEscapesApplied(this.whereLike(fieldName, likePattern('%', value, '')));
+  }
+
+  /**
+   * The field does not end with `value`, taken literally (see whereContains).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The suffix, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereNotEndsWith(String fieldName, String value) {
+    return withEscapesApplied(this.whereNotLike(fieldName, likePattern('%', value, '')));
+  }
+
+  /**
+   * Marks the LIKE condition just added by whereContains & co. so its bound pattern keeps the
+   * deliberate escapes (see LikeConditionClause.withEscapesApplied).
+   *
+   * @param scribe The Scribe returned by whereLike / whereNotLike.
+   * @return The same Scribe.
+   */
+  private static Scribe withEscapesApplied(Scribe scribe) {
+    ConditionPart last = scribe.conditionParts[scribe.conditionParts.size() - 1];
+    if (last.condition instanceof LikeConditionClause) {
+      last.condition = ((LikeConditionClause) last.condition).withEscapesApplied();
+    } else if (last.condition instanceof NotLikeConditionClause) {
+      last.condition = ((NotLikeConditionClause) last.condition).withEscapesApplied();
+    }
+    // An InvalidConditionClause (null value) is left as it is; it is refused at build time.
+    return scribe;
+  }
+
+  /**
+   * The literal-match pattern (see LikeConditionClause.literalPattern).
+   *
+   * @param before The wildcard before the value.
+   * @param value The text to match literally.
+   * @param after The wildcard after the value.
+   * @return The pattern.
+   */
+  private static String likePattern(String before, String value, String after) {
+    return LikeConditionClause.literalPattern(before, value, after);
   }
 
   /**
@@ -1106,6 +1274,7 @@ public with sharing class Scribe {
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
+    rejectAllRowsInSemiJoin(method, subQuery);
     IConditionClause conditionClause;
     if (subQuery == null) {
       // null at chain time: defer the error to build time so a following
@@ -1178,6 +1347,7 @@ public with sharing class Scribe {
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
 
+    rejectAllRowsInSemiJoin(method, subQuery);
     IConditionClause conditionClause;
     if (subQuery == null) {
       // null at chain time: defer the error to build time so a following
@@ -1423,6 +1593,65 @@ public with sharing class Scribe {
   }
 
   /**
+   * Refuses allRows() on a semi-join subquery (whereIn / whereNotIn with a Scribe).
+   *
+   * @param method The calling method signature.
+   * @param subQuery The subquery Scribe.
+   * @throws ApexEloquentException when it carries allRows().
+   */
+  private static void rejectAllRowsInSemiJoin(String method, Scribe subQuery) {
+    if (subQuery == null || !subQuery.isAllRows) {
+      return;
+    }
+    String reason = 'allRows() was set on the semi-join subquery. SOQL accepts ALL ROWS only on the outer query (measured: "unexpected token: \'ROWS\'").';
+    ApexEloquentException.at(CLASS_NAME)
+      .method(method)
+      .error('ALL ROWS in a subquery')
+      .reason(reason)
+      .action('Remove allRows() from the subquery.')
+      .fire();
+  }
+
+  /**
+   * Refuses ORDER BY / LIMIT / OFFSET / FOR UPDATE / ALL ROWS on a parent Scribe. SOQL has no syntax for
+   * them on a parent: a parent resolves to the one record each row points at. They used to be
+   * dropped without a sign, while the same methods work on a child subquery (#98).
+   *
+   * @param method The calling method signature.
+   * @param parentScribe The Scribe created by asParent().
+   * @throws ApexEloquentException when any of them is set.
+   */
+  private static void rejectQueryShapeOnParent(String method, Scribe parentScribe) {
+    List<String> found = new List<String>();
+    if (!parentScribe.orderByClauses.isEmpty()) {
+      found.add('orderBy()');
+    }
+    if (parentScribe.limitNumber != null) {
+      found.add('take()');
+    }
+    if (parentScribe.offsetNumber != 0) {
+      found.add('offset()');
+    }
+    if (parentScribe.isForUpdate) {
+      found.add('forUpdate()');
+    }
+    if (parentScribe.isAllRows) {
+      found.add('allRows()');
+    }
+    if (found.isEmpty()) {
+      return;
+    }
+    String error = 'Not allowed on a parent';
+    String reason =
+      String.join(found, ', ') +
+      ' was set on the Scribe.asParent() Scribe. SOQL has no ORDER BY, LIMIT, OFFSET, FOR UPDATE or ALL ROWS for a parent: it resolves to the one record each row points at.';
+    String action =
+      'To order by a parent field, order the outer query by its path, e.g. orderBy(\'Account.Name\'). ' +
+      'LIMIT and OFFSET have no meaning for a parent; put forUpdate() on the outer query.';
+    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+  }
+
+  /**
    * Adds a condition on a parent relationship field.
    *
    * @param parentScribe A Scribe instance created with `Scribe.asParent()` and configured with WHERE conditions.
@@ -1438,10 +1667,11 @@ public with sharing class Scribe {
 
     if (!parentScribe.isParent) {
       String error = 'Invalid Scribe Context';
-      String reason = 'The Scribe instance passed to parentField() must be initialized using the Scribe.asParent() method.';
-      String action = 'Initialize the parent Scribe using `Scribe.asChild(System.Type childRecordType)` and pass it to withParent().';
+      String reason = 'The Scribe instance passed to parentCondition() must be initialized using the Scribe.asParent() method.';
+      String action = 'Initialize the parent Scribe using `Scribe.asParent(String parentRelationIdFieldName)` and pass it to parentCondition().';
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
+    rejectQueryShapeOnParent(method, parentScribe);
 
     Scribe clonedScribe = this.deepClone();
     ConditionPart parentConditionPart = new ConditionPart(
@@ -1471,9 +1701,10 @@ public with sharing class Scribe {
     if (!parentScribe.isParent) {
       String error = 'Invalid Scribe Context';
       String reason = 'The Scribe instance passed to parentField() must be initialized using the Scribe.asParent() method.';
-      String action = 'Initialize the parent Scribe using `Scribe.asChild(System.Type childRecordType)` and pass it to withParent().';
+      String action = 'Initialize the parent Scribe using `Scribe.asParent(String parentRelationIdFieldName)` and pass it to parentField().';
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
+    rejectQueryShapeOnParent(method, parentScribe);
 
     Scribe clonedScribe = this.deepClone();
     clonedScribe.parents.add(new ParentScribe(parentScribe.parentRelationIdFieldName, parentScribe));
@@ -1500,11 +1731,44 @@ public with sharing class Scribe {
       String action = 'Initialize the through Scribe using `asThrough(System.Type junctionType, String targetLookupField)` and pass it to through().';
       ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
     }
-    throughScribe.isParent = true;
-    Scribe childScribe = Scribe.asChild(throughScribe.junctionSObjectType)
-      .field(throughScribe.parentRelationIdFieldName)
-      .parentField(throughScribe)
-      .parentCondition(throughScribe);
+    if (throughScribe.isForUpdate || throughScribe.isAllRows) {
+      // through() becomes a subquery on the junction object, and SOQL accepts FOR UPDATE and
+      // ALL ROWS only on the outer query. Refused here so the message names what was written
+      // (it used to surface as "set on a child subquery") (review r1 F6).
+      String reason = (throughScribe.isForUpdate ? 'forUpdate()' : 'allRows()') +
+        ' was set on the Scribe.asThrough() Scribe. through() becomes a subquery on the junction object, and SOQL accepts FOR UPDATE and ALL ROWS only on the outer query.';
+      ApexEloquentException.at(CLASS_NAME)
+        .method(method)
+        .error('Not allowed on asThrough()')
+        .reason(reason)
+        .action('Put forUpdate() / allRows() on the outer Scribe instead.')
+        .fire();
+    }
+    // Work on a copy: every Scribe method leaves its receiver and arguments untouched, and
+    // through() used to set isParent on the caller's Scribe (#102).
+    Scribe targetPart = throughScribe.deepClone();
+    targetPart.isParent = true;
+    Scribe childScribe = newChild(throughScribe.junctionSObjectType)
+      .field(throughScribe.parentRelationIdFieldName);
+    // ORDER BY / LIMIT / OFFSET written on the through Scribe belong to the junction
+    // subquery it becomes; on the parent part they were silently dropped (#102). The ORDER BY
+    // fields are on the target object, so they are written through the lookup's relationship
+    // path (`ORDER BY Product2.Name`), the one form SOQL has for ordering by a parent field.
+    if (!targetPart.orderByClauses.isEmpty()) {
+      Schema.SObjectField lookup = SchemaCache.fieldMapOf(throughScribe.junctionSObjectType)
+        .get(throughScribe.parentRelationIdFieldName);
+      // An unknown lookup is reported by parentField() below; do not mask it with an NPE here.
+      String relationPath = lookup == null ? null : lookup.getDescribe().getRelationshipName();
+      for (OrderByClause orderByClause : targetPart.orderByClauses) {
+        childScribe.orderByClauses.add(relationPath == null ? orderByClause : orderByClause.prefixed(relationPath));
+      }
+    }
+    childScribe.limitNumber = targetPart.limitNumber;
+    childScribe.offsetNumber = targetPart.offsetNumber;
+    targetPart.orderByClauses = new List<Scribe.OrderByClause>();
+    targetPart.limitNumber = null;
+    targetPart.offsetNumber = 0;
+    childScribe = childScribe.parentField(targetPart).parentCondition(targetPart);
     if (String.isNotBlank(throughScribe.relationName)) {
       childScribe = childScribe.relationName(throughScribe.relationName);
     }
@@ -1579,6 +1843,24 @@ public with sharing class Scribe {
   public Scribe forUpdate() {
     Scribe clonedScribe = this.deepClone();
     clonedScribe.isForUpdate = true;
+    return clonedScribe;
+  }
+
+  /**
+   * Adds ALL ROWS: the query also returns deleted rows in the Recycle Bin and archived
+   * activities (Event / Task closed about a year ago), which a plain query leaves out (#123).
+   * Filter out deleted rows yourself when only archived ones are wanted:
+   * `.whereEqual('IsDeleted', false)`.
+   *
+   * SOQL accepts it only on the outer query and not with FOR UPDATE (measured: a child
+   * subquery or a semi-join fails with "unexpected token: 'ROWS'"); those are refused when
+   * the query is built. Aggregate queries accept it.
+   *
+   * @return A new, immutable Scribe instance with ALL ROWS.
+   */
+  public Scribe allRows() {
+    Scribe clonedScribe = this.deepClone();
+    clonedScribe.isAllRows = true;
     return clonedScribe;
   }
 
@@ -1669,8 +1951,8 @@ public with sharing class Scribe {
    * An empty collection is a normal expectation: `ignoreWhen(ids.isEmpty())` removes the
    * condition from the query outright, so `assertNoCondition(new InConditionClause('Id',
    * ids))` is how both sides of that branch are fixed. Such a condition renders as
-   * degenerate SOQL (an empty `IN` becomes `<field> = null`, an empty `NOT IN` becomes
-   * nothing), which is precisely why the kind and the field are part of the key: text
+   * degenerate SOQL (an empty `IN` becomes `Id = null`, an empty `NOT IN` becomes
+   * `Id != null`), which is precisely why the kind and the field are part of the key: text
    * alone would let those collapse into one another.
    *
    * A failure raises System.AssertException, which Apex does not allow to be caught
@@ -1855,11 +2137,11 @@ public with sharing class Scribe {
       ApexEloquentException.required(CLASS_NAME, method, 'expected', null).fire();
     }
     // Build once so nested scribes learn which object they filter before types are
-    // compared (toSoql is idempotent). ⚠️ Scribe.deepClone is shallow, so this also rewrites
+    // compared (building is idempotent). ⚠️ Scribe.deepClone is shallow, so this also rewrites
     // state shared with any Scribe cloned from this one: aggregateAliasMap is reset, nested
     // sObjectType is assigned, and ConditionPart.isOr is recomputed. MockEloquent already
-    // calls toSoql on the recorded query, so the values settle the same way.
-    this.toSoql();
+    // builds the recorded query, so the values settle the same way.
+    this.buildSoql();
 
     Schema.SObjectType targetType = expected instanceof AbstractConditionClause
       ? ((AbstractConditionClause) expected).getSObjectType()
@@ -2189,6 +2471,178 @@ public with sharing class Scribe {
   }
 
   /**
+   * Asserts the ORDER BY of this query, item by item and in order (#104). MockEloquent does
+   * not sort or cut what it returns, so a missing orderBy(), a flipped direction or a wrong
+   * field stays green in a unit test; this pins the query shape instead.
+   *
+   * Each item is `Field [ASC|DESC] [NULLS FIRST|LAST]`; the direction defaults to ASC and case
+   * does not matter. The match is exact: an extra or missing key fails, because ORDER BY means
+   * its whole sequence. An aggregate alias is written as given to orderBy().
+   *
+   * @param expected The expected ORDER BY items, e.g. `new List<String>{ 'CreatedDate DESC' }`.
+   *                 An empty list asserts that there is no ORDER BY.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertOrderBy(List<String> expected) {
+    return this.assertOrderByAt(null, expected);
+  }
+
+  /**
+   * assertOrderBy for the part of this query reached by `path` (a child subquery, for one).
+   * Path rules are those of `assertConditionAt`.
+   *
+   * @param path The path to the part of the query being asserted.
+   * @param expected The expected ORDER BY items.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertOrderByAt(String path, List<String> expected) {
+    if (expected == null) {
+      ApexEloquentException.required(CLASS_NAME, 'assertOrderByAt(String path, List<String> expected)', 'expected', null).fire();
+    }
+    Scribe target = this.requireScribeAt(path);
+    List<String> wanted = new List<String>();
+    for (String item : expected) {
+      wanted.add(normalizeOrderByItem(item));
+    }
+    List<String> actual = new List<String>();
+    for (OrderByClause orderByClause : target.orderByClauses) {
+      actual.add(normalizeOrderByItem(orderByClause.build()));
+    }
+    Assert.areEqual(
+      String.join(wanted, ', '),
+      String.join(actual, ', '),
+      'ORDER BY' + (String.isBlank(path) ? '' : ' at ' + path) + ' does not match.'
+    );
+    return this;
+  }
+
+  /**
+   * Asserts the LIMIT of this query (#104). A missing take() is invisible to a unit test and
+   * surfaces in production as `Too many query rows`.
+   *
+   * @param expected The expected LIMIT.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertLimit(Integer expected) {
+    return this.assertLimitAt(null, expected);
+  }
+
+  /**
+   * assertLimit for the part of this query reached by `path`.
+   *
+   * @param path The path to the part of the query being asserted.
+   * @param expected The expected LIMIT.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertLimitAt(String path, Integer expected) {
+    if (expected == null) {
+      ApexEloquentException.required(CLASS_NAME, 'assertLimitAt(String path, Integer expected)', 'expected', null)
+        .action('Use assertNoLimit() to assert that there is no LIMIT')
+        .fire();
+    }
+    Scribe target = this.requireScribeAt(path);
+    Assert.areEqual(expected, target.limitNumber, 'LIMIT' + (String.isBlank(path) ? '' : ' at ' + path) + ' does not match.');
+    return this;
+  }
+
+  /**
+   * Asserts that this query has no LIMIT.
+   *
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertNoLimit() {
+    return this.assertNoLimitAt(null);
+  }
+
+  /**
+   * assertNoLimit for the part of this query reached by `path`.
+   *
+   * @param path The path to the part of the query being asserted.
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertNoLimitAt(String path) {
+    Scribe target = this.requireScribeAt(path);
+    Assert.isNull(target.limitNumber, 'Expected no LIMIT' + (String.isBlank(path) ? '' : ' at ' + path) + ', found LIMIT ' + target.limitNumber + '.');
+    return this;
+  }
+
+  /**
+   * Asserts that this query carries ALL ROWS (#123). Without it the query silently leaves out
+   * archived activities and deleted rows, which MockEloquent cannot show.
+   *
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertAllRows() {
+    Assert.isTrue(this.isAllRows, 'Expected the query to carry ALL ROWS.');
+    return this;
+  }
+
+  /**
+   * Asserts that this query does not carry ALL ROWS.
+   *
+   * @return This Scribe, so assertions can be chained.
+   */
+  @TestVisible
+  private Scribe assertNoAllRows() {
+    Assert.isFalse(this.isAllRows, 'Expected the query not to carry ALL ROWS.');
+    return this;
+  }
+
+  /**
+   * The nested scribe at `path` for an assertion, refusing a path that leads nowhere.
+   *
+   * @param path The dot-separated path, or blank for this query.
+   * @return The scribe at that path.
+   */
+  private Scribe requireScribeAt(String path) {
+    Scribe target = this.scribeAtPath(path);
+    if (target == null) {
+      String reason = 'The path `' + path + '` reaches no part of this query.';
+      throw ApexEloquentException.at(CLASS_NAME)
+        .error('Unknown query path')
+        .reason(reason)
+        .action('Join hops with dots: a child by its object name (or its relationName() when given), a parent by its lookup field, a semi-join by its field.')
+        .build();
+    }
+    return target;
+  }
+
+  /**
+   * One ORDER BY item in a comparable form: field in lower case, then the direction (ASC when
+   * left out) and NULLS FIRST / LAST in upper case, single spaces between.
+   *
+   * @param item An item such as `CreatedDate desc nulls last`.
+   * @return The normalized item.
+   */
+  private static String normalizeOrderByItem(String item) {
+    List<String> tokens = String.isBlank(item) ? new List<String>() : item.trim().split('\\s+');
+    if (tokens.isEmpty()) {
+      return '';
+    }
+    String normalized = tokens[0].toLowerCase();
+    Integer next = 1;
+    // The direction may be left out, also before NULLS (`Name NULLS LAST` is `Name ASC NULLS
+    // LAST`); only an explicit ASC / DESC is taken as the direction (review r1 F9).
+    if (tokens.size() > 1 && (tokens[1].equalsIgnoreCase('ASC') || tokens[1].equalsIgnoreCase('DESC'))) {
+      normalized += ' ' + tokens[1].toUpperCase();
+      next = 2;
+    } else {
+      normalized += ' ASC';
+    }
+    for (Integer i = next; i < tokens.size(); i++) {
+      normalized += ' ' + tokens[i].toUpperCase();
+    }
+    return normalized;
+  }
+
+  /**
    * Returns the nested scribe reached by a path, or null when the path leads nowhere.
    *
    * @param path The dot-separated path from this query.
@@ -2333,7 +2787,7 @@ public with sharing class Scribe {
 
   /**
    * Builds the assertion failure message: what was expected, what the query actually
-   * carries, and the SOQL itself — the context a hand-written `toSoql().contains(...)`
+   * carries, and the SOQL itself — the context a hand-written `toDisplay().contains(...)`
    * check cannot give.
    *
    * @param expected The condition that was searched for.
@@ -2362,17 +2816,97 @@ public with sharing class Scribe {
         String.join(match.otherObjectHits, ', ') +
         '). Use assertConditionAt with that path, or name that object.';
     }
-    message += '\n  SOQL     : ' + this.toSoql() + '\n';
+    message += '\n  SOQL     : ' + this.toDisplay() + '\n';
     return message;
   }
 
   /**
-   * Builds the final SOQL query string.
+   * The query as text, with every value written in, for reading: debug logs, assertion
+   * messages, string checks in tests. It also writes the text to the debug log.
    *
-   * @return The complete, executable SOQL query string.
+   * 🚨 Not for running. Eloquent runs the same query with its values bound
+   * (toBoundQuery), and the two are not always the same query: the escapes of whereContains /
+   * whereStartsWith / whereEndsWith take effect only when bound, so this text, if run, matches
+   * other rows. To run a Scribe yourself — a batch's start(), for one — use toBoundQuery():
+   *
+   * ```
+   * SoqlBinds.BoundQuery query = scribe.toBoundQuery();
+   * return Database.getQueryLocatorWithBinds(query.soql, query.binds, AccessLevel.SYSTEM_MODE);
+   * ```
+   *
+   * Choose the access level on purpose (see toBoundQuery): moving from
+   * `Database.getQueryLocator(scribe.toSoql())`, keep the mode that code ran in.
+   *
+   * Replaces toSoql(), removed in v4 because its name invited running it.
+   *
+   * @return The query with its values written in.
    */
-  public String toSoql() {
-    // Reset accumulator state so toSoql() is idempotent across multiple calls
+  public String toDisplay() {
+    String query = this.buildSoql();
+    System.debug('SOQL Query: ' + query);
+    return query;
+  }
+
+  /**
+   * Builds this Scribe as a semi-join subquery of the query being built: placeholders while
+   * the outer query collects binds, literals otherwise, and nothing written to the log.
+   *
+   * Internal: not part of the supported API, and not for running (outside a bound build it
+   * returns the same text as toDisplay()). InSubQueryConditionClause and
+   * NotInSubQueryConditionClause are its callers.
+   *
+   * @return The subquery text.
+   */
+  public String buildSubQuery() {
+    return this.buildSoql();
+  }
+
+  /**
+   * Builds the query to run: values Scribe can bind with their own type become placeholders
+   * and travel in `binds`; the rest stay literals (see AbstractConditionClause.toBindValue).
+   * This is how Eloquent runs every Scribe query, and how to run one yourself:
+   *
+   * ```
+   * SoqlBinds.BoundQuery query = scribe.toBoundQuery();
+   * List<SObject> rows = Database.queryWithBinds(query.soql, query.binds, AccessLevel.USER_MODE);
+   * Database.QueryLocator locator = Database.getQueryLocatorWithBinds(query.soql, query.binds, AccessLevel.USER_MODE);
+   * ```
+   *
+   * The debug log gets the query with the values written in (`expandedSoql`, the same text
+   * as toDisplay()).
+   *
+   * 🚨 Pass the access level on purpose. `Database.query(String)` / `getQueryLocator(String)`
+   * without an AccessLevel, as in v3's `Database.getQueryLocator(scribe.toSoql())`, ran in the
+   * mode the calling class defaults to. Keep that mode when moving such code: a system process
+   * (a `without sharing` batch that reads every row) passes `AccessLevel.SYSTEM_MODE`.
+   * `USER_MODE` enforces field-level security and, also in a `without sharing` class, sharing —
+   * the batch then reads only the rows its running user may see, without any error (review r2
+   * N1). USER_MODE is what Eloquent itself defaults to, for code written against it.
+   *
+   * @return The query, its bind values and its text for the log.
+   */
+  public SoqlBinds.BoundQuery toBoundQuery() {
+    SoqlBinds binds = new SoqlBinds();
+    SoqlBinds enclosing = SoqlBinds.active;
+    SoqlBinds.active = binds;
+    try {
+      String boundSoql = this.buildSoql();
+      SoqlBinds.BoundQuery query = new SoqlBinds.BoundQuery(boundSoql, binds.getValues(), binds.expand(boundSoql));
+      System.debug('SOQL Query: ' + query.expandedSoql);
+      return query;
+    } finally {
+      SoqlBinds.active = enclosing;
+    }
+  }
+
+  /**
+   * Builds the query text. Values render as placeholders while SoqlBinds.active is set, as
+   * literals otherwise.
+   *
+   * @return The query text.
+   */
+  private String buildSoql() {
+    // Reset accumulator state so toDisplay() is idempotent across multiple calls
     // (otherwise alias entries from the previous build trigger Duplicate Alias Error).
     this.aggregateAliasMap = new Map<String, AliasStructure>();
 
@@ -2387,7 +2921,6 @@ public with sharing class Scribe {
 
     query = this.buildQueryTrail(query, fieldMap, selectFieldsString);
 
-    System.debug('SOQL Query: ' + query);
     return query;
   }
 
@@ -2415,11 +2948,13 @@ public with sharing class Scribe {
 
     query = this.buildHavingClause(query);
 
-    query = this.buildOrderByClause(query);
+    query = this.buildOrderByClause(query, fieldMap);
 
     query = this.buildLimitClause(query);
 
     query = this.buildOffsetClause(query);
+
+    query = this.buildAllRowsClause(query);
 
     query = this.buildForUpdateClause(query);
 
@@ -2480,7 +3015,6 @@ public with sharing class Scribe {
 
     newScribe.parents = this.parents.clone();
     newScribe.children = this.children.clone();
-    newScribe.throughScribes = this.throughScribes.clone();
     newScribe.junctionSObjectType = this.junctionSObjectType;
     newScribe.parentRelationIdFieldName = this.parentRelationIdFieldName;
     newScribe.relationName = this.relationName;
@@ -2501,6 +3035,7 @@ public with sharing class Scribe {
     newScribe.isThrough = this.isThrough;
     newScribe.isHaving = this.isHaving;
     newScribe.isForUpdate = this.isForUpdate;
+    newScribe.isAllRows = this.isAllRows;
 
     return newScribe;
   }
@@ -2700,6 +3235,43 @@ public with sharing class Scribe {
   }
 
   /**
+   * Refuses a semi-join placed where SOQL does not accept one. Found by running every condition
+   * kind in every context (#121); both used to build and fail only at run time (measured):
+   *
+   * - inside whereGroup: "Semi join sub-selects are only allowed at the top level WHERE
+   *   expressions and not in nested WHERE expressions"
+   * - on a level joined by OR, also when the OR comes after the semi-join: "Semi join
+   *   sub-selects are not allowed with the 'OR' operator". whereIn(field, Scribe) refuses an
+   *   OR written before it when chained; one written after it reached the query.
+   *
+   * A child subquery's own WHERE is its top level, so a semi-join there runs (measured).
+   *
+   * @param condition The semi-join condition.
+   * @throws ApexEloquentException when the placement is one SOQL rejects.
+   */
+  private void rejectSemiJoinPlacement(IConditionClause condition) {
+    Boolean levelIsOr = false;
+    for (Integer i = 0; i < this.conditionParts.size(); i++) {
+      levelIsOr = levelIsOr || this.isOrOperand(i);
+    }
+    if (!this.isGroup && !levelIsOr) {
+      return;
+    }
+    String operator = condition instanceof NotInSubQueryConditionClause ? 'NOT IN' : 'IN';
+    String reason = this.isGroup
+      ? String.format(
+          '`{0} {1} (SELECT ...)` is inside whereGroup(). SOQL accepts a semi-join only at the top level of WHERE, not in a nested expression.',
+          new List<String>{ condition.getFieldName(), operator }
+        )
+      : String.format(
+          '`{0} {1} (SELECT ...)` is joined by OR. SOQL does not accept a semi-join together with OR.',
+          new List<String>{ condition.getFieldName(), operator }
+        );
+    String action = 'Keep the semi-join at the top level, joined by AND. If the OR is needed, query the Ids first and pass the Set<Id> to whereIn(field, ids) instead of a subquery.';
+    ApexEloquentException.at(CLASS_NAME).error('SOQL Semi-Join Restriction').reason(reason).action(action).fire();
+  }
+
+  /**
    * Has the condition write its field as `expression` (a relationship path or an aggregate).
    * Every condition Scribe creates extends AbstractConditionClause except
    * InvalidConditionClause, whose build() always throws, so that one is passed through.
@@ -2728,6 +3300,12 @@ public with sharing class Scribe {
   }
 
   /**
+   * The always-true condition an empty NOT IN stands for when it is joined by OR. It names
+   * the queried object's own Id, like the always-false `Id = null` of an empty IN.
+   */
+  private static final String ALWAYS_TRUE_CONDITION = 'Id != null';
+
+  /**
    * Constructs the complete WHERE clause string from all condition parts.
    *
    * @param fieldMap A map of the source object's fields.
@@ -2746,7 +3324,10 @@ public with sharing class Scribe {
     Integer renderedCount = 0;
     Boolean usedAnd = false;
     Boolean usedOr = false;
+    Boolean droppedAlwaysTrue = false;
+    Integer partIndex = -1;
     for (ConditionPart conditionPart : this.conditionParts) {
+      partIndex++;
       if (isLastOperatorOr && !conditionPart.isOr) {
         String error = 'Logical Operator Mismatch';
         String reason = 'A condition following an orWhere() must also be an OR condition to maintain logical consistency.';
@@ -2763,10 +3344,24 @@ public with sharing class Scribe {
         if (String.isNotBlank(childObjectName) && subQueryOf(condition) != null) {
           this.fireSemiJoinUnderParent(condition, childObjectName);
         }
+        if (subQueryOf(condition) != null) {
+          this.rejectSemiJoinPlacement(condition);
+        }
         if (String.isNotBlank(childObjectName)) {
           // Write the relationship path where the clause writes its field. Prefixing the
           // built string broke NOT LIKE, which starts with `(NOT ` (issue #115).
           condition = this.renderFieldAs(condition, childObjectName + '.' + condition.getFieldName());
+        }
+        if (condition instanceof NotInConditionClause && ((NotInConditionClause) condition).hasNoValues()) {
+          // An empty NOT IN is always true (issue #117). Joined by AND it changes nothing
+          // (`A AND true` is `A`), so it drops out and the SOQL stays as it was. Joined by
+          // OR it makes the whole level true, so it is written as `Id != null`; dropping it
+          // there narrowed `A OR true` (every row) to `A` without any sign. Writing it under
+          // AND as well would only add text and could create an AND/OR mix SOQL rejects.
+          if (!this.isOrOperand(partIndex)) {
+            droppedAlwaysTrue = true;
+            continue;
+          }
         }
         clause = condition.build();
         if (String.isBlank(clause)) {
@@ -2781,7 +3376,16 @@ public with sharing class Scribe {
         // condition, and the group filtered the child object instead (issue #116).
         WhereClauseData groupWhereClauseData = groupScribe.buildWhereClause(fieldMap, childObjectName);
         if (String.isBlank(groupWhereClauseData.whereClauseString)) {
-          continue;
+          // A group of only empty NOT INs joined by AND is always true: the same rule as a
+          // single one. A group empty for another reason (ignoreWhen, asGroup()) drops out.
+          if (!groupWhereClauseData.alwaysTrue) {
+            continue;
+          }
+          if (!this.isOrOperand(partIndex)) {
+            droppedAlwaysTrue = true;
+            continue;
+          }
+          groupWhereClauseData.whereClauseString = ALWAYS_TRUE_CONDITION;
         }
         String groupBody = groupWhereClauseData.whereClauseString;
         if (groupWhereClauseData.renderedCount == 1 && groupBody.startsWith('(') && groupBody.endsWith(')')) {
@@ -2796,6 +3400,14 @@ public with sharing class Scribe {
         ParentScribe parentScribe = conditionPart.parentScribe;
         WhereClauseData parentWhereClauseData = parentScribe.buildWhereClause(fieldMap, childObjectName);
         clause = parentWhereClauseData.whereClauseString;
+        if (String.isBlank(clause) && parentWhereClauseData.alwaysTrue) {
+          // A parent condition of only empty NOT INs: always true, same rule as above.
+          if (!this.isOrOperand(partIndex)) {
+            droppedAlwaysTrue = true;
+            continue;
+          }
+          clause = ALWAYS_TRUE_CONDITION;
+        }
         if (parentWhereClauseData.renderedCount > 1) {
           // a multi-condition parent fragment is one structural unit — parenthesize
           // it like a whereGroup, so it cannot create an unparenthesized AND/OR mix
@@ -2825,7 +3437,39 @@ public with sharing class Scribe {
 
     WhereClauseData result = new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
     result.renderedCount = renderedCount;
+    result.alwaysTrue = String.isBlank(whereClauseString) && droppedAlwaysTrue;
     return result;
+  }
+
+  /**
+   * Whether the condition part at this index is joined to its level by OR. A part carries
+   * isOr when orCondition() preceded it; the first part never does, so it takes the
+   * operator of the part after it.
+   *
+   * @param index Index into conditionParts.
+   * @return true when the part is an operand of OR.
+   */
+  private Boolean isOrOperand(Integer index) {
+    if (index > 0) {
+      return joinsByOr(this.conditionParts[index]);
+    }
+    return this.conditionParts.size() > 1 && joinsByOr(this.conditionParts[1]);
+  }
+
+  /**
+   * The operator a condition part is joined by. A parent condition takes it from the first
+   * condition inside it (`asParent(...).orCondition().where...`), as buildWhereClause does
+   * when it renders the fragment; every other part carries it in isOr.
+   *
+   * @param part The condition part.
+   * @return true when the part is joined by OR.
+   */
+  private static Boolean joinsByOr(ConditionPart part) {
+    if (part.parentScribe != null) {
+      List<ConditionPart> parentParts = part.parentScribe.scribe.conditionParts;
+      return !parentParts.isEmpty() && parentParts[0].isOr == true;
+    }
+    return part.isOr == true;
   }
 
   /**
@@ -2910,7 +3554,12 @@ public with sharing class Scribe {
           condition = ((AbstractConditionClause) condition).asNumericOperand();
         }
 
-        if (condition instanceof InConditionClause && ((InConditionClause) condition).hasNoValues()) {
+        if (condition instanceof NotInConditionClause && ((NotInConditionClause) condition).hasNoValues()) {
+          // An empty NOT IN is always true. WHERE writes `Id != null` for it, which HAVING
+          // does not allow (Id is neither grouped nor aggregated), so it renders nothing here
+          // and is handled below: dropped under AND, refused under OR.
+          clause = '';
+        } else if (condition instanceof InConditionClause && ((InConditionClause) condition).hasNoValues()) {
           // An empty IN matches nothing. Its WHERE form `Id = null` is not allowed in HAVING
           // ("HAVING expression must be grouped or aggregated"); `COUNT(Id) = null` is, and
           // returns no group (measured). This keeps what HAVING rendered before.
@@ -2922,7 +3571,7 @@ public with sharing class Scribe {
           clause = this.renderFieldAs(condition, aggregateClause).build();
         }
         if (String.isBlank(clause)) {
-          // An empty NOT IN renders nothing and drops out, as it does in WHERE. HAVING used to
+          // An empty NOT IN renders nothing and drops out (WHERE writes `Id != null`). HAVING used to
           // render the bare aggregate, `HAVING COUNT(Id)`, which fails to run (issue #108).
           if (levelIsOr) {
             this.fireEmptyNotInUnderOr(alias);
@@ -2983,8 +3632,7 @@ public with sharing class Scribe {
    * time, so a query refused here did not run before either. A group that is empty for
    * another reason (ignoreWhen) is not refused; see WhereClauseData.alwaysTrue.
    *
-   * WHERE drops an empty NOT IN under OR as well; changing that would change results of
-   * existing queries, so it is left to a separate issue.
+   * WHERE does not need this: it writes the always-true `Id != null` (issue #117, v4).
    *
    * @param alias The alias of the condition, or null for a group that rendered nothing.
    * @throws ApexEloquentException always.
@@ -3002,12 +3650,22 @@ public with sharing class Scribe {
   }
 
   /**
-   * Constructs the ORDER BY clause string.
+   * Constructs the ORDER BY clause string, checking each field the way SOQL will.
+   *
+   * - In an aggregate query (GROUP BY or an aggregate in SELECT), a field must be grouped, an
+   *   aggregate expression, or an aggregate's alias. An alias is written as its expression,
+   *   because SOQL does not accept the alias there (`No such column 'cnt'`), the same
+   *   substitution HAVING makes. Anything else failed at run time with an uncatchable
+   *   `Ordered field must be grouped or aggregated` (#103).
+   * - In a plain query, a field name must exist on the object (#99). A relationship path
+   *   (`Account.Name`) is not checked: ORDER BY is the one place SOQL lets a query order by a
+   *   parent field, unlike WHERE, which reaches parents through asParent().
    *
    * @param query The current query string.
+   * @param fieldMap A map of the queried object's fields.
    * @return The query string with the ORDER BY clause appended.
    */
-  private String buildOrderByClause(String query) {
+  private String buildOrderByClause(String query, Map<String, Schema.SObjectField> fieldMap) {
     if (this.orderByClauses.isEmpty()) {
       return query;
     }
@@ -3019,14 +3677,57 @@ public with sharing class Scribe {
       ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).action(action).fire();
     }
 
-    query += ' ORDER BY ';
+    Boolean isAggregateQuery = !this.groupByClauses.isEmpty() || !this.aggregateClauses.isEmpty();
+    Set<String> grouped = new Set<String>();
+    for (String groupField : this.renderedGroupByFields) {
+      grouped.add(groupField.toLowerCase());
+    }
+    Map<String, String> aliasToExpression = new Map<String, String>();
+    for (String alias : this.aggregateAliasMap.keySet()) {
+      aliasToExpression.put(alias.toLowerCase(), this.aggregateAliasMap.get(alias).getAggregateClause());
+    }
+
     List<String> orderByStrings = new List<String>();
     for (OrderByClause orderByClause : this.orderByClauses) {
+      String field = orderByClause.getField();
+      String key = field.toLowerCase();
+      Boolean isExpression = field.contains('(');
+      if (isAggregateQuery) {
+        if (aliasToExpression.containsKey(key)) {
+          orderByStrings.add(orderByClause.buildAs(aliasToExpression.get(key)));
+          continue;
+        }
+        if (!isExpression && !grouped.contains(key)) {
+          this.fireOrderByNotGrouped(field);
+        }
+      } else if (!isExpression && !field.contains('.') && !fieldMap.containsKey(key)) {
+        String objectName = this.describe == null ? '(unknown)' : this.describe.getName();
+        String reason = String.format(
+          'The field `{0}` does not exist on the SObject `{1}`.',
+          new List<String>{ field, objectName }
+        );
+        String action = 'Check the field API name for typos. To order by a parent field, pass its path, e.g. orderBy(\'Account.Name\').';
+        throw ApexEloquentException.at(CLASS_NAME).error('Order By Field Failed').reason(reason).action(action).build();
+      }
       orderByStrings.add(orderByClause.build());
     }
-    query += String.join(orderByStrings, ', ');
 
-    return query;
+    return query + ' ORDER BY ' + String.join(orderByStrings, ', ');
+  }
+
+  /**
+   * Refuses an ORDER BY field that an aggregate query cannot order by.
+   *
+   * @param field The field passed to orderBy().
+   * @throws ApexEloquentException always.
+   */
+  private void fireOrderByNotGrouped(String field) {
+    String reason = String.format(
+      'The aggregate query orders by `{0}`, which is neither grouped nor aggregated. SOQL rejects it at run time with an exception that cannot be caught.',
+      new List<String>{ field }
+    );
+    String action = 'Order by a groupByField() field, an aggregate expression such as COUNT(Id), or the alias of an aggregate in this query.';
+    throw ApexEloquentException.at(CLASS_NAME).error('Ordered field must be grouped or aggregated').reason(reason).action(action).build();
   }
 
   /**
@@ -3036,7 +3737,7 @@ public with sharing class Scribe {
    * @return The query string with the LIMIT clause appended.
    */
   private String buildLimitClause(String query) {
-    if (this.limitNumber == 0) {
+    if (this.limitNumber == null) {
       return query;
     }
 
@@ -3065,6 +3766,36 @@ public with sharing class Scribe {
   }
 
   /**
+   * Constructs the ALL ROWS clause string. It goes last, after LIMIT / OFFSET (measured:
+   * `ALL ROWS LIMIT 1` fails with "unexpected token: 'LIMIT'").
+   *
+   * @param query The current query string.
+   * @return The query string with ALL ROWS appended.
+   */
+  private String buildAllRowsClause(String query) {
+    if (!this.isAllRows) {
+      return query;
+    }
+    if (this.isChild) {
+      String reason = 'allRows() was set on a child subquery. SOQL accepts ALL ROWS only on the outer query.';
+      throw ApexEloquentException.at(CLASS_NAME)
+        .error('ALL ROWS in a subquery')
+        .reason(reason)
+        .action('Put allRows() on the outer Scribe instead.')
+        .build();
+    }
+    if (this.isForUpdate) {
+      String reason = 'allRows() and forUpdate() were both set. SOQL rejects ALL ROWS together with FOR UPDATE (measured).';
+      throw ApexEloquentException.at(CLASS_NAME)
+        .error('ALL ROWS Conflict')
+        .reason(reason)
+        .action('Remove either allRows() or forUpdate().')
+        .build();
+    }
+    return query + ' ALL ROWS';
+  }
+
+  /**
    * Constructs the FOR UPDATE clause string.
    *
    * @param query The current query string.
@@ -3073,6 +3804,14 @@ public with sharing class Scribe {
   private String buildForUpdateClause(String query) {
     if (!this.isForUpdate) {
       return query;
+    }
+    if (this.isChild) {
+      // SOQL locks rows only from the outer query: `(SELECT ... FOR UPDATE)` fails at run time
+      // with "unexpected token: 'FOR'". The ORDER BY / OFFSET conflicts were already refused;
+      // forUpdate() alone on a subquery slipped through (#103).
+      String reason = 'forUpdate() was set on a child subquery. SOQL allows FOR UPDATE only on the outer query; it locks the rows that query returns.';
+      String action = 'Put forUpdate() on the outer Scribe instead.';
+      throw ApexEloquentException.at(CLASS_NAME).error('FOR UPDATE in a subquery').reason(reason).action(action).build();
     }
 
     return query += ' FOR UPDATE';
@@ -3247,11 +3986,13 @@ public with sharing class Scribe {
     List<String> childObjectNames,
     List<String> parentIdFieldNames
   ) {
+    this.renderedGroupByFields = new List<String>();
     if (this.groupByClauses.isEmpty()) {
       return query;
     }
 
     List<String> groupByStrings = this.buildGroupByFields(fieldMap, fieldStructure, childObjectNames);
+    this.renderedGroupByFields = groupByStrings;
 
     if (!fieldStructure.isEmpty()) {
       String reason = 'There are fields in the SELECT clause that are not included in the GROUP BY clause';
@@ -3511,10 +4252,10 @@ public with sharing class Scribe {
     public boolean isLastOperatorOr;
     public Integer renderedCount = 0;
     /**
-     * HAVING only: the level rendered nothing, and at least one empty NOT IN (or one
-     * always-true group) was dropped from it, so it is always true. A level that is empty
-     * only for another reason (all of it retracted by ignoreWhen, an empty asGroup()) is
-     * not.
+     * The level rendered nothing, and at least one empty NOT IN (or one always-true group)
+     * was dropped from it, so it is always true. A level that is empty only for another
+     * reason (all of it retracted by ignoreWhen, an empty asGroup()) is not. Used by HAVING
+     * and, since v4, by WHERE (issue #117).
      */
     public Boolean alwaysTrue = false;
 
@@ -3554,7 +4295,7 @@ public with sharing class Scribe {
       Integer upperNestingDepth
     ) {
       // Reset the inner scribe's aggregate alias map so this method is idempotent
-      // across multiple top-level toSoql() invocations (mirrors Scribe.toSoql()).
+      // across multiple top-level toDisplay() invocations (mirrors Scribe.toDisplay()).
       this.scribe.aggregateAliasMap = new Map<String, AliasStructure>();
 
       ParentObjectData parentObjectData = this.validate(childFieldMap);
@@ -3813,8 +4554,37 @@ public with sharing class Scribe {
       return keyword.toUpperCase('en_US');
     }
 
+    /**
+     * The same ordering on a field reached through a relationship path, e.g. `Name` under
+     * `Product2` becomes `Product2.Name`. Used by through().
+     *
+     * @param relationPath The relationship path to put in front of the field.
+     * @return A new OrderByClause.
+     */
+    public OrderByClause prefixed(String relationPath) {
+      String path = relationPath + '.' + this.field;
+      return this.nullsOperator == null
+        ? new OrderByClause(path, this.order)
+        : new OrderByClause(path, this.order, this.nullsOperator);
+    }
+
+    public String getField() {
+      return this.field;
+    }
+
     public String build() {
-      String orderBy = this.field + ' ' + this.order;
+      return this.buildAs(this.field);
+    }
+
+    /**
+     * The clause with another expression in place of the field, e.g. an aggregate alias
+     * written as its aggregate expression.
+     *
+     * @param expression What to write where the field goes.
+     * @return The ORDER BY item.
+     */
+    public String buildAs(String expression) {
+      String orderBy = expression + ' ' + this.order;
       if (this.nullsOperator != null) {
         orderBy += ' NULLS ' + this.nullsOperator;
       }

@@ -19,7 +19,7 @@
  * SOQL `IN` condition with a subquery.
  *
  * This class demonstrates the composability of the framework, as it takes another
- * `Scribe` instance as its "value". The `build()` method recursively calls `toSoql()`
+ * `Scribe` instance as its "value". The `build()` method recursively calls `buildSubQuery()`
  * on the provided subquery Scribe to generate the final clause.
  * @see IConditionClause
  * @see AbstractConditionClause
@@ -98,7 +98,7 @@ public with sharing class InSubQueryConditionClause extends AbstractConditionCla
   }
 
   public override String build() {
-    return String.format('{0} IN ({1})', new List<String>{ this.soqlField(), this.subQueryScribe.toSoql() });
+    return String.format('{0} IN ({1})', new List<String>{ this.soqlField(), this.subQueryScribe.buildSubQuery() });
   }
 
   /**

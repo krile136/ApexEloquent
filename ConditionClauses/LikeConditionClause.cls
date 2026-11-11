@@ -30,6 +30,13 @@ public with sharing class LikeConditionClause extends AbstractConditionClause {
   private final Object value;
 
   /**
+   * Set by whereContains / whereStartsWith / whereEndsWith (and their Not forms), whose
+   * pattern carries deliberate `\%` `\_` `\\` escapes. Without it the pattern is taken as
+   * v3 took it: `%` and `_` are wildcards and `\` is a plain character.
+   */
+  private Boolean escapesApply = false;
+
+  /**
    * Constructor for LikeConditionClause.
    *
    * @param sObjectType The Schema.SObjectType of the object.
@@ -81,7 +88,48 @@ public with sharing class LikeConditionClause extends AbstractConditionClause {
    * @inheritDoc
    */
   public override String clauseKind() {
-    return 'like';
+    // A pattern from whereContains & co. is its own kind: its text can equal a whereLike
+    // pattern while it matches other rows (its escapes take effect, whereLike's do not), so
+    // Scribe.assertCondition must not let one stand for the other (review r2 N7).
+    return this.escapesApply ? 'likeLiteral' : 'like';
+  }
+
+  /**
+   * The expected condition of a `whereContains(field, value)` call, for Scribe.assertCondition:
+   * the field contains `value` taken literally. A whereLike condition with the same text does
+   * not match it.
+   *
+   * @param field The field.
+   * @param value The text, taken literally.
+   * @return The expected condition.
+   */
+  @TestVisible
+  private static LikeConditionClause contains(String field, String value) {
+    return new LikeConditionClause(field, LikeConditionClause.literalPattern('%', value, '%')).withEscapesApplied();
+  }
+
+  /**
+   * The expected condition of a `whereStartsWith(field, value)` call (see contains).
+   *
+   * @param field The field.
+   * @param value The prefix, taken literally.
+   * @return The expected condition.
+   */
+  @TestVisible
+  private static LikeConditionClause startsWith(String field, String value) {
+    return new LikeConditionClause(field, LikeConditionClause.literalPattern('', value, '%')).withEscapesApplied();
+  }
+
+  /**
+   * The expected condition of a `whereEndsWith(field, value)` call (see contains).
+   *
+   * @param field The field.
+   * @param value The suffix, taken literally.
+   * @return The expected condition.
+   */
+  @TestVisible
+  private static LikeConditionClause endsWith(String field, String value) {
+    return new LikeConditionClause(field, LikeConditionClause.literalPattern('%', value, '')).withEscapesApplied();
   }
 
   public override String build() {
@@ -95,14 +143,60 @@ public with sharing class LikeConditionClause extends AbstractConditionClause {
     Schema.SObjectType sObjectType,
     Map<String, Schema.SObjectField> fieldMap
   ) {
-    return new LikeConditionClause(sObjectType, fieldMap, this.field, this.value);
+    LikeConditionClause copy = new LikeConditionClause(sObjectType, fieldMap, this.field, this.value);
+    copy.escapesApply = this.escapesApply;
+    return copy;
   }
 
   /**
    * @inheritdoc
    */
   public override IConditionClause overrideField(String field) {
-    return new LikeConditionClause(this.sObjectType, this.fieldMap, field, this.value);
+    LikeConditionClause copy = new LikeConditionClause(this.sObjectType, this.fieldMap, field, this.value);
+    copy.escapesApply = this.escapesApply;
+    return copy;
+  }
+
+  /**
+   * A copy whose pattern keeps its backslash escapes when bound. Internal: not part of the
+   * supported API; Scribe's whereContains family is the caller.
+   *
+   * @return A new clause.
+   */
+  public LikeConditionClause withEscapesApplied() {
+    LikeConditionClause copy = new LikeConditionClause(this.sObjectType, this.fieldMap, this.field, this.value);
+    copy.escapesApply = true;
+    return copy;
+  }
+
+  /**
+   * A LIKE pattern that matches `value` literally between the given wildcards: `\`, `%` and
+   * `_` in it are escaped, the backslash first so the escapes added for `%` and `_` are not
+   * escaped again. Shared by Scribe's whereContains family and the expected conditions above,
+   * so the two cannot drift. Internal: not part of the supported API.
+   *
+   * @param before The wildcard before the value ('' or '%').
+   * @param value The text to match literally; null stays null.
+   * @param after The wildcard after the value ('' or '%').
+   * @return The pattern.
+   */
+  public static String literalPattern(String before, String value, String after) {
+    if (value == null) {
+      return null;
+    }
+    return before + value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + after;
+  }
+
+  /**
+   * Doubles the backslashes of a bound pattern unless the escapes are deliberate, so a
+   * whereLike value means what it meant in v3 (measured: bound `%abc\%` matches nothing
+   * where the v3 literal matched `abc\x`; doubled, the bind matches `abc\x` again).
+   *
+   * @param text The pattern.
+   * @return The value to bind.
+   */
+  protected override String textBindValue(String text) {
+    return this.escapesApply ? text : text.replace('\\', '\\\\');
   }
 
   /**

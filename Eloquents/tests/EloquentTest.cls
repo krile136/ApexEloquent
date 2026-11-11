@@ -333,10 +333,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opp = (Opportunity) (new Eloquent()).doInsert(opp);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to insert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -366,10 +367,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opps = (List<Opportunity>) (new Eloquent()).doInsert(opps);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to insert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -398,10 +400,11 @@ public with sharing class EloquentTest {
     try {
       opp = (Opportunity) (new Eloquent()).doUpdate(opp);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to update operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -430,10 +433,11 @@ public with sharing class EloquentTest {
     try {
       (new Eloquent()).doUpdate(opp, true);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to update operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -475,10 +479,11 @@ public with sharing class EloquentTest {
     try {
       entry = (new Eloquent()).doUpdate(entry);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to update operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -508,10 +513,11 @@ public with sharing class EloquentTest {
     try {
       (new Eloquent()).doUpdate(entry, true);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to update operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -556,10 +562,11 @@ public with sharing class EloquentTest {
     try {
       opps = (List<Opportunity>) (new Eloquent()).doUpdate(opps);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to update operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -588,10 +595,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entries = (List<IEntry>) (new Eloquent()).doUpdate(entries);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to update operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -622,10 +630,11 @@ public with sharing class EloquentTest {
     try {
       (new Eloquent()).doUpdate(opps, true);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to update operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -673,10 +682,11 @@ public with sharing class EloquentTest {
     try {
       (new Eloquent()).doUpdate(entries, true);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to update operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -745,10 +755,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opp = (Opportunity) (new Eloquent()).doUpsert(opp);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to upsert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -776,10 +787,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entry = (new Eloquent()).doUpsert(entry);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to upsert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -808,10 +820,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       opps = (List<Opportunity>) (new Eloquent()).doUpsert(opps);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to upsert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -851,10 +864,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       entries = (List<IEntry>) (new Eloquent()).doUpsert(entries);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to upsert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -883,10 +897,11 @@ public with sharing class EloquentTest {
     try {
       (new Eloquent()).doUpsertByExternalId(opp, Opportunity.Id, true);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to upsert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -928,10 +943,11 @@ public with sharing class EloquentTest {
     try {
       (new Eloquent()).doUpsertByExternalId(entry, Opportunity.Id, true);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to upsert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -975,10 +991,11 @@ public with sharing class EloquentTest {
     try {
       (new Eloquent()).doUpsertByExternalId(opps, Opportunity.Id, true);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to upsert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -1026,10 +1043,11 @@ public with sharing class EloquentTest {
     try {
       (new Eloquent()).doUpsertByExternalId(entries, Opportunity.Id, true);
       Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to upsert operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -1086,10 +1104,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(opp);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to delete operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -1118,10 +1137,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(entry);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to delete operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -1151,10 +1171,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(opps);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to delete operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -1184,10 +1205,11 @@ public with sharing class EloquentTest {
     // Act & Assert
     try {
       (new Eloquent()).doDelete(entries);
-    } catch (ApexEloquentException e) {
-      String error = e.getMessage();
-      Assert.isTrue(error.contains('Failed to delete operation'));
-      Assert.isTrue(error.contains('DML failed with'));
+      Assert.fail('Expected the platform to reject this DML with a DmlException.');
+    } catch (DmlException e) {
+      // The platform's DmlException reaches the caller as-is, not wrapped
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
+      Assert.isTrue(e.getNumDml() > 0, 'Should carry the per-row details of the platform failure.');
     }
   }
 
@@ -1249,8 +1271,9 @@ public with sharing class EloquentTest {
     Eloquent eloquent = new Eloquent();
     try {
       eloquent.label('first').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
-    } catch (ApexEloquentException e) {
-      // expected — invalid Id failure on the first op. 'first' is now consumed.
+    } catch (DmlException e) {
+      // expected — invalid Id failure on the first op, as the platform's own
+      // DmlException. The failure releases 'first', but strict mode stays on.
     }
     try {
       eloquent.doUpdate(new Opportunity(Id = '006000000000001', Name = 'Y'));
@@ -1294,11 +1317,10 @@ public with sharing class EloquentTest {
       try {
         eloquent.label('upd').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
         Assert.fail('Expected DML failure (invalid Id) on attempt ' + attempt + '.');
-      } catch (ApexEloquentException e) {
-        Assert.isTrue(
-          e.getMessage().contains('Failed to update operation'),
-          'Attempt ' + attempt + ' must fail with the DML error, not consume-once. Got: ' + e.getMessage()
-        );
+      } catch (DmlException e) {
+        // Reaching a DmlException (not an ApexEloquentException from consume-once)
+        // proves the failed attempt released the label.
+        Assert.isTrue(e.getNumDml() > 0, 'Attempt ' + attempt + ' must fail with the DML error, not consume-once.');
       }
     }
   }
@@ -1308,19 +1330,16 @@ public with sharing class EloquentTest {
     Eloquent eloquent = new Eloquent();
     try {
       eloquent.label('a').doUpdate(new Opportunity(Id = '006000000000000', Name = 'X'));
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('Failed to update operation'), 'First failure should be DML, not strict-mode.');
+    } catch (DmlException e) {
+      Assert.isTrue(e.getNumDml() > 0, 'First failure should be DML, not strict-mode.');
     }
     // Different label — should NOT throw strict-mode/consume-once; only the
     // underlying DML failure.
     try {
       eloquent.label('b').doUpdate(new Opportunity(Id = '006000000000001', Name = 'Y'));
       Assert.fail('Expected DML failure (invalid Id).');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(
-        e.getMessage().contains('Failed to update operation'),
-        'Second failure should be the DML one, not strict-mode. Got: ' + e.getMessage()
-      );
+    } catch (DmlException e) {
+      Assert.isTrue(e.getNumDml() > 0, 'Second failure should be the DML one, not strict-mode.');
     }
   }
 
@@ -1865,16 +1884,17 @@ public with sharing class EloquentTest {
   // ---- review round 1: measured platform behaviours pinned by real DML ----
 
   @isTest
-  static void testDoInsert_WhenIdPresentAllOrNoneTrue_ThenThrowWrapped() {
+  static void testDoInsert_WhenIdPresentAllOrNoneTrue_ThenThrowDmlException() {
     // Arrange
     Group stale = new Group(Id = '00G000000000001', Name = 'EloquentRT insAonId', DeveloperName = 'EloquentRT_insAonId');
 
-    // Act & Assert - the measured INVALID_FIELD_FOR_INSERT_UPDATE arrives wrapped
-    // as ApexEloquentException, like every DML failure in this framework
+    // Act & Assert - the measured INVALID_FIELD_FOR_INSERT_UPDATE arrives as the
+    // platform's own DmlException, unwrapped
     try {
       (new Eloquent()).doInsert(new List<SObject>{ stale }, true);
-      Assert.fail('Expected ApexEloquentException for all-or-none insert with Id.');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException for all-or-none insert with Id.');
+    } catch (DmlException e) {
+      Assert.isNull(e.getCause(), 'Should be the platform DmlException itself, not a wrapper.');
       // The SAME string the mock bakes in — if the platform ever changes the
       // wording, this real-DML test and the mock drift apart visibly.
       Assert.isTrue(
@@ -1885,15 +1905,15 @@ public with sharing class EloquentTest {
   }
 
   @isTest
-  static void testDoDelete_WhenRecordWithoutIdAllOrNoneFalse_ThenThrowWrapped() {
+  static void testDoDelete_WhenRecordWithoutIdAllOrNoneFalse_ThenThrowListException() {
     // Arrange & Act & Assert - the platform throws a ListException here even with
-    // allOrNone=false (measured); Eloquent wraps it so callers keep catching
-    // ApexEloquentException on every failure path
+    // allOrNone=false (measured); Eloquent lets it through unwrapped, the same as
+    // plain Database.delete
     try {
       (new Eloquent()).doDelete(new Group(Name = 'EloquentRT delNoId'), false);
-      Assert.fail('Expected ApexEloquentException for delete without Id.');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('rejected the input'), 'Should be the wrapped list rejection. Got: ' + e.getMessage());
+      Assert.fail('Expected ListException for delete without Id.');
+    } catch (ListException e) {
+      Assert.isNull(e.getCause(), 'Should be the platform ListException itself, not a wrapper.');
     }
   }
 
@@ -2008,5 +2028,162 @@ public with sharing class EloquentTest {
     } catch (ApexEloquentException e) {
       Assert.isTrue(e.getMessage().contains('A null record was passed'), 'Should be the unified null-element error.');
     }
+  }
+
+  @isTest
+  static void testGet_WhenEmptyNotInJoinedByOr_ThenEveryRowReturned() {
+    // Arrange - issue #117 against a real query: `<nothing> OR (empty NOT IN)` is every row.
+    // Group is platform-frozen, so no org customization can change the count. One row is
+    // created so the test cannot pass on an empty table, where v3 also returned 0 (F8).
+    insert buildGroup('emptyNotInOr');
+    Integer total = [SELECT COUNT() FROM Group];
+    Assert.isTrue(total > 0);
+    Scribe scribe = Scribe.of(Group.class)
+      .field('Id')
+      .whereEqual('Name', 'EloquentRT no such group')
+      .orCondition()
+      .whereNotIn('Type', new List<String>());
+
+    // Act
+    List<IEntry> rows = (new Eloquent()).get(scribe);
+
+    // Assert
+    Assert.areEqual(total, rows.size(), 'An empty NOT IN under OR must widen the result to every row.');
+  }
+
+  @isTest
+  static void testGet_WhenNewQueryShapes_ThenSoqlRuns() {
+    // Arrange - the shapes v4 now writes; each must be SOQL the platform accepts (rows may be zero)
+    List<Scribe> scribes = new List<Scribe>{
+      Scribe.of(Group.class).field('Type').count('Id', 'cnt').groupByField('Type').orderBy('cnt', 'DESC'),
+      Scribe.of(Group.class).field('Id').take(0),
+      Scribe.of(Group.class).field('Type').count('Id', 'cnt').groupByField('Type').allRows(),
+      Scribe.of(Group.class).field('Id').orderBy('Name').take(1).offset(0).allRows(),
+      Scribe.of(Order.class)
+        .field('Id')
+        .through(Scribe.asThrough(OrderItem.class, 'Product2Id').field('Name').orderBy('Name', 'DESC').take(5))
+    };
+
+    // Act & Assert - a SOQL the platform rejects would throw here
+    for (Scribe scribe : scribes) {
+      (new Eloquent()).get(scribe);
+    }
+    Assert.areEqual(0, (new Eloquent()).get(Scribe.of(Group.class).field('Id').take(0)).size(), 'LIMIT 0 returns no rows.');
+  }
+
+  @isTest
+  static void testGet_WhenTextValueHasQuoteAndWildcard_ThenBoundValueMatchesExactly() {
+    // Arrange - a value with a quote runs as a bind; the row is found by its exact name
+    Group created = new Group(Name = 'EloquentRT O\'Brien_1', DeveloperName = 'EloquentRT_quote_' + Datetime.now().getTime());
+    insert created;
+    Scribe query = Scribe.of(Group.class).field('Id').whereEqual('Name', created.Name);
+
+    // Act
+    List<IEntry> rows = (new Eloquent()).get(query);
+
+    // Assert
+    Assert.areEqual(1, rows.size());
+    Assert.areEqual(created.Id, rows[0].getId());
+  }
+
+  @isTest
+  static void testGet_WhenContainsStartsWith_ThenWildcardsInValueMatchLiterally() {
+    // Arrange - the platform reads % and _ in a bound LIKE value as wildcards unless escaped
+    Long stamp = Datetime.now().getTime();
+    Group exact = new Group(Name = 'EloquentRT 50%_off', DeveloperName = 'EloquentRT_like1_' + stamp);
+    Group underscoreOnly = new Group(Name = 'EloquentRT 50X_off', DeveloperName = 'EloquentRT_like2_' + stamp);
+    Group percentOnly = new Group(Name = 'EloquentRT 50%Xoff', DeveloperName = 'EloquentRT_like3_' + stamp);
+    insert new List<Group>{ exact, underscoreOnly, percentOnly };
+
+    // Act
+    List<IEntry> contains = (new Eloquent()).get(Scribe.of(Group.class).field('Id').whereContains('Name', '50%_'));
+    List<IEntry> startsWith = (new Eloquent()).get(Scribe.of(Group.class).field('Id').whereStartsWith('Name', 'EloquentRT 50%'));
+
+    // Assert
+    Assert.areEqual(1, contains.size(), 'Only the name with a literal "50%_" matches.');
+    Assert.areEqual(exact.Id, contains[0].getId());
+    Assert.areEqual(2, startsWith.size(), 'The two names starting with a literal "50%" match; "50X_off" does not.');
+  }
+
+  @isTest
+  static void testGet_WhenWhereLikeHasBackslash_ThenMatchesLikeV3AndContainsEscapes() {
+    // Arrange - F3: bound, whereLike keeps v3's meaning (\ is a character), whereContains escapes
+    Long stamp = Datetime.now().getTime();
+    String bs = String.fromCharArray(new List<Integer>{ 92 });
+    Group withBackslash = new Group(Name = 'EloquentRT abc' + bs + 'x', DeveloperName = 'EloquentRT_bs1_' + stamp);
+    Group withPercent = new Group(Name = 'EloquentRT abc%y', DeveloperName = 'EloquentRT_bs2_' + stamp);
+    insert new List<Group>{ withBackslash, withPercent };
+
+    // Act
+    List<IEntry> likeRows = (new Eloquent()).get(Scribe.of(Group.class).field('Id').whereLike('Name', '%abc' + bs + '%'));
+    List<IEntry> contains = (new Eloquent()).get(Scribe.of(Group.class).field('Id').whereContains('Name', 'abc%'));
+
+    // Assert
+    Assert.areEqual(1, likeRows.size());
+    Assert.areEqual(withBackslash.Id, likeRows[0].getId(), 'whereLike: the backslash is a plain character, % a wildcard.');
+    Assert.areEqual(1, contains.size());
+    Assert.areEqual(withPercent.Id, contains[0].getId(), 'whereContains: % is a plain character.');
+  }
+
+  @isTest
+  static void testGet_WhenValueTypesAreBound_ThenSameRowsAsTheLiteral() {
+    // Arrange - F4: value types the matrix does not bind; each must be accepted as a bind and
+    // match what the literal text matches
+    List<Scribe> queries = new List<Scribe>{
+      Scribe.of(Opportunity.class).field('AccountId').max('CloseDate', 'm').groupByField('AccountId').havingCondition(Scribe.asHaving().whereGreaterThan('m', Date.today())),
+      Scribe.of(Opportunity.class).field('AccountId').min('Name', 'n').groupByField('AccountId').havingCondition(Scribe.asHaving().whereEqual('n', 'x')),
+      Scribe.of(Opportunity.class).field('AccountId').sum('Amount', 's').groupByField('AccountId').havingCondition(Scribe.asHaving().whereGreaterThan('s', 1)),
+      Scribe.of(Opportunity.class).field('Id').whereGreaterThan('Amount', 1L),
+      Scribe.of(Opportunity.class).field('Id').whereGreaterThan('Amount', 1.5d),
+      Scribe.of(Opportunity.class).field('Id').whereGreaterThan('Amount', 1.5),
+      Scribe.of(Opportunity.class).field('Id').whereEqual('Probability', 10),
+      Scribe.of(Opportunity.class).field('Id').whereEqual('IsPrivate', false),
+      Scribe.of(BusinessHours.class).field('Id').whereEqual('MondayStartTime', Time.newInstance(8, 0, 0, 0)),
+      Scribe.of(Contact.class).field('Id').whereEqual('Phone', ''),
+      Scribe.of(Contact.class).field('Id').whereEqual('AccountId', '')
+    };
+
+    // Act & Assert
+    for (Scribe query : queries) {
+      Integer viaBind = (new Eloquent()).get(query).size();
+      Integer viaLiteral = Database.query(query.toDisplay()).size();
+      Assert.areEqual(viaLiteral, viaBind, query.toDisplay());
+    }
+  }
+
+  @isTest
+  static void testGet_WhenPeriodMethods_ThenMeaningAsNamed() {
+    // Arrange - Group rows are created now; Group is platform-frozen, so no org's rules interfere
+    Group created = buildGroup('period');
+    insert created;
+    DateLiteral today = DateLiteral.today();
+    Scribe base = Scribe.of(Group.class).field('Id').whereEqual('Id', created.Id);
+
+    // Act & Assert - CreatedDate is today
+    Assert.areEqual(1, (new Eloquent()).get(base.whereWithin('CreatedDate', today)).size(), 'within today');
+    Assert.areEqual(0, (new Eloquent()).get(base.whereNotWithin('CreatedDate', today)).size(), 'not within today');
+    Assert.areEqual(0, (new Eloquent()).get(base.whereBefore('CreatedDate', today)).size(), 'before today');
+    Assert.areEqual(0, (new Eloquent()).get(base.whereAfter('CreatedDate', today)).size(), 'after today');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereSince('CreatedDate', today)).size(), 'since today');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereUntil('CreatedDate', today)).size(), 'until today');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereAfter('CreatedDate', DateLiteral.last().day())).size(), 'after yesterday');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereBefore('CreatedDate', DateLiteral.next().day())).size(), 'before tomorrow');
+    Assert.areEqual(1, (new Eloquent()).get(base.whereWithin('CreatedDate', DateLiteral.last(1).days())).size(), 'LAST_N_DAYS:1 includes today');
+    Assert.areEqual(
+      1,
+      (new Eloquent()).get(base.whereWithinAny('CreatedDate', new List<DateLiteral>{ DateLiteral.ago(5).days(), today })).size(),
+      'within any'
+    );
+  }
+
+  @isTest
+  static void testGet_WhenDateLiteralInParentChildAndHaving_ThenSoqlRuns() {
+    // Act & Assert - each must be SOQL the platform accepts
+    (new Eloquent()).get(Scribe.of(Contact.class).field('Id').parentCondition(Scribe.asParent('AccountId').whereWithin('CreatedDate', DateLiteral.current().year())));
+    (new Eloquent()).get(Scribe.of(Account.class).field('Id').withChildren(Scribe.asChild(Contact.class).field('Id').whereSince('CreatedDate', DateLiteral.last(7).days())));
+    (new Eloquent()).get(
+      Scribe.of(Opportunity.class).field('AccountId').max('CloseDate', 'm').groupByField('AccountId').havingCondition(Scribe.asHaving().whereWithin('m', DateLiteral.current().fiscalYear()))
+    );
+    Assert.isTrue(true, 'reached: all three ran');
   }
 }

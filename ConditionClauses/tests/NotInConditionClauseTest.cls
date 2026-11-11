@@ -83,7 +83,7 @@ public class NotInConditionClauseTest {
   }
 
   @isTest
-  static void testBuild_WhenListIsEmpty_ThenReturnsEmptyString() {
+  static void testBuild_WhenListIsEmpty_ThenReturnsAlwaysTrue() {
     // Arrange
     Schema.SObjectType sObjectType = Account.getSObjectType();
     Map<String, Schema.SObjectField> fieldMap = sObjectType.getDescribe().fields.getMap();
@@ -95,9 +95,9 @@ public class NotInConditionClauseTest {
 
     // Assert
     Assert.areEqual(
-      '',
+      'Id != null',
       result,
-      'An empty NOT IN list should result in an empty string to be ignored by the builder.'
+      'An empty NOT IN is always true; it names the queried object\'s own Id, like the empty IN.'
     );
   }
 

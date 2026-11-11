@@ -389,8 +389,7 @@ public with sharing class EntryTest {
   @isTest
   static void testGetChildren_WhenGivenRelationName_ThenFallbackResolveAndReturnEmptyList() {
     // The argument is a relationship name (`Contacts`), not the SObject name (`Contact`).
-    // getChildren should fall back to the relationship-name lookup so callers don't have
-    // to switch to getChildrenByRelationName.
+    // getChildren falls back to the relationship-name lookup.
     // Arrange
     SObject record = new Account(Name = 'Test Account');
     Entry entry = new Entry(record);
@@ -417,70 +416,6 @@ public with sharing class EntryTest {
       Assert.isTrue(errorMessage.contains('getChildren(String childObjectName)'));
       Assert.isTrue(errorMessage.contains('argument is Invalid'));
     }
-  }
-
-  @isTest
-  static void testGetChildrenByRelationName_WhenApplyNull_ThenThrowException() {
-    // Arrange
-    SObject record = new Account(Name = 'Test Account');
-    Entry entry = new Entry(record);
-
-    // Act & Assert
-    try {
-      entry.getChildrenByRelationName(null);
-      Assert.fail('Expected ApexEloquentException to be thrown.');
-    } catch (ApexEloquentException e) {
-      String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('getChildrenByRelationName(String childRelationName)'));
-      Assert.isTrue(errorMessage.contains('Missing required parameter'));
-    }
-  }
-
-  @isTest
-  static void testGetChildrenByRelationName_WhenApplyEmptyString_ThenThrowException() {
-    // Arrange
-    SObject record = new Account(Name = 'Test Account');
-    Entry entry = new Entry(record);
-
-    // Act & Assert
-    try {
-      entry.getChildrenByRelationName('');
-      Assert.fail('Expected ApexEloquentException to be thrown.');
-    } catch (ApexEloquentException e) {
-      String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('getChildrenByRelationName(String childRelationName)'));
-      Assert.isTrue(errorMessage.contains('Missing required parameter'));
-    }
-  }
-
-  @isTest
-  static void testGetChildrenByRelationName_WhenApplyNonExistRelationName_ThenThrowException() {
-    // Arrange
-    SObject record = new Account(Name = 'Test Account');
-    Entry entry = new Entry(record);
-
-    // Act & Assert
-    try {
-      entry.getChildrenByRelationName('NonExistentRelation');
-      Assert.fail('Expected ApexEloquentException to be thrown.');
-    } catch (ApexEloquentException e) {
-      String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('getChildrenByRelationName(String childRelationName)'));
-      Assert.isTrue(errorMessage.contains('argument is Invalid'));
-    }
-  }
-
-  @isTest
-  static void testGetChildrenByRelationName_WhenChildrenAreNull_ShouldReturnEmptyList() {
-    // Arrange
-    SObject record = new Account(Name = 'Test Account');
-    Entry entry = new Entry(record);
-
-    // Act
-    List<IEntry> children = entry.getChildrenByRelationName('Contacts');
-
-    // Assert
-    Assert.isTrue(children.isEmpty(), 'The children list should be empty when no children exist.');
   }
 
   @isTest

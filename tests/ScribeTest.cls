@@ -2291,6 +2291,61 @@ public with sharing class ScribeTest {
   }
 
   @isTest
+  static void testNotIn_WhenEmptyListJoinedByOr_ThenAlwaysTrue() {
+    // Arrange - issue #117: `A OR (empty NOT IN)` is `A OR true`, every row
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'a')
+      .orCondition()
+      .whereNotIn('Industry', new List<String>());
+
+    // Act & Assert - dropping it would narrow the result to Name = 'a'
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'a\' OR Id != null', scribe.toSoql());
+  }
+
+  @isTest
+  static void testNotIn_WhenEmptyListFirstInOrLevel_ThenAlwaysTrue() {
+    // Arrange - the first part carries no isOr; it is an OR operand through the next part
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereNotIn('Industry', new List<String>())
+      .orCondition()
+      .whereEqual('Name', 'a');
+
+    // Act & Assert
+    Assert.areEqual('SELECT id FROM Account WHERE Id != null OR Name = \'a\'', scribe.toSoql());
+  }
+
+  @isTest
+  static void testNotIn_WhenGroupOfEmptyListsJoinedByOr_ThenAlwaysTrue() {
+    // Arrange - a group holding only empty NOT INs (joined by AND inside) is always true
+    Scribe scribe = Scribe.of(Account.class)
+      .field('Id')
+      .whereEqual('Name', 'a')
+      .orCondition()
+      .whereGroup(Scribe.asGroup().whereNotIn('Industry', new List<String>()).whereNotIn('Type', new List<String>()));
+
+    // Act & Assert
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'a\' OR (Id != null)', scribe.toSoql());
+  }
+
+  @isTest
+  static void testNotIn_WhenEmptyListInParentJoinedByOr_ThenAlwaysTrueOnQueriedObject() {
+    // Arrange - under a parent condition it still names the queried object's Id:
+    // `Opportunity.Id != null` would drop line items without a parent
+    Scribe scribe = Scribe.of(OpportunityLineItem.class)
+      .field('Id')
+      .whereEqual('Name', 'Test OLI')
+      .parentCondition(Scribe.asParent('OpportunityId').orCondition().whereNotIn('Id', new List<Id>()));
+
+    // Act
+    String soql = scribe.toSoql();
+
+    // Assert
+    Assert.areEqual('SELECT id FROM OpportunityLineItem WHERE Name = \'Test OLI\' OR Id != null', soql);
+  }
+
+  @isTest
   static void testParentCondition_WhenAddEmptyList_ThenInogreParentCondition() {
     // Arrange
     Scribe scribe = Scribe.of(OpportunityLineItem.class)
@@ -4427,13 +4482,13 @@ public with sharing class ScribeTest {
         'SELECT id FROM Account WHERE Industry = \'A\' AND Type = \'D\''
       ),
       new MatrixCase(
-        'semantically empty group as OR member → no dangling OR',
+        'always-true group (empty NOT IN) as OR member → whole level true, not narrowed (issue #117)',
         Scribe.of(Account.class)
           .field('Id')
           .whereEqual('Industry', 'A')
           .orCondition()
           .whereGroup(Scribe.asGroup().whereNotIn('Name', new List<String>())),
-        'SELECT id FROM Account WHERE Industry = \'A\''
+        'SELECT id FROM Account WHERE Industry = \'A\' OR (Id != null)'
       ),
       new MatrixCase(
         'retraction-emptied group as OR member → no dangling OR',

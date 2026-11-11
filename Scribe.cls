@@ -1669,8 +1669,8 @@ public with sharing class Scribe {
    * An empty collection is a normal expectation: `ignoreWhen(ids.isEmpty())` removes the
    * condition from the query outright, so `assertNoCondition(new InConditionClause('Id',
    * ids))` is how both sides of that branch are fixed. Such a condition renders as
-   * degenerate SOQL (an empty `IN` becomes `<field> = null`, an empty `NOT IN` becomes
-   * nothing), which is precisely why the kind and the field are part of the key: text
+   * degenerate SOQL (an empty `IN` becomes `Id = null`, an empty `NOT IN` becomes
+   * `Id != null`), which is precisely why the kind and the field are part of the key: text
    * alone would let those collapse into one another.
    *
    * A failure raises System.AssertException, which Apex does not allow to be caught
@@ -2728,6 +2728,12 @@ public with sharing class Scribe {
   }
 
   /**
+   * The always-true condition an empty NOT IN stands for when it is joined by OR. It names
+   * the queried object's own Id, like the always-false `Id = null` of an empty IN.
+   */
+  private static final String ALWAYS_TRUE_CONDITION = 'Id != null';
+
+  /**
    * Constructs the complete WHERE clause string from all condition parts.
    *
    * @param fieldMap A map of the source object's fields.
@@ -2746,7 +2752,10 @@ public with sharing class Scribe {
     Integer renderedCount = 0;
     Boolean usedAnd = false;
     Boolean usedOr = false;
+    Boolean droppedAlwaysTrue = false;
+    Integer partIndex = -1;
     for (ConditionPart conditionPart : this.conditionParts) {
+      partIndex++;
       if (isLastOperatorOr && !conditionPart.isOr) {
         String error = 'Logical Operator Mismatch';
         String reason = 'A condition following an orWhere() must also be an OR condition to maintain logical consistency.';
@@ -2768,6 +2777,17 @@ public with sharing class Scribe {
           // built string broke NOT LIKE, which starts with `(NOT ` (issue #115).
           condition = this.renderFieldAs(condition, childObjectName + '.' + condition.getFieldName());
         }
+        if (condition instanceof NotInConditionClause && ((NotInConditionClause) condition).hasNoValues()) {
+          // An empty NOT IN is always true (issue #117). Joined by AND it changes nothing
+          // (`A AND true` is `A`), so it drops out and the SOQL stays as it was. Joined by
+          // OR it makes the whole level true, so it is written as `Id != null`; dropping it
+          // there narrowed `A OR true` (every row) to `A` without any sign. Writing it under
+          // AND as well would only add text and could create an AND/OR mix SOQL rejects.
+          if (!this.isOrOperand(partIndex)) {
+            droppedAlwaysTrue = true;
+            continue;
+          }
+        }
         clause = condition.build();
         if (String.isBlank(clause)) {
           continue;
@@ -2781,7 +2801,16 @@ public with sharing class Scribe {
         // condition, and the group filtered the child object instead (issue #116).
         WhereClauseData groupWhereClauseData = groupScribe.buildWhereClause(fieldMap, childObjectName);
         if (String.isBlank(groupWhereClauseData.whereClauseString)) {
-          continue;
+          // A group of only empty NOT INs joined by AND is always true: the same rule as a
+          // single one. A group empty for another reason (ignoreWhen, asGroup()) drops out.
+          if (!groupWhereClauseData.alwaysTrue) {
+            continue;
+          }
+          if (!this.isOrOperand(partIndex)) {
+            droppedAlwaysTrue = true;
+            continue;
+          }
+          groupWhereClauseData.whereClauseString = ALWAYS_TRUE_CONDITION;
         }
         String groupBody = groupWhereClauseData.whereClauseString;
         if (groupWhereClauseData.renderedCount == 1 && groupBody.startsWith('(') && groupBody.endsWith(')')) {
@@ -2796,6 +2825,14 @@ public with sharing class Scribe {
         ParentScribe parentScribe = conditionPart.parentScribe;
         WhereClauseData parentWhereClauseData = parentScribe.buildWhereClause(fieldMap, childObjectName);
         clause = parentWhereClauseData.whereClauseString;
+        if (String.isBlank(clause) && parentWhereClauseData.alwaysTrue) {
+          // A parent condition of only empty NOT INs: always true, same rule as above.
+          if (!this.isOrOperand(partIndex)) {
+            droppedAlwaysTrue = true;
+            continue;
+          }
+          clause = ALWAYS_TRUE_CONDITION;
+        }
         if (parentWhereClauseData.renderedCount > 1) {
           // a multi-condition parent fragment is one structural unit — parenthesize
           // it like a whereGroup, so it cannot create an unparenthesized AND/OR mix
@@ -2825,7 +2862,39 @@ public with sharing class Scribe {
 
     WhereClauseData result = new WhereClauseData(whereClauseString, isFirstOperatorOr, isLastOperatorOr);
     result.renderedCount = renderedCount;
+    result.alwaysTrue = String.isBlank(whereClauseString) && droppedAlwaysTrue;
     return result;
+  }
+
+  /**
+   * Whether the condition part at this index is joined to its level by OR. A part carries
+   * isOr when orCondition() preceded it; the first part never does, so it takes the
+   * operator of the part after it.
+   *
+   * @param index Index into conditionParts.
+   * @return true when the part is an operand of OR.
+   */
+  private Boolean isOrOperand(Integer index) {
+    if (index > 0) {
+      return joinsByOr(this.conditionParts[index]);
+    }
+    return this.conditionParts.size() > 1 && joinsByOr(this.conditionParts[1]);
+  }
+
+  /**
+   * The operator a condition part is joined by. A parent condition takes it from the first
+   * condition inside it (`asParent(...).orCondition().where...`), as buildWhereClause does
+   * when it renders the fragment; every other part carries it in isOr.
+   *
+   * @param part The condition part.
+   * @return true when the part is joined by OR.
+   */
+  private static Boolean joinsByOr(ConditionPart part) {
+    if (part.parentScribe != null) {
+      List<ConditionPart> parentParts = part.parentScribe.scribe.conditionParts;
+      return !parentParts.isEmpty() && parentParts[0].isOr == true;
+    }
+    return part.isOr == true;
   }
 
   /**
@@ -2910,7 +2979,12 @@ public with sharing class Scribe {
           condition = ((AbstractConditionClause) condition).asNumericOperand();
         }
 
-        if (condition instanceof InConditionClause && ((InConditionClause) condition).hasNoValues()) {
+        if (condition instanceof NotInConditionClause && ((NotInConditionClause) condition).hasNoValues()) {
+          // An empty NOT IN is always true. WHERE writes `Id != null` for it, which HAVING
+          // does not allow (Id is neither grouped nor aggregated), so it renders nothing here
+          // and is handled below: dropped under AND, refused under OR.
+          clause = '';
+        } else if (condition instanceof InConditionClause && ((InConditionClause) condition).hasNoValues()) {
           // An empty IN matches nothing. Its WHERE form `Id = null` is not allowed in HAVING
           // ("HAVING expression must be grouped or aggregated"); `COUNT(Id) = null` is, and
           // returns no group (measured). This keeps what HAVING rendered before.
@@ -2922,7 +2996,7 @@ public with sharing class Scribe {
           clause = this.renderFieldAs(condition, aggregateClause).build();
         }
         if (String.isBlank(clause)) {
-          // An empty NOT IN renders nothing and drops out, as it does in WHERE. HAVING used to
+          // An empty NOT IN renders nothing and drops out (WHERE writes `Id != null`). HAVING used to
           // render the bare aggregate, `HAVING COUNT(Id)`, which fails to run (issue #108).
           if (levelIsOr) {
             this.fireEmptyNotInUnderOr(alias);
@@ -2983,8 +3057,7 @@ public with sharing class Scribe {
    * time, so a query refused here did not run before either. A group that is empty for
    * another reason (ignoreWhen) is not refused; see WhereClauseData.alwaysTrue.
    *
-   * WHERE drops an empty NOT IN under OR as well; changing that would change results of
-   * existing queries, so it is left to a separate issue.
+   * WHERE does not need this: it writes the always-true `Id != null` (issue #117, v4).
    *
    * @param alias The alias of the condition, or null for a group that rendered nothing.
    * @throws ApexEloquentException always.
@@ -3511,10 +3584,10 @@ public with sharing class Scribe {
     public boolean isLastOperatorOr;
     public Integer renderedCount = 0;
     /**
-     * HAVING only: the level rendered nothing, and at least one empty NOT IN (or one
-     * always-true group) was dropped from it, so it is always true. A level that is empty
-     * only for another reason (all of it retracted by ignoreWhen, an empty asGroup()) is
-     * not.
+     * The level rendered nothing, and at least one empty NOT IN (or one always-true group)
+     * was dropped from it, so it is always true. A level that is empty only for another
+     * reason (all of it retracted by ignoreWhen, an empty asGroup()) is not. Used by HAVING
+     * and, since v4, by WHERE (issue #117).
      */
     public Boolean alwaysTrue = false;
 

@@ -6113,26 +6113,28 @@ public with sharing class ScribeTest {
   @isTest
   static void testParentCondition_WhenGroupInside_ThenTheGroupFiltersTheParent() {
     // Arrange - issue #116. The group used to be built without the path, so it filtered
-    // the child's own Name: the opportunity named 'a' with no account came back instead.
-    Account acc = new Account(Name = 'a');
-    insert acc;
-    Opportunity underA = new Opportunity(Name = 'zz', StageName = 'Prospecting', CloseDate = Date.today(), AccountId = acc.Id);
-    Opportunity namedA = new Opportunity(Name = 'a', StageName = 'Prospecting', CloseDate = Date.today());
-    insert new List<Opportunity>{ underA, namedA };
-    Scribe scribe = Scribe.of(Opportunity.class)
+    // the child's own Name: the record named 'a' with no parent came back instead. Account's
+    // own parent (ParentId) gives child and parent the same Name field; Account with a Name
+    // alone inserts in any org, unlike Opportunity, whose required fields vary by org.
+    Account parentA = new Account(Name = 'a');
+    insert parentA;
+    Account underA = new Account(Name = 'zz', ParentId = parentA.Id);
+    Account namedA = new Account(Name = 'a');
+    insert new List<Account>{ underA, namedA };
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
       .parentCondition(
-        Scribe.asParent('AccountId')
+        Scribe.asParent('ParentId')
           .whereGroup(Scribe.asGroup().whereEqual('Name', 'a').orCondition().whereEqual('Name', 'b'))
       );
 
     // Act
     String soql = scribe.toDisplay();
-    List<Opportunity> found = Database.query(soql);
+    List<Account> found = Database.query(soql);
 
     // Assert
-    Assert.areEqual('SELECT id FROM Opportunity WHERE (Account.Name = \'a\' OR Account.Name = \'b\')', soql);
-    Assert.areEqual(1, found.size(), 'Only the opportunity under the account named a. Got: ' + found);
+    Assert.areEqual('SELECT id FROM Account WHERE (Parent.Name = \'a\' OR Parent.Name = \'b\')', soql);
+    Assert.areEqual(1, found.size(), 'Only the account under the parent named a. Got: ' + found);
     Assert.areEqual(underA.Id, found[0].Id);
   }
 
@@ -6162,17 +6164,17 @@ public with sharing class ScribeTest {
   @isTest
   static void testParentCondition_WhenInIsEmpty_ThenNoRowMatches() {
     // Arrange - an empty IN renders `Id = null` to match nothing. Prefixed with the path it
-    // became `Account.Id = null`, which matched every opportunity without an account.
-    insert new Opportunity(Name = 'no account', StageName = 'Prospecting', CloseDate = Date.today());
-    Scribe scribe = Scribe.of(Opportunity.class)
+    // became `Parent.Id = null`, which matched every account without a parent.
+    insert new Account(Name = 'no parent');
+    Scribe scribe = Scribe.of(Account.class)
       .field('Id')
-      .parentCondition(Scribe.asParent('AccountId').whereIn('Industry', new List<String>()));
+      .parentCondition(Scribe.asParent('ParentId').whereIn('Industry', new List<String>()));
 
     // Act
     String soql = scribe.toDisplay();
 
     // Assert
-    Assert.areEqual('SELECT id FROM Opportunity WHERE Id = null', soql);
+    Assert.areEqual('SELECT id FROM Account WHERE Id = null', soql);
     Assert.areEqual(0, Database.query(soql).size(), 'An empty IN matches no row.');
   }
 

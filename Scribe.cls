@@ -926,10 +926,10 @@ public with sharing class Scribe {
   /**
    * Adds a LIKE condition to the WHERE clause.
    *
-   * `%` and `_` in the value are always wildcards, and whereLike / whereNotLike currently
-   * have no way to match them literally: the value goes through `String.escapeSingleQuotes`,
-   * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
-   * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
+   * `%` and `_` in the value are always wildcards, and `\` is a plain character: the value is
+   * a pattern, as in v3 (bound since v4, with its backslashes doubled so they stay plain
+   * characters). To match `%` and `_` literally, use whereContains / whereStartsWith /
+   * whereEndsWith (and their Not forms). When the value
    * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
    * search for `100%` also matches `1000`. For user input use whereContains / whereStartsWith /
    * whereEndsWith (v4), which take the value literally (issue #106).
@@ -963,10 +963,10 @@ public with sharing class Scribe {
   /**
    * Adds a NOT LIKE condition to the WHERE clause.
    *
-   * `%` and `_` in the value are always wildcards, and whereLike / whereNotLike currently
-   * have no way to match them literally: the value goes through `String.escapeSingleQuotes`,
-   * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
-   * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
+   * `%` and `_` in the value are always wildcards, and `\` is a plain character: the value is
+   * a pattern, as in v3 (bound since v4, with its backslashes doubled so they stay plain
+   * characters). To match `%` and `_` literally, use whereContains / whereStartsWith /
+   * whereEndsWith (and their Not forms). When the value
    * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
    * search for `100%` also matches `1000`. For user input use whereContains / whereStartsWith /
    * whereEndsWith (v4), which take the value literally (issue #106).
@@ -1644,7 +1644,7 @@ public with sharing class Scribe {
     String error = 'Not allowed on a parent';
     String reason =
       String.join(found, ', ') +
-      ' was set on the Scribe.asParent() Scribe. SOQL has no ORDER BY, LIMIT, OFFSET or FOR UPDATE for a parent: it resolves to the one record each row points at.';
+      ' was set on the Scribe.asParent() Scribe. SOQL has no ORDER BY, LIMIT, OFFSET, FOR UPDATE or ALL ROWS for a parent: it resolves to the one record each row points at.';
     String action =
       'To order by a parent field, order the outer query by its path, e.g. orderBy(\'Account.Name\'). ' +
       'LIMIT and OFFSET have no meaning for a parent; put forUpdate() on the outer query.';

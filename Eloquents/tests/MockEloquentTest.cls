@@ -84,10 +84,10 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.rawSoql('SELECT Id FROM Opportunity');
-      Assert.fail('Expected forced ApexEloquentException');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('Forced Exception for Testing'), 'should be the framework testException');
-      Assert.isTrue(e.getMessage().contains('rawSoql(String soql)'), 'should attach the method signature');
+      Assert.fail('Expected forced QueryException');
+    } catch (QueryException e) {
+      Assert.isTrue(e.getMessage().contains('Forced failure for testing'), 'should be the no-arg forced failure');
+      Assert.isTrue(e.getMessage().contains('made rawSoql() throw'), 'should name the method the failure was registered for');
     }
   }
 
@@ -693,11 +693,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.get(scribe);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made get() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -711,19 +711,19 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.get(scribe);
-      Assert.fail('Expected ApexEloquentException to be thrown on first get');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected QueryException to be thrown on first get');
+    } catch (QueryException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made get() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
 
     // Second call should not throw exception
     try {
       List<IEntry> entries = eloquent.get(scribe);
       Assert.isNotNull(entries, 'Expected entries to be returned on second get');
-    } catch (ApexEloquentException e) {
-      Assert.fail('Did not expect ApexEloquentException to be thrown on second get');
+    } catch (QueryException e) {
+      Assert.fail('Did not expect QueryException to be thrown on second get');
     }
   }
 
@@ -738,11 +738,11 @@ public with sharing class MockEloquentTest {
     for (Integer i = 0; i < 3; i++) {
       try {
         eloquent.get(scribe);
-        Assert.fail('Expected ApexEloquentException to be thrown on get attempt ' + (i + 1));
-      } catch (ApexEloquentException e) {
+        Assert.fail('Expected QueryException to be thrown on get attempt ' + (i + 1));
+      } catch (QueryException e) {
         String errorMessage = e.getMessage();
-        Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
-        Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+        Assert.isTrue(errorMessage.contains('made get() throw'));
+        Assert.isTrue(errorMessage.contains('Forced failure for testing'));
       }
     }
   }
@@ -759,17 +759,17 @@ public with sharing class MockEloquentTest {
       try {
         eloquent.get(scribe);
         if (i < 2) {
-          Assert.fail('Expected ApexEloquentException to be thrown on get attempt ' + (i + 1));
+          Assert.fail('Expected QueryException to be thrown on get attempt ' + (i + 1));
         } else {
           Assert.isNotNull(eloquent.get(scribe), 'Expected entries to be returned on third get');
         }
-      } catch (ApexEloquentException e) {
+      } catch (QueryException e) {
         if (i < 2) {
           String errorMessage = e.getMessage();
-          Assert.isTrue(errorMessage.contains('get(Scribe scribe)'));
-          Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+          Assert.isTrue(errorMessage.contains('made get() throw'));
+          Assert.isTrue(errorMessage.contains('Forced failure for testing'));
         } else {
-          Assert.fail('Did not expect ApexEloquentException to be thrown on third get');
+          Assert.fail('Did not expect QueryException to be thrown on third get');
         }
       }
     }
@@ -971,11 +971,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.getAsSObject(scribe);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('getAsSObject(Scribe scribe)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made getAsSObject() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -1049,11 +1049,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.first(scribe);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('first(Scribe scribe)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made first() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -1151,11 +1151,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.firstAsSObject(scribe);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected QueryException to be thrown');
+    } catch (QueryException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('firstAsSObject(Scribe scribe)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made firstAsSObject() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -1428,11 +1428,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doInsert(record);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doInsert(SObject record)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doInsert() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -1538,11 +1538,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpdate(record);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpdate(SObject record)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpdate() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -1749,11 +1749,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpdate(record, true);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpdate(SObject record, Boolean allOrNone)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpdate() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -1806,11 +1806,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpdate(mockEntry, true);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpdate(IEntry entry, Boolean allOrNone)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpdate() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -1861,11 +1861,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpdate(records, false);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpdate(List<SObject> records, Boolean allOrNone)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpdate() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -1921,11 +1921,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpdate(entries, true);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpdate(List<IEntry> entries, Boolean allOrNone)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpdate() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -1973,11 +1973,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpsert(record);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpsert(SObject record)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpsert() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -2234,11 +2234,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpsertByExternalId(record, Opportunity.Id, true);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpsertByExternalId() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -2289,11 +2289,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpsertByExternalId(mockEntry, Opportunity.Id, true);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(IEntry entry, Schema.SObjectField externalIdField, Boolean allOrNone)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpsertByExternalId() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -2345,11 +2345,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpsertByExternalId(records, Opportunity.Id, false);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpsertByExternalId() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -2441,11 +2441,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpsertByExternalId(entries, Opportunity.Id, true);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doUpsertByExternalId(List<IEntry> entries, Schema.SObjectField externalIdField, Boolean allOrNone)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doUpsertByExternalId() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -2476,11 +2476,11 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doDelete(record);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
       String errorMessage = e.getMessage();
-      Assert.isTrue(errorMessage.contains('doDelete(SObject record)'));
-      Assert.isTrue(errorMessage.contains('MockEloquent was configured to throw this exception'));
+      Assert.isTrue(errorMessage.contains('made doDelete() throw'));
+      Assert.isTrue(errorMessage.contains('Forced failure for testing'));
     }
   }
 
@@ -2869,8 +2869,8 @@ public with sharing class MockEloquentTest {
     try {
       mock.label('opp').get(scribe);
       Assert.fail('Expected failOnGet to fire for matching label.');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('MockEloquent was configured to throw'));
+    } catch (QueryException e) {
+      Assert.isTrue(e.getMessage().contains('Forced failure for testing'));
     }
   }
 
@@ -2892,8 +2892,8 @@ public with sharing class MockEloquentTest {
     try {
       mock.label('finalDml').doUpdate(new Account(Id = '001000000000001', Name = 'X'));
       Assert.fail('Expected failOnDoUpdate to fire for matching label.');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('MockEloquent was configured to throw'));
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('Forced failure for testing'));
     }
   }
 
@@ -2904,8 +2904,8 @@ public with sharing class MockEloquentTest {
     try {
       mock.get(scribe);
       Assert.fail('Label-free failOnGet must fire for a label-free (default) call.');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('MockEloquent was configured to throw'));
+    } catch (QueryException e) {
+      Assert.isTrue(e.getMessage().contains('Forced failure for testing'));
     }
   }
 
@@ -3486,9 +3486,9 @@ public with sharing class MockEloquentTest {
     // Act & Assert - all-or-nothing semantics: the whole operation throws
     try {
       mock.doUpdate(new List<SObject>{ good, bad }, true);
-      Assert.fail('Expected ApexEloquentException to be thrown');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('DML failed with: custom validation says no'), e.getMessage());
+      Assert.fail('Expected DmlException to be thrown');
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('custom validation says no'), e.getMessage());
     }
     Assert.areEqual(0, mock.upsertedRecordsAt('default').size(), 'Nothing may be recorded before the throw');
   }
@@ -3703,7 +3703,7 @@ public with sharing class MockEloquentTest {
     try {
       mock.doUpsertByExternalId(new Product2(Name = 'CARD-1'), Product2.Name, true);
       Assert.fail('Expected all-or-none failure to throw.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('validation failed'), 'Should carry the registered message. Got: ' + e.getMessage());
     }
   }
@@ -3720,8 +3720,8 @@ public with sharing class MockEloquentTest {
     // Real Database.insert throws INVALID_FIELD_FOR_INSERT_UPDATE for records with an Id.
     try {
       eloquent.doInsert(record);
-      Assert.fail('Expected ApexEloquentException for insert with Id.');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException for insert with Id.');
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
     }
   }
@@ -3738,8 +3738,8 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doInsert(records);
-      Assert.fail('Expected ApexEloquentException for insert with Id.');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException for insert with Id.');
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
     }
   }
@@ -3753,8 +3753,8 @@ public with sharing class MockEloquentTest {
     // Real Database.update throws MISSING_ARGUMENT for records without an Id.
     try {
       eloquent.doUpdate(new Account(Name = 'no id'));
-      Assert.fail('Expected ApexEloquentException for update without Id.');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException for update without Id.');
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('Id not specified in an update call'));
     }
   }
@@ -3768,8 +3768,8 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doUpdate(mockEntry);
-      Assert.fail('Expected ApexEloquentException for update without Id.');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException for update without Id.');
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('Id not specified in an update call'));
     }
   }
@@ -3819,9 +3819,9 @@ public with sharing class MockEloquentTest {
     // Real Database.delete throws for records without an Id.
     try {
       eloquent.doDelete(new Account(Name = 'no id'));
-      Assert.fail('Expected ApexEloquentException for delete without Id.');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
+      Assert.fail('Expected ListException for delete without Id.');
+    } catch (ListException e) {
+      Assert.isTrue(e.getMessage().contains('Invalid id'));
     }
   }
 
@@ -3834,9 +3834,9 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doDelete(mockEntry);
-      Assert.fail('Expected ApexEloquentException for delete without Id.');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
+      Assert.fail('Expected ListException for delete without Id.');
+    } catch (ListException e) {
+      Assert.isTrue(e.getMessage().contains('Invalid id'));
     }
   }
 
@@ -3927,7 +3927,7 @@ public with sharing class MockEloquentTest {
     try {
       mock.get(Scribe.of(Account.class).field('Name'));
       Assert.fail('Expected the configured failure.');
-    } catch (ApexEloquentException e) {
+    } catch (QueryException e) {
       // expected
     }
 
@@ -4075,8 +4075,8 @@ public with sharing class MockEloquentTest {
     // Act & Assert - real Database.insert rejects records that already have an Id
     try {
       eloquent.doInsert(mockEntry);
-      Assert.fail('Expected ApexEloquentException for insert with Id.');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException for insert with Id.');
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
     }
   }
@@ -4128,8 +4128,8 @@ public with sharing class MockEloquentTest {
     // Act & Assert
     try {
       eloquent.doInsert(records, true);
-      Assert.fail('Expected ApexEloquentException for all-or-none insert with Id.');
-    } catch (ApexEloquentException e) {
+      Assert.fail('Expected DmlException for all-or-none insert with Id.');
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('cannot specify Id in an insert call'));
     }
   }
@@ -4165,9 +4165,9 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.doInsert(new Account(Name = 'doomed'), true);
       Assert.fail('Expected all-or-none failure to throw.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('insert rejected'), 'Should carry the registered message.');
-      Assert.isTrue(e.getMessage().contains('Failed to insert operation'), 'Headline should name the verb.');
+      Assert.isTrue(e.getMessage().startsWith('Insert failed.'), 'Should mirror the platform headline for the verb. Got: ' + e.getMessage());
     }
   }
 
@@ -4259,9 +4259,9 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.doUpsert(record, true);
       Assert.fail('Expected all-or-none failure to throw.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('validation failed'));
-      Assert.isTrue(e.getMessage().contains('Failed to upsert operation'), 'Headline should name the verb.');
+      Assert.isTrue(e.getMessage().startsWith('Upsert failed.'), 'Should mirror the platform headline for the verb. Got: ' + e.getMessage());
     }
   }
 
@@ -4274,9 +4274,9 @@ public with sharing class MockEloquentTest {
     // ListException for null Ids even with allOrNone=false (no row-level failure)
     try {
       eloquent.doDelete(new Account(Name = 'no id'), false);
-      Assert.fail('Expected ApexEloquentException for delete without Id.');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
+      Assert.fail('Expected ListException for delete without Id.');
+    } catch (ListException e) {
+      Assert.isTrue(e.getMessage().contains('Invalid id'));
     }
   }
 
@@ -4310,9 +4310,9 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.doDelete(mockEntry, true);
       Assert.fail('Expected all-or-none failure to throw.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('delete blocked'));
-      Assert.isTrue(e.getMessage().contains('Failed to delete operation'), 'Headline should name the verb.');
+      Assert.isTrue(e.getMessage().startsWith('Delete failed.'), 'Should mirror the platform headline for the verb. Got: ' + e.getMessage());
     }
   }
 
@@ -4345,7 +4345,7 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.label('ups').doUpsert(records, true);
       Assert.fail('Expected all-or-none failure to throw.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('x'), 'Should carry the registered message.');
     }
     Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'Nothing may be recorded before the throw.');
@@ -4363,7 +4363,7 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.label('ups').doUpsertByExternalId(records, Product2.Name, true);
       Assert.fail('Expected all-or-none failure to throw.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('x'), 'Should carry the registered message.');
     }
     Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'Nothing may be recorded before the throw.');
@@ -4480,7 +4480,7 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.label('ins').doInsert(entries);
       Assert.fail('Expected rejection of the Id-carrying entry.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('cannot specify Id'));
     }
     Assert.areEqual(0, eloquent.upsertedRecordsAt('ins').size(), 'Real DML rolls the whole call back — nothing may be recorded.');
@@ -4517,7 +4517,7 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.label('upd').doUpdate(entries);
       Assert.fail('Expected rejection of the Id-less entry.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('Id not specified'));
     }
     Assert.areEqual(0, eloquent.upsertedRecordsAt('upd').size(), 'Real DML rolls the whole call back — nothing may be recorded.');
@@ -4534,7 +4534,7 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.label('ins').doInsert(records);
       Assert.fail('Expected rejection of the Id-carrying record.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('cannot specify Id'));
     }
     Assert.isNull(clean.Id, 'Real DML rolls back — no Id may be burned onto earlier rows.');
@@ -4670,7 +4670,7 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.label('ups').doUpsertByExternalId(records, Product2.Name, true);
       Assert.fail('Expected all-or-none failure for duplicate external Ids.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('Duplicate external id specified'), 'Got: ' + e.getMessage());
     }
     Assert.areEqual(0, eloquent.upsertedRecordsAt('ups').size(), 'Nothing may be recorded before the throw.');
@@ -4792,8 +4792,8 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.label('del').doDelete(records);
       Assert.fail('Expected rejection of the Id-less record.');
-    } catch (ApexEloquentException e) {
-      Assert.isTrue(e.getMessage().contains('real Database.delete throws'));
+    } catch (ListException e) {
+      Assert.isTrue(e.getMessage().contains('Invalid id'));
     }
     Assert.areEqual(0, eloquent.deletedCountAt('del'), 'Nothing may be counted before the throw.');
   }
@@ -4826,7 +4826,7 @@ public with sharing class MockEloquentTest {
     try {
       eloquent.label('upd').doUpdate(records);
       Assert.fail('Expected rejection of the Id-less record.');
-    } catch (ApexEloquentException e) {
+    } catch (DmlException e) {
       Assert.isTrue(e.getMessage().contains('Id not specified'));
     }
     Assert.areEqual(0, eloquent.upsertedRecordsAt('upd').size(), 'Nothing may be recorded before the throw.');
@@ -4844,5 +4844,187 @@ public with sharing class MockEloquentTest {
 
     // Assert
     Assert.isTrue(result.isSuccess(), 'A matcher token of another SObjectType must not match.');
+  }
+
+  // ===============================================================================
+  // v4: exception types follow production (issue #125) and failSave reaches the
+  // overloads without allOrNone (issue #114)
+  // ===============================================================================
+
+  private class UnreachableException extends Exception {
+  }
+
+  @isTest
+  static void testFailOn_WhenGivenApexEloquentExceptionFromConstructor_ThenRejectedAtConfig() {
+    // Arrange
+    MockEloquent mock = new MockEloquent();
+
+    // Act & Assert - production never throws ApexEloquentException for a query failure
+    try {
+      mock.failOnGet(new ApexEloquentException('must not be reached'));
+      Assert.fail('Expected the configuration to be rejected.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('failOnGet(Exception e)'), 'Should name the setup call. Got: ' + e.getMessage());
+      Assert.isTrue(e.getMessage().contains('QueryException'), 'Should point at the type production throws. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFailOn_WhenGivenApexEloquentExceptionFromBuilder_ThenRejectedAtConfig() {
+    // Arrange
+    ApexEloquentException built = ApexEloquentException.at('Eloquent').error('Failed to update operation');
+
+    // Act & Assert - the builder form (how a wrapped DML failure used to be faked) is rejected too
+    try {
+      (new MockEloquent()).failOnDoUpdate(built);
+      Assert.fail('Expected the configuration to be rejected.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('DmlException'), 'Should point at the type production throws. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFailOn_WhenGivenNull_ThenRejectedAtConfig() {
+    // Act & Assert - a null would otherwise surface later as a NullPointerException at the throw
+    try {
+      (new MockEloquent()).failOnDoInsert(null);
+      Assert.fail('Expected the configuration to be rejected.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('argument is required'), 'Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFailOn_WhenGivenPlatformOrTestException_ThenSameInstanceThrown() {
+    // Arrange
+    DmlException injected = new DmlException('UNABLE_TO_LOCK_ROW');
+    UnreachableException guard = new UnreachableException('the query must not run');
+    MockEloquent mock = (new MockEloquent()).failOnDoUpdate(injected).failOnGet(guard);
+
+    // Act & Assert
+    try {
+      mock.doUpdate(new Account(Id = MockEntry.of(Account.class).autoId(1).getId()));
+      Assert.fail('Expected the injected DmlException.');
+    } catch (DmlException e) {
+      Assert.isTrue(e === injected, 'Should throw the injected instance as-is.');
+    }
+    try {
+      mock.get(Scribe.of(Account.class).field('Id'));
+      Assert.fail('Expected the injected guard.');
+    } catch (UnreachableException e) {
+      Assert.isTrue(e === guard, 'Should throw the injected instance as-is.');
+    }
+  }
+
+  @isTest
+  static void testFailOnFirstOrFail_WhenNoArgument_ThenApexEloquentException() {
+    // Arrange - firstOrFail finding nothing is a contract of the framework, so its
+    // forced failure stays an ApexEloquentException (unlike get() / doXxx())
+    MockEloquent mock = (new MockEloquent()).failOnFirstOrFail();
+
+    // Act & Assert
+    try {
+      mock.firstOrFail(Scribe.of(Account.class).field('Id'));
+      Assert.fail('Expected ApexEloquentException.');
+    } catch (ApexEloquentException e) {
+      Assert.isTrue(e.getMessage().contains('firstOrFail(Scribe scribe)'), 'Should name the call site. Got: ' + e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testFailSave_WhenSingleEntryUpdateWithoutAllOrNone_ThenThrowAndNothingRecorded() {
+    // Arrange - the shape from issue #114: a single-entry update with failSave registered
+    MockEntry row = MockEntry.of(Account.class).autoId(1);
+    MockEloquent mock = (new MockEloquent()).failSave(row.getId(), 'could not write');
+
+    // Act & Assert
+    try {
+      mock.doUpdate((IEntry) row);
+      Assert.fail('Expected DmlException: without allOrNone the DML is all-or-nothing.');
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('could not write'), 'Should carry the registered message. Got: ' + e.getMessage());
+    }
+    Assert.areEqual(0, mock.upsertedRecordsAt('default').size(), 'Nothing may be recorded before the throw.');
+  }
+
+  @isTest
+  static void testFailSave_WhenListUpdateWithoutAllOrNone_ThenThrowAndNothingRecorded() {
+    // Arrange
+    Account good = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'good');
+    Account bad = new Account(Id = MockEntry.of(Account.class).autoId(2).getId(), Name = 'bad');
+    MockEloquent mock = (new MockEloquent()).failSave(bad.Id, 'row rejected');
+
+    // Act & Assert
+    try {
+      mock.doUpdate(new List<SObject>{ good, bad });
+      Assert.fail('Expected DmlException.');
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('row rejected'), 'Got: ' + e.getMessage());
+    }
+    Assert.areEqual(0, mock.upsertedRecordsAt('default').size(), 'The good row must not be recorded either.');
+  }
+
+  @isTest
+  static void testFailSaveWhen_WhenInsertWithoutAllOrNone_ThenThrowAndNoIdAssigned() {
+    // Arrange - rows being inserted have no Id, so failSaveWhen is the way to target them
+    Account bad = new Account(Name = 'reject me');
+    MockEloquent mock = (new MockEloquent()).failSaveWhen(Account.Name, 'reject me', 'insert rejected');
+
+    // Act & Assert
+    try {
+      mock.doInsert(new List<SObject>{ new Account(Name = 'ok'), bad });
+      Assert.fail('Expected DmlException.');
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().startsWith('Insert failed.'), 'Should mirror the platform headline. Got: ' + e.getMessage());
+      Assert.isTrue(e.getMessage().contains('insert rejected'), 'Got: ' + e.getMessage());
+    }
+    Assert.isNull(bad.Id, 'No Id may be assigned when the call fails.');
+    Assert.areEqual(0, mock.upsertedRecordsAt('default').size(), 'Nothing may be recorded.');
+  }
+
+  @isTest
+  static void testFailSave_WhenUpsertWithoutAllOrNone_ThenThrow() {
+    // Arrange
+    Account existing = new Account(Id = MockEntry.of(Account.class).autoId(1).getId(), Name = 'x');
+    MockEloquent mock = (new MockEloquent()).failSave(existing.Id, 'upsert rejected');
+
+    // Act & Assert
+    try {
+      mock.doUpsert(existing);
+      Assert.fail('Expected DmlException.');
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('upsert rejected'), 'Got: ' + e.getMessage());
+    }
+    Assert.areEqual(0, mock.upsertedRecordsAt('default').size(), 'Nothing may be recorded.');
+  }
+
+  @isTest
+  static void testFailSave_WhenDeleteWithoutAllOrNone_ThenThrowAndNothingCounted() {
+    // Arrange
+    MockEntry row = MockEntry.of(Account.class).autoId(1);
+    MockEloquent mock = (new MockEloquent()).failSave(row.getId(), 'delete blocked');
+
+    // Act & Assert
+    try {
+      mock.doDelete(new List<IEntry>{ MockEntry.of(Account.class).autoId(2), row });
+      Assert.fail('Expected DmlException.');
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('delete blocked'), 'Got: ' + e.getMessage());
+    }
+    Assert.areEqual(0, mock.deletedCountAt('default'), 'Nothing may be counted as deleted.');
+  }
+
+  @isTest
+  static void testFailSave_WhenRowNotRegisteredWithoutAllOrNone_ThenSucceeds() {
+    // Arrange - the registration targets a different row
+    Account other = new Account(Id = MockEntry.of(Account.class).autoId(1).getId());
+    Account target = new Account(Id = MockEntry.of(Account.class).autoId(2).getId(), Name = 'saved');
+    MockEloquent mock = (new MockEloquent()).failSave(other.Id, 'not this one');
+
+    // Act
+    mock.doUpdate(target);
+
+    // Assert
+    Assert.areEqual(1, mock.upsertedRecordsAt('default').size(), 'An unregistered row must still be saved.');
   }
 }

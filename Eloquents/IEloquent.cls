@@ -21,6 +21,19 @@
  * and for performing DML operations. Following the Repository Pattern, this interface
  * abstracts the data source. It has two primary implementations: `Eloquent` for live
  * database interactions, and `MockEloquent` for database-independent unit testing.
+ *
+ * Exceptions — which type reaches the caller:
+ * - A failure decided by the platform or the data arrives as the platform's own type,
+ *   unwrapped: `DmlException` when a row is rejected (validation rule, required field,
+ *   row lock, insert with an Id, update without an Id, ...), `ListException` when the
+ *   platform rejects the whole list before any row (e.g. delete without an Id, even with
+ *   allOrNone = false), `QueryException` when a query fails. Catch them as in plain Apex.
+ * - `ApexEloquentException` is reserved for (1) a bug in the framework, (2) a usage rule
+ *   violation decided by the code (null argument, null element in a DML list, an upsert
+ *   key that is not an external Id, a query Scribe cannot build, ...), and (3) contracts
+ *   the framework itself defines — `firstOrFail(scribe)` finding zero records.
+ * MockEloquent follows the same split, so a `catch (DmlException)` that a unit test
+ * exercises is the one production reaches.
  * @see Scribe
  * @see Eloquent
  * @see MockEloquent
@@ -109,7 +122,8 @@ public interface IEloquent {
   *
   * @param Scribe scribe: Scribe instance containing the SOQL query
   * @return Retrieved result as an Entry object
-  * @throws QueryException If the number of retrieved records is 0
+  * @throws ApexEloquentException If the number of retrieved records is 0 (a contract of the
+  *   framework, not a platform failure; use firstOrFail(scribe, orFail) to throw your own type)
   */
   IEntry firstOrFail(Scribe scribe);
 
@@ -131,7 +145,8 @@ public interface IEloquent {
   *
   * @param Scribe scribe: Scribe instance containing the SOQL query
   * @return Retrieved result as an SObject
-  * @throws QueryException If the number of retrieved records is 0
+  * @throws ApexEloquentException If the number of retrieved records is 0 (a contract of the
+  *   framework, not a platform failure; use firstOrFail(scribe, orFail) to throw your own type)
   */
   SObject firstOrFailAsSObject(Scribe scribe) ;
 

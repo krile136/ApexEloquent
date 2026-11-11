@@ -24,8 +24,18 @@
  * data that a query will "return" in a test scenario.
  *
  * DML operations like `doInsert` are simulated (e.g., by assigning a mock Id) without
- * performing any actual DML. The class also includes a constructor to force exceptions,
- * enabling robust testing of error-handling logic.
+ * performing any actual DML. failOnXxx() / failSave() force failures, enabling robust
+ * testing of error-handling logic.
+ *
+ * Exception types follow production (see IEloquent): a simulated platform failure is
+ * thrown as the platform's type — DmlException for a rejected row (failSave hits,
+ * insert with an Id, update without an Id, no-arg failOnDoXxx()), ListException for a
+ * rejected list (delete without an Id), QueryException for no-arg failOnGet() & co.
+ * ApexEloquentException stays for usage rule violations and firstOrFail finding
+ * nothing, and failOnXxx(e) refuses one. Limitation: a DmlException built in Apex has
+ * no row details — getNumDml() / getDmlType(i) / getDmlMessage(i) on it throw an
+ * uncatchable System.UnexpectedException (measured), so code that reads them can only
+ * be tested against real DML.
  *
  * Scope of the simulation: this mock reproduces the SHAPE of DML — which inputs the
  * platform rejects (Id present on insert, Id missing on update/delete, null elements,
@@ -204,14 +214,17 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   /**
-   * Registers a per-record save failure for every SaveResult/UpsertResult/
-   * DeleteResult-returning DML (the allOrNone overloads of doInsert / doUpdate /
-   * doUpsert / doUpsertByExternalId / doDelete).
+   * Registers a per-record save failure for every DML: doInsert / doUpdate /
+   * doUpsert / doUpsertByExternalId / doDelete, with or without allOrNone.
    *
    * With allOrNone = false the record's result carries success = false and the
    * given message, and the record is NOT added to the upsert spy (it was not saved).
-   * With allOrNone = true the whole operation throws before anything is recorded,
-   * mirroring real all-or-nothing DML.
+   * With allOrNone = true — and on the overloads that take no allOrNone, which stand
+   * for plain DML whose default is all-or-nothing (issue #114) — the whole operation
+   * throws a DmlException before anything is recorded, mirroring real DML. Its
+   * getMessage() contains the given message; it carries no row details (the platform
+   * cannot build them: getNumDml() / getDmlType(i) throw an uncatchable
+   * System.UnexpectedException, measured).
    *
    * The target is identified by record Id — pair with MockEntry.autoId().
    * Rows reaching doUpsertByExternalId() WITHOUT an Id (the defining case for an
@@ -245,8 +258,9 @@ public with sharing class MockEloquent implements IEloquent {
    *
    * With allOrNone = false the row's UpsertResult carries success = false and the
    * given message, and the record is NOT added to the upsert spy (it was not saved).
-   * With allOrNone = true the whole operation throws before anything is recorded,
-   * mirroring real all-or-nothing DML.
+   * With allOrNone = true the whole operation throws a DmlException (its getMessage()
+   * contains the given message) before anything is recorded, mirroring real
+   * all-or-nothing DML.
    *
    * Returns a new instance (the receiver is unmodified), like every test-setup
    * builder on this class — always use the return value.
@@ -275,10 +289,11 @@ public with sharing class MockEloquent implements IEloquent {
    * doUpsert(..., allOrNone), which failSave(Id, ...) can never reach (issue #80,
    * same class of hole as #89).
    *
-   * Matching applies to every SaveResult/UpsertResult/DeleteResult-returning DML:
-   * a row whose {@code field} equals {@code value} fails. With allOrNone = false
-   * the row's result carries success = false and the given message and the record
-   * is NOT recorded in the spy; with allOrNone = true the whole operation throws.
+   * Matching applies to every DML, with or without allOrNone: a row whose
+   * {@code field} equals {@code value} fails. With allOrNone = false the row's
+   * result carries success = false and the given message and the record is NOT
+   * recorded in the spy; with allOrNone = true, and on the overloads that take no
+   * allOrNone (issue #114), the whole operation throws a DmlException.
    *
    * Platform-originated rejections come first: on doUpsertByExternalId a row whose
    * key value is missing, duplicated inside the same call, or read through a token
@@ -863,6 +878,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (record.Id != null) {
         this.fireInsertWithIdError(method, record.Id);
       }
+      this.throwIfSaveFailure(method, 'insert', record);
 
       record.Id = this.generateId(record);
       this.recordUpsert(label, record);
@@ -894,6 +910,7 @@ public with sharing class MockEloquent implements IEloquent {
         if (record.Id != null) {
           this.fireInsertWithIdError(method, record.Id);
         }
+        this.throwIfSaveFailure(method, 'insert', record);
       }
       for (SObject record : records) {
         record.Id = this.generateId(record);
@@ -1128,6 +1145,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (record.Id != null) {
         this.fireInsertWithIdError(method, record.Id);
       }
+      this.throwIfSaveFailure(method, 'insert', record);
       record.Id = this.generateId(record);
       this.recordUpsert(label, record);
       return new Entry(record);
@@ -1165,6 +1183,7 @@ public with sharing class MockEloquent implements IEloquent {
         if (record.Id != null) {
           this.fireInsertWithIdError(method, record.Id);
         }
+        this.throwIfSaveFailure(method, 'insert', record);
         records.add(record);
       }
       // Mirror Eloquent: return fresh Entry instances carrying the Ids instead of
@@ -1196,6 +1215,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (record.Id == null) {
         this.fireUpdateWithoutIdError(method);
       }
+      this.throwIfSaveFailure(method, 'update', record);
 
       this.recordUpsert(label, record);
       return record;
@@ -1224,6 +1244,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (record.Id == null) {
         this.fireUpdateWithoutIdError(method);
       }
+      this.throwIfSaveFailure(method, 'update', record);
       this.recordUpsert(label, record);
       // Mirror Eloquent: return a fresh Entry wrapping the updated clone instead of
       // aliasing the caller's entry.
@@ -1253,6 +1274,7 @@ public with sharing class MockEloquent implements IEloquent {
         if (record.Id == null) {
           this.fireUpdateWithoutIdError(method);
         }
+        this.throwIfSaveFailure(method, 'update', record);
       }
       this.recordUpsertAll(label, records);
       return records;
@@ -1290,6 +1312,7 @@ public with sharing class MockEloquent implements IEloquent {
         if (record.Id == null) {
           this.fireUpdateWithoutIdError(method);
         }
+        this.throwIfSaveFailure(method, 'update', record);
         records.add(record);
       }
       // Mirror Eloquent: return fresh Entry instances wrapping the updated clones
@@ -1522,25 +1545,41 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   /**
-   * Throws the all-or-nothing failure for a registered per-record error,
-   * regardless of which failSave variant registered it.
+   * Fails the whole call when a row has a registered failure (failSave / failSaveWhen),
+   * for the DML overloads that take no allOrNone. Those overloads stand for plain DML
+   * statements and Database.xxx(records), whose default is allOrNone = true, so the
+   * platform throws instead of returning a failed row (issue #114: before v4 the
+   * registration was silently ignored here and the test took the success path).
+   * Called while validating, so nothing is recorded when it throws.
    *
    * @param method calling method signature
-   * @param operation DML verb for the error headline (insert / update / upsert / delete)
+   * @param operation DML verb (insert / update / upsert / delete)
+   * @param record row about to be saved or deleted
+   */
+  private void throwIfSaveFailure(String method, String operation, SObject record) {
+    String failure = this.resolveSaveFailure(record);
+    if (failure != null) {
+      this.fireAllOrNoneError(method, operation, record.Id, failure);
+    }
+  }
+
+  /**
+   * Throws the all-or-nothing failure for a registered per-record error, regardless of
+   * which failSave variant registered it. Production throws a DmlException here, so the
+   * mock does too. The platform cannot build a DmlException with row details: read
+   * getMessage() only (getNumDml() / getDmlType(i) on it throw an uncatchable
+   * System.UnexpectedException, measured).
+   *
+   * @param method calling method signature (kept for symmetry with the other fire* helpers)
+   * @param operation DML verb (insert / update / upsert / delete)
    * @param recordId Id of the failing record (null for not-yet-created rows)
    * @param failureMessage registered error message
    */
   private void fireAllOrNoneError(String method, String operation, Id recordId, String failureMessage) {
-    String error = 'Failed to ' + operation + ' operation';
-    String reason = 'DML failed with: ' + failureMessage;
-    String action = 'This failure was registered via failSave() / failSaveByExternalId() / failSaveWhen(). With allOrNone = true the whole operation throws.';
-    ApexEloquentException.at(CLASS_NAME)
-      .method(method)
-      .error(error)
-      .reason(reason)
-      .action(action)
-      .param('recordId', recordId)
-      .fire();
+    throw new DmlException(
+      operation.capitalize() + ' failed. First exception' + (recordId == null ? '' : ' with id ' + recordId) +
+      '; first error: ' + failureMessage
+    );
   }
 
   /**
@@ -1821,49 +1860,43 @@ public with sharing class MockEloquent implements IEloquent {
   }
 
   /**
-   * Fire the mock counterpart of the platform error thrown when a record that
-   * already has an Id is passed to Database.insert (INVALID_FIELD_FOR_INSERT_UPDATE).
+   * Throws the mock counterpart of the platform error for a record that already has an Id
+   * passed to Database.insert: a DmlException with INVALID_FIELD_FOR_INSERT_UPDATE
+   * (measured: "Insert failed. First exception on row 0 with id ...; first error:
+   * INVALID_FIELD_FOR_INSERT_UPDATE, cannot specify Id in an insert call: [Id]").
+   * The row index is left out because the mock does not track it.
    *
-   * @param method calling method signature
+   * @param method calling method signature (kept for symmetry with the other fire* helpers)
    * @param recordId Id found on the record
    */
   private void fireInsertWithIdError(String method, Id recordId) {
-    String error = 'Failed to insert operation';
-    String reason = 'cannot specify Id in an insert call: real Database.insert throws INVALID_FIELD_FOR_INSERT_UPDATE for records that already have an Id';
-    String action = 'Remove the Id from the record, or use doUpdate / doUpsert instead';
-    ApexEloquentException.at(CLASS_NAME)
-      .method(method)
-      .error(error)
-      .reason(reason)
-      .action(action)
-      .param('recordId', recordId)
-      .fire();
+    throw new DmlException(
+      'Insert failed. First exception with id ' + recordId +
+      '; first error: INVALID_FIELD_FOR_INSERT_UPDATE, cannot specify Id in an insert call: [Id]'
+    );
   }
 
   /**
-   * Fire the mock counterpart of the platform error thrown when a record
-   * without an Id is passed to Database.update (MISSING_ARGUMENT).
+   * Throws the mock counterpart of the platform error for a record without an Id passed to
+   * Database.update: a DmlException with MISSING_ARGUMENT (measured: "Update failed. First
+   * exception on row 0; first error: MISSING_ARGUMENT, Id not specified in an update call: []").
    *
-   * @param method calling method signature
+   * @param method calling method signature (kept for symmetry with the other fire* helpers)
    */
   private void fireUpdateWithoutIdError(String method) {
-    String error = 'Failed to update operation';
-    String reason = 'Id not specified in an update call: real Database.update throws MISSING_ARGUMENT for records without an Id';
-    String action = 'Set the Id on the record before updating, or use doInsert / doUpsert instead';
-    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+    throw new DmlException('Update failed. First exception; first error: MISSING_ARGUMENT, Id not specified in an update call: []');
   }
 
   /**
-   * Fire the mock counterpart of the platform error thrown when a record
-   * without an Id is passed to Database.delete (invalid ID: null).
+   * Throws the mock counterpart of the platform error for a record without an Id passed to
+   * Database.delete: a ListException, thrown before any row even with allOrNone = false
+   * (measured in a Japanese-locale org: "インデックス 0 には無効な ID: null"; the English
+   * wording was not measured, so the mock's message is its own).
    *
-   * @param method calling method signature
+   * @param method calling method signature (kept for symmetry with the other fire* helpers)
    */
   private void fireDeleteWithoutIdError(String method) {
-    String error = 'Failed to delete operation';
-    String reason = 'invalid Id: null — real Database.delete throws for records without an Id';
-    String action = 'Set the Id on the record before deleting';
-    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
+    throw new ListException('Invalid id: null');
   }
 
   /**
@@ -1878,6 +1911,7 @@ public with sharing class MockEloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
 
+      this.throwIfSaveFailure(method, 'upsert', record);
       if (record.Id == null) {
         record.Id = this.generateId(record);
       }
@@ -1908,6 +1942,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'upsert');
       }
+      this.throwIfSaveFailure(method, 'upsert', record);
       if (record.Id == null) {
         record.Id = this.generateId(record);
       }
@@ -1938,6 +1973,7 @@ public with sharing class MockEloquent implements IEloquent {
         if (record == null) {
           this.fireNullElementError(method, 'upsert');
         }
+        this.throwIfSaveFailure(method, 'upsert', record);
       }
       for (SObject record : records) {
         if (record.Id == null) {
@@ -1979,6 +2015,7 @@ public with sharing class MockEloquent implements IEloquent {
         if (record == null) {
           this.fireNullElementError(method, 'upsert');
         }
+        this.throwIfSaveFailure(method, 'upsert', record);
         records.add(record);
       }
       // Mirror Eloquent: return fresh Entry instances carrying the Ids instead of
@@ -2459,6 +2496,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (record.Id == null) {
         this.fireDeleteWithoutIdError(method);
       }
+      this.throwIfSaveFailure(method, 'delete', record);
 
       this.recordDelete(label, 1);
       return;
@@ -2483,6 +2521,7 @@ public with sharing class MockEloquent implements IEloquent {
       if (deleteTarget == null || deleteTarget.Id == null) {
         this.fireDeleteWithoutIdError(method);
       }
+      this.throwIfSaveFailure(method, 'delete', deleteTarget);
 
       this.recordDelete(label, 1);
       return;
@@ -2510,6 +2549,7 @@ public with sharing class MockEloquent implements IEloquent {
         if (record.Id == null) {
           this.fireDeleteWithoutIdError(method);
         }
+        this.throwIfSaveFailure(method, 'delete', record);
       }
 
       this.recordDelete(label, records.size());
@@ -2542,6 +2582,7 @@ public with sharing class MockEloquent implements IEloquent {
         if (record.Id == null) {
           this.fireDeleteWithoutIdError(method);
         }
+        this.throwIfSaveFailure(method, 'delete', record);
       }
 
       this.recordDelete(label, entries.size());
@@ -2726,100 +2767,336 @@ public with sharing class MockEloquent implements IEloquent {
     }
   }
 
+  /**
+   * Makes the next matching get() throw a QueryException — the type production throws when a query fails
+   * (e.g. No such column, insufficient access).
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnGet() {
-    return this.failOnGet(this.testException);
+    return this.failOnMethod('get', new QueryException(forcedMessage('get')));
   }
 
+  /**
+   * Makes the next matching get() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnGet(Exception e) {
-    return this.failOnMethod('get', e);
+    return this.failOnMethod('get', this.requirePlatformException('failOnGet(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching rawSoql() throw a QueryException — the type production throws when a query fails
+   * (e.g. No such column, insufficient access).
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnRawSoql() {
-    return this.failOnRawSoql(this.testException);
+    return this.failOnMethod('rawSoql', new QueryException(forcedMessage('rawSoql')));
   }
 
+  /**
+   * Makes the next matching rawSoql() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnRawSoql(Exception e) {
-    return this.failOnMethod('rawSoql', e);
+    return this.failOnMethod('rawSoql', this.requirePlatformException('failOnRawSoql(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching getAsSObject() throw a QueryException — the type production throws when a query fails
+   * (e.g. No such column, insufficient access).
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnGetAsSObject() {
-    return this.failOnGetAsSObject(this.testException);
+    return this.failOnMethod('getAsSObject', new QueryException(forcedMessage('getAsSObject')));
   }
 
+  /**
+   * Makes the next matching getAsSObject() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnGetAsSObject(Exception e) {
-    return this.failOnMethod('getAsSObject', e);
+    return this.failOnMethod('getAsSObject', this.requirePlatformException('failOnGetAsSObject(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching first() throw a QueryException — the type production throws when a query fails
+   * (e.g. No such column, insufficient access).
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnFirst() {
-    return this.failOnFirst(this.testException);
+    return this.failOnMethod('first', new QueryException(forcedMessage('first')));
   }
 
+  /**
+   * Makes the next matching first() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnFirst(Exception e) {
-    return this.failOnMethod('first', e);
+    return this.failOnMethod('first', this.requirePlatformException('failOnFirst(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching firstAsSObject() throw a QueryException — the type production throws when a query fails
+   * (e.g. No such column, insufficient access).
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnFirstAsSObject() {
-    return this.failOnFirstAsSObject(this.testException);
+    return this.failOnMethod('firstAsSObject', new QueryException(forcedMessage('firstAsSObject')));
   }
 
+  /**
+   * Makes the next matching firstAsSObject() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnFirstAsSObject(Exception e) {
-    return this.failOnMethod('firstAsSObject', e);
+    return this.failOnMethod('firstAsSObject', this.requirePlatformException('failOnFirstAsSObject(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching firstOrFail() throw the framework's ApexEloquentException — the type production throws
+   * when firstOrFail finds zero records (a contract of the framework).
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnFirstOrFail() {
-    return this.failOnFirstOrFail(this.testException);
+    return this.failOnMethod('firstOrFail', this.testException);
   }
 
+  /**
+   * Makes the next matching firstOrFail() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnFirstOrFail(Exception e) {
-    return this.failOnMethod('firstOrFail', e);
+    return this.failOnMethod('firstOrFail', this.requirePlatformException('failOnFirstOrFail(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching firstOrFailAsSObject() throw the framework's ApexEloquentException — the type production throws
+   * when firstOrFail finds zero records (a contract of the framework).
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnFirstOrFailAsSObject() {
-    return this.failOnFirstOrFailAsSObject(this.testException);
+    return this.failOnMethod('firstOrFailAsSObject', this.testException);
   }
 
+  /**
+   * Makes the next matching firstOrFailAsSObject() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnFirstOrFailAsSObject(Exception e) {
-    return this.failOnMethod('firstOrFailAsSObject', e);
+    return this.failOnMethod('firstOrFailAsSObject', this.requirePlatformException('failOnFirstOrFailAsSObject(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching doInsert() throw a DmlException — the type production throws when a row is rejected.
+   * The platform cannot build a DmlException with row details, so calling getNumDml() /
+   * getDmlType(i) / getDmlMessage(i) on it throws an uncatchable System.UnexpectedException
+   * (measured); read getMessage() only. Use failSave() for a per-row failure.
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoInsert() {
-    return this.failOnDoInsert(this.testException);
+    return this.failOnMethod('doInsert', new DmlException(forcedMessage('doInsert')));
   }
 
+  /**
+   * Makes the next matching doInsert() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoInsert(Exception e) {
-    return this.failOnMethod('doInsert', e);
+    return this.failOnMethod('doInsert', this.requirePlatformException('failOnDoInsert(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching doUpdate() throw a DmlException — the type production throws when a row is rejected.
+   * The platform cannot build a DmlException with row details, so calling getNumDml() /
+   * getDmlType(i) / getDmlMessage(i) on it throws an uncatchable System.UnexpectedException
+   * (measured); read getMessage() only. Use failSave() for a per-row failure.
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoUpdate() {
-    return this.failOnDoUpdate(this.testException);
+    return this.failOnMethod('doUpdate', new DmlException(forcedMessage('doUpdate')));
   }
 
+  /**
+   * Makes the next matching doUpdate() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoUpdate(Exception e) {
-    return this.failOnMethod('doUpdate', e);
+    return this.failOnMethod('doUpdate', this.requirePlatformException('failOnDoUpdate(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching doUpsert() throw a DmlException — the type production throws when a row is rejected.
+   * The platform cannot build a DmlException with row details, so calling getNumDml() /
+   * getDmlType(i) / getDmlMessage(i) on it throws an uncatchable System.UnexpectedException
+   * (measured); read getMessage() only. Use failSave() for a per-row failure.
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoUpsert() {
-    return this.failOnDoUpsert(this.testException);
+    return this.failOnMethod('doUpsert', new DmlException(forcedMessage('doUpsert')));
   }
 
+  /**
+   * Makes the next matching doUpsert() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoUpsert(Exception e) {
-    return this.failOnMethod('doUpsert', e);
+    return this.failOnMethod('doUpsert', this.requirePlatformException('failOnDoUpsert(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching doUpsertByExternalId() throw a DmlException — the type production throws when a row is rejected.
+   * The platform cannot build a DmlException with row details, so calling getNumDml() /
+   * getDmlType(i) / getDmlMessage(i) on it throws an uncatchable System.UnexpectedException
+   * (measured); read getMessage() only. Use failSave() for a per-row failure.
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoUpsertByExternalId() {
-    return this.failOnDoUpsertByExternalId(this.testException);
+    return this.failOnMethod('doUpsertByExternalId', new DmlException(forcedMessage('doUpsertByExternalId')));
   }
 
+  /**
+   * Makes the next matching doUpsertByExternalId() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoUpsertByExternalId(Exception e) {
-    return this.failOnMethod('doUpsertByExternalId', e);
+    return this.failOnMethod('doUpsertByExternalId', this.requirePlatformException('failOnDoUpsertByExternalId(Exception e)', e));
   }
 
+  /**
+   * Makes the next matching doDelete() throw a DmlException — the type production throws when a row is rejected.
+   * The platform cannot build a DmlException with row details, so calling getNumDml() /
+   * getDmlType(i) / getDmlMessage(i) on it throws an uncatchable System.UnexpectedException
+   * (measured); read getMessage() only. Use failSave() for a per-row failure.
+   * Chain whenLabel(label) to scope it, repeat() to keep it.
+   *
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoDelete() {
-    return this.failOnDoDelete(this.testException);
+    return this.failOnMethod('doDelete', new DmlException(forcedMessage('doDelete')));
   }
 
+  /**
+   * Makes the next matching doDelete() throw the given exception, as-is (the same instance).
+   * Pass the type production would throw. An ApexEloquentException is rejected — see
+   * rejectFrameworkException().
+   *
+   * @param e the exception to throw
+   * @return a copy of this MockEloquent with the failure registered
+   */
   public MockEloquent failOnDoDelete(Exception e) {
-    return this.failOnMethod('doDelete', e);
+    return this.failOnMethod('doDelete', this.requirePlatformException('failOnDoDelete(Exception e)', e));
+  }
+
+  /**
+   * The message every no-argument failOnXxx() exception carries, so a failure nobody
+   * expected points back at the test setup.
+   *
+   * @param method the IEloquent method the failure was registered for
+   * @return the message
+   */
+  private static String forcedMessage(String method) {
+    return 'Forced failure for testing: MockEloquent.failOn' + method.capitalize() + '() made ' + method +
+      '() throw. If this was unexpected, check the failOnXxx setup in your test.';
+  }
+
+  /**
+   * Guards failOnXxx(Exception e) against an argument production can never throw there.
+   *
+   * ApexEloquentException is reserved for framework bugs, usage rule violations and the
+   * framework's own contracts (firstOrFail finding zero records). Production never throws it
+   * for a query or a DML failure, so a test that injects one exercises a catch production
+   * cannot reach — and hides it. Rejecting it at configuration time turns that into a red
+   * test instead of a green one. (Before v4 the injected exception was also rebuilt from its
+   * builder fields, which silently dropped the message and cause of one made with the
+   * constructor.) firstOrFail's own failure is still available as failOnFirstOrFail().
+   *
+   * @param method calling method signature
+   * @param e the exception to register
+   * @return e, when it is a type production can throw
+   */
+  private Exception requirePlatformException(String method, Exception e) {
+    if (e == null) {
+      ApexEloquentException.required(CLASS_NAME, method, 'e', null).fire();
+    }
+    if (e instanceof ApexEloquentException) {
+      String reason =
+        'ApexEloquentException is reserved for framework bugs, usage rule violations and framework contracts ' +
+        '(firstOrFail finding zero records). Production never throws it for a query or DML failure, so the ' +
+        'catch this test exercises is one production cannot reach.';
+      String action =
+        'To simulate a platform failure, pass the type production throws (QueryException for a query, ' +
+        'DmlException for a rejected row, ListException for a rejected list). To guard a call that must not ' +
+        'be reached, pass an exception class defined in your test. For firstOrFail finding nothing, use ' +
+        'failOnFirstOrFail() with no argument, or attach no rows.';
+      ApexEloquentException.invalidArgument(CLASS_NAME, method, reason, action, 'e', e.getMessage()).fire();
+    }
+    return e;
   }
 
   private MockEloquent failOnMethod(String method, Exception e) {
@@ -2875,6 +3152,9 @@ public with sharing class MockEloquent implements IEloquent {
     if (config.isRepeat) {
       queue.add(config);
     }
+    // Only failOnFirstOrFail() registers an ApexEloquentException (the framework's own
+    // builder, never one from the test — requirePlatformException rejects those), so
+    // stamping the call site here cannot drop anything the test supplied.
     if (config.ex instanceof ApexEloquentException) {
       ((ApexEloquentException) config.ex).method(methodWithArguments).fire();
     }

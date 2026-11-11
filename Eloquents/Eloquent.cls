@@ -412,12 +412,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         ApexEloquentException.required(CLASS_NAME, method, 'record', record).fire();
       }
-      try {
-        Database.insert(record, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('insert', e);
-        ex.method(method).param('record', record).fire();
-      }
+      Database.insert(record, this.accessLevel);
       return record;
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -440,12 +435,7 @@ public inherited sharing class Eloquent implements IEloquent {
           this.fireNullElementError(method, 'insert');
         }
       }
-      try {
-        Database.insert(records, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('insert', e);
-        ex.method(method).param('records', records).fire();
-      }
+      Database.insert(records, this.accessLevel);
       return records;
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -467,14 +457,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
       }
 
-      try {
-        return Database.insert(record, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('insert', e);
-        ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.insert(record, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -499,14 +482,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'insert');
       }
-      try {
-        return Database.insert(record, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('insert', e);
-        ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.insert(record, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -532,14 +508,7 @@ public inherited sharing class Eloquent implements IEloquent {
           this.fireNullElementError(method, 'insert');
         }
       }
-      try {
-        return Database.insert(records, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('insert', e);
-        ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.insert(records, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -574,14 +543,7 @@ public inherited sharing class Eloquent implements IEloquent {
         }
         records.add(record);
       }
-      try {
-        return Database.insert(records, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('insert', e);
-        ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.insert(records, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -603,12 +565,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'insert');
       }
-      try {
-        Database.insert(record, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('insert', e);
-        ex.method(method).param('entry', entry).fire();
-      }
+      Database.insert(record, this.accessLevel);
       return new Entry(record);
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -641,12 +598,7 @@ public inherited sharing class Eloquent implements IEloquent {
         }
         records.add(record);
       }
-      try {
-        Database.insert(records, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('insert', e);
-        ex.method(method).param('entries', entries).fire();
-      }
+      Database.insert(records, this.accessLevel);
       List<IEntry> insertedEntries = new List<IEntry>();
       for (SObject record : records) {
         insertedEntries.add(new Entry(record));
@@ -669,12 +621,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
 
-      try {
-        Database.update(record, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('update', e);
-        ex.method(method).param('record', record).fire();
-      }
+      Database.update(record, this.accessLevel);
       return record;
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -696,14 +643,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
       }
 
-      try {
-        return Database.update(record, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('update', e);
-        ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.update(record, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -724,12 +664,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'update');
       }
-      try {
-        Database.update(record, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('update', e);
-        ex.method(method).param('entry', entry).fire();
-      }
+      Database.update(record, this.accessLevel);
       return new Entry(record);
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -754,14 +689,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'update');
       }
-      try {
-        return Database.update(record, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('update', e);
-        ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.update(record, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -783,12 +711,7 @@ public inherited sharing class Eloquent implements IEloquent {
           this.fireNullElementError(method, 'update');
         }
       }
-      try {
-        Database.update(records, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('update', e);
-        ex.method(method).param('records', records).fire();
-      }
+      Database.update(records, this.accessLevel);
       return records;
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -814,14 +737,7 @@ public inherited sharing class Eloquent implements IEloquent {
           this.fireNullElementError(method, 'update');
         }
       }
-      try {
-        return Database.update(records, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('update', e);
-        ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
-      }
-    
-      return null;
+      return Database.update(records, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -853,12 +769,7 @@ public inherited sharing class Eloquent implements IEloquent {
         }
         records.add(record);
       }
-      try {
-        Database.update(records, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('update', e);
-        ex.method(method).param('entries', entries).fire();
-      }
+      Database.update(records, this.accessLevel);
       List<IEntry> updatedEntries = new List<IEntry>();
       for (SObject record : records) {
         updatedEntries.add(new Entry(record));
@@ -898,14 +809,7 @@ public inherited sharing class Eloquent implements IEloquent {
         }
         records.add(record);
       }
-      try {
-        return Database.update(records, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('update', e);
-        ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.update(records, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -923,12 +827,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
 
-      try {
-        Database.upsert(record, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('record', record).fire();
-      }
+      Database.upsert(record, this.accessLevel);
       return record;
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -951,12 +850,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'upsert');
       }
-      try {
-        Database.upsert(record, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('entry', entry).fire();
-      }
+      Database.upsert(record, this.accessLevel);
       return new Entry(record);
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -980,12 +874,7 @@ public inherited sharing class Eloquent implements IEloquent {
           this.fireNullElementError(method, 'upsert');
         }
       }
-      try {
-        Database.upsert(records, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('records', records).fire();
-      }
+      Database.upsert(records, this.accessLevel);
       return records;
     } catch (Exception e) {
       this.releaseLabel(label);
@@ -1018,12 +907,7 @@ public inherited sharing class Eloquent implements IEloquent {
         }
         records.add(record);
       }
-      try {
-        Database.upsert(records, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('entries', entries).fire();
-      }
+      Database.upsert(records, this.accessLevel);
       List<IEntry> upsertedEntries = new List<IEntry>();
       for (SObject record : records) {
         upsertedEntries.add(new Entry(record));
@@ -1049,14 +933,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
       }
 
-      try {
-        return Database.upsert(record, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.upsert(record, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1081,14 +958,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'upsert');
       }
-      try {
-        return Database.upsert(record, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.upsert(record, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1114,14 +984,7 @@ public inherited sharing class Eloquent implements IEloquent {
           this.fireNullElementError(method, 'upsert');
         }
       }
-      try {
-        return Database.upsert(records, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.upsert(records, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1156,14 +1019,7 @@ public inherited sharing class Eloquent implements IEloquent {
         }
         records.add(record);
       }
-      try {
-        return Database.upsert(records, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.upsert(records, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1188,14 +1044,7 @@ public inherited sharing class Eloquent implements IEloquent {
       }
       this.validateExternalIdField(method, externalIdField);
 
-      try {
-        return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('record', record).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1224,14 +1073,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'upsert');
       }
-      try {
-        return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('entry', entry).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.upsert(record, externalIdField, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1261,14 +1103,7 @@ public inherited sharing class Eloquent implements IEloquent {
           this.fireNullElementError(method, 'upsert');
         }
       }
-      try {
-        return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('records', records).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1307,14 +1142,7 @@ public inherited sharing class Eloquent implements IEloquent {
         }
         records.add(record);
       }
-      try {
-        return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('upsert', e);
-        ex.method(method).param('entries', entries).param('externalIdField', externalIdField).param('allOrNone', allOrNone).fire();
-      }
-
-      return null;
+      return Database.upsert(records, externalIdField, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1332,14 +1160,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'record', null).fire();
       }
 
-      try {
-        Database.delete(record, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('delete', e);
-        ex.method(method).param('record', record).fire();
-      } catch (ListException le) {
-        this.fireListRejectionError(method, 'delete', le);
-      }
+      Database.delete(record, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1361,14 +1182,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'delete');
       }
-      try {
-        Database.delete(record, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('delete', e);
-        ex.method(method).param('entry', entry).fire();
-      } catch (ListException le) {
-        this.fireListRejectionError(method, 'delete', le);
-      }
+      Database.delete(record, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1391,14 +1205,7 @@ public inherited sharing class Eloquent implements IEloquent {
           this.fireNullElementError(method, 'delete');
         }
       }
-      try {
-        Database.delete(records, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('delete', e);
-        ex.method(method).param('records', records).fire();
-      } catch (ListException le) {
-        this.fireListRejectionError(method, 'delete', le);
-      }
+      Database.delete(records, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1432,14 +1239,7 @@ public inherited sharing class Eloquent implements IEloquent {
         records.add(record);
       }
 
-      try {
-        Database.delete(records, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('delete', e);
-        ex.method(method).param('entries', entries).fire();
-      } catch (ListException le) {
-        this.fireListRejectionError(method, 'delete', le);
-      }
+      Database.delete(records, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1460,16 +1260,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'allOrNone', null).fire();
       }
 
-      try {
-        return Database.delete(record, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('delete', e);
-        ex.method(method).param('record', record).param('allOrNone', allOrNone).fire();
-      } catch (ListException le) {
-        this.fireListRejectionError(method, 'delete', le);
-      }
-
-      return null;
+      return Database.delete(record, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1494,16 +1285,7 @@ public inherited sharing class Eloquent implements IEloquent {
       if (record == null) {
         this.fireNullElementError(method, 'delete');
       }
-      try {
-        return Database.delete(record, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('delete', e);
-        ex.method(method).param('entry', entry).param('allOrNone', allOrNone).fire();
-      } catch (ListException le) {
-        this.fireListRejectionError(method, 'delete', le);
-      }
-
-      return null;
+      return Database.delete(record, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1534,16 +1316,7 @@ public inherited sharing class Eloquent implements IEloquent {
           this.fireNullElementError(method, 'delete');
         }
       }
-      try {
-        return Database.delete(records, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('delete', e);
-        ex.method(method).param('records', records).param('allOrNone', allOrNone).fire();
-      } catch (ListException le) {
-        this.fireListRejectionError(method, 'delete', le);
-      }
-
-      return null;
+      return Database.delete(records, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1578,16 +1351,7 @@ public inherited sharing class Eloquent implements IEloquent {
         }
         records.add(record);
       }
-      try {
-        return Database.delete(records, allOrNone, this.accessLevel);
-      } catch (DmlException e) {
-        ApexEloquentException ex = createDMLException('delete', e);
-        ex.method(method).param('entries', entries).param('allOrNone', allOrNone).fire();
-      } catch (ListException le) {
-        this.fireListRejectionError(method, 'delete', le);
-      }
-
-      return null;
+      return Database.delete(records, allOrNone, this.accessLevel);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -1596,9 +1360,10 @@ public inherited sharing class Eloquent implements IEloquent {
 
 
   /**
-   * Rejects an externalIdField that real Database.upsert cannot route on, so the
-   * failure arrives as an ApexEloquentException like every other failure path
-   * instead of a raw SObjectException. Measured on API v67.0: a field that is
+   * Rejects an externalIdField that real Database.upsert cannot route on. Passing
+   * such a field is a usage error decided by the code, not by the data, so it is
+   * reported as an ApexEloquentException (a rule violation) rather than the raw
+   * SObjectException the platform would throw. Measured on API v67.0: a field that is
    * neither an external Id nor a standard indexed (idLookup) field throws
    * "Invalid field for upsert, must be an External Id custom or standard indexed
    * field". MockEloquent applies the identical rule.
@@ -1628,8 +1393,9 @@ public inherited sharing class Eloquent implements IEloquent {
   /**
    * Fires the unified null-element error for list DML. Real Database DML rejects
    * lists containing null elements with a ListException before processing any row
-   * (measured on API v67.0); failing fast here keeps every failure path on
-   * ApexEloquentException and avoids an NPE while cloning entries.
+   * (measured on API v67.0). A null element is a usage error, so it is reported
+   * as an ApexEloquentException (a rule violation) before any row is sent; this
+   * also avoids an NPE while unwrapping entries. MockEloquent applies the same rule.
    *
    * @param method calling method signature
    * @param dmlType DML verb for the error headline
@@ -1639,32 +1405,5 @@ public inherited sharing class Eloquent implements IEloquent {
     String reason = 'A null record was passed (as the argument, or as an element of the list), which real Database DML rejects before processing any row';
     String action = 'Ensure the record passed to the DML method is not null and, for list DML, that the list contains no null elements';
     ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).fire();
-  }
-
-  /**
-   * Wraps the ListException that Database DML throws when it rejects the input
-   * list before processing any row (e.g. a delete target without an Id — thrown
-   * even with allOrNone = false, measured on API v67.0), so callers can keep
-   * catching ApexEloquentException for every failure path.
-   *
-   * @param method calling method signature
-   * @param dmlType DML verb for the error headline
-   * @param e the platform ListException
-   */
-  private void fireListRejectionError(String method, String dmlType, ListException e) {
-    String error = 'Failed to ' + dmlType + ' operation';
-    String reason = 'The platform rejected the input before processing any row: ' + e.getMessage();
-    String action = 'Ensure every record has an Id and the list contains no null elements (thrown even with allOrNone = false)';
-    ApexEloquentException.at(CLASS_NAME).method(method).error(error).reason(reason).action(action).causedBy(e).fire();
-  }
-
-  private ApexEloquentException createDMLException(String dmlType, Exception e) {
-    String error = 'Failed to ' + dmlType + ' operation';
-    String reason = 'DML failed with ' + e.getNumDml() + (e.getNumDml() == 1 ? ' error' : ' errors');
-    for (Integer i = 0; i < e.getNumDml(); i++) {
-      reason += ('\n- [' + e.getDmlType(i) + '] ' + e.getDmlMessage(i));
-    }
-
-    return ApexEloquentException.at(CLASS_NAME).error(error).reason(reason).causedBy(e);
   }
 }

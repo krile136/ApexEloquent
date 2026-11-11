@@ -319,6 +319,88 @@ public with sharing abstract class AbstractConditionClause implements ICondition
    * @throws ApexEloquentException when the value would render as more than one token.
    */
   protected String toSoqlLiteral(Schema.DisplayType fieldType, Object value) {
+    String literal = this.toLiteral(fieldType, value);
+    SoqlBinds binds = SoqlBinds.active;
+    if (binds == null) {
+      return literal;
+    }
+    Object bindValue = this.toBindValue(fieldType, value);
+    return bindValue == null ? literal : binds.add(bindValue, literal);
+  }
+
+  /**
+   * The value as Database.queryWithBinds should receive it, or null when it stays a literal.
+   *
+   * The engine checks a bind's Apex type against the column strictly (measured: a String for
+   * a Date, Integer or Boolean column, a Decimal for an Integer column, and a List<Object> all
+   * fail with "Invalid bind expression type"). So only values already of the field's own type
+   * are bound; everything else keeps the literal it has always had. That keeps every input
+   * accepted today working — above all the Strings SOQL reads as date literals
+   * (`LAST_N_DAYS:30`), ISO datetimes and `'null'`, which no bind can express — while every
+   * value compared with a text field, where user input usually lands, is bound.
+   *
+   * A Date compared with a Datetime field stays a literal: the two may not mean the same
+   * instant (a date literal is read in the user's time zone), and this change must not move
+   * results. HAVING operands (asNumericOperand) bind only an Integer; COUNT refuses a decimal.
+   *
+   * @param fieldType The display type of the field the value is compared against.
+   * @param value The value, not null.
+   * @return The value to bind, or null to keep the literal.
+   */
+  private Object toBindValue(Schema.DisplayType fieldType, Object value) {
+    if (this.numericOperand) {
+      return value instanceof Integer ? value : null;
+    }
+    if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
+      // The same text the literal carries, without the escaping a bind does not need.
+      if (value instanceof Date || value instanceof Datetime) {
+        return this.formatAndCastToString(value);
+      }
+      return String.valueOf(value);
+    }
+    switch on fieldType {
+      when DATE {
+        return value instanceof Date ? value : null;
+      }
+      when DATETIME {
+        // A Date is also `instanceof Datetime` (measured; the reverse is false), so the Date
+        // check is what keeps a Date for a Datetime field on the literal path.
+        return value instanceof Datetime && !(value instanceof Date) ? value : null;
+      }
+      when TIME {
+        return value instanceof Time ? value : null;
+      }
+      when BOOLEAN {
+        return value instanceof Boolean ? value : null;
+      }
+      when INTEGER {
+        return value instanceof Integer ? value : null;
+      }
+      when DOUBLE, CURRENCY, PERCENT {
+        if (!(value instanceof Decimal)) {
+          return null;
+        }
+        try {
+          Decimal numeric = (Decimal) value;
+          numeric.toPlainString(); // NaN throws only when written out (measured)
+          return numeric;
+        } catch (MathException e) {
+          return null; // the literal path refuses it
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The literal for one value (the rendering before v4, unchanged).
+   *
+   * @param fieldType The display type of the field the value is compared against.
+   * @param value The value to render. Callers handle null before calling this.
+   * @return The SOQL literal.
+   * @throws ApexEloquentException when the value would render as more than one token.
+   */
+  private String toLiteral(Schema.DisplayType fieldType, Object value) {
     if (this.TYPES_REQUIRING_SINGLE_QUOTES.contains(fieldType)) {
       return '\'' + this.formatAndCastToString(value) + '\'';
     }

@@ -6919,4 +6919,90 @@ public with sharing class ScribeTest {
       Assert.isTrue(e.getMessage().contains('Unknown query path'), 'Got: ' + e.getMessage());
     }
   }
+
+  // ---- bound execution (A7) ----
+
+  @isTest
+  static void testToBoundQuery_WhenTextValueHasQuote_ThenBoundUnescapedAndExpandedMatchesToSoql() {
+    // Arrange
+    Scribe query = Scribe.of(Account.class).field('Id').whereEqual('Name', 'O\'Brien');
+
+    // Act
+    SoqlBinds.BoundQuery bound = query.toBoundQuery();
+
+    // Assert - the value travels as a bind, not as text in the SOQL
+    Assert.areEqual('SELECT id FROM Account WHERE Name = :aeBind0', bound.soql);
+    Assert.areEqual('O\'Brien', bound.binds.get('aeBind0'), 'A bind needs no escaping.');
+    Assert.isTrue(bound.expandedSoql.equals(query.toSoql()), bound.expandedSoql + ' vs ' + query.toSoql());
+    Assert.areEqual('SELECT id FROM Account WHERE Name = \'O\\\'Brien\'', bound.expandedSoql);
+  }
+
+  @isTest
+  static void testToBoundQuery_WhenValueCannotBeBound_ThenLiteralKept() {
+    // Arrange - a date literal String and a Date for a Datetime field have no bind form that
+    // keeps their meaning, so they stay literals; the typed Integer is bound
+    Scribe query = Scribe.of(Account.class)
+      .field('Id')
+      .whereGreaterThan('CreatedDate', 'LAST_N_DAYS:30')
+      .whereLessThan('CreatedDate', Date.newInstance(2030, 1, 1))
+      .whereGreaterThan('NumberOfEmployees', 10);
+
+    // Act
+    SoqlBinds.BoundQuery bound = query.toBoundQuery();
+
+    // Assert
+    Assert.areEqual(
+      'SELECT id FROM Account WHERE CreatedDate > LAST_N_DAYS:30 AND CreatedDate < 2030-01-01 AND NumberOfEmployees > :aeBind0',
+      bound.soql
+    );
+    Assert.areEqual(10, bound.binds.get('aeBind0'));
+    Assert.isTrue(bound.expandedSoql.equals(query.toSoql()));
+  }
+
+  @isTest
+  static void testToBoundQuery_WhenSemiJoinAndList_ThenOneMapForTheWholeQuery() {
+    // Arrange
+    Scribe query = Scribe.of(Account.class)
+      .field('Id')
+      .whereIn('Name', new List<String>{ 'a', 'b' })
+      .whereIn('Id', Scribe.of(Contact.class).field('AccountId').whereEqual('LastName', 'c'));
+
+    // Act
+    SoqlBinds.BoundQuery bound = query.toBoundQuery();
+
+    // Assert - the subquery's value joins the same map, numbered after the outer ones
+    Assert.areEqual(
+      'SELECT id FROM Account WHERE Name IN (:aeBind0, :aeBind1) AND Id IN (SELECT accountid FROM Contact WHERE LastName = :aeBind2)',
+      bound.soql
+    );
+    Assert.areEqual(3, bound.binds.size());
+    Assert.areEqual('c', bound.binds.get('aeBind2'));
+    Assert.isTrue(bound.expandedSoql.equals(query.toSoql()));
+  }
+
+  // ---- whereContains & co. (#106) ----
+
+  @isTest
+  static void testWhereContains_WhenValueHasWildcardsAndBackslash_ThenEscapedAndBound() {
+    // Arrange
+    Scribe query = Scribe.of(Account.class).field('Id').whereContains('Name', '50%_off\\');
+
+    // Act
+    SoqlBinds.BoundQuery bound = query.toBoundQuery();
+
+    // Assert - the bound pattern carries single-backslash escapes, which SOQL honours
+    Assert.areEqual('SELECT id FROM Account WHERE Name LIKE :aeBind0', bound.soql);
+    Assert.areEqual('%50\\%\\_off\\\\%', bound.binds.get('aeBind0'));
+    Assert.isTrue(bound.expandedSoql.equals(query.toSoql()));
+  }
+
+  @isTest
+  static void testWhereStartsWithEndsWithAndNegations_WhenBuilt_ThenWildcardOnTheRightSide() {
+    // Act & Assert
+    Assert.areEqual('%a\\_b', ((String) Scribe.of(Account.class).field('Id').whereEndsWith('Name', 'a_b').toBoundQuery().binds.get('aeBind0')));
+    Assert.areEqual('a\\_b%', ((String) Scribe.of(Account.class).field('Id').whereStartsWith('Name', 'a_b').toBoundQuery().binds.get('aeBind0')));
+    Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotContains('Name', 'x').toSoql().contains('(NOT Name LIKE'));
+    Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotStartsWith('Name', 'x').toSoql().contains('(NOT Name LIKE'));
+    Assert.isTrue(Scribe.of(Account.class).field('Id').whereNotEndsWith('Name', 'x').toSoql().contains('(NOT Name LIKE'));
+  }
 }

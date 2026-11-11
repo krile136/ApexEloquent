@@ -2067,4 +2067,38 @@ public with sharing class EloquentTest {
     }
     Assert.areEqual(0, (new Eloquent()).get(Scribe.of(Group.class).field('Id').take(0)).size(), 'LIMIT 0 returns no rows.');
   }
+
+  @isTest
+  static void testGet_WhenTextValueHasQuoteAndWildcard_ThenBoundValueMatchesExactly() {
+    // Arrange - a value with a quote runs as a bind; the row is found by its exact name
+    Group created = new Group(Name = 'EloquentRT O\'Brien_1', DeveloperName = 'EloquentRT_quote_' + Datetime.now().getTime());
+    insert created;
+    Scribe query = Scribe.of(Group.class).field('Id').whereEqual('Name', created.Name);
+
+    // Act
+    List<IEntry> rows = (new Eloquent()).get(query);
+
+    // Assert
+    Assert.areEqual(1, rows.size());
+    Assert.areEqual(created.Id, rows[0].getId());
+  }
+
+  @isTest
+  static void testGet_WhenContainsStartsWith_ThenWildcardsInValueMatchLiterally() {
+    // Arrange - the platform reads % and _ in a bound LIKE value as wildcards unless escaped
+    Long stamp = Datetime.now().getTime();
+    Group exact = new Group(Name = 'EloquentRT 50%_off', DeveloperName = 'EloquentRT_like1_' + stamp);
+    Group underscoreOnly = new Group(Name = 'EloquentRT 50X_off', DeveloperName = 'EloquentRT_like2_' + stamp);
+    Group percentOnly = new Group(Name = 'EloquentRT 50%Xoff', DeveloperName = 'EloquentRT_like3_' + stamp);
+    insert new List<Group>{ exact, underscoreOnly, percentOnly };
+
+    // Act
+    List<IEntry> contains = (new Eloquent()).get(Scribe.of(Group.class).field('Id').whereContains('Name', '50%_'));
+    List<IEntry> startsWith = (new Eloquent()).get(Scribe.of(Group.class).field('Id').whereStartsWith('Name', 'EloquentRT 50%'));
+
+    // Assert
+    Assert.areEqual(1, contains.size(), 'Only the name with a literal "50%_" matches.');
+    Assert.areEqual(exact.Id, contains[0].getId());
+    Assert.areEqual(2, startsWith.size(), 'The two names starting with a literal "50%" match; "50X_off" does not.');
+  }
 }

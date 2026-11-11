@@ -187,7 +187,7 @@ public inherited sharing class Eloquent implements IEloquent {
       }
 
       List<IEntry> entries = new List<IEntry>();
-      for (SObject record : (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel)) {
+      for (SObject record : (List<SObject>) this.runQuery(scribe)) {
         entries.add(new Entry(record));
       }
 
@@ -201,7 +201,7 @@ public inherited sharing class Eloquent implements IEloquent {
   private List<IEntry> getAggregate(Scribe scribe) {
     FieldStructure fieldStructure = null;
     List<IEntry> entries = new List<IEntry>();
-    for (AggregateResult aggregateResult : (List<AggregateResult>) Database.query(scribe.toSoql(), this.accessLevel)) {
+    for (AggregateResult aggregateResult : (List<AggregateResult>) this.runQuery(scribe)) {
       fieldStructure = fieldStructure == null ? scribe.buildAggregateFieldStructure() : fieldStructure;
       entries.add(new Entry(aggregateResult, fieldStructure));
     }
@@ -240,7 +240,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
 
-      return (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+      return (List<SObject>) this.runQuery(scribe);
     } catch (Exception e) {
       this.releaseLabel(label);
       throw e;
@@ -278,10 +278,10 @@ public inherited sharing class Eloquent implements IEloquent {
    */
   private IEntry queryFirstEntry(Scribe scribe) {
     if (scribe.isAggregate()) {
-      List<AggregateResult> aggregateResults = (List<AggregateResult>) Database.query(scribe.toSoql(), this.accessLevel);
+      List<AggregateResult> aggregateResults = (List<AggregateResult>) this.runQuery(scribe);
       return aggregateResults.isEmpty() ? null : new Entry(aggregateResults[0], scribe.buildAggregateFieldStructure());
     }
-    List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+    List<SObject> records = (List<SObject>) this.runQuery(scribe);
     return records.isEmpty() ? null : new Entry(records[0]);
   }
 
@@ -296,7 +296,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
 
-      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+      List<SObject> records = (List<SObject>) this.runQuery(scribe);
       if (records.isEmpty()) {
         return null;
       }
@@ -379,7 +379,7 @@ public inherited sharing class Eloquent implements IEloquent {
         ApexEloquentException.required(CLASS_NAME, method, 'scribe', null).fire();
       }
 
-      List<SObject> records = (List<SObject>) Database.query(scribe.toSoql(), this.accessLevel);
+      List<SObject> records = (List<SObject>) this.runQuery(scribe);
       if (records.isEmpty()) {
         String error = 'No records were found for the given criteria';
         String reason = 'The query execution returned zero records';
@@ -1358,6 +1358,19 @@ public inherited sharing class Eloquent implements IEloquent {
     }
   }
 
+
+  /**
+   * Runs a Scribe query with its values bound (Database.queryWithBinds) under this
+   * IEloquent's access level. Values are no longer pasted into the SOQL text; the debug log
+   * still shows the query with the values written in (Scribe.toBoundQuery).
+   *
+   * @param scribe The query to run.
+   * @return The rows (SObjects, or AggregateResults for an aggregate query).
+   */
+  private List<SObject> runQuery(Scribe scribe) {
+    SoqlBinds.BoundQuery query = scribe.toBoundQuery();
+    return Database.queryWithBinds(query.soql, query.binds, this.accessLevel);
+  }
 
   /**
    * Rejects an externalIdField that real Database.upsert cannot route on. Passing

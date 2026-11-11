@@ -931,8 +931,8 @@ public with sharing class Scribe {
    * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
    * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
    * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
-   * search for `100%` also matches `1000`. APIs that escape the wildcards themselves
-   * (whereContains / whereStartsWith / whereEndsWith) are planned for a near release (issue #106).
+   * search for `100%` also matches `1000`. For user input use whereContains / whereStartsWith /
+   * whereEndsWith (v4), which take the value literally (issue #106).
    * To match a value containing `%` exactly, whereEqual already treats it as a plain character.
    *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
@@ -968,8 +968,8 @@ public with sharing class Scribe {
    * which also doubles a backslash, so `\%` never reaches SOQL as an escape, and SOQL has no
    * other form (`100[%]` matched neither `100%` nor `1000`; both measured on API v67.0). When the value
    * comes from user input (a search box), remove or refuse `%` and `_` before passing it, or a
-   * search for `100%` also matches `1000`. APIs that escape the wildcards themselves
-   * (whereContains / whereStartsWith / whereEndsWith) are planned for a near release (issue #106).
+   * search for `100%` also matches `1000`. For user input use whereContains / whereStartsWith /
+   * whereEndsWith (v4), which take the value literally (issue #106).
    * To match a value containing `%` exactly, whereEqual already treats it as a plain character.
    *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
@@ -1000,6 +1000,97 @@ public with sharing class Scribe {
     clonedScribe.isAfterWhereClause = true;
 
     return clonedScribe;
+  }
+
+  /**
+   * Adds a partial-match condition: the field contains `value` anywhere, with `%`, `_` and
+   * `\` in `value` matched as plain characters (#106). Use this for user input such as a
+   * search box; whereLike treats `%` and `_` in its value as wildcards, so a search for
+   * `100%` there also matches `1000`.
+   *
+   * The query runs with the value bound, where SOQL honours the backslash escapes (measured:
+   * `zq\_cd` matches only `zq_cd`). toSoql() and the debug log write the value with its
+   * backslashes doubled (`'%100\\%%'`), because a literal must escape a backslash to stay a
+   * single string; that text is for reading, the bound query is what runs.
+   *
+   * @param fieldName The field to filter on. Must be a field of the object being filtered.
+   * @param value The text to look for, taken literally. Null is refused when the query is built, as for whereLike.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereContains(String fieldName, String value) {
+    return this.whereLike(fieldName, likePattern('%', value, '%'));
+  }
+
+  /**
+   * whereContains, negated: the field does not contain `value` (taken literally).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The text, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereNotContains(String fieldName, String value) {
+    return this.whereNotLike(fieldName, likePattern('%', value, '%'));
+  }
+
+  /**
+   * The field starts with `value`, taken literally (see whereContains).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The prefix, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereStartsWith(String fieldName, String value) {
+    return this.whereLike(fieldName, likePattern('', value, '%'));
+  }
+
+  /**
+   * The field does not start with `value`, taken literally (see whereContains).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The prefix, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereNotStartsWith(String fieldName, String value) {
+    return this.whereNotLike(fieldName, likePattern('', value, '%'));
+  }
+
+  /**
+   * The field ends with `value`, taken literally (see whereContains).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The suffix, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereEndsWith(String fieldName, String value) {
+    return this.whereLike(fieldName, likePattern('%', value, ''));
+  }
+
+  /**
+   * The field does not end with `value`, taken literally (see whereContains).
+   *
+   * @param fieldName The field to filter on.
+   * @param value The suffix, taken literally.
+   * @return A new, immutable Scribe instance with the WHERE condition.
+   */
+  public Scribe whereNotEndsWith(String fieldName, String value) {
+    return this.whereNotLike(fieldName, likePattern('%', value, ''));
+  }
+
+  /**
+   * A LIKE pattern that matches `value` literally between the given wildcards. The backslash
+   * is escaped first, so the escapes added for `%` and `_` are not escaped again.
+   *
+   * @param before The wildcard before the value ('' or '%').
+   * @param value The text to match literally; null stays null (whereLike decides what that means).
+   * @param after The wildcard after the value ('' or '%').
+   * @return The pattern.
+   */
+  private static String likePattern(String before, String value, String after) {
+    if (value == null) {
+      return null;
+    }
+    String escaped = value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_');
+    return before + escaped + after;
   }
 
   /**
@@ -2583,11 +2674,53 @@ public with sharing class Scribe {
   }
 
   /**
-   * Builds the final SOQL query string.
+   * Builds the final SOQL query string, with every value written in as a literal. This is
+   * the form for reading and for string assertions; Eloquent runs the same query through
+   * toBoundQuery(), whose expanded form is identical to this.
    *
    * @return The complete, executable SOQL query string.
    */
   public String toSoql() {
+    String query = this.buildSoql();
+    // A semi-join builds its subquery through toSoql() while the outer query is collecting
+    // binds; only the outermost query is logged.
+    if (SoqlBinds.active == null) {
+      System.debug('SOQL Query: ' + query);
+    }
+    return query;
+  }
+
+  /**
+   * Builds the query for Database.queryWithBinds: values Scribe can bind with their own type
+   * become `:aeBind<n>` placeholders, the rest stay literals (see
+   * AbstractConditionClause.toBindValue). The debug log shows the expanded query — the
+   * values written in — which is exactly what toSoql() returns (A7, v4).
+   *
+   * Internal: not part of the supported API. Eloquent is its caller.
+   *
+   * @return The bound query, its bind values and its expanded form.
+   */
+  public SoqlBinds.BoundQuery toBoundQuery() {
+    SoqlBinds binds = new SoqlBinds();
+    SoqlBinds enclosing = SoqlBinds.active;
+    SoqlBinds.active = binds;
+    try {
+      String boundSoql = this.buildSoql();
+      SoqlBinds.BoundQuery query = new SoqlBinds.BoundQuery(boundSoql, binds.getValues(), binds.expand(boundSoql));
+      System.debug('SOQL Query: ' + query.expandedSoql);
+      return query;
+    } finally {
+      SoqlBinds.active = enclosing;
+    }
+  }
+
+  /**
+   * Builds the query text. Values render as placeholders while SoqlBinds.active is set, as
+   * literals otherwise.
+   *
+   * @return The query text.
+   */
+  private String buildSoql() {
     // Reset accumulator state so toSoql() is idempotent across multiple calls
     // (otherwise alias entries from the previous build trigger Duplicate Alias Error).
     this.aggregateAliasMap = new Map<String, AliasStructure>();
@@ -2603,7 +2736,6 @@ public with sharing class Scribe {
 
     query = this.buildQueryTrail(query, fieldMap, selectFieldsString);
 
-    System.debug('SOQL Query: ' + query);
     return query;
   }
 

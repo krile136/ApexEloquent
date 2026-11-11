@@ -21,7 +21,8 @@
  * author's understanding of SOQL. Here the platform's parser is the judge: each combination is
  * built and executed through Eloquent.get() (the path production takes), and must either run or
  * be refused by the framework with an ApexEloquentException. A QueryException means Scribe wrote
- * SOQL the platform rejects — a framework bug — and fails the test.
+ * SOQL the platform rejects — a framework bug — and fails the test. Each combination also checks
+ * that the bound query Eloquent runs expands to exactly what toSoql() returns.
  *
  * Which combinations the framework refuses is written down in expectRefused(); every other
  * combination must run. Adding a kind or a context covers it in every pairing automatically.
@@ -50,6 +51,8 @@ private class QueryMatrixTest {
     'inNumbers',
     'like',
     'notLike',
+    'contains',
+    'notStartsWith',
     'null',
     'notNull',
     'semiIn',
@@ -189,6 +192,12 @@ private class QueryMatrixTest {
       }
       when 'notLike' {
         return target.whereNotLike(kit.textField, 'ma%');
+      }
+      when 'contains' {
+        return target.whereContains(kit.textField, '50%_\\');
+      }
+      when 'notStartsWith' {
+        return target.whereNotStartsWith(kit.textField, 'a_b');
       }
       when 'null' {
         return target.whereNull(kit.textField);
@@ -393,7 +402,15 @@ private class QueryMatrixTest {
     for (String kind : kinds) {
       String outcome;
       try {
-        (new Eloquent()).get(build(context, kind));
+        Scribe query = build(context, kind);
+        // The executed (bound) query and the logged / asserted one must be the same query:
+        // expanding the placeholders has to give toSoql() exactly (case-sensitive).
+        String expanded = query.toBoundQuery().expandedSoql;
+        String literal = query.toSoql();
+        if (!expanded.equals(literal)) {
+          mismatches.add(context + ' × ' + kind + ': expanded bound query differs from toSoql()\n  bound: ' + expanded + '\n  toSoql: ' + literal);
+        }
+        (new Eloquent()).get(query);
         outcome = 'ran';
       } catch (ApexEloquentException e) {
         outcome = 'refused';

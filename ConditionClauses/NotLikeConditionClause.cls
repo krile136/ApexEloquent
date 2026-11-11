@@ -89,7 +89,48 @@ public with sharing class NotLikeConditionClause extends AbstractConditionClause
    * @inheritDoc
    */
   public override String clauseKind() {
-    return 'notLike';
+    // A pattern from whereContains & co. is its own kind: its text can equal a whereLike
+    // pattern while it matches other rows (its escapes take effect, whereLike's do not), so
+    // Scribe.assertCondition must not let one stand for the other (review r2 N7).
+    return this.escapesApply ? 'notLikeLiteral' : 'notLike';
+  }
+
+  /**
+   * The expected condition of a `whereNotContains(field, value)` call, for Scribe.assertCondition:
+   * the field not contains `value` taken literally. A whereLike condition with the same text does
+   * not match it.
+   *
+   * @param field The field.
+   * @param value The text, taken literally.
+   * @return The expected condition.
+   */
+  @TestVisible
+  private static NotLikeConditionClause contains(String field, String value) {
+    return new NotLikeConditionClause(field, LikeConditionClause.literalPattern('%', value, '%')).withEscapesApplied();
+  }
+
+  /**
+   * The expected condition of a `whereNotStartsWith(field, value)` call (see contains).
+   *
+   * @param field The field.
+   * @param value The prefix, taken literally.
+   * @return The expected condition.
+   */
+  @TestVisible
+  private static NotLikeConditionClause startsWith(String field, String value) {
+    return new NotLikeConditionClause(field, LikeConditionClause.literalPattern('', value, '%')).withEscapesApplied();
+  }
+
+  /**
+   * The expected condition of a `whereNotEndsWith(field, value)` call (see contains).
+   *
+   * @param field The field.
+   * @param value The suffix, taken literally.
+   * @return The expected condition.
+   */
+  @TestVisible
+  private static NotLikeConditionClause endsWith(String field, String value) {
+    return new NotLikeConditionClause(field, LikeConditionClause.literalPattern('%', value, '')).withEscapesApplied();
   }
 
   public override String build() {

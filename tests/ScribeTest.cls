@@ -7149,4 +7149,34 @@ public with sharing class ScribeTest {
     Assert.areEqual(-2000L, ((Datetime) bound.binds.values()[0]).getTime());
     Assert.isTrue(bound.expandedSoql.endsWith('1969-12-31T23:59:58Z'), bound.expandedSoql);
   }
+
+  @isTest
+  static void testAssertCondition_WhenWhereContainsVersusWhereLikeWithSameText_ThenTold() {
+    // Arrange - both render `Name LIKE '%50\\%%'`, but they match different rows (r2 N7)
+    Scribe contains = Scribe.of(Account.class).field('Id').whereContains('Name', '50%');
+    Scribe likeQuery = Scribe.of(Account.class).field('Id').whereLike('Name', '%50\\%%');
+
+    // Act & Assert
+    contains.assertCondition(LikeConditionClause.contains('Name', '50%'));
+    Assert.isFalse(contains.hasCondition(new LikeConditionClause('Name', '%50\\%%')), 'A whereLike expectation must not match whereContains.');
+    likeQuery.assertCondition(new LikeConditionClause('Name', '%50\\%%'));
+    Assert.isFalse(likeQuery.hasCondition(LikeConditionClause.contains('Name', '50%')), 'A contains expectation must not match whereLike.');
+  }
+
+  @isTest
+  static void testAssertCondition_WhenStartsEndsAndNegations_ThenMatchOwnExpectation() {
+    Scribe query = Scribe.of(Account.class)
+      .field('Id')
+      .whereStartsWith('Name', 'a_b')
+      .whereEndsWith('Phone', '%1')
+      .whereNotContains('Industry', 'x\\y')
+      .whereNotStartsWith('Type', 'p_')
+      .whereNotEndsWith('Site', '_s');
+    query.assertCondition(LikeConditionClause.startsWith('Name', 'a_b'))
+      .assertCondition(LikeConditionClause.endsWith('Phone', '%1'))
+      .assertCondition(NotLikeConditionClause.contains('Industry', 'x\\y'))
+      .assertCondition(NotLikeConditionClause.startsWith('Type', 'p_'))
+      .assertCondition(NotLikeConditionClause.endsWith('Site', '_s'));
+    Assert.isFalse(query.hasCondition(LikeConditionClause.contains('Name', 'a_b')), 'contains is not startsWith.');
+  }
 }

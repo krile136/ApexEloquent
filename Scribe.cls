@@ -1212,20 +1212,15 @@ public with sharing class Scribe {
   }
 
   /**
-   * A LIKE pattern that matches `value` literally between the given wildcards. The backslash
-   * is escaped first, so the escapes added for `%` and `_` are not escaped again.
+   * The literal-match pattern (see LikeConditionClause.literalPattern).
    *
-   * @param before The wildcard before the value ('' or '%').
-   * @param value The text to match literally; null stays null (whereLike decides what that means).
-   * @param after The wildcard after the value ('' or '%').
+   * @param before The wildcard before the value.
+   * @param value The text to match literally.
+   * @param after The wildcard after the value.
    * @return The pattern.
    */
   private static String likePattern(String before, String value, String after) {
-    if (value == null) {
-      return null;
-    }
-    String escaped = value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_');
-    return before + escaped + after;
+    return LikeConditionClause.literalPattern(before, value, after);
   }
 
   /**

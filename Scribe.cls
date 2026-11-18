@@ -49,8 +49,9 @@ public with sharing class Scribe {
    * caller append syntax (`Name, Id`, `Name DESC NULLS FIRST`, `Name LIMIT 1`).
    * Several columns in one string (`orderBy('Name, Id')`) used to come out as valid SOQL and
    * are now refused for the same reason; call orderBy() once per column.
-   * An aggregate alias passes the shape, but SOQL itself rejects it in ORDER BY
-   * (measured on API v67.0: `ORDER BY cnt` is `No such column 'cnt'`); use `COUNT(Id)`.
+   * An aggregate alias passes the shape. SOQL itself rejects an alias in ORDER BY
+   * (measured on API v67.0: `ORDER BY cnt` is `No such column 'cnt'`), so buildOrderByClause()
+   * writes the alias's expression (`COUNT(Id)`) in its place.
    * Rejected alternative: checking against the schema. A relationship path and an aggregate
    * are not in the field map, and the shape alone already rules out spaces, commas and quotes.
    * Not covered, and refused:
@@ -740,10 +741,10 @@ public with sharing class Scribe {
   // =================================================================================================================
 
   /**
-   * Adds an equality (=) or IS NULL condition to the WHERE clause.
+   * Adds an equality (=) condition to the WHERE clause.
    *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
-   * @param value The value to compare against. If null, becomes an IS NULL clause.
+   * @param value The value to compare against. If null, the condition renders `fieldName = null`.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereEqual(String fieldName, Object value) {
@@ -766,10 +767,10 @@ public with sharing class Scribe {
   }
 
   /**
-   * Adds an inequality (!=) or IS NOT NULL condition to the WHERE clause.
+   * Adds an inequality (!=) condition to the WHERE clause.
    *
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
-   * @param value The value to compare against. If null, becomes an IS NOT NULL clause.
+   * @param value The value to compare against. If null, the condition renders `fieldName != null`.
    * @return A new, immutable Scribe instance with the WHERE condition.
    */
   public Scribe whereNotEqual(String fieldName, Object value) {
@@ -1299,7 +1300,8 @@ public with sharing class Scribe {
   /**
    * Adds a NOT IN condition to the WHERE clause.
    *
-   * Handles empty lists gracefully by ignoring the condition.
+   * An empty List or Set renders `Id != null`, so the condition excludes nothing and the field
+   * name is still checked when the query is built.
    * @param fieldName The field to filter on. Must be a field of the object being filtered; relationship paths (`Account.Type`) are not supported — use `parentCondition(Scribe.asParent(...))`. Checked against the describe when the query is built.
    * @param values A List or Set of values to exclude.
    * @return A new, immutable Scribe instance with the WHERE condition.
@@ -1541,7 +1543,7 @@ public with sharing class Scribe {
   /**
    * Explicitly sets the child relationship name for a child subquery.
    * This is required when there are multiple relationships between the parent and child objects.
-   * Example: `.withChildren(Scribe.asChild(Opportunity.getSObjectType()).relationName('Opportunities').field('Id'))`
+   * Example: `.withChildren(Scribe.asChild(Opportunity.class).relationName('Opportunities').field('Id'))`
    *
    * @param relationName The exact child relationship name (e.g., 'Opportunities').
    * @return A new, immutable Scribe instance with the relationship name set.

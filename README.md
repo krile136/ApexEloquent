@@ -182,7 +182,7 @@ neither are SOQL functions in the field position (`toLabel(Status)`, `convertCur
 `CALENDAR_YEAR(...)`).
 
 ⚠️ **Upgrading surfaces mistakes that were never reaching production either.** A condition
-whose collection was always empty renders to nothing and disappears, so a wrong field name
+whose collection was always empty used to render to nothing and disappear, so a wrong field name
 in it was invisible — `whereNotIn('StageName', emptySet)` on an Account built and ran
 happily. The same goes for a branch a test never took. Those now fail when the query is
 built. This framework's own test suite had two such queries, both filtering an object by a
@@ -193,6 +193,38 @@ Two things are deliberately outside the check. A condition withdrawn by `ignoreW
 is not part of the query, so it is not examined. `ORDER BY` checks a plain field name but
 accepts a relationship path (`orderBy('Account.Name')`): SOQL has no parent-side `ORDER BY`,
 so that is the only way to sort by a parent field, and it carries no literal to mistype.
+
+## AI agents
+
+This repository ships agent skills and a rule for [Claude Code](https://claude.com/claude-code) under `.claude/`:
+
+| Path | Purpose |
+|---|---|
+| `.claude/rules/apex-eloquent.md` | Short rules applied to `*.cls` and `*.trigger` files: use `Scribe` + `IEloquent` instead of inline SOQL and DML, keep records as `IEntry`, assert the query shape in unit tests |
+| `.claude/skills/apex-eloquent-query/` | Building queries with `Scribe` and running them |
+| `.claude/skills/apex-eloquent-dml/` | DML overloads, `userMode()` / `systemMode()`, labels, the exception rule, injecting `IEloquent` |
+| `.claude/skills/apex-eloquent-entry/` | `IEntry`, `Entry` and `MockEntry`: field access, relations, unselected-field detection |
+| `.claude/skills/apex-eloquent-testing/` | `MockEloquent`, spies, simulated failures, asserting the query shape |
+
+The skills describe the version of the tag they come from. After you upgrade ApexEloquent, update the skills from the matching tag too.
+
+### Git submodule or clone
+
+The files are already in your project inside the ApexEloquent folder. Claude Code picks them up once it reads a file in that folder. Nothing to copy.
+
+### Unlocked package
+
+The package installs only Apex classes. Copy the skills and the rule from the git tag that matches your installed version (replace `v4.0.1` with it):
+
+```bash
+rm -rf /tmp/apex-eloquent
+git clone --depth 1 --branch v4.0.1 https://github.com/krile136/ApexEloquent.git /tmp/apex-eloquent
+mkdir -p .claude/skills .claude/rules
+cp -r /tmp/apex-eloquent/.claude/skills/* .claude/skills/
+cp /tmp/apex-eloquent/.claude/rules/apex-eloquent.md .claude/rules/
+```
+
+Run it from your project root. It overwrites earlier copies of these skills and leaves your other skills alone.
 
 ## License
 

@@ -57,8 +57,8 @@ public interface IEloquent {
 
   /**
    * Returns an IEloquent that runs SOQL/DML in user mode (the default):
-   * the running user's field-level security and object permissions are enforced.
-   * Note: record-level sharing is governed by the class sharing keyword, not by this setting.
+   * the running user's field-level security, object permissions and record sharing are
+   * enforced. Sharing is enforced even when the calling class is `without sharing`.
    *
    * Immutable: the receiver keeps its own access mode — always use the return
    * value (`eloquent.userMode().doX(...)`), never call this as a statement.
@@ -69,8 +69,9 @@ public interface IEloquent {
 
   /**
    * Returns an IEloquent that runs SOQL/DML in system mode: field-level security
-   * and object permissions are NOT enforced. Record-level sharing still follows the
-   * class sharing keyword (use a `without sharing` caller to also bypass sharing).
+   * and object permissions are NOT enforced. Record sharing then follows the calling
+   * class's sharing keyword, so bypassing sharing needs both systemMode() and a
+   * `without sharing` caller.
    * Opt out of the secure-by-default user mode only where system-context execution is required.
    *
    * Immutable: the receiver keeps its own access mode — always use the return

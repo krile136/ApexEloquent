@@ -1,6 +1,6 @@
 # Releasing ApexEloquent (メンテナ向け)
 
-unlocked package のリリース手順。DevHub は **developer-dist** (krile136cm+ossdevhub@... 個人 Gmail 紐付け)。
+unlocked package のリリース手順。DevHub は **developer-dist** (メンテナの DevHub の別名)。
 
 1. `sfdx-project.json` の `versionNumber` を上げる (git タグと同じ semver + `.NEXT`)
 2. バージョン作成 (**必ず edition 抜きの def を使う** — 下記の罠):
